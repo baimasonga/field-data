@@ -216,6 +216,7 @@ export const apiPaths = {
   fieldDataMediaDownload: (id) => `/v1/field-data/media/download/${id}`,
   fieldDataWebhooks: () => '/v1/field-data/webhooks',
   fieldDataWebhook: (id) => `/v1/field-data/webhooks/${id}`,
+  fieldDataWebhookDeliveries: (id) => `/v1/field-data/webhooks/${id}/deliveries`,
   fieldDataBackups: () => '/v1/field-data/backups'
 };
 

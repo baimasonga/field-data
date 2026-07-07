@@ -5,6 +5,7 @@
 
 const { sql } = require('slonik');
 const config = require('config');
+const crypto = require('crypto');
 const multer = require('multer');
 const fs = require('fs');
 const path = require('path');
@@ -266,10 +267,23 @@ module.exports = (service, endpoint, rootContainer) => {
 
   service.post('/field-data/webhooks', endpoint(async (container, { body, auth }) => {
     await auth.canOrReject('project.create', Project.species);
+    // Generate a signing secret so receivers can verify the HMAC-SHA256
+    // signature sent with each delivery (X-FieldData-Signature header).
+    const secret = crypto.randomBytes(24).toString('hex');
     return container.db.one(sql`
-      insert into field_data_webhooks (name, url, events)
-      values (${body.name}, ${body.url}, ${JSON.stringify(body.events || [])})
+      insert into field_data_webhooks (name, url, events, secret)
+      values (${body.name}, ${body.url}, ${JSON.stringify(body.events || [])}, ${secret})
       returning *
+    `);
+  }));
+
+  service.get('/field-data/webhooks/:id/deliveries', endpoint(async (container, { params, auth }) => {
+    await auth.canOrReject('project.create', Project.species);
+    return container.db.any(sql`
+      select * from field_data_webhook_deliveries
+      where "webhookId" = ${params.id}
+      order by "createdAt" desc
+      limit 50
     `);
   }));
 

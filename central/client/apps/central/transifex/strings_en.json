@@ -3151,6 +3151,14 @@
         "delete": {
           "string": "Delete",
           "developer_comment": "This is the text for an action, for example, the text of a button."
+        },
+        "details": {
+          "string": "Details",
+          "developer_comment": "This is the text for an action, for example, the text of a button."
+        },
+        "hide": {
+          "string": "Hide",
+          "developer_comment": "This is the text for an action, for example, the text of a button."
         }
       },
       "header": {
@@ -3179,6 +3187,10 @@
           "developer_comment": "This is the text of a table column header."
         }
       },
+      "allEvents": {
+        "string": "All events",
+        "developer_comment": "Shown in the Events column when a webhook subscribes to every event."
+      },
       "emptyTable": {
         "string": "No webhooks have been configured yet."
       },
@@ -3191,6 +3203,32 @@
         },
         "deleted": {
           "string": "Webhook “{name}” has been deleted."
+        }
+      },
+      "detail": {
+        "secret": {
+          "string": "Signing secret"
+        },
+        "noSecret": {
+          "string": "None (deliveries are not signed)"
+        },
+        "secretHelp": {
+          "string": "Deliveries are signed with HMAC-SHA256 of the request body in the X-FieldData-Signature header. Use this secret to verify them."
+        },
+        "deliveries": {
+          "string": "Recent deliveries"
+        },
+        "event": {
+          "string": "Event"
+        },
+        "result": {
+          "string": "Result"
+        },
+        "when": {
+          "string": "When"
+        },
+        "noDeliveries": {
+          "string": "No deliveries yet."
         }
       }
     },
