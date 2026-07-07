@@ -4,12 +4,20 @@ Field Data is a customized distribution of ODK Central designed for offline-firs
 
 Based on ODK Central and licensed under Apache 2.0.
 
-Local development:
+## Local development
+
+The default `FRONTEND_BUILD_MODE` is `source`, which builds the web frontend
+from a local `client/` checkout. Clone the frontend into `client/` (matching the
+`FRONTEND_VERSION` in `docker-compose.yml`) before building:
 
 ```bash
-copy .env.Field_Data.example .env 
+cp .env.Field_Data.example .env
+git clone --branch v2026.2.0 --depth 1 https://github.com/getodk/central-frontend.git client
 docker compose up -d --build
 ```
+
+> To skip building the frontend from source and fetch a pre-built release
+> instead, set `FRONTEND_BUILD_MODE=fetch` in your `.env`.
 
 ---
 
