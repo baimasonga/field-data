@@ -867,8 +867,8 @@
     }
   },
   "login": {
-    "odkLogo": {
-      "string": "ODK logo"
+    "fieldDataLogo": {
+      "string": "Field Data logo"
     },
     "defaultTitle": {
       "string": "Welcome to Field Data"
