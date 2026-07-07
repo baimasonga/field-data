@@ -623,6 +623,60 @@ const routes = [
   }),
 
   asyncRoute({
+    path: '/field-data',
+    component: 'FieldDataHome',
+    loading: 'page',
+    key: () => '/field-data',
+    children: [
+      asyncRoute({
+        path: '',
+        component: 'FieldDataDashboard',
+        loading: 'tab',
+        meta: {
+          title: () => [i18n.t('fieldDataHome.tab.dashboard'), i18n.t('fieldDataHome.title')],
+          fullWidth: true
+        }
+      }),
+      asyncRoute({
+        path: 'media',
+        component: 'FieldDataMedia',
+        loading: 'tab',
+        meta: {
+          validateData: {
+            currentUser: () => currentUser.can('project.create')
+          },
+          title: () => [i18n.t('fieldDataHome.tab.media'), i18n.t('fieldDataHome.title')],
+          fullWidth: true
+        }
+      }),
+      asyncRoute({
+        path: 'webhooks',
+        component: 'FieldDataWebhooks',
+        loading: 'tab',
+        meta: {
+          validateData: {
+            currentUser: () => currentUser.can('project.create')
+          },
+          title: () => [i18n.t('fieldDataHome.tab.webhooks'), i18n.t('fieldDataHome.title')],
+          fullWidth: true
+        }
+      }),
+      asyncRoute({
+        path: 'backups',
+        component: 'FieldDataBackups',
+        loading: 'tab',
+        meta: {
+          validateData: {
+            currentUser: () => currentUser.can('project.create')
+          },
+          title: () => [i18n.t('fieldDataHome.tab.backups'), i18n.t('fieldDataHome.title')],
+          fullWidth: true
+        }
+      })
+    ]
+  }),
+
+  asyncRoute({
     path: '/system',
     component: 'SystemHome',
     loading: 'page',

@@ -28,6 +28,12 @@ except according to the terms contained in the LICENSE file.
         {{ $t('common.system') }} <span class="sr-only">{{ $t('current') }}</span>
       </router-link>
     </li>
+    <li v-if="canRoute('/field-data')" id="navbar-links-field-data"
+      :class="{ active: routePathStartsWith('/field-data') }">
+      <router-link to="/field-data">
+        {{ $t('fieldDataHome.title') }} <span class="sr-only">{{ $t('current') }}</span>
+      </router-link>
+    </li>
   </ul>
 </template>
 

@@ -102,6 +102,26 @@ const loaders = new Map()
     /* webpackChunkName: "component-feedback-button" */
     '../components/feedback-button.vue'
   )))
+  .set('FieldDataHome', loader(() => import(
+    /* webpackChunkName: "component-field-data-home" */
+    '../components/field-data/home.vue'
+  )))
+  .set('FieldDataDashboard', loader(() => import(
+    /* webpackChunkName: "component-field-data-dashboard" */
+    '../components/field-data/dashboard.vue'
+  )))
+  .set('FieldDataMedia', loader(() => import(
+    /* webpackChunkName: "component-field-data-media" */
+    '../components/field-data/media.vue'
+  )))
+  .set('FieldDataWebhooks', loader(() => import(
+    /* webpackChunkName: "component-field-data-webhooks" */
+    '../components/field-data/webhooks.vue'
+  )))
+  .set('FieldDataBackups', loader(() => import(
+    /* webpackChunkName: "component-field-data-backups" */
+    '../components/field-data/backups.vue'
+  )))
   .set('FieldKeyList', loader(() => import(
     /* webpackChunkName: "component-field-key-list" */
     '../components/field-key/list.vue'

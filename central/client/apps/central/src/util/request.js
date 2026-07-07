@@ -208,7 +208,15 @@ export const apiPaths = {
     const encodedKey = encodeURIComponent(key);
     const qs = queryString(query);
     return `/v1/config/public/${encodedKey}${qs}`;
-  }
+  },
+  // Field Data platform endpoints (see server/lib/resources/field-data.js)
+  fieldDataStats: () => '/v1/field-data/stats',
+  fieldDataMedia: () => '/v1/field-data/media',
+  fieldDataMediaItem: (id) => `/v1/field-data/media/${id}`,
+  fieldDataMediaDownload: (id) => `/v1/field-data/media/download/${id}`,
+  fieldDataWebhooks: () => '/v1/field-data/webhooks',
+  fieldDataWebhook: (id) => `/v1/field-data/webhooks/${id}`,
+  fieldDataBackups: () => '/v1/field-data/backups'
 };
 
 

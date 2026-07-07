@@ -80,6 +80,30 @@
       }
     }
   },
+  "fieldDataHome": {
+    "title": {
+      "string": "Field Data",
+      "developer_comment": "This is the title of the Field Data operations section."
+    },
+    "tab": {
+      "dashboard": {
+        "string": "Dashboard",
+        "developer_comment": "This is the title of the Field Data operations section."
+      },
+      "media": {
+        "string": "Media Library",
+        "developer_comment": "This is the title of the Field Data operations section."
+      },
+      "webhooks": {
+        "string": "Webhooks",
+        "developer_comment": "This is the title of the Field Data operations section."
+      },
+      "backups": {
+        "string": "Backups",
+        "developer_comment": "This is the title of the Field Data operations section."
+      }
+    }
+  },
   "role": {
     "none": {
       "string": "None",
@@ -847,7 +871,7 @@
       "string": "ODK logo"
     },
     "defaultTitle": {
-      "string": "Welcome to ODK Central"
+      "string": "Welcome to Field Data"
     },
     "defaultDescription": {
       "string": "Log into your account to get started"
@@ -2908,6 +2932,266 @@
       "feedback": {
         "string": "Feedback",
         "developer_comment": "Text for a hovering feedback button shown anchored to right of screen. If your language doesn't have a single word or short phrase for \"feedback\", consider something like \"comments\" or \"reactions\"."
+      }
+    },
+    "FieldDataBackups": {
+      "action": {
+        "backupNow": {
+          "string": "Back up now",
+          "developer_comment": "This is the text for an action, for example, the text of a button."
+        },
+        "refresh": {
+          "string": "Refresh",
+          "developer_comment": "This is the text for an action, for example, the text of a button."
+        }
+      },
+      "header": {
+        "date": {
+          "string": "Date",
+          "developer_comment": "This is the text of a table column header."
+        },
+        "type": {
+          "string": "Type",
+          "developer_comment": "This is the text of a table column header."
+        },
+        "size": {
+          "string": "Size",
+          "developer_comment": "This is the text of a table column header."
+        },
+        "status": {
+          "string": "Status",
+          "developer_comment": "This is the text of a table column header."
+        }
+      },
+      "emptyTable": {
+        "string": "No backups have been created yet."
+      },
+      "alert": {
+        "started": {
+          "string": "Backup started. It will run in the background — refresh to see the result.",
+          "developer_comment": "Shown after a manual backup is triggered; it runs in the background."
+        }
+      }
+    },
+    "FieldDataDashboard": {
+      "kpi": {
+        "projects": {
+          "string": "Projects"
+        },
+        "forms": {
+          "string": "Forms"
+        },
+        "submissions": {
+          "string": "Submissions"
+        },
+        "users": {
+          "string": "Users"
+        }
+      },
+      "recentSubmissions": {
+        "string": "Recent Submissions"
+      },
+      "systemStatus": {
+        "string": "System Status"
+      },
+      "topForms": {
+        "string": "Top Forms"
+      },
+      "header": {
+        "form": {
+          "string": "Form",
+          "developer_comment": "This is the text of a table column header."
+        },
+        "project": {
+          "string": "Project",
+          "developer_comment": "This is the text of a table column header."
+        },
+        "submitter": {
+          "string": "Submitter",
+          "developer_comment": "This is the text of a table column header."
+        },
+        "submitted": {
+          "string": "Submitted",
+          "developer_comment": "This is the text of a table column header."
+        },
+        "submissions": {
+          "string": "Submissions",
+          "developer_comment": "This is the text of a table column header."
+        }
+      },
+      "status": {
+        "up": {
+          "string": "Online"
+        },
+        "down": {
+          "string": "Offline"
+        },
+        "database": {
+          "string": "Database"
+        },
+        "fileStorage": {
+          "string": "File Storage"
+        },
+        "enketo": {
+          "string": "Web Forms (Enketo)"
+        },
+        "pyxform": {
+          "string": "Form Conversion (pyxform)"
+        },
+        "emailService": {
+          "string": "Email Service"
+        }
+      },
+      "unknownSubmitter": {
+        "string": "(unknown)"
+      },
+      "noSubmissions": {
+        "string": "There are no submissions yet."
+      },
+      "noForms": {
+        "string": "There are no forms with submissions yet."
+      }
+    },
+    "FieldDataHome": {
+      "title": {
+        "string": "Field Data",
+        "developer_comment": "Title of the Field Data operations section"
+      },
+      "tab": {
+        "dashboard": {
+          "string": "Dashboard",
+          "developer_comment": "This is the text of a navigation tab, which may also be shown as the page title (browser tab)."
+        },
+        "media": {
+          "string": "Media Library",
+          "developer_comment": "This is the text of a navigation tab, which may also be shown as the page title (browser tab)."
+        },
+        "webhooks": {
+          "string": "Webhooks",
+          "developer_comment": "This is the text of a navigation tab, which may also be shown as the page title (browser tab)."
+        },
+        "backups": {
+          "string": "Backups",
+          "developer_comment": "This is the text of a navigation tab, which may also be shown as the page title (browser tab)."
+        }
+      }
+    },
+    "FieldDataMedia": {
+      "action": {
+        "upload": {
+          "string": "Upload file",
+          "developer_comment": "This is the text for an action, for example, the text of a button."
+        },
+        "download": {
+          "string": "Download",
+          "developer_comment": "This is the text for an action, for example, the text of a button."
+        },
+        "delete": {
+          "string": "Delete",
+          "developer_comment": "This is the text for an action, for example, the text of a button."
+        }
+      },
+      "header": {
+        "name": {
+          "string": "Name",
+          "developer_comment": "This is the text of a table column header."
+        },
+        "type": {
+          "string": "Type",
+          "developer_comment": "This is the text of a table column header."
+        },
+        "size": {
+          "string": "Size",
+          "developer_comment": "This is the text of a table column header."
+        },
+        "uploaded": {
+          "string": "Uploaded",
+          "developer_comment": "This is the text of a table column header."
+        },
+        "actions": {
+          "string": "Actions",
+          "developer_comment": "This is the text of a table column header."
+        }
+      },
+      "emptyTable": {
+        "string": "No media has been uploaded yet."
+      },
+      "confirmDelete": {
+        "string": "Are you sure you want to delete “{name}”?"
+      },
+      "alert": {
+        "uploaded": {
+          "string": "“{name}” has been uploaded."
+        },
+        "deleted": {
+          "string": "“{name}” has been deleted."
+        }
+      }
+    },
+    "FieldDataWebhooks": {
+      "field": {
+        "name": {
+          "string": "Name",
+          "developer_comment": "This is the text of a form field."
+        },
+        "url": {
+          "string": "URL (https://…)",
+          "developer_comment": "This is the text of a form field."
+        },
+        "events": {
+          "string": "Events (comma-separated)",
+          "developer_comment": "This is the text of a form field."
+        }
+      },
+      "action": {
+        "add": {
+          "string": "Add webhook",
+          "developer_comment": "This is the text for an action, for example, the text of a button."
+        },
+        "delete": {
+          "string": "Delete",
+          "developer_comment": "This is the text for an action, for example, the text of a button."
+        }
+      },
+      "header": {
+        "name": {
+          "string": "Name",
+          "developer_comment": "This is the text of a table column header."
+        },
+        "url": {
+          "string": "URL",
+          "developer_comment": "This is the text of a table column header."
+        },
+        "events": {
+          "string": "Events",
+          "developer_comment": "This is the text of a table column header."
+        },
+        "status": {
+          "string": "Last status",
+          "developer_comment": "This is the text of a table column header."
+        },
+        "active": {
+          "string": "Active",
+          "developer_comment": "This is the text of a table column header."
+        },
+        "actions": {
+          "string": "Actions",
+          "developer_comment": "This is the text of a table column header."
+        }
+      },
+      "emptyTable": {
+        "string": "No webhooks have been configured yet."
+      },
+      "confirmDelete": {
+        "string": "Are you sure you want to delete the webhook “{name}”?"
+      },
+      "alert": {
+        "created": {
+          "string": "Webhook “{name}” has been created."
+        },
+        "deleted": {
+          "string": "Webhook “{name}” has been deleted."
+        }
       }
     },
     "FieldKeyEdit": {

@@ -35,6 +35,16 @@
       "analytics": "Usage Reporting"
     }
   },
+  // This is the title of the Field Data operations section.
+  "fieldDataHome": {
+    "title": "Field Data",
+    "tab": {
+      "dashboard": "Dashboard",
+      "media": "Media Library",
+      "webhooks": "Webhooks",
+      "backups": "Backups"
+    }
+  },
   // This is the name of a user Role.
   "role": {
     // This is shown when a user does not have a Role.
