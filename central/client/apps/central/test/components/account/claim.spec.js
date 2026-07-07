@@ -7,7 +7,7 @@ import { mount } from '../../util/lifecycle';
 describe('AccountClaim', () => {
   it('shows proper page title', () =>
     load('/account/claim?token=foo')
-      .then(() => document.title.should.equal('Set Password | ODK Central')));
+      .then(() => document.title.should.equal('Set Password | Field Data')));
 
   it('focuses the input', () => {
     const component = mount(AccountClaim, { attachTo: document.body });

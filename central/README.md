@@ -6,18 +6,18 @@ Based on ODK Central and licensed under Apache 2.0.
 
 ## Local development
 
-The default `FRONTEND_BUILD_MODE` is `source`, which builds the web frontend
-from a local `client/` checkout. Clone the frontend into `client/` (matching the
-`FRONTEND_VERSION` in `docker-compose.yml`) before building:
+The web frontend (a customized `central-frontend`, pinned to v2026.2.0) is
+vendored in `client/`, and the backend (`central-backend`) in `server/`. The
+default `FRONTEND_BUILD_MODE=source` builds the frontend from that in-repo
+source, so no separate checkout is needed:
 
 ```bash
 cp .env.Field_Data.example .env
-git clone --branch v2026.2.0 --depth 1 https://github.com/getodk/central-frontend.git client
 docker compose up -d --build
 ```
 
-> To skip building the frontend from source and fetch a pre-built release
-> instead, set `FRONTEND_BUILD_MODE=fetch` in your `.env`.
+> To skip building the frontend from source and fetch the upstream pre-built
+> release instead, set `FRONTEND_BUILD_MODE=fetch` in your `.env`.
 
 ---
 

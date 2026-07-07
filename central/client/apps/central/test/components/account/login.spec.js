@@ -31,7 +31,7 @@ describe('AccountLogin', () => {
   describe('login-appearance config', () => {
     it('shows a default title and description if there is no config', () => {
       const component = mountComponent();
-      component.get('h1').text().should.equal('Welcome to ODK Central');
+      component.get('h1').text().should.equal('Welcome to Field Data');
       component.get('h1 + p').text().should.startWith('Log into your account');
     });
 
@@ -51,7 +51,7 @@ describe('AccountLogin', () => {
         value: { description: 'foo' }
       });
       const component = mountComponent();
-      component.get('h1').text().should.equal('Welcome to ODK Central');
+      component.get('h1').text().should.equal('Welcome to Field Data');
       component.get('h1 + p').text().should.equal('foo');
     });
   });

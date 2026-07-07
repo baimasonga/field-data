@@ -62,7 +62,7 @@ describe('NavbarLocaleDropdown', () => {
       selectLocale()
         .then(() => {
           // Log in screen
-          document.title.should.equal('Ingresar | ODK Central');
+          document.title.should.equal('Ingresar | Field Data');
         }));
   });
 });

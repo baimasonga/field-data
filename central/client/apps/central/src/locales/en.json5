@@ -379,7 +379,7 @@
     "odkLogo": "ODK logo",
     // @transifexKey component.AccountPageContainer.customLogoAlt
     "customLogoAlt": "Organization logo",
-    "defaultTitle": "Welcome to ODK Central",
+    "defaultTitle": "Welcome to Field Data",
     "defaultDescription": "Log into your account to get started",
     // An image shown on the login page
     "heroImage": "Login image"

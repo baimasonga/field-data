@@ -17,9 +17,9 @@ export const watchSync = (source, callback, options = undefined) =>
   watch(source, callback, { ...options, flush: 'sync' });
 
 export const setDocumentTitle = (title) => watchEffect(() => {
-  // Append ODK Central to every title, filter out any null values (e.g. project
+  // Append Field Data to every title, filter out any null values (e.g. project
   // name before the project object was loaded), join with separator.
-  document.title = title().concat('ODK Central').filter(x => x).join(' | ');
+  document.title = title().concat('Field Data').filter(x => x).join(' | ');
 });
 
 
