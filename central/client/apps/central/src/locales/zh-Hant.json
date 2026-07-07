@@ -1,130 +1,130 @@
 {
   "title": {
-    "resetPassword": "重設密碼",
-    "setPassword": "設定密碼",
-    "editProfile": "編輯個人資料",
-    "download": "下載",
-    "pageNotFound": "頁面不存在",
-    "details": "細節"
+    "resetPassword": "é‡è¨­å¯†ç¢¼",
+    "setPassword": "è¨­å®šå¯†ç¢¼",
+    "editProfile": "ç·¨è¼¯å€‹äººè³‡æ–™",
+    "download": "ä¸‹è¼‰",
+    "pageNotFound": "é é¢ä¸å­˜åœ¨",
+    "details": "ç´°ç¯€"
   },
   "projectShow": {
     "tab": {
-      "formAccess": "表單存取"
+      "formAccess": "è¡¨å–®å­˜å–"
     }
   },
   "formHead": {
     "tab": {
-      "publicAccess": "公共存取",
-      "versions": "版本",
-      "editForm": "編輯表格"
+      "publicAccess": "å…¬å…±å­˜å–",
+      "versions": "ç‰ˆæœ¬",
+      "editForm": "ç·¨è¼¯è¡¨æ ¼"
     }
   },
   "systemHome": {
-    "title": "系統管理",
+    "title": "ç³»çµ±ç®¡ç†",
     "tab": {
-      "audits": "伺服器數據軌跡",
-      "analytics": "使用情況報告"
+      "audits": "ä¼ºæœå™¨æ•¸æ“šè»Œè·¡",
+      "analytics": "ä½¿ç”¨æƒ…æ³å ±å‘Š"
     }
   },
   "role": {
-    "none": "無",
-    "admin": "管理者",
-    "manager": "專案管理員",
-    "viewer": "專案檢視人員",
-    "formfill": "資料收集人員"
+    "none": "ç„¡",
+    "admin": "ç®¡ç†è€…",
+    "manager": "å°ˆæ¡ˆç®¡ç†å“¡",
+    "viewer": "å°ˆæ¡ˆæª¢è¦–äººå“¡",
+    "formfill": "è³‡æ–™æ”¶é›†äººå“¡"
   },
   "formState": {
-    "open": "開放",
-    "closing": "結案中",
-    "closed": "關閉",
-    "unpublished": "尚未發布"
+    "open": "é–‹æ”¾",
+    "closing": "çµæ¡ˆä¸­",
+    "closed": "é—œé–‰",
+    "unpublished": "å°šæœªç™¼å¸ƒ"
   },
   "reviewState": {
-    "received": "已收到",
-    "hasIssues": "有疑問",
-    "edited": "已編輯",
-    "approved": "核可",
-    "rejected": "否決",
+    "received": "å·²æ”¶åˆ°",
+    "hasIssues": "æœ‰ç–‘å•",
+    "edited": "å·²ç·¨è¼¯",
+    "approved": "æ ¸å¯",
+    "rejected": "å¦æ±º",
     "null": "@:reviewState.received"
   },
   "audit": {
     "category": {
-      "nonverbose": "所有活動",
-      "user": "網頁使用者活動",
-      "project": "專案活動",
-      "form": "表單活動",
-      "field_key": "手機軟體使用者活動",
-      "public_link": "公共連結活動",
-      "dataset": "實體清單活動",
-      "config": "伺服器設定活動",
-      "upgrade": "伺服器更新",
-      "task": "作業系統"
+      "nonverbose": "æ‰€æœ‰æ´»å‹•",
+      "user": "ç¶²é ä½¿ç”¨è€…æ´»å‹•",
+      "project": "å°ˆæ¡ˆæ´»å‹•",
+      "form": "è¡¨å–®æ´»å‹•",
+      "field_key": "æ‰‹æ©Ÿè»Ÿé«”ä½¿ç”¨è€…æ´»å‹•",
+      "public_link": "å…¬å…±é€£çµæ´»å‹•",
+      "dataset": "å¯¦é«”æ¸…å–®æ´»å‹•",
+      "config": "ä¼ºæœå™¨è¨­å®šæ´»å‹•",
+      "upgrade": "ä¼ºæœå™¨æ›´æ–°",
+      "task": "ä½œæ¥­ç³»çµ±"
     },
     "action": {
       "default": {
-        "create": "建立",
-        "update": "更新細節",
-        "session_end": "撤銷",
-        "delete": "刪除"
+        "create": "å»ºç«‹",
+        "update": "æ›´æ–°ç´°ç¯€",
+        "session_end": "æ’¤éŠ·",
+        "delete": "åˆªé™¤"
       },
-      "analytics": "報告使用情況",
+      "analytics": "å ±å‘Šä½¿ç”¨æƒ…æ³",
       "blobs": {
-        "s3_upload": "上傳檔案至儲存空間",
-        "s3_failed_to_pending": "標記檔案以重傳到存儲空間"
+        "s3_upload": "ä¸Šå‚³æª”æ¡ˆè‡³å„²å­˜ç©ºé–“",
+        "s3_failed_to_pending": "æ¨™è¨˜æª”æ¡ˆä»¥é‡å‚³åˆ°å­˜å„²ç©ºé–“"
       },
       "config": {
-        "set": "設定"
+        "set": "è¨­å®š"
       },
       "dataset": {
-        "update": "更新",
-        "update_publish": "發布",
+        "update": "æ›´æ–°",
+        "update_publish": "ç™¼å¸ƒ",
         "create": "@:audit.action.default.create",
         "delete": "@:audit.action.default.delete"
       },
       "entity": {
-        "bulk_delete": "大量刪除",
-        "bulk_restore": "大量還原"
+        "bulk_delete": "å¤§é‡åˆªé™¤",
+        "bulk_restore": "å¤§é‡é‚„åŽŸ"
       },
       "field_key": {
-        "assignment_create": "授予存取",
-        "assignment_delete": "移除存取",
+        "assignment_create": "æŽˆäºˆå­˜å–",
+        "assignment_delete": "ç§»é™¤å­˜å–",
         "create": "@:audit.action.default.create",
         "session_end": "@:audit.action.default.session_end",
         "delete": "@:audit.action.default.delete"
       },
       "form": {
-        "update_draft_set": "建立或更新草稿",
-        "update_draft_replace": "替換草稿",
-        "update_publish": "發布草稿",
-        "update_draft_delete": "放棄草稿",
-        "attachment_update": "更新附件",
-        "submission_export": "下載提交內容",
-        "restore": "還原",
-        "purge": "清除",
+        "update_draft_set": "å»ºç«‹æˆ–æ›´æ–°è‰ç¨¿",
+        "update_draft_replace": "æ›¿æ›è‰ç¨¿",
+        "update_publish": "ç™¼å¸ƒè‰ç¨¿",
+        "update_draft_delete": "æ”¾æ£„è‰ç¨¿",
+        "attachment_update": "æ›´æ–°é™„ä»¶",
+        "submission_export": "ä¸‹è¼‰æäº¤å…§å®¹",
+        "restore": "é‚„åŽŸ",
+        "purge": "æ¸…é™¤",
         "create": "@:audit.action.default.create",
         "update": "@:audit.action.default.update",
         "delete": "@:audit.action.default.delete"
       },
       "public_link": {
-        "assignment_create": "給予存取",
-        "assignment_delete": "移除存取",
+        "assignment_create": "çµ¦äºˆå­˜å–",
+        "assignment_delete": "ç§»é™¤å­˜å–",
         "create": "@:audit.action.default.create",
         "session_end": "@:audit.action.default.session_end",
         "delete": "@:audit.action.default.delete"
       },
       "submission": {
-        "purge": "清除提交內容"
+        "purge": "æ¸…é™¤æäº¤å…§å®¹"
       },
       "upgrade": {
-        "process_form": "處理表單",
-        "process_form_draft": "處理草稿",
-        "process_form_entities_version": "升級標記表格",
-        "server": "新版本"
+        "process_form": "è™•ç†è¡¨å–®",
+        "process_form_draft": "è™•ç†è‰ç¨¿",
+        "process_form_entities_version": "å‡ç´šæ¨™è¨˜è¡¨æ ¼",
+        "server": "æ–°ç‰ˆæœ¬"
       },
       "user": {
-        "assignment_create": "指派角色",
-        "assignment_delete": "撤銷角色",
-        "delete": "退出",
+        "assignment_create": "æŒ‡æ´¾è§’è‰²",
+        "assignment_delete": "æ’¤éŠ·è§’è‰²",
+        "delete": "é€€å‡º",
         "create": "@:audit.action.default.create",
         "update": "@:audit.action.default.update",
         "session_create": "@:action.logIn"
@@ -137,266 +137,266 @@
     }
   },
   "action": {
-    "cancel": "取消",
-    "clear": "清除",
-    "close": "關閉",
-    "comment": "評論",
-    "continue": "繼續",
-    "create": "建立",
-    "createSubmission": "新提交",
-    "delete": "刪除",
-    "done": "完成",
-    "download": "下載",
-    "edit": "編輯",
-    "editProfile": "編輯個人檔案",
-    "finish": "結束",
-    "logIn": "登入",
-    "looksGood": "看起來不錯，繼續",
-    "more": "更多",
-    "neverMind": "沒關係，取消",
-    "next": "下一步",
-    "noCancel": "不，取消",
-    "ok": "好",
-    "proceed": "繼續",
-    "refresh": "重整",
-    "refreshPage": "刷新頁面",
-    "resetPassword": "重設密碼",
-    "review": "審核",
-    "save": "儲存",
-    "saveSettings": "保存設定",
-    "sort": "排序",
-    "undo": "撤銷",
-    "update": "更新",
-    "yesProceed": "是的，請繼續",
-    "showPreview": "預覽",
-    "hidePreview": "隱藏預覽",
-    "expand": "開啟",
-    "collapse": "閉合",
-    "selectRow": "選取列",
-    "reset": "重設",
-    "upload": "上傳",
-    "reviewParallelUpdates": "查看並行更新",
-    "restore": "還原"
+    "cancel": "å–æ¶ˆ",
+    "clear": "æ¸…é™¤",
+    "close": "é—œé–‰",
+    "comment": "è©•è«–",
+    "continue": "ç¹¼çºŒ",
+    "create": "å»ºç«‹",
+    "createSubmission": "æ–°æäº¤",
+    "delete": "åˆªé™¤",
+    "done": "å®Œæˆ",
+    "download": "ä¸‹è¼‰",
+    "edit": "ç·¨è¼¯",
+    "editProfile": "ç·¨è¼¯å€‹äººæª”æ¡ˆ",
+    "finish": "çµæŸ",
+    "logIn": "ç™»å…¥",
+    "looksGood": "çœ‹èµ·ä¾†ä¸éŒ¯ï¼Œç¹¼çºŒ",
+    "more": "æ›´å¤š",
+    "neverMind": "æ²’é—œä¿‚ï¼Œå–æ¶ˆ",
+    "next": "ä¸‹ä¸€æ­¥",
+    "noCancel": "ä¸ï¼Œå–æ¶ˆ",
+    "ok": "å¥½",
+    "proceed": "ç¹¼çºŒ",
+    "refresh": "é‡æ•´",
+    "refreshPage": "åˆ·æ–°é é¢",
+    "resetPassword": "é‡è¨­å¯†ç¢¼",
+    "review": "å¯©æ ¸",
+    "save": "å„²å­˜",
+    "saveSettings": "ä¿å­˜è¨­å®š",
+    "sort": "æŽ’åº",
+    "undo": "æ’¤éŠ·",
+    "update": "æ›´æ–°",
+    "yesProceed": "æ˜¯çš„ï¼Œè«‹ç¹¼çºŒ",
+    "showPreview": "é è¦½",
+    "hidePreview": "éš±è—é è¦½",
+    "expand": "é–‹å•Ÿ",
+    "collapse": "é–‰åˆ",
+    "selectRow": "é¸å–åˆ—",
+    "reset": "é‡è¨­",
+    "upload": "ä¸Šå‚³",
+    "reviewParallelUpdates": "æŸ¥çœ‹ä¸¦è¡Œæ›´æ–°",
+    "restore": "é‚„åŽŸ"
   },
   "field": {
-    "comment": "發表評論...",
-    "dateRange": "資料範圍",
-    "displayName": "顯示名稱",
-    "email": "Email地址",
-    "name": "名稱",
-    "newPassword": "新密碼",
-    "oldPassword": "舊密碼",
-    "passphrase": "密碼片語",
-    "password": "密碼",
-    "passwordConfirm": "新密碼(確認)",
-    "type": "類型"
+    "comment": "ç™¼è¡¨è©•è«–...",
+    "dateRange": "è³‡æ–™ç¯„åœ",
+    "displayName": "é¡¯ç¤ºåç¨±",
+    "email": "Emailåœ°å€",
+    "name": "åç¨±",
+    "newPassword": "æ–°å¯†ç¢¼",
+    "oldPassword": "èˆŠå¯†ç¢¼",
+    "passphrase": "å¯†ç¢¼ç‰‡èªž",
+    "password": "å¯†ç¢¼",
+    "passwordConfirm": "æ–°å¯†ç¢¼(ç¢ºèª)",
+    "type": "é¡žåž‹"
   },
   "header": {
-    "actions": "行動",
-    "created": "建立",
-    "createdBy": "建立人員",
-    "createdAt": "建立日期",
-    "updatedBy": "更新人員",
-    "displayName": "顯示名稱",
-    "email": "Email地址",
-    "instanceId": "實例ID",
-    "lastSubmission": "最新提交",
-    "recentActivity": "近期活動",
-    "name": "名稱",
-    "listName": "列表名稱",
-    "submitterName": "提交人員",
-    "submissionDate": "提交日期",
-    "time": "時間",
-    "type": "類型",
-    "entities": "實體總數",
-    "lastEntity": "最新實體"
+    "actions": "è¡Œå‹•",
+    "created": "å»ºç«‹",
+    "createdBy": "å»ºç«‹äººå“¡",
+    "createdAt": "å»ºç«‹æ—¥æœŸ",
+    "updatedBy": "æ›´æ–°äººå“¡",
+    "displayName": "é¡¯ç¤ºåç¨±",
+    "email": "Emailåœ°å€",
+    "instanceId": "å¯¦ä¾‹ID",
+    "lastSubmission": "æœ€æ–°æäº¤",
+    "recentActivity": "è¿‘æœŸæ´»å‹•",
+    "name": "åç¨±",
+    "listName": "åˆ—è¡¨åç¨±",
+    "submitterName": "æäº¤äººå“¡",
+    "submissionDate": "æäº¤æ—¥æœŸ",
+    "time": "æ™‚é–“",
+    "type": "é¡žåž‹",
+    "entities": "å¯¦é«”ç¸½æ•¸",
+    "lastEntity": "æœ€æ–°å¯¦é«”"
   },
   "plural": {
-    "appUser": "APP 使用者",
-    "form": "表單",
-    "project": "專案",
-    "submission": "提交清單",
-    "user": "使用者",
-    "webUser": "網頁使用者"
+    "appUser": "APP ä½¿ç”¨è€…",
+    "form": "è¡¨å–®",
+    "project": "å°ˆæ¡ˆ",
+    "submission": "æäº¤æ¸…å–®",
+    "user": "ä½¿ç”¨è€…",
+    "webUser": "ç¶²é ä½¿ç”¨è€…"
   },
   "count": {
-    "appUser": "{count} App 使用者",
-    "attachments": "{count}個附件",
-    "form": "{count} 表單",
-    "submission": "{count} 提交",
-    "warning": "{count} 警告"
+    "appUser": "{count} App ä½¿ç”¨è€…",
+    "attachments": "{count}å€‹é™„ä»¶",
+    "form": "{count} è¡¨å–®",
+    "submission": "{count} æäº¤",
+    "warning": "{count} è­¦å‘Š"
   },
   "resource": {
-    "appUser": "App 使用者",
-    "appUsers": "App 使用者",
-    "attachments": "附件",
-    "config": "伺服器設置",
-    "entity": "實體資料",
-    "entities": "實體",
-    "entityList": "實體清單",
-    "entityLists": "實體清單",
-    "form": "表單",
-    "forms": "表單",
-    "formAttachments": "表單附件",
-    "project": "專案",
-    "projects": "專案",
-    "property": "属性",
-    "properties": "資料屬性",
-    "publicLink": "公共存取連結",
-    "user": "使用者",
-    "users": "使用者",
-    "webUser": "網頁使用者",
-    "webUsers": "網頁使用者",
-    "session": "區域",
-    "submission": "提交資料",
-    "submissions": "提交",
-    "projectRoles": "專案角色",
-    "formPreview": "預覽表單",
-    "draft": "草稿"
+    "appUser": "App ä½¿ç”¨è€…",
+    "appUsers": "App ä½¿ç”¨è€…",
+    "attachments": "é™„ä»¶",
+    "config": "ä¼ºæœå™¨è¨­ç½®",
+    "entity": "å¯¦é«”è³‡æ–™",
+    "entities": "å¯¦é«”",
+    "entityList": "å¯¦é«”æ¸…å–®",
+    "entityLists": "å¯¦é«”æ¸…å–®",
+    "form": "è¡¨å–®",
+    "forms": "è¡¨å–®",
+    "formAttachments": "è¡¨å–®é™„ä»¶",
+    "project": "å°ˆæ¡ˆ",
+    "projects": "å°ˆæ¡ˆ",
+    "property": "å±žæ€§",
+    "properties": "è³‡æ–™å±¬æ€§",
+    "publicLink": "å…¬å…±å­˜å–é€£çµ",
+    "user": "ä½¿ç”¨è€…",
+    "users": "ä½¿ç”¨è€…",
+    "webUser": "ç¶²é ä½¿ç”¨è€…",
+    "webUsers": "ç¶²é ä½¿ç”¨è€…",
+    "session": "å€åŸŸ",
+    "submission": "æäº¤è³‡æ–™",
+    "submissions": "æäº¤",
+    "projectRoles": "å°ˆæ¡ˆè§’è‰²",
+    "formPreview": "é è¦½è¡¨å–®",
+    "draft": "è‰ç¨¿"
   },
   "alert": {
-    "passwordTooShort": "密碼必須至少有 10 個字元長。",
-    "updateEntity": "實體已成功更新。",
-    "updateReviewState": "審核已成功儲存。",
-    "versionChange": "伺服器已成功更新。",
-    "submissionDeleted": "提交已成功刪除。",
-    "submissionRestored": "已恢復提交。",
-    "entityRestored": "實體 「{label}」 已經還原。",
-    "entityDeleted": "實體「1{label}」已被刪除。"
+    "passwordTooShort": "å¯†ç¢¼å¿…é ˆè‡³å°‘æœ‰ 10 å€‹å­—å…ƒé•·ã€‚",
+    "updateEntity": "å¯¦é«”å·²æˆåŠŸæ›´æ–°ã€‚",
+    "updateReviewState": "å¯©æ ¸å·²æˆåŠŸå„²å­˜ã€‚",
+    "versionChange": "ä¼ºæœå™¨å·²æˆåŠŸæ›´æ–°ã€‚",
+    "submissionDeleted": "æäº¤å·²æˆåŠŸåˆªé™¤ã€‚",
+    "submissionRestored": "å·²æ¢å¾©æäº¤ã€‚",
+    "entityRestored": "å¯¦é«” ã€Œ{label}ã€ å·²ç¶“é‚„åŽŸã€‚",
+    "entityDeleted": "å¯¦é«”ã€Œ1{label}ã€å·²è¢«åˆªé™¤ã€‚"
   },
   "moreInfo": {
     "clickHere": {
-      "full": "可以{clickHere}了解更多訊息。",
-      "clickHere": "點選這裡"
+      "full": "å¯ä»¥{clickHere}äº†è§£æ›´å¤šè¨Šæ¯ã€‚",
+      "clickHere": "é»žé¸é€™è£¡"
     },
     "helpArticle": {
-      "full": "更多資訊請參閱 {helpArticle}.",
-      "helpArticle": "此說明文件"
+      "full": "æ›´å¤šè³‡è¨Šè«‹åƒé–± {helpArticle}.",
+      "helpArticle": "æ­¤èªªæ˜Žæ–‡ä»¶"
     },
-    "learnMore": "了解更多。"
+    "learnMore": "äº†è§£æ›´å¤šã€‚"
   },
   "analytics": {
-    "alwaysImprove": "我們一直努力改進 ODK Central.",
+    "alwaysImprove": "æˆ‘å€‘ä¸€ç›´åŠªåŠ›æ”¹é€² ODK Central.",
     "needFeedback": {
-      "full": "為此，我們需要 {your} 的回饋，以便我們了解您如何使用 ODK Central，以及它如何對您更好。",
-      "your": "您"
+      "full": "ç‚ºæ­¤ï¼Œæˆ‘å€‘éœ€è¦ {your} çš„å›žé¥‹ï¼Œä»¥ä¾¿æˆ‘å€‘äº†è§£æ‚¨å¦‚ä½•ä½¿ç”¨ ODK Centralï¼Œä»¥åŠå®ƒå¦‚ä½•å°æ‚¨æ›´å¥½ã€‚",
+      "your": "æ‚¨"
     },
-    "mailingListOptIn": "請不定期寄送電子郵件給我，告知新功能與最佳實踐。"
+    "mailingListOptIn": "è«‹ä¸å®šæœŸå¯„é€é›»å­éƒµä»¶çµ¦æˆ‘ï¼Œå‘ŠçŸ¥æ–°åŠŸèƒ½èˆ‡æœ€ä½³å¯¦è¸ã€‚"
   },
   "submission": {
-    "missingAttachment": "遺失附件",
+    "missingAttachment": "éºå¤±é™„ä»¶",
     "action": {
-      "edit": "編輯({count})"
+      "edit": "ç·¨è¼¯({count})"
     },
-    "editDisabled": "您無法編輯加密的提交內容。",
-    "binaryLinkTitle": "文件已提交。點擊下載。",
-    "encryptionMessage": "由於資料加密，無法預覽。",
-    "noSubmission": "(無)",
-    "emptyTable": "還沒有提交內容。",
-    "fileDownloadUnavailable": "文件下載不適用於已刪除的提交內容。"
+    "editDisabled": "æ‚¨ç„¡æ³•ç·¨è¼¯åŠ å¯†çš„æäº¤å…§å®¹ã€‚",
+    "binaryLinkTitle": "æ–‡ä»¶å·²æäº¤ã€‚é»žæ“Šä¸‹è¼‰ã€‚",
+    "encryptionMessage": "ç”±æ–¼è³‡æ–™åŠ å¯†ï¼Œç„¡æ³•é è¦½ã€‚",
+    "noSubmission": "(ç„¡)",
+    "emptyTable": "é‚„æ²’æœ‰æäº¤å…§å®¹ã€‚",
+    "fileDownloadUnavailable": "æ–‡ä»¶ä¸‹è¼‰ä¸é©ç”¨æ–¼å·²åˆªé™¤çš„æäº¤å…§å®¹ã€‚"
   },
   "entity": {
-    "label": "標籤",
-    "entityLabel": "實體標籤",
-    "entityId": "實體ID",
-    "noProperties": "此表格僅設定「標籤」。",
-    "noEntity": "(無)",
-    "conflictsCount": "{count} 衝突"
+    "label": "æ¨™ç±¤",
+    "entityLabel": "å¯¦é«”æ¨™ç±¤",
+    "entityId": "å¯¦é«”ID",
+    "noProperties": "æ­¤è¡¨æ ¼åƒ…è¨­å®šã€Œæ¨™ç±¤ã€ã€‚",
+    "noEntity": "(ç„¡)",
+    "conflictsCount": "{count} è¡çª"
   },
   "common": {
-    "activity": "活動",
-    "anybody": "(任何人)",
-    "areYouSure": "您確定要繼續嗎？",
-    "basicInfo": "基本資訊",
-    "conflict": "衝突",
-    "conflicts": "衝突",
-    "dangerZone": "危險區域",
-    "data": "資料",
-    "docs": "文件",
-    "emptyMap": "尚無可用的地圖資料。",
-    "emptyValue": "(空)",
-    "error": "錯誤",
-    "filter": "過濾",
-    "forum": "論壇",
-    "lastUpdate": "最後更新日期",
-    "loading": "載入...",
-    "map": "地圖",
-    "no": "無",
-    "noResults": "沒有結果",
-    "noUndo": "此操作無法撤銷。",
-    "rowNumber": "排",
-    "success": "成功！",
-    "system": "系統",
-    "yes": "是",
+    "activity": "æ´»å‹•",
+    "anybody": "(ä»»ä½•äºº)",
+    "areYouSure": "æ‚¨ç¢ºå®šè¦ç¹¼çºŒå—Žï¼Ÿ",
+    "basicInfo": "åŸºæœ¬è³‡è¨Š",
+    "conflict": "è¡çª",
+    "conflicts": "è¡çª",
+    "dangerZone": "å±éšªå€åŸŸ",
+    "data": "è³‡æ–™",
+    "docs": "æ–‡ä»¶",
+    "emptyMap": "å°šç„¡å¯ç”¨çš„åœ°åœ–è³‡æ–™ã€‚",
+    "emptyValue": "(ç©º)",
+    "error": "éŒ¯èª¤",
+    "filter": "éŽæ¿¾",
+    "forum": "è«–å£‡",
+    "lastUpdate": "æœ€å¾Œæ›´æ–°æ—¥æœŸ",
+    "loading": "è¼‰å…¥...",
+    "map": "åœ°åœ–",
+    "no": "ç„¡",
+    "noResults": "æ²’æœ‰çµæžœ",
+    "noUndo": "æ­¤æ“ä½œç„¡æ³•æ’¤éŠ·ã€‚",
+    "rowNumber": "æŽ’",
+    "success": "æˆåŠŸï¼",
+    "system": "ç³»çµ±",
+    "yes": "æ˜¯",
     "tab": {
-      "settings": "設定"
+      "settings": "è¨­å®š"
     },
-    "table": "表格",
-    "total": "總計",
-    "totalSubmissions": "提交總數",
-    "propertiesCount": "{inform} / {count} 特性",
-    "new": "新！",
-    "totalEntities": "實體總數",
+    "table": "è¡¨æ ¼",
+    "total": "ç¸½è¨ˆ",
+    "totalSubmissions": "æäº¤ç¸½æ•¸",
+    "propertiesCount": "{inform} / {count} ç‰¹æ€§",
+    "new": "æ–°ï¼",
+    "totalEntities": "å¯¦é«”ç¸½æ•¸",
     "versionShort": "v{version}",
-    "warning": "警告",
-    "none": "(無)",
-    "search": "檢索",
-    "reviewState": "審核狀態",
-    "status": "狀態",
-    "version": "版本",
-    "trash": "垃圾桶"
+    "warning": "è­¦å‘Š",
+    "none": "(ç„¡)",
+    "search": "æª¢ç´¢",
+    "reviewState": "å¯©æ ¸ç‹€æ…‹",
+    "status": "ç‹€æ…‹",
+    "version": "ç‰ˆæœ¬",
+    "trash": "åžƒåœ¾æ¡¶"
   },
   "mixin": {
     "request": {
       "alert": {
-        "fileSize": "您嘗試上傳的檔案「 “{name}” 大於 100 MB 限制。",
-        "entityTooLarge": "您嘗試上傳的資料太大。"
+        "fileSize": "æ‚¨å˜—è©¦ä¸Šå‚³çš„æª”æ¡ˆã€Œ â€œ{name}â€ å¤§æ–¼ 100 MB é™åˆ¶ã€‚",
+        "entityTooLarge": "æ‚¨å˜—è©¦ä¸Šå‚³çš„è³‡æ–™å¤ªå¤§ã€‚"
       }
     }
   },
   "util": {
     "csv": {
-      "readError": "讀取您的文件時出現問題：{message}",
-      "invalidCSV": "“{name}” 此檔案非有效的 .csv 檔案，它無法被讀取。",
-      "rowError": "在檔案的第 {row}行有錯誤發生: {message}",
-      "invalidQuotes": "帶引號的欄位無效。檢查該行是否有任何異常值。",
+      "readError": "è®€å–æ‚¨çš„æ–‡ä»¶æ™‚å‡ºç¾å•é¡Œï¼š{message}",
+      "invalidCSV": "â€œ{name}â€ æ­¤æª”æ¡ˆéžæœ‰æ•ˆçš„ .csv æª”æ¡ˆï¼Œå®ƒç„¡æ³•è¢«è®€å–ã€‚",
+      "rowError": "åœ¨æª”æ¡ˆçš„ç¬¬ {row}è¡Œæœ‰éŒ¯èª¤ç™¼ç”Ÿ: {message}",
+      "invalidQuotes": "å¸¶å¼•è™Ÿçš„æ¬„ä½ç„¡æ•ˆã€‚æª¢æŸ¥è©²è¡Œæ˜¯å¦æœ‰ä»»ä½•ç•°å¸¸å€¼ã€‚",
       "emptyRow": "The row is empty.",
-      "dataWithoutHeader": "預期有{expected} 列，但實際找到 {actual}列。"
+      "dataWithoutHeader": "é æœŸæœ‰{expected} åˆ—ï¼Œä½†å¯¦éš›æ‰¾åˆ° {actual}åˆ—ã€‚"
     },
     "request": {
-      "noRequest": "出了點問題：沒有請求。",
-      "noResponse": "出了點問題：您的請求沒有得到回應。",
-      "errorNotProblem": "出了點問題：錯誤代碼 {status}.",
+      "noRequest": "å‡ºäº†é»žå•é¡Œï¼šæ²’æœ‰è«‹æ±‚ã€‚",
+      "noResponse": "å‡ºäº†é»žå•é¡Œï¼šæ‚¨çš„è«‹æ±‚æ²’æœ‰å¾—åˆ°å›žæ‡‰ã€‚",
+      "errorNotProblem": "å‡ºäº†é»žå•é¡Œï¼šéŒ¯èª¤ä»£ç¢¼ {status}.",
       "problem": {
-        "404_1": "找不到您要找的資源。該資源可能已被刪除。",
+        "404_1": "æ‰¾ä¸åˆ°æ‚¨è¦æ‰¾çš„è³‡æºã€‚è©²è³‡æºå¯èƒ½å·²è¢«åˆªé™¤ã€‚",
         "409_17": {
-          "message": "此表單嘗試建立與現有屬性相符的新實體屬性（大小寫除外）：",
-          "duplicateProperty": "{provided} (已存在: {current})"
+          "message": "æ­¤è¡¨å–®å˜—è©¦å»ºç«‹èˆ‡ç¾æœ‰å±¬æ€§ç›¸ç¬¦çš„æ–°å¯¦é«”å±¬æ€§ï¼ˆå¤§å°å¯«é™¤å¤–ï¼‰ï¼š",
+          "duplicateProperty": "{provided} (å·²å­˜åœ¨: {current})"
         }
       }
     },
     "session": {
       "alert": {
-        "expiresSoon": "您的會話即將到期！您將於 2 分鐘後登出。",
-        "expired": "您的會話已過期。請重新登入以繼續。",
+        "expiresSoon": "æ‚¨çš„æœƒè©±å³å°‡åˆ°æœŸï¼æ‚¨å°‡æ–¼ 2 åˆ†é˜å¾Œç™»å‡ºã€‚",
+        "expired": "æ‚¨çš„æœƒè©±å·²éŽæœŸã€‚è«‹é‡æ–°ç™»å…¥ä»¥ç¹¼çºŒã€‚",
         "logoutError": {
-          "thereWasProblem": "登出時出現問題。",
-          "pleaseRefresh": "請刷新頁面並重試。"
+          "thereWasProblem": "ç™»å‡ºæ™‚å‡ºç¾å•é¡Œã€‚",
+          "pleaseRefresh": "è«‹åˆ·æ–°é é¢ä¸¦é‡è©¦ã€‚"
         }
       }
     }
   },
   "router": {
-    "unsavedChanges": "您確定要離開此頁面嗎？您的變更可能不會儲存。"
+    "unsavedChanges": "æ‚¨ç¢ºå®šè¦é›¢é–‹æ­¤é é¢å—Žï¼Ÿæ‚¨çš„è®Šæ›´å¯èƒ½ä¸æœƒå„²å­˜ã€‚"
   },
   "formStateDescription": {
-    "open": "該表格可供下載並接受提交。",
-    "closing": "表格不可下載，但仍接受提交。",
-    "closed": "該表格不可下載，也不接受提交。"
+    "open": "è©²è¡¨æ ¼å¯ä¾›ä¸‹è¼‰ä¸¦æŽ¥å—æäº¤ã€‚",
+    "closing": "è¡¨æ ¼ä¸å¯ä¸‹è¼‰ï¼Œä½†ä»æŽ¥å—æäº¤ã€‚",
+    "closed": "è©²è¡¨æ ¼ä¸å¯ä¸‹è¼‰ï¼Œä¹Ÿä¸æŽ¥å—æäº¤ã€‚"
   },
   "requestData": {
     "project": {
-      "nameWithArchived": "{name} (已歸檔)"
+      "nameWithArchived": "{name} (å·²æ­¸æª”)"
     }
   }
 }

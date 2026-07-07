@@ -23,7 +23,7 @@ info:
 
     The `/projects/:id/app-users` subresource can be used to create, manage, and delete **App Users**.
 
-    The `/projects/:id/forms` resource and its subresource `/projects/:id/forms/…/submissions` provide full access to create, manage, and delete **`Form`s and `Submission`s to those Forms**. Each Form is a single [ODK XForms form](https://getodk.github.io/xforms-spec/), and many Submissions (filled-out forms, also sometimes called `Instance`s) may be attached to each Form. These resources are created by sending XML in the ODK XForms format instead of JSON. One can also retrieve all the multimedia attachments associated with any submission through the `/projects/:id/forms/…/submissions/…/attachments` subresource.
+    The `/projects/:id/forms` resource and its subresource `/projects/:id/forms/â€¦/submissions` provide full access to create, manage, and delete **`Form`s and `Submission`s to those Forms**. Each Form is a single [ODK XForms form](https://getodk.github.io/xforms-spec/), and many Submissions (filled-out forms, also sometimes called `Instance`s) may be attached to each Form. These resources are created by sending XML in the ODK XForms format instead of JSON. One can also retrieve all the multimedia attachments associated with any submission through the `/projects/:id/forms/â€¦/submissions/â€¦/attachments` subresource.
 
     Forms and their submissions are also accessible through two **open standards specifications** that we follow:
 
@@ -33,7 +33,7 @@ info:
 
     Projects can also contain **[`Entities`](/central-api-entity-management/)**, data objects that can be created by `Submission`s and shared between `Form`s to support workflows with multiple steps. Entities are organized into named Datasets and are managed from the `/projects/:id/datasets` resource.
 
-    > ⚠️  In this API and in the related [ODK XForms specification](https://getodk.github.io/xforms-spec/entities), collections of `Entities` are referred to as `Datasets`. The term "Entity List" is used for this concept in the Central frontend UI, user documentation, and all other text intended for end users who are not developers.
+    > âš ï¸  In this API and in the related [ODK XForms specification](https://getodk.github.io/xforms-spec/entities), collections of `Entities` are referred to as `Datasets`. The term "Entity List" is used for this concept in the Central frontend UI, user documentation, and all other text intended for end users who are not developers.
 
     Finally, **system information and configuration** is available via a set of specialized resources. For example, you may set the Usage Reporting configuration or retrieve Server Audit Logs.
 
@@ -91,7 +91,7 @@ info:
     - Endpoints for getting submissions' and entities' geodata in GeoJSON format.
       Their current primary use case is to deliver data for the map in Central.
       
-      ⚠️ This API will likely change in a future release.
+      âš ï¸ This API will likely change in a future release.
       
       The endpoints are:
       - [GET /projects/:id/datasets/:name/entities.geojson](/central-api-entity-management/#entities-geodata)
@@ -290,7 +290,7 @@ info:
 
     **Added**:
 
-    * New `description` field returned for each [Project](/central-api-project-management/#projects) that can be set or updated through `POST`/`PATCH`/`PUT` on `/projects/…`
+    * New `description` field returned for each [Project](/central-api-project-management/#projects) that can be set or updated through `POST`/`PATCH`/`PUT` on `/projects/â€¦`
         * Note that for the `PUT` request, the Project's description must be included in the request. [Read more](/central-api-project-management/#deep-updating-project-and-form-details).
 
     * [Form extended metadata](/central-api-form-management/#getting-form-details) now includes a `reviewStates` object of counts of Submissions with specific review states.
@@ -311,7 +311,7 @@ info:
     * Deleted Forms (either by API `DELETE` or through the web interface) are now placed in a 30 day hold, after which an automated process will permanently delete all data related to the Form.
 
       * You can see Forms in the 30 day wait by [listing Forms with `?deleted=true`](/central-api-form-management/#list-all-forms). You can also see them in the Trash section on the web interface.
-      * `POST /projects/…/forms/…/restore` to restore a Form that hasn't yet been permanently purged.
+      * `POST /projects/â€¦/forms/â€¦/restore` to restore a Form that hasn't yet been permanently purged.
 
     * Additional metadata field 'formVersion' on [CSV export](/central-api-submission-management/#exporting-form-submissions-to-csv), [OData feed](/central-api-odata-endpoints/#data-document), and [extended Submission Version request](/central-api-submission-management/#listing-versions) which reports the version of the Form the Submission was _originally_ created with.
 
@@ -325,7 +325,7 @@ info:
 
     **Added**:
 
-    * `GET /projects/…/forms/…/submissions/…/diffs` will return the [changes between each version](/central-api-submission-management/#getting-changes-between-versions) of a Submission.
+    * `GET /projects/â€¦/forms/â€¦/submissions/â€¦/diffs` will return the [changes between each version](/central-api-submission-management/#getting-changes-between-versions) of a Submission.
 
     * You can set the [Usage Reporting configuration](/central-api-system-endpoints/#system-configuration) to choose whether the server will share anonymous usage data with the Central team. By default, no usage information will be sent at all.
 
@@ -350,21 +350,21 @@ info:
 
     **Added**:
 
-    * `POST /projects/…/submission` now accepts ecosystem-compatible submission updates over OpenRosa, using the `deprecatedID`.
+    * `POST /projects/â€¦/submission` now accepts ecosystem-compatible submission updates over OpenRosa, using the `deprecatedID`.
 
     * REST-friendly submission updates by `PUT`ing XML directly to the submission resource path.
 
-    * `GET /projects/…/forms/…/submissions/…/edit` will now redirect the authenticated user (after some thought) to an Enketo-powered webform for editing the submission.
+    * `GET /projects/â€¦/forms/â€¦/submissions/â€¦/edit` will now redirect the authenticated user (after some thought) to an Enketo-powered webform for editing the submission.
 
-    * There is now a subresource `/projects/…/forms/…/submissions/…/versions` to get all versions of a submission, and details about each one, including submitted media files.
+    * There is now a subresource `/projects/â€¦/forms/â€¦/submissions/â€¦/versions` to get all versions of a submission, and details about each one, including submitted media files.
 
-    * There is now a subresource `/projects/…/forms/…/submissions/…/comments` which allows very simple comment creation (`POST`) and listing (`GET`) on a submission.
+    * There is now a subresource `/projects/â€¦/forms/â€¦/submissions/â€¦/comments` which allows very simple comment creation (`POST`) and listing (`GET`) on a submission.
 
-    * Submissions now have a `reviewState` property which can be updated via `PATCH /projects/…/forms/…/submissions`.
+    * Submissions now have a `reviewState` property which can be updated via `PATCH /projects/â€¦/forms/â€¦/submissions`.
 
     * You can now provide `X-Action-Notes` on any API request that might generate audit logs, to leave a note on those log entries.
 
-    * `GET /projects/…/forms/…/submissions/…/audits` will return just audit logs pertaining to that submission.
+    * `GET /projects/â€¦/forms/â€¦/submissions/â€¦/audits` will return just audit logs pertaining to that submission.
 
     * OData queries may now request `?expand=*` to request all nested data structures inline. Only `*` is accepted.
 
@@ -378,7 +378,7 @@ info:
 
     **Changed**:
 
-    * Unpublished Forms (Forms that only have a Draft and have never been published) will now appear with full details in `GET /projects/…/forms`. Previously, values like `name` would be `null` for these Forms. You can still identify unpublished Forms as they will have a `publishedAt` value of `null`.
+    * Unpublished Forms (Forms that only have a Draft and have never been published) will now appear with full details in `GET /projects/â€¦/forms`. Previously, values like `name` would be `null` for these Forms. You can still identify unpublished Forms as they will have a `publishedAt` value of `null`.
 
     * Date and Boolean OData types are now given as date and boolean rather than text.
 
@@ -392,15 +392,15 @@ info:
 
     * `POST`/`GET /backup`, will immediately perform a backup of the database and return the encrypted backup.
 
-    * `POST`/`GET /projects/…/forms/…/submissions.csv`, which allows download of the root table (excluding repeat data) as CSV, without a zipfile.
+    * `POST`/`GET /projects/â€¦/forms/â€¦/submissions.csv`, which allows download of the root table (excluding repeat data) as CSV, without a zipfile.
 
-    * `POST`/`GET /projects/…/forms/…/submissions.csv.zip` now allows `?attachments=false` to exclude attachments.
+    * `POST`/`GET /projects/â€¦/forms/â€¦/submissions.csv.zip` now allows `?attachments=false` to exclude attachments.
 
     * OData Data Document requests now allow limited use of `$filter`.
 
     * The various `submissions.csv.*` endpoints also allow `$filter`, using the same limited OData syntax.
 
-    * `GET /projects/…/forms/…/submissions/submitters` which returns submitter Actors for a given Form.
+    * `GET /projects/â€¦/forms/â€¦/submissions/submitters` which returns submitter Actors for a given Form.
 
     **Fixed**:
 
@@ -430,44 +430,44 @@ info:
 
     ## ODK Central v0.8
 
-    ODK Central v0.8 introduces Draft Forms, publishing, and archived Form versions, which has a significant breaking impact on the existing API. The changes should be straightforward to adapt to, however. If you are currently creating Forms with `POST /projects/…/forms`, you may wish to add `?publish=true` to skip the Draft state and mimic the old behaviour. If you are using the API to push Form Attachments onto Forms, you'll only be able to do so now in draft state, at `/projects/…/forms/…/draft/attachments`.
+    ODK Central v0.8 introduces Draft Forms, publishing, and archived Form versions, which has a significant breaking impact on the existing API. The changes should be straightforward to adapt to, however. If you are currently creating Forms with `POST /projects/â€¦/forms`, you may wish to add `?publish=true` to skip the Draft state and mimic the old behaviour. If you are using the API to push Form Attachments onto Forms, you'll only be able to do so now in draft state, at `/projects/â€¦/forms/â€¦/draft/attachments`.
 
     **Added**:
 
     * Draft Forms and publishing, and archived Form versions.
 
-      * This includes [a subresource](/central-api-form-management/#draft-form) at `/projects/…/forms/…/draft`,
-      * and [another](/central-api-form-management/#published-form-versions) at `/projects/…/forms/…/versions`,
-      * and a [new collection of OpenRosa endpoints](/central-api-openrosa-endpoints/#draft-testing-endpoints), under `/test/…/projects/…/forms/…/draft`, for submitting test submissions to the draft version of the form.
+      * This includes [a subresource](/central-api-form-management/#draft-form) at `/projects/â€¦/forms/â€¦/draft`,
+      * and [another](/central-api-form-management/#published-form-versions) at `/projects/â€¦/forms/â€¦/versions`,
+      * and a [new collection of OpenRosa endpoints](/central-api-openrosa-endpoints/#draft-testing-endpoints), under `/test/â€¦/projects/â€¦/forms/â€¦/draft`, for submitting test submissions to the draft version of the form.
 
-    * `GET /projects/…/forms/…/fields`, which replaces `GET /projects/…/forms/….schema.json`.
+    * `GET /projects/â€¦/forms/â€¦/fields`, which replaces `GET /projects/â€¦/forms/â€¦.schema.json`.
 
     * App User responses now include the `projectId` they are bound to.
 
     **Changed**:
 
-    * As part of the Draft Forms change, the read/write endpoints for Form Attachments have been moved to the Draft Form state and subresource, at `/projects/…/forms/…/draft/attachments`.
+    * As part of the Draft Forms change, the read/write endpoints for Form Attachments have been moved to the Draft Form state and subresource, at `/projects/â€¦/forms/â€¦/draft/attachments`.
 
     **Removed**:
 
-    * `GET /projects/…/forms/….schema.json` has been removed in favor of `GET /projects/…/forms/…/fields`.
+    * `GET /projects/â€¦/forms/â€¦.schema.json` has been removed in favor of `GET /projects/â€¦/forms/â€¦/fields`.
 
     **Fixed**:
 
-    * Documented `GET /projects/…/forms/….xls(x)`, which was added in 0.7.
+    * Documented `GET /projects/â€¦/forms/â€¦.xls(x)`, which was added in 0.7.
 
     ## ODK Central v0.7
 
     **Added**:
 
-    * Form-specific [Assignments resource](/central-api-form-management/#form-assignments) at `projects/…/forms/…/assignments`, allowing granular role assignments on a per-Form basis.
+    * Form-specific [Assignments resource](/central-api-form-management/#form-assignments) at `projects/â€¦/forms/â€¦/assignments`, allowing granular role assignments on a per-Form basis.
 
       * Relatedly, the [OpenRosa Form Listing API](/central-api-openrosa-endpoints/#openrosa-form-listing-api) no longer rejects requests outright based on authentication. Rather, it will only return Forms that the authenticated user is allowed to view.
-      * A [new summary API](/central-api-project-management/#seeing-all-form-assignments-within-a-project) `GET /projects/…/assignments/forms` which returns all assignments on all Forms within a Project, so you don't have to request this information separately for each Form.
+      * A [new summary API](/central-api-project-management/#seeing-all-form-assignments-within-a-project) `GET /projects/â€¦/assignments/forms` which returns all assignments on all Forms within a Project, so you don't have to request this information separately for each Form.
 
     * `PUT /projects/:id`, which while complex allows you to update many Forms' states and assignments with a single transactional request.
 
-    * `POST /projects/…/forms` now allows upload of `.xls` and `.xlsx` XLSForm files. The correct MIME type must be given.
+    * `POST /projects/â€¦/forms` now allows upload of `.xls` and `.xlsx` XLSForm files. The correct MIME type must be given.
 
     * `GET /users/?q` will now always return user details given an exact match for an email, even for users who cannot `user.list`. The request must still be authenticate as a valid Actor. This allows non-Administrators to choose a user for an action (eg grant rights) without allowing full search.
 
@@ -487,20 +487,20 @@ info:
 
     * Project Managed Encryption:
 
-      * `POST /projects/…/key` to enable project managed encryption.
+      * `POST /projects/â€¦/key` to enable project managed encryption.
       * Both submission intake methods (OpenRosa and REST) now support encrypted submissions.
-      * `GET /projects/…/forms/…/submissions/keys` to get a list of encryption keys needed to decrypt all submitted data.
-      * `?{keyId}={passphrase}` option on `GET /projects/…/forms/…/submissions.csv.zip` to get a decrypted archive given the `passphrase`.
-      * `POST /projects/…/forms/…/submissions.csv.zip` to provide a browser-secure (no querystring) method of accessing the above `GET .csv.zip` resource.
+      * `GET /projects/â€¦/forms/â€¦/submissions/keys` to get a list of encryption keys needed to decrypt all submitted data.
+      * `?{keyId}={passphrase}` option on `GET /projects/â€¦/forms/â€¦/submissions.csv.zip` to get a decrypted archive given the `passphrase`.
+      * `POST /projects/â€¦/forms/â€¦/submissions.csv.zip` to provide a browser-secure (no querystring) method of accessing the above `GET .csv.zip` resource.
       * OData and `.csv.zip` data responses now contain an additional `status` system column.
 
     * Form resource data now includes `projectId` and 'keyId'.
 
-    * `?odata=true` option on `GET /projects/…/forms/….schema.json` to sanitize the field names to match the way they will be outputted for OData.
+    * `?odata=true` option on `GET /projects/â€¦/forms/â€¦.schema.json` to sanitize the field names to match the way they will be outputted for OData.
 
     **Changed**:
 
-    * `GET /projects/…/forms/…/attachments` now always returns `updatedAt`. There is no longer a separate Extended Metadata response for this resource.
+    * `GET /projects/â€¦/forms/â€¦/attachments` now always returns `updatedAt`. There is no longer a separate Extended Metadata response for this resource.
 
     * The Submission response format now provides the submitter ID at `submitterId` rather than `submitter`. This is so that the Extended responses for Submissions can use `submitter` to provide the full Actor subobject rather than replacing it. This brings the response format to be more similar to the other Extended formats.
 
@@ -514,7 +514,7 @@ info:
 
     **Added**:
 
-    * Roles and Assignments resources at `/roles`, `/assignments`, and `/projects/…/assignments`.
+    * Roles and Assignments resources at `/roles`, `/assignments`, and `/projects/â€¦/assignments`.
 
     * Optional `?q=` querystring parameter on Users `GET` listing, for searching users.
 
@@ -552,7 +552,7 @@ info:
 
     * Projects resource at `/projects`.
 
-    * Submission XML resource fetch at `GET /projects/…/forms/…/submissions/….xml`.
+    * Submission XML resource fetch at `GET /projects/â€¦/forms/â€¦/submissions/â€¦.xml`.
 
     * Submission attachment management over REST, at the `/attachments` subresource within Submissions.
 
@@ -605,7 +605,7 @@ tags:
 
     Data Collectors can see all Forms in a Project and submit to them, but cannot see Submissions and cannot edit Form settings. Similarly, App Users are granted minimal rights: they can read Form data and create new Submissions on those Forms. While Data Collectors can perform these actions directly on the Central administration website by logging in, App Users can only do these things through Collect or a similar data collection client device.
 
-    The Roles API alone does not, however, tell you which Actors have been assigned with Roles upon which system objects. For that, you will need to consult the various Assignments resources. There are two, one under the API root (`/v1/assignments`), which manages assignments to the entire system, and another nested under each Project (`/v1/projects/…/assignments`) which manage assignments to that Project.
+    The Roles API alone does not, however, tell you which Actors have been assigned with Roles upon which system objects. For that, you will need to consult the various Assignments resources. There are two, one under the API root (`/v1/assignments`), which manages assignments to the entire system, and another nested under each Project (`/v1/projects/â€¦/assignments`) which manage assignments to that Project.
 - name: Project Management
   description: Apart from staff users ("Web Users" in the Central management interface)
     and some site-wide configuration details like Usage Reporting, all of ODK Central's
@@ -629,7 +629,7 @@ tags:
   description: |-
     _(introduced: version 2022.3)_
 
-    > ⚠️  In this API and in the related [ODK XForms specification](https://getodk.github.io/xforms-spec/entities), collections of `Entities` are referred to as `Datasets`. The term "Entity List" is used for this concept in the Central frontend UI, user documentation, and all other text intended for end users who are not developers.
+    > âš ï¸  In this API and in the related [ODK XForms specification](https://getodk.github.io/xforms-spec/entities), collections of `Entities` are referred to as `Datasets`. The term "Entity List" is used for this concept in the Central frontend UI, user documentation, and all other text intended for end users who are not developers.
 
     A Dataset is a named collection of [Entities](/central-api-entity-management/) that have the same properties.
 
@@ -646,7 +646,7 @@ tags:
   description: |-
     _(introduced: version 2023.3)_
 
-    > ⚠️ In this API and in the related [ODK XForms specification](https://getodk.github.io/xforms-spec/entities), collections of `Entities` are referred to as `Datasets`. The term "Entity List" is used for this concept in the Central frontend UI, user facing documentation, and all other text intended for end users who are not developers.
+    > âš ï¸ In this API and in the related [ODK XForms specification](https://getodk.github.io/xforms-spec/entities), collections of `Entities` are referred to as `Datasets`. The term "Entity List" is used for this concept in the Central frontend UI, user facing documentation, and all other text intended for end users who are not developers.
 
     Entities are data objects that can be shared between Forms to support workflows with multiple steps. They can be created either through form design or through this API. A collection of `Entities` is a [Dataset](/central-api-dataset-management/).
 - name: OpenRosa Endpoints
@@ -714,11 +714,11 @@ tags:
 
     The relevant API operations are documented inline above; here we guide you through what exists from a high level.
 
-    To invoke Project Manage Encryption, you may use the web management interface, or you may [POST /projects/…/key](/central-api-project-management/#enabling-project-managed-encryption).
+    To invoke Project Manage Encryption, you may use the web management interface, or you may [POST /projects/â€¦/key](/central-api-project-management/#enabling-project-managed-encryption).
 
-    To list all the encryption keys associated with the submissions on a given form, you can [GET /projects/…/forms/…/submissions/keys](/central-api-submission-management/#listing-encryption-keys). This is particularly useful for obtaining the integer numeric ID associated with each key, which will be necessary to decrypt the records, as well as for obtaining reminder hints about each passphrase.
+    To list all the encryption keys associated with the submissions on a given form, you can [GET /projects/â€¦/forms/â€¦/submissions/keys](/central-api-submission-management/#listing-encryption-keys). This is particularly useful for obtaining the integer numeric ID associated with each key, which will be necessary to decrypt the records, as well as for obtaining reminder hints about each passphrase.
 
-    To perform decryption, you can [GET or POST /projects/…/forms/…/submissions.csv.zip](/central-api-submission-management/#exporting-form-submissions-to-csv) with extra parameters to provide the necessary passphrases. If you are building a browser-based application, it is recommended that you `POST` rather than `GET`: please see the notes in the linked sections for additional details.
+    To perform decryption, you can [GET or POST /projects/â€¦/forms/â€¦/submissions.csv.zip](/central-api-submission-management/#exporting-form-submissions-to-csv) with extra parameters to provide the necessary passphrases. If you are building a browser-based application, it is recommended that you `POST` rather than `GET`: please see the notes in the linked sections for additional details.
 
     Note that the OData JSON API does not (presently) decrypt data. Any encrypted submissions will be returned only with basic metadata, like submission date and user.
 - name: Session Authentication
@@ -883,7 +883,7 @@ tags:
 
     The `instanceId` that is submitted with the initial version of the submission is used permanently to reference that submission logically, which is to say the initial submission and all its subsequent versions. Each subsequent version will also provide its own `instanceId`. This `instanceId` becomes that particular version's identifier.
 
-    So if you submit a submission with `<orx:instanceID>one</orx:instanceID>` and then update it, deprecating `one` for version `two`, then the full route for version `one` is `/v1/projects/…/forms/…/submissions/one/versions/one`, and for `two` it is `/v1/projects/…/forms/…/submissions/one/versions/two`.
+    So if you submit a submission with `<orx:instanceID>one</orx:instanceID>` and then update it, deprecating `one` for version `two`, then the full route for version `one` is `/v1/projects/â€¦/forms/â€¦/submissions/one/versions/one`, and for `two` it is `/v1/projects/â€¦/forms/â€¦/submissions/one/versions/two`.
 
     As of version 1.4, a `deviceId` and `userAgent` will also be returned with each submission. For each submission of a version, the submitting client device may transmit these extra metadata. If it does, those fields will be recognized and returned here for reference.
 - name: Draft Submissions
@@ -899,7 +899,7 @@ tags:
 
     To facilitate testing, there is an alternative collection of OpenRosa endpoints that will give access to the draft version of a form and allow submitting test submissions to it. If you are using User or App User authentication, you can use the following resources without the `/test/{token}` prefix with your existing authentication.
 
-    Otherwise, and in particular if you plan to test your form in Collect or another OpenRosa-compliant client, you will likely want to use the `/test` Draft Token prefix. It functions similarly to the standard OpenRosa support, with App User authentication, but instead of a `/key` route prefix they feature a `/test` route prefix, and they point directly at each form (example: `/test/lSpA…EjR7/projects/1/forms/myform/draft`).
+    Otherwise, and in particular if you plan to test your form in Collect or another OpenRosa-compliant client, you will likely want to use the `/test` Draft Token prefix. It functions similarly to the standard OpenRosa support, with App User authentication, but instead of a `/key` route prefix they feature a `/test` route prefix, and they point directly at each form (example: `/test/lSpAâ€¦EjR7/projects/1/forms/myform/draft`).
 
     You can get the appropriate Draft Token for any given draft by [requesting the Draft Form](/central-api-form-management/#getting-draft-form-details).
 
@@ -3354,7 +3354,7 @@ paths:
       description: |-
         When creating a `Form`, the only required data is the actual XForms XML or XLSForm itself. Use it as the `POST` body with a `Content-Type` header of `application/xml` (`text/xml` works too), and the Form will be created.
 
-        As of Version 0.8, Forms will by default be created in Draft state, accessible under `/projects/…/forms/…/draft`. The Form itself will not have a public XML definition, and will not appear for download onto mobile devices. You will need to [publish the form](/central-api-form-management/#publishing-a-draft-form) to finalize it for data collection. To disable this behaviour, and force the new Form to be immediately ready, you can pass the querystring option `?publish=true`.
+        As of Version 0.8, Forms will by default be created in Draft state, accessible under `/projects/â€¦/forms/â€¦/draft`. The Form itself will not have a public XML definition, and will not appear for download onto mobile devices. You will need to [publish the form](/central-api-form-management/#publishing-a-draft-form) to finalize it for data collection. To disable this behaviour, and force the new Form to be immediately ready, you can pass the querystring option `?publish=true`.
 
         For XLSForm upload, either `.xls` or `.xlsx` are accepted. You must provide the `Content-Type` request header corresponding to the file type: `application/vnd.openxmlformats-officedocument.spreadsheetml.sheet` for `.xlsx` files, and `application/vnd.ms-excel` for `.xls` files. You must also provide an `X-XlsForm-FormId-Fallback` request header with the `formId` you want the resulting form to have, if the spreadsheet does not already specify. This header field accepts percent-encoded values to support Unicode characters and other non-ASCII values.
 
@@ -10869,7 +10869,7 @@ paths:
 
         As of ODK Central v1.2, you can use `$expand=*` to expand all repeat repetitions. This is helpful if you'd rather get one nested JSON data payload of all hierarchical data, rather than retrieve each of repeat as a separate flat table with references.
 
-        The _nonstandard_ `$wkt` querystring parameter may be set to `true` to request that geospatial data is returned as a [Well-Known Text (WKT) string](https://en.wikipedia.org/wiki/Well-known_text) rather than a GeoJSON structure. This exists primarily to support Tableau, which cannot yet read GeoJSON, but you may find it useful as well depending on your mapping software. **Please note** that both GeoJSON and WKT follow a `(lon, lat, alt)` coördinate ordering rather than the ODK-proprietary `lat lon alt`. This is so that the values map neatly to `(x, y, z)`. GPS accuracy information is not a part of either standards specification, and so is presently omitted from OData output entirely. GeoJSON support may come in a future version.
+        The _nonstandard_ `$wkt` querystring parameter may be set to `true` to request that geospatial data is returned as a [Well-Known Text (WKT) string](https://en.wikipedia.org/wiki/Well-known_text) rather than a GeoJSON structure. This exists primarily to support Tableau, which cannot yet read GeoJSON, but you may find it useful as well depending on your mapping software. **Please note** that both GeoJSON and WKT follow a `(lon, lat, alt)` coÃ¶rdinate ordering rather than the ODK-proprietary `lat lon alt`. This is so that the values map neatly to `(x, y, z)`. GPS accuracy information is not a part of either standards specification, and so is presently omitted from OData output entirely. GeoJSON support may come in a future version.
 
         As of ODK Central v2022.3, the [`$select` query parameter](http://docs.oasis-open.org/odata/odata/v4.01/odata-v4.01-part1-protocol.html#_Toc31358942) is supported with some limitations:
 
@@ -11387,7 +11387,7 @@ paths:
 
         The [`$orderby` query parameter](http://docs.oasis-open.org/odata/odata/v4.01/odata-v4.01-part1-protocol.html#_Toc31358952) will return Entities sorted by different fields, which come from the same list used by `$filter`, as noted above. The order can be specified as `ASC` (ascending) or `DESC` (descending), which are case-insensitive. Multiple sort expressions can be used together, separated by commas, e.g. `$orderby=__system/creatorId ASC, __system/conflict DESC`.
 
-        The [`$search` query parameter](https://docs.oasis-open.org/odata/odata/v4.01/odata-v4.01-part1-protocol.html#sec_SystemQueryOptionsearch) can be used to search entity data (user-defined properties) and the `label` field. Central does not implement the OData specification's suggested search techniques—such as `AND`, `NOT`, and parentheses grouping—exactly as described. Instead, the search behavior is similar to that of a web search engine:
+        The [`$search` query parameter](https://docs.oasis-open.org/odata/odata/v4.01/odata-v4.01-part1-protocol.html#sec_SystemQueryOptionsearch) can be used to search entity data (user-defined properties) and the `label` field. Central does not implement the OData specification's suggested search techniquesâ€”such as `AND`, `NOT`, and parentheses groupingâ€”exactly as described. Instead, the search behavior is similar to that of a web search engine:
 
         - Multiple words return entities that contain **all** the searched words (logical AND operation).
         - The `OR` keyword can be used to find entities that contain **any** of the searched words.

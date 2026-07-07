@@ -1,34 +1,34 @@
 {
   "title": {
     "resetPassword": {
-      "string": "パスワードのリセット",
+      "string": "ãƒ‘ã‚¹ãƒ¯ãƒ¼ãƒ‰ã®ãƒªã‚»ãƒƒãƒˆ",
       "developer_comment": "This is the text shown as the title of a page including in the browser tab."
     },
     "setPassword": {
-      "string": "パスワードの設定",
+      "string": "ãƒ‘ã‚¹ãƒ¯ãƒ¼ãƒ‰ã®è¨­å®š",
       "developer_comment": "This is the text shown as the title of a page including in the browser tab."
     },
     "editProfile": {
-      "string": "プロフィールを編集",
+      "string": "ãƒ—ãƒ­ãƒ•ã‚£ãƒ¼ãƒ«ã‚’ç·¨é›†",
       "developer_comment": "This is the text shown as the title of a page including in the browser tab."
     },
     "download": {
-      "string": "ダウンロード",
+      "string": "ãƒ€ã‚¦ãƒ³ãƒ­ãƒ¼ãƒ‰",
       "developer_comment": "This is the text shown as the title of a page including in the browser tab."
     },
     "pageNotFound": {
-      "string": "ページが見つかりません。",
+      "string": "ãƒšãƒ¼ã‚¸ãŒè¦‹ã¤ã‹ã‚Šã¾ã›ã‚“ã€‚",
       "developer_comment": "This is the text shown as the title of a page including in the browser tab."
     },
     "details": {
-      "string": "詳細",
+      "string": "è©³ç´°",
       "developer_comment": "This is the text shown as the title of a page including in the browser tab."
     }
   },
   "projectShow": {
     "tab": {
       "formAccess": {
-        "string": "フォームへのアクセス",
+        "string": "ãƒ•ã‚©ãƒ¼ãƒ ã¸ã®ã‚¢ã‚¯ã‚»ã‚¹",
         "developer_comment": "This is the text of a navigation tab, which may also be shown as the page title (browser tab)."
       },
       "customProperties": {
@@ -40,11 +40,11 @@
   "formHead": {
     "tab": {
       "publicAccess": {
-        "string": "一般公開",
+        "string": "ä¸€èˆ¬å…¬é–‹",
         "developer_comment": "This is the text of a navigation tab, which may also be shown as the page title (browser tab)."
       },
       "versions": {
-        "string": "バージョン",
+        "string": "ãƒãƒ¼ã‚¸ãƒ§ãƒ³",
         "developer_comment": "This is the text of a navigation tab, which may also be shown as the page title (browser tab)."
       },
       "editForm": {
@@ -55,19 +55,19 @@
     "draftNav": {
       "tab": {
         "status": {
-          "string": "ステータス"
+          "string": "ã‚¹ãƒ†ãƒ¼ã‚¿ã‚¹"
         }
       }
     }
   },
   "systemHome": {
     "title": {
-      "string": "システム管理",
+      "string": "ã‚·ã‚¹ãƒ†ãƒ ç®¡ç†",
       "developer_comment": "This is the title of the page for audit logs and other system-level functions."
     },
     "tab": {
       "audits": {
-        "string": "サーバー監査ログ",
+        "string": "ã‚µãƒ¼ãƒãƒ¼ç›£æŸ»ãƒ­ã‚°",
         "developer_comment": "This is the text of a navigation tab, which may also be shown as the page title (browser tab)."
       },
       "customization": {
@@ -75,44 +75,44 @@
         "developer_comment": "This is the text of a navigation tab, which may also be shown as the page title (browser tab)."
       },
       "analytics": {
-        "string": "利用状況報告",
+        "string": "åˆ©ç”¨çŠ¶æ³å ±å‘Š",
         "developer_comment": "This is the text of a navigation tab, which may also be shown as the page title (browser tab)."
       }
     }
   },
   "role": {
     "none": {
-      "string": "なし",
+      "string": "ãªã—",
       "developer_comment": "This is shown when a user does not have a Role."
     },
     "admin": {
-      "string": "管理者",
+      "string": "ç®¡ç†è€…",
       "developer_comment": "This is the name of a user Role."
     },
     "manager": {
-      "string": "プロジェクト・マネジャー",
+      "string": "ãƒ—ãƒ­ã‚¸ã‚§ã‚¯ãƒˆãƒ»ãƒžãƒã‚¸ãƒ£ãƒ¼",
       "developer_comment": "This is the name of a user Role."
     },
     "viewer": {
-      "string": "プロジェクト・閲覧者",
+      "string": "ãƒ—ãƒ­ã‚¸ã‚§ã‚¯ãƒˆãƒ»é–²è¦§è€…",
       "developer_comment": "This is the name of a user Role."
     },
     "formfill": {
-      "string": "データ収集者",
+      "string": "ãƒ‡ãƒ¼ã‚¿åŽé›†è€…",
       "developer_comment": "This is the name of a user Role."
     }
   },
   "formState": {
     "open": {
-      "string": "公開",
+      "string": "å…¬é–‹",
       "developer_comment": "Form States control the lifecycle state of each Form. \"Open\" is one Form State."
     },
     "closing": {
-      "string": "クロージング状態",
+      "string": "ã‚¯ãƒ­ãƒ¼ã‚¸ãƒ³ã‚°çŠ¶æ…‹",
       "developer_comment": "Form States control the lifecycle state of each Form. \"Closing\" is one Form State."
     },
     "closed": {
-      "string": "終了",
+      "string": "çµ‚äº†",
       "developer_comment": "Form States control the lifecycle state of each Form. \"Closed\" is one Form State."
     },
     "unpublished": {
@@ -122,23 +122,23 @@
   },
   "reviewState": {
     "received": {
-      "string": "受信済み",
+      "string": "å—ä¿¡æ¸ˆã¿",
       "developer_comment": "This is a possible Review State for a Submission."
     },
     "hasIssues": {
-      "string": "問題有り",
+      "string": "å•é¡Œæœ‰ã‚Š",
       "developer_comment": "This is a possible Review State for a Submission."
     },
     "edited": {
-      "string": "編集済み",
+      "string": "ç·¨é›†æ¸ˆã¿",
       "developer_comment": "This is a possible Review State for a Submission."
     },
     "approved": {
-      "string": "承認済み",
+      "string": "æ‰¿èªæ¸ˆã¿",
       "developer_comment": "This is a possible Review State for a Submission."
     },
     "rejected": {
-      "string": "リジェクト済み",
+      "string": "ãƒªã‚¸ã‚§ã‚¯ãƒˆæ¸ˆã¿",
       "developer_comment": "This is a possible Review State for a Submission."
     }
   },
@@ -149,23 +149,23 @@
         "developer_comment": "This is a category of actions performed on the server. It is shown in a dropdown when filtering the log of actions by type."
       },
       "user": {
-        "string": "Webユーザーに対する操作",
+        "string": "Webãƒ¦ãƒ¼ã‚¶ãƒ¼ã«å¯¾ã™ã‚‹æ“ä½œ",
         "developer_comment": "This is a category of actions performed on the server. It is shown in a dropdown when filtering the log of actions by type."
       },
       "project": {
-        "string": "プロジェクトに対する操作",
+        "string": "ãƒ—ãƒ­ã‚¸ã‚§ã‚¯ãƒˆã«å¯¾ã™ã‚‹æ“ä½œ",
         "developer_comment": "This is a category of actions performed on the server. It is shown in a dropdown when filtering the log of actions by type."
       },
       "form": {
-        "string": "フォームに対する操作",
+        "string": "ãƒ•ã‚©ãƒ¼ãƒ ã«å¯¾ã™ã‚‹æ“ä½œ",
         "developer_comment": "This is a category of actions performed on the server. It is shown in a dropdown when filtering the log of actions by type."
       },
       "field_key": {
-        "string": "アプリユーザーに対する操作",
+        "string": "ã‚¢ãƒ—ãƒªãƒ¦ãƒ¼ã‚¶ãƒ¼ã«å¯¾ã™ã‚‹æ“ä½œ",
         "developer_comment": "This is a category of actions performed on the server. It is shown in a dropdown when filtering the log of actions by type."
       },
       "public_link": {
-        "string": "一般公開リンクに対する操作",
+        "string": "ä¸€èˆ¬å…¬é–‹ãƒªãƒ³ã‚¯ã«å¯¾ã™ã‚‹æ“ä½œ",
         "developer_comment": "This is a category of actions performed on the server. It is shown in a dropdown when filtering the log of actions by type."
       },
       "dataset": {
@@ -173,11 +173,11 @@
         "developer_comment": "This is a category of actions performed on the server. It is shown in a dropdown when filtering the log of actions by type."
       },
       "config": {
-        "string": "サーバー設定に対する操作",
+        "string": "ã‚µãƒ¼ãƒãƒ¼è¨­å®šã«å¯¾ã™ã‚‹æ“ä½œ",
         "developer_comment": "This is a category of actions performed on the server. It is shown in a dropdown when filtering the log of actions by type."
       },
       "upgrade": {
-        "string": "サーバーの更新",
+        "string": "ã‚µãƒ¼ãƒãƒ¼ã®æ›´æ–°",
         "developer_comment": "This is a category of actions performed on the server. It is shown in a dropdown when filtering the log of actions by type."
       },
       "task": {
@@ -188,19 +188,19 @@
     "action": {
       "default": {
         "create": {
-          "string": "作成",
+          "string": "ä½œæˆ",
           "developer_comment": "This is shown in the log of actions performed on the server. It is a type of action."
         },
         "update": {
-          "string": "詳細の更新",
+          "string": "è©³ç´°ã®æ›´æ–°",
           "developer_comment": "This is shown in the log of actions performed on the server. It is a type of action."
         },
         "session_end": {
-          "string": "無効化",
+          "string": "ç„¡åŠ¹åŒ–",
           "developer_comment": "This is shown in the log of actions performed on the server. It is a type of action."
         },
         "delete": {
-          "string": "削除",
+          "string": "å‰Šé™¤",
           "developer_comment": "This is shown in the log of actions performed on the server. It is a type of action."
         },
         "property_set": {
@@ -209,7 +209,7 @@
         }
       },
       "analytics": {
-        "string": "利用状況報告",
+        "string": "åˆ©ç”¨çŠ¶æ³å ±å‘Š",
         "developer_comment": "This is shown in the log of actions performed on the server."
       },
       "blobs": {
@@ -224,7 +224,7 @@
       },
       "config": {
         "set": {
-          "string": "設定",
+          "string": "è¨­å®š",
           "developer_comment": "This is shown in the log of actions performed on the server. It is a type of action that can be taken on a Server Configuration."
         }
       },
@@ -260,17 +260,17 @@
       },
       "field_key": {
         "assignment_create": {
-          "string": "アクセス権の付与",
+          "string": "ã‚¢ã‚¯ã‚»ã‚¹æ¨©ã®ä»˜ä¸Ž",
           "developer_comment": "This is shown in the log of actions performed on the server. It is a type of action that can be taken on an App User."
         },
         "assignment_delete": {
-          "string": "アクセス権の取消",
+          "string": "ã‚¢ã‚¯ã‚»ã‚¹æ¨©ã®å–æ¶ˆ",
           "developer_comment": "This is shown in the log of actions performed on the server. It is a type of action that can be taken on an App User."
         }
       },
       "form": {
         "update_draft_set": {
-          "string": "下書きの作成・更新",
+          "string": "ä¸‹æ›¸ãã®ä½œæˆãƒ»æ›´æ–°",
           "developer_comment": "This is shown in the log of actions performed on the server. It is a type of action that can be taken on a Form."
         },
         "update_draft_replace": {
@@ -282,19 +282,19 @@
           "developer_comment": "This is shown in the log of actions performed on the server. It is a type of action that can be taken on a Form."
         },
         "update_publish": {
-          "string": "下書きの公開",
+          "string": "ä¸‹æ›¸ãã®å…¬é–‹",
           "developer_comment": "This is shown in the log of actions performed on the server. It is a type of action that can be taken on a Form."
         },
         "update_draft_delete": {
-          "string": "下書きの削除",
+          "string": "ä¸‹æ›¸ãã®å‰Šé™¤",
           "developer_comment": "This is shown in the log of actions performed on the server. It is a type of action that can be taken on a Form."
         },
         "attachment_update": {
-          "string": "メディアファイルの更新",
+          "string": "ãƒ¡ãƒ‡ã‚£ã‚¢ãƒ•ã‚¡ã‚¤ãƒ«ã®æ›´æ–°",
           "developer_comment": "This is shown in the log of actions performed on the server. It is a type of action that can be taken on a Form."
         },
         "submission_export": {
-          "string": "提出済フォームのダウンロード",
+          "string": "æå‡ºæ¸ˆãƒ•ã‚©ãƒ¼ãƒ ã®ãƒ€ã‚¦ãƒ³ãƒ­ãƒ¼ãƒ‰",
           "developer_comment": "This is shown in the log of actions performed on the server. It is a type of action that can be taken on a Form."
         },
         "restore": {
@@ -302,17 +302,17 @@
           "developer_comment": "This is shown in the log of actions performed on the server. It is a type of action that can be taken on a Form."
         },
         "purge": {
-          "string": "完全に削除",
+          "string": "å®Œå…¨ã«å‰Šé™¤",
           "developer_comment": "This is shown in the log of actions performed on the server. It is a type of action that can be taken on a Form."
         }
       },
       "public_link": {
         "assignment_create": {
-          "string": "アクセス権の付与",
+          "string": "ã‚¢ã‚¯ã‚»ã‚¹æ¨©ã®ä»˜ä¸Ž",
           "developer_comment": "This is shown in the log of actions performed on the server. It is a type of action that can be taken on a Public Access Link."
         },
         "assignment_delete": {
-          "string": "アクセス権の取消",
+          "string": "ã‚¢ã‚¯ã‚»ã‚¹æ¨©ã®å–æ¶ˆ",
           "developer_comment": "This is shown in the log of actions performed on the server. It is a type of action that can be taken on a Public Access Link."
         }
       },
@@ -324,11 +324,11 @@
       },
       "upgrade": {
         "process_form": {
-          "string": "フォームの処理",
+          "string": "ãƒ•ã‚©ãƒ¼ãƒ ã®å‡¦ç†",
           "developer_comment": "This is shown in the log of actions performed on the server. It is a type of action that the server performs when it is upgraded."
         },
         "process_form_draft": {
-          "string": "下書きフォームの処理",
+          "string": "ä¸‹æ›¸ããƒ•ã‚©ãƒ¼ãƒ ã®å‡¦ç†",
           "developer_comment": "This is shown in the log of actions performed on the server. It is a type of action that the server performs when it is upgraded."
         },
         "process_form_entities_version": {
@@ -342,15 +342,15 @@
       },
       "user": {
         "assignment_create": {
-          "string": "役割の指定",
+          "string": "å½¹å‰²ã®æŒ‡å®š",
           "developer_comment": "This is shown in the log of actions performed on the server. It is a type of action that can be taken on or for a Web User."
         },
         "assignment_delete": {
-          "string": "役割の取消",
+          "string": "å½¹å‰²ã®å–æ¶ˆ",
           "developer_comment": "This is shown in the log of actions performed on the server. It is a type of action that can be taken on or for a Web User."
         },
         "delete": {
-          "string": "除外",
+          "string": "é™¤å¤–",
           "developer_comment": "This is shown in the log of actions performed on the server. It is a type of action that can be taken on or for a Web User."
         }
       }
@@ -358,19 +358,19 @@
   },
   "action": {
     "cancel": {
-      "string": "キャンセル",
+      "string": "ã‚­ãƒ£ãƒ³ã‚»ãƒ«",
       "developer_comment": "This is the text for an action, for example, the text of a button."
     },
     "clear": {
-      "string": "クリアする",
+      "string": "ã‚¯ãƒªã‚¢ã™ã‚‹",
       "developer_comment": "This is the text for an action, for example, the text of a button."
     },
     "close": {
-      "string": "閉じる",
+      "string": "é–‰ã˜ã‚‹",
       "developer_comment": "This is the text for an action, for example, the text of a button."
     },
     "comment": {
-      "string": "コメント",
+      "string": "ã‚³ãƒ¡ãƒ³ãƒˆ",
       "developer_comment": "This is the text for an action, for example, the text of a button."
     },
     "continue": {
@@ -378,7 +378,7 @@
       "developer_comment": "This is the text for an action, for example, the text of a button."
     },
     "create": {
-      "string": "作成",
+      "string": "ä½œæˆ",
       "developer_comment": "This is the text for an action, for example, the text of a button."
     },
     "createSubmission": {
@@ -390,19 +390,19 @@
       "developer_comment": "This is the text for an action, for example, the text of a button."
     },
     "done": {
-      "string": "完了",
+      "string": "å®Œäº†",
       "developer_comment": "This is the text for an action, for example, the text of a button."
     },
     "download": {
-      "string": "ダウンロード",
+      "string": "ãƒ€ã‚¦ãƒ³ãƒ­ãƒ¼ãƒ‰",
       "developer_comment": "This is the text for an action, for example, the text of a button."
     },
     "edit": {
-      "string": "編集",
+      "string": "ç·¨é›†",
       "developer_comment": "This is the text for an action, for example, the text of a button."
     },
     "editProfile": {
-      "string": "プロフィールを編集",
+      "string": "ãƒ—ãƒ­ãƒ•ã‚£ãƒ¼ãƒ«ã‚’ç·¨é›†",
       "developer_comment": "This is the text for an action, for example, the text of a button."
     },
     "finish": {
@@ -410,27 +410,27 @@
       "developer_comment": "This is the text for an action, for example, the text of a button."
     },
     "logIn": {
-      "string": "ログイン",
+      "string": "ãƒ­ã‚°ã‚¤ãƒ³",
       "developer_comment": "This is the text for an action, for example, the text of a button."
     },
     "looksGood": {
-      "string": "進んで問題ありません。",
+      "string": "é€²ã‚“ã§å•é¡Œã‚ã‚Šã¾ã›ã‚“ã€‚",
       "developer_comment": "This is the text for an action, for example, the text of a button."
     },
     "more": {
-      "string": "詳細",
+      "string": "è©³ç´°",
       "developer_comment": "This is the text for an action, for example, the text of a button."
     },
     "neverMind": {
-      "string": "大丈夫です、キャンセルします。",
+      "string": "å¤§ä¸ˆå¤«ã§ã™ã€ã‚­ãƒ£ãƒ³ã‚»ãƒ«ã—ã¾ã™ã€‚",
       "developer_comment": "This is the text for an action, for example, the text of a button."
     },
     "next": {
-      "string": "次へ",
+      "string": "æ¬¡ã¸",
       "developer_comment": "This is the text for an action, for example, the text of a button."
     },
     "noCancel": {
-      "string": "いいえ、キャンセルします。",
+      "string": "ã„ã„ãˆã€ã‚­ãƒ£ãƒ³ã‚»ãƒ«ã—ã¾ã™ã€‚",
       "developer_comment": "This is the text for an action, for example, the text of a button."
     },
     "ok": {
@@ -438,11 +438,11 @@
       "developer_comment": "This is the text for an action, for example, the text of a button."
     },
     "proceed": {
-      "string": "次へ進む",
+      "string": "æ¬¡ã¸é€²ã‚€",
       "developer_comment": "This is the text for an action, for example, the text of a button."
     },
     "refresh": {
-      "string": "更新",
+      "string": "æ›´æ–°",
       "developer_comment": "This is the text of a button that refreshes data."
     },
     "refreshPage": {
@@ -450,19 +450,19 @@
       "developer_comment": "This is the text for an action, for example, the text of a button."
     },
     "resetPassword": {
-      "string": "パスワードのリセット",
+      "string": "ãƒ‘ã‚¹ãƒ¯ãƒ¼ãƒ‰ã®ãƒªã‚»ãƒƒãƒˆ",
       "developer_comment": "This is the text for an action, for example, the text of a button."
     },
     "review": {
-      "string": "レビュー",
+      "string": "ãƒ¬ãƒ“ãƒ¥ãƒ¼",
       "developer_comment": "This is the text for an action, for example, the text of a button."
     },
     "save": {
-      "string": "保存",
+      "string": "ä¿å­˜",
       "developer_comment": "This is the text for an action, for example, the text of a button."
     },
     "saveSettings": {
-      "string": "設定の保存",
+      "string": "è¨­å®šã®ä¿å­˜",
       "developer_comment": "This is the text for an action, for example, the text of a button."
     },
     "sort": {
@@ -478,19 +478,19 @@
       "developer_comment": "This is the text for an action, for example, the text of a button."
     },
     "update": {
-      "string": "更新",
+      "string": "æ›´æ–°",
       "developer_comment": "This is the text for an action, for example, the text of a button."
     },
     "yesProceed": {
-      "string": "はい、続けます。",
+      "string": "ã¯ã„ã€ç¶šã‘ã¾ã™ã€‚",
       "developer_comment": "This is the text for an action, for example, the text of a button."
     },
     "showPreview": {
-      "string": "プレビュー",
+      "string": "ãƒ—ãƒ¬ãƒ“ãƒ¥ãƒ¼",
       "developer_comment": "This text is shown on a button that the user clicks to show a preview of something"
     },
     "hidePreview": {
-      "string": "プレビューを隠す",
+      "string": "ãƒ—ãƒ¬ãƒ“ãƒ¥ãƒ¼ã‚’éš ã™",
       "developer_comment": "This text is shown on a button that the user clicks to hide a preview of something"
     },
     "expand": {
@@ -516,43 +516,43 @@
   },
   "field": {
     "comment": {
-      "string": "コメントを残す...",
+      "string": "ã‚³ãƒ¡ãƒ³ãƒˆã‚’æ®‹ã™...",
       "developer_comment": "This is the text of a form field."
     },
     "dateRange": {
-      "string": "期間",
+      "string": "æœŸé–“",
       "developer_comment": "This is the text of a form field."
     },
     "displayName": {
-      "string": "表示名",
+      "string": "è¡¨ç¤ºå",
       "developer_comment": "This is the text of a form field."
     },
     "email": {
-      "string": "メールアドレス",
+      "string": "ãƒ¡ãƒ¼ãƒ«ã‚¢ãƒ‰ãƒ¬ã‚¹",
       "developer_comment": "This is the text of a form field."
     },
     "name": {
-      "string": "名前",
+      "string": "åå‰",
       "developer_comment": "This is the text of a form field."
     },
     "newPassword": {
-      "string": "新しいパスワード",
+      "string": "æ–°ã—ã„ãƒ‘ã‚¹ãƒ¯ãƒ¼ãƒ‰",
       "developer_comment": "This is the text of a form field."
     },
     "oldPassword": {
-      "string": "現在のパスワード",
+      "string": "ç¾åœ¨ã®ãƒ‘ã‚¹ãƒ¯ãƒ¼ãƒ‰",
       "developer_comment": "This is the text of a form field."
     },
     "passphrase": {
-      "string": "パスフレーズ",
+      "string": "ãƒ‘ã‚¹ãƒ•ãƒ¬ãƒ¼ã‚º",
       "developer_comment": "This is the text of a form field."
     },
     "password": {
-      "string": "パスワード",
+      "string": "ãƒ‘ã‚¹ãƒ¯ãƒ¼ãƒ‰",
       "developer_comment": "This is the text of a form field."
     },
     "passwordConfirm": {
-      "string": "新しいパスワード（確認用）",
+      "string": "æ–°ã—ã„ãƒ‘ã‚¹ãƒ¯ãƒ¼ãƒ‰ï¼ˆç¢ºèªç”¨ï¼‰",
       "developer_comment": "This is the text of a form field."
     },
     "title": {
@@ -560,24 +560,24 @@
       "developer_comment": "This is the text of a form field."
     },
     "type": {
-      "string": "タイプ",
+      "string": "ã‚¿ã‚¤ãƒ—",
       "developer_comment": "This is the text of a form field."
     },
     "reviewState": {
-      "string": "レビュー・ステータス"
+      "string": "ãƒ¬ãƒ“ãƒ¥ãƒ¼ãƒ»ã‚¹ãƒ†ãƒ¼ã‚¿ã‚¹"
     }
   },
   "header": {
     "actions": {
-      "string": "操作",
+      "string": "æ“ä½œ",
       "developer_comment": "This is the text of a table column header."
     },
     "created": {
-      "string": "作成済み",
+      "string": "ä½œæˆæ¸ˆã¿",
       "developer_comment": "This is the text of a table column header. The column shows who created each App User and possibly also when they did so."
     },
     "createdBy": {
-      "string": "作成者",
+      "string": "ä½œæˆè€…",
       "developer_comment": "This is the text of a table column header. The column shows the user or Public Access Link that created each Entity."
     },
     "createdAt": {
@@ -589,19 +589,19 @@
       "developer_comment": "This is the text of a table column header. For each Entity property, the column shows the Forms that can update the property."
     },
     "displayName": {
-      "string": "表示名",
+      "string": "è¡¨ç¤ºå",
       "developer_comment": "This is the text of a table column header."
     },
     "email": {
-      "string": "メールアドレス",
+      "string": "ãƒ¡ãƒ¼ãƒ«ã‚¢ãƒ‰ãƒ¬ã‚¹",
       "developer_comment": "This is the text of a table column header."
     },
     "instanceId": {
-      "string": "インスタンスID",
+      "string": "ã‚¤ãƒ³ã‚¹ã‚¿ãƒ³ã‚¹ID",
       "developer_comment": "This is the text of a table column header."
     },
     "lastSubmission": {
-      "string": "最新のフォーム提出日時",
+      "string": "æœ€æ–°ã®ãƒ•ã‚©ãƒ¼ãƒ æå‡ºæ—¥æ™‚",
       "developer_comment": "This is the text of a table column header."
     },
     "recentActivity": {
@@ -609,7 +609,7 @@
       "developer_comment": "This is the text of a table column header."
     },
     "name": {
-      "string": "名前",
+      "string": "åå‰",
       "developer_comment": "This is the text of a table column header."
     },
     "listName": {
@@ -617,19 +617,19 @@
       "developer_comment": "This is the text of a table column header."
     },
     "submitterName": {
-      "string": "フォーム提出者",
+      "string": "ãƒ•ã‚©ãƒ¼ãƒ æå‡ºè€…",
       "developer_comment": "This is the text of a table column header. The column shows the user or Public Access Link that submitted each Submission."
     },
     "submissionDate": {
-      "string": "フォームの提出日時",
+      "string": "ãƒ•ã‚©ãƒ¼ãƒ ã®æå‡ºæ—¥æ™‚",
       "developer_comment": "This is the text of a table column header. The column indicates when each Submission was submitted."
     },
     "time": {
-      "string": "時刻",
+      "string": "æ™‚åˆ»",
       "developer_comment": "This is the text of a table column header for a column that shows dates and times."
     },
     "type": {
-      "string": "タイプ",
+      "string": "ã‚¿ã‚¤ãƒ—",
       "developer_comment": "This is the text of a table column header."
     },
     "entities": {
@@ -647,27 +647,27 @@
   },
   "plural": {
     "appUser": {
-      "string": "{count, plural, other {アプリユーザー}}"
+      "string": "{count, plural, other {ã‚¢ãƒ—ãƒªãƒ¦ãƒ¼ã‚¶ãƒ¼}}"
     },
     "form": {
-      "string": "{count, plural, other {フォーム}}"
+      "string": "{count, plural, other {ãƒ•ã‚©ãƒ¼ãƒ }}"
     },
     "project": {
-      "string": "{count, plural, other {プロジェクト}}"
+      "string": "{count, plural, other {ãƒ—ãƒ­ã‚¸ã‚§ã‚¯ãƒˆ}}"
     },
     "submission": {
-      "string": "{count, plural, other {提出済フォーム}}"
+      "string": "{count, plural, other {æå‡ºæ¸ˆãƒ•ã‚©ãƒ¼ãƒ }}"
     },
     "user": {
       "string": "{count, plural, other {}}"
     },
     "webUser": {
-      "string": "{count, plural, other {Webユーザー}}"
+      "string": "{count, plural, other {Webãƒ¦ãƒ¼ã‚¶ãƒ¼}}"
     }
   },
   "count": {
     "appUser": {
-      "string": "{count, plural, other {{count}名のアプリユーザー}}",
+      "string": "{count, plural, other {{count}åã®ã‚¢ãƒ—ãƒªãƒ¦ãƒ¼ã‚¶ãƒ¼}}",
       "developer_comment": "This text appears on its own and is not part of a longer sentence."
     },
     "attachments": {
@@ -675,11 +675,11 @@
       "developer_comment": "This text appears on its own and is not part of a longer sentence."
     },
     "form": {
-      "string": "{count, plural, other {{count}件のフォーム}}",
+      "string": "{count, plural, other {{count}ä»¶ã®ãƒ•ã‚©ãƒ¼ãƒ }}",
       "developer_comment": "This text appears on its own and is not part of a longer sentence."
     },
     "submission": {
-      "string": "{count, plural, other {{count}件の提出済フォーム}}",
+      "string": "{count, plural, other {{count}ä»¶ã®æå‡ºæ¸ˆãƒ•ã‚©ãƒ¼ãƒ }}",
       "developer_comment": "This text appears on its own and is not part of a longer sentence."
     },
     "warning": {
@@ -689,11 +689,11 @@
   },
   "resource": {
     "appUser": {
-      "string": "アプリユーザー",
+      "string": "ã‚¢ãƒ—ãƒªãƒ¦ãƒ¼ã‚¶ãƒ¼",
       "developer_comment": "This text appears on its own and is not part of a longer sentence. It may be shown as a title, for example, at the top of the page."
     },
     "appUsers": {
-      "string": "アプリユーザー",
+      "string": "ã‚¢ãƒ—ãƒªãƒ¦ãƒ¼ã‚¶ãƒ¼",
       "developer_comment": "This text appears on its own and is not part of a longer sentence. It may be shown as a title, for example, at the top of the page."
     },
     "attachments": {
@@ -701,7 +701,7 @@
       "developer_comment": "This text appears on its own and is not part of a longer sentence. It may be shown as a title, for example, at the top of the page."
     },
     "config": {
-      "string": "サーバー設定",
+      "string": "ã‚µãƒ¼ãƒãƒ¼è¨­å®š",
       "developer_comment": "This text appears on its own and is not part of a longer sentence. It may be shown as a title, for example, at the top of the page."
     },
     "entity": {
@@ -721,11 +721,11 @@
       "developer_comment": "This text appears on its own and is not part of a longer sentence. It may be shown as a title, for example, at the top of the page."
     },
     "form": {
-      "string": "フォーム",
+      "string": "ãƒ•ã‚©ãƒ¼ãƒ ",
       "developer_comment": "This text appears on its own and is not part of a longer sentence. It may be shown as a title, for example, at the top of the page."
     },
     "forms": {
-      "string": "フォーム",
+      "string": "ãƒ•ã‚©ãƒ¼ãƒ ",
       "developer_comment": "This text appears on its own and is not part of a longer sentence. It may be shown as a title, for example, at the top of the page."
     },
     "newForm": {
@@ -737,11 +737,11 @@
       "developer_comment": "This text appears on its own and is not part of a longer sentence. It may be shown as a title, for example, at the top of the page."
     },
     "project": {
-      "string": "プロジェクト",
+      "string": "ãƒ—ãƒ­ã‚¸ã‚§ã‚¯ãƒˆ",
       "developer_comment": "This text appears on its own and is not part of a longer sentence. It may be shown as a title, for example, at the top of the page."
     },
     "projects": {
-      "string": "プロジェクト",
+      "string": "ãƒ—ãƒ­ã‚¸ã‚§ã‚¯ãƒˆ",
       "developer_comment": "This text appears on its own and is not part of a longer sentence. It may be shown as a title, for example, at the top of the page."
     },
     "property": {
@@ -753,27 +753,27 @@
       "developer_comment": "This refers to the data properties of an Entity."
     },
     "publicLink": {
-      "string": "一般公開リンク",
+      "string": "ä¸€èˆ¬å…¬é–‹ãƒªãƒ³ã‚¯",
       "developer_comment": "This text appears on its own and is not part of a longer sentence. It may be shown as a title, for example, at the top of the page."
     },
     "user": {
-      "string": "ユーザー",
+      "string": "ãƒ¦ãƒ¼ã‚¶ãƒ¼",
       "developer_comment": "This text appears on its own and is not part of a longer sentence. It may be shown as a title, for example, at the top of the page."
     },
     "users": {
-      "string": "ユーザー",
+      "string": "ãƒ¦ãƒ¼ã‚¶ãƒ¼",
       "developer_comment": "This text appears on its own and is not part of a longer sentence. It may be shown as a title, for example, at the top of the page."
     },
     "webUser": {
-      "string": "Webユーザー",
+      "string": "Webãƒ¦ãƒ¼ã‚¶ãƒ¼",
       "developer_comment": "This text appears on its own and is not part of a longer sentence. It may be shown as a title, for example, at the top of the page."
     },
     "webUsers": {
-      "string": "Webユーザー",
+      "string": "Webãƒ¦ãƒ¼ã‚¶ãƒ¼",
       "developer_comment": "This text appears on its own and is not part of a longer sentence. It may be shown as a title, for example, at the top of the page."
     },
     "session": {
-      "string": "セッション",
+      "string": "ã‚»ãƒƒã‚·ãƒ§ãƒ³",
       "developer_comment": "This text appears on its own and is not part of a longer sentence. It may be shown as a title, for example, at the top of the page."
     },
     "submission": {
@@ -781,11 +781,11 @@
       "developer_comment": "This text appears on its own and is not part of a longer sentence. It may be shown as a title, for example, at the top of the page."
     },
     "submissions": {
-      "string": "提出済フォーム",
+      "string": "æå‡ºæ¸ˆãƒ•ã‚©ãƒ¼ãƒ ",
       "developer_comment": "This text appears on its own and is not part of a longer sentence. It may be shown as a title, for example, at the top of the page."
     },
     "projectRoles": {
-      "string": "プロジェクトでの役割",
+      "string": "ãƒ—ãƒ­ã‚¸ã‚§ã‚¯ãƒˆã§ã®å½¹å‰²",
       "developer_comment": "This text appears on its own and is not part of a longer sentence. It may be shown as a title, for example, at the top of the page."
     },
     "formPreview": {
@@ -819,26 +819,26 @@
   "moreInfo": {
     "clickHere": {
       "full": {
-        "string": "さらに詳細を表示するには、{clickHere}して下さい。",
+        "string": "ã•ã‚‰ã«è©³ç´°ã‚’è¡¨ç¤ºã™ã‚‹ã«ã¯ã€{clickHere}ã—ã¦ä¸‹ã•ã„ã€‚",
         "developer_comment": "{clickHere} is a separate string that will be translated below. Its text will be formatted within ODK Central, for example, it might be bold or a link. Its text is:\n\nclick here"
       },
       "clickHere": {
-        "string": "こちらをクリック",
+        "string": "ã“ã¡ã‚‰ã‚’ã‚¯ãƒªãƒƒã‚¯",
         "developer_comment": "This text will be formatted within ODK Central, for example, it might be bold or a link. It will be inserted where {clickHere} is in the following text:\n\nFor more information, {clickHere}."
       }
     },
     "helpArticle": {
       "full": {
-        "string": "さらに詳細を表示するには、{helpArticle}を参照して下さい。",
+        "string": "ã•ã‚‰ã«è©³ç´°ã‚’è¡¨ç¤ºã™ã‚‹ã«ã¯ã€{helpArticle}ã‚’å‚ç…§ã—ã¦ä¸‹ã•ã„ã€‚",
         "developer_comment": "{helpArticle} is a separate string that will be translated below. Its text will be formatted within ODK Central, for example, it might be bold or a link. Its text is:\n\nthis help article"
       },
       "helpArticle": {
-        "string": "こちらのヘルプ",
+        "string": "ã“ã¡ã‚‰ã®ãƒ˜ãƒ«ãƒ—",
         "developer_comment": "This text will be formatted within ODK Central, for example, it might be bold or a link. It will be inserted where {helpArticle} is in the following text:\n\nFor more information, please see {helpArticle}."
       }
     },
     "learnMore": {
-      "string": "さらに詳しく知る。",
+      "string": "ã•ã‚‰ã«è©³ã—ãçŸ¥ã‚‹ã€‚",
       "developer_comment": "This is a link to more information."
     }
   },
@@ -859,15 +859,15 @@
   },
   "analytics": {
     "alwaysImprove": {
-      "string": "私たちは常にODK Centralを改良しようとしています。"
+      "string": "ç§ãŸã¡ã¯å¸¸ã«ODK Centralã‚’æ”¹è‰¯ã—ã‚ˆã†ã¨ã—ã¦ã„ã¾ã™ã€‚"
     },
     "needFeedback": {
       "full": {
-        "string": "そのために、私たちは{your}フィードバックが必要です。それによりあなたがどの様にCentralを使い、またどの様にすればあなたにとって良くなるのかが分かります。",
+        "string": "ãã®ãŸã‚ã«ã€ç§ãŸã¡ã¯{your}ãƒ•ã‚£ãƒ¼ãƒ‰ãƒãƒƒã‚¯ãŒå¿…è¦ã§ã™ã€‚ãã‚Œã«ã‚ˆã‚Šã‚ãªãŸãŒã©ã®æ§˜ã«Centralã‚’ä½¿ã„ã€ã¾ãŸã©ã®æ§˜ã«ã™ã‚Œã°ã‚ãªãŸã«ã¨ã£ã¦è‰¯ããªã‚‹ã®ã‹ãŒåˆ†ã‹ã‚Šã¾ã™ã€‚",
         "developer_comment": "\"This\" refers to improving Central.\n\n{your} is a separate string that will be translated below. Its text will be formatted within ODK Central, for example, it might be bold or a link. Its text is:\n\nyour"
       },
       "your": {
-        "string": "あなたの",
+        "string": "ã‚ãªãŸã®",
         "developer_comment": "This text will be formatted within ODK Central, for example, it might be bold or a link. It will be inserted where {your} is in the following text:\n\nTo do this, we need {your} feedback, so that we can understand how you are using Central, and how it could be better for you."
       }
     },
@@ -882,19 +882,19 @@
     },
     "action": {
       "edit": {
-        "string": "編集回数（{count}）",
+        "string": "ç·¨é›†å›žæ•°ï¼ˆ{count}ï¼‰",
         "developer_comment": "{count} is the number of previous edits."
       }
     },
     "editDisabled": {
-      "string": "暗号化され、提出済フォームは編集できません。",
+      "string": "æš—å·åŒ–ã•ã‚Œã€æå‡ºæ¸ˆãƒ•ã‚©ãƒ¼ãƒ ã¯ç·¨é›†ã§ãã¾ã›ã‚“ã€‚",
       "developer_comment": "This is shown when the Edit button is disabled."
     },
     "binaryLinkTitle": {
-      "string": "ファイルが提出されました。クリックしてダウンロードします。"
+      "string": "ãƒ•ã‚¡ã‚¤ãƒ«ãŒæå‡ºã•ã‚Œã¾ã—ãŸã€‚ã‚¯ãƒªãƒƒã‚¯ã—ã¦ãƒ€ã‚¦ãƒ³ãƒ­ãƒ¼ãƒ‰ã—ã¾ã™ã€‚"
     },
     "encryptionMessage": {
-      "string": "暗号化されているのため、データプレビューは利用できません。"
+      "string": "æš—å·åŒ–ã•ã‚Œã¦ã„ã‚‹ã®ãŸã‚ã€ãƒ‡ãƒ¼ã‚¿ãƒ—ãƒ¬ãƒ“ãƒ¥ãƒ¼ã¯åˆ©ç”¨ã§ãã¾ã›ã‚“ã€‚"
     },
     "noSubmission": {
       "string": "",
@@ -931,19 +931,19 @@
   },
   "common": {
     "activity": {
-      "string": "アクティビティ",
+      "string": "ã‚¢ã‚¯ãƒ†ã‚£ãƒ“ãƒ†ã‚£",
       "developer_comment": "This is a title shown above a section of the page."
     },
     "anybody": {
-      "string": "（全員）",
+      "string": "ï¼ˆå…¨å“¡ï¼‰",
       "developer_comment": "This is shown in a dropdown that allows the user to filter to only show data for particular users."
     },
     "areYouSure": {
-      "string": "本当に続けて問題ないですか？",
+      "string": "æœ¬å½“ã«ç¶šã‘ã¦å•é¡Œãªã„ã§ã™ã‹ï¼Ÿ",
       "developer_comment": "Here we ask the user to confirm that they wish to complete an action that they have initiated."
     },
     "basicInfo": {
-      "string": "基本情報",
+      "string": "åŸºæœ¬æƒ…å ±",
       "developer_comment": "This is a title shown above a section of the page."
     },
     "conflict": {
@@ -953,7 +953,7 @@
       "string": ""
     },
     "dangerZone": {
-      "string": "危険エリア",
+      "string": "å±é™ºã‚¨ãƒªã‚¢",
       "developer_comment": "This is a title shown above a section of the page."
     },
     "data": {
@@ -975,7 +975,7 @@
       "string": ""
     },
     "filter": {
-      "string": "フィルター",
+      "string": "ãƒ•ã‚£ãƒ«ã‚¿ãƒ¼",
       "developer_comment": "This text is shown next to options for filtering a table."
     },
     "forum": {
@@ -992,10 +992,10 @@
       "string": ""
     },
     "no": {
-      "string": "いいえ"
+      "string": "ã„ã„ãˆ"
     },
     "noResults": {
-      "string": "該当なし",
+      "string": "è©²å½“ãªã—",
       "developer_comment": "This is shown if a search returned no results."
     },
     "noUndo": {
@@ -1006,18 +1006,18 @@
       "developer_comment": "This is shown for the row number."
     },
     "success": {
-      "string": "成功です！"
+      "string": "æˆåŠŸã§ã™ï¼"
     },
     "system": {
-      "string": "システム",
+      "string": "ã‚·ã‚¹ãƒ†ãƒ ",
       "developer_comment": "\"System\" refers to the server and how it is configured. It may be shown as a title, for example, at the top of the page."
     },
     "yes": {
-      "string": "はい"
+      "string": "ã¯ã„"
     },
     "tab": {
       "settings": {
-        "string": "設定",
+        "string": "è¨­å®š",
         "developer_comment": "This is the text of a navigation tab, which may also be shown as the page title (browser tab)."
       }
     },
@@ -1025,7 +1025,7 @@
       "string": ""
     },
     "total": {
-      "string": "全期間"
+      "string": "å…¨æœŸé–“"
     },
     "totalSubmissions": {
       "string": ""
@@ -1070,7 +1070,7 @@
     "request": {
       "alert": {
         "fileSize": {
-          "string": "アップロードを試みているファイル\"{name}\"は、100MB制限を超過しています。"
+          "string": "ã‚¢ãƒƒãƒ—ãƒ­ãƒ¼ãƒ‰ã‚’è©¦ã¿ã¦ã„ã‚‹ãƒ•ã‚¡ã‚¤ãƒ«\"{name}\"ã¯ã€100MBåˆ¶é™ã‚’è¶…éŽã—ã¦ã„ã¾ã™ã€‚"
         },
         "entityTooLarge": {
           "string": ""
@@ -1105,13 +1105,13 @@
     },
     "request": {
       "noRequest": {
-        "string": "問題発生：リクエストがありません。"
+        "string": "å•é¡Œç™ºç”Ÿï¼šãƒªã‚¯ã‚¨ã‚¹ãƒˆãŒã‚ã‚Šã¾ã›ã‚“ã€‚"
       },
       "noResponse": {
-        "string": "問題発生：リクエストへの応答がありません。"
+        "string": "å•é¡Œç™ºç”Ÿï¼šãƒªã‚¯ã‚¨ã‚¹ãƒˆã¸ã®å¿œç­”ãŒã‚ã‚Šã¾ã›ã‚“ã€‚"
       },
       "errorNotProblem": {
-        "string": "問題発生：エラーコード{status}",
+        "string": "å•é¡Œç™ºç”Ÿï¼šã‚¨ãƒ©ãƒ¼ã‚³ãƒ¼ãƒ‰{status}",
         "developer_comment": "{status} is an HTTP status code, for example, 404."
       },
       "problem": {
@@ -1151,7 +1151,7 @@
   },
   "router": {
     "unsavedChanges": {
-      "string": "このページを終了してもよろしいですか？変更が保存されていない可能性があります。"
+      "string": "ã“ã®ãƒšãƒ¼ã‚¸ã‚’çµ‚äº†ã—ã¦ã‚‚ã‚ˆã‚ã—ã„ã§ã™ã‹ï¼Ÿå¤‰æ›´ãŒä¿å­˜ã•ã‚Œã¦ã„ãªã„å¯èƒ½æ€§ãŒã‚ã‚Šã¾ã™ã€‚"
     }
   },
   "component": {
@@ -1161,13 +1161,13 @@
       },
       "action": {
         "set": {
-          "string": "パスワードの設定",
+          "string": "ãƒ‘ã‚¹ãƒ¯ãƒ¼ãƒ‰ã®è¨­å®š",
           "developer_comment": "This is the text for an action, for example, the text of a button."
         }
       },
       "problem": {
         "401_2": {
-          "string": "{message}　メールに記載されているリンクの有効期限が切れている可能性があり、新たにメールを送信する必要があるようです。",
+          "string": "{message}ã€€ãƒ¡ãƒ¼ãƒ«ã«è¨˜è¼‰ã•ã‚Œã¦ã„ã‚‹ãƒªãƒ³ã‚¯ã®æœ‰åŠ¹æœŸé™ãŒåˆ‡ã‚Œã¦ã„ã‚‹å¯èƒ½æ€§ãŒã‚ã‚Šã€æ–°ãŸã«ãƒ¡ãƒ¼ãƒ«ã‚’é€ä¿¡ã™ã‚‹å¿…è¦ãŒã‚ã‚‹ã‚ˆã†ã§ã™ã€‚",
           "developer_comment": "{message} is an error message from the server."
         }
       },
@@ -1180,7 +1180,7 @@
     "AccountLogin": {
       "alert": {
         "alreadyLoggedIn": {
-          "string": "すでにユーザーでログインされています。\n続けるにはページを更新してください。"
+          "string": "ã™ã§ã«ãƒ¦ãƒ¼ã‚¶ãƒ¼ã§ãƒ­ã‚°ã‚¤ãƒ³ã•ã‚Œã¦ã„ã¾ã™ã€‚\nç¶šã‘ã‚‹ã«ã¯ãƒšãƒ¼ã‚¸ã‚’æ›´æ–°ã—ã¦ãã ã•ã„ã€‚"
         },
         "changePassword": {
           "string": ""
@@ -1207,7 +1207,7 @@
       },
       "problem": {
         "401_2": {
-          "string": "メールアドレスとパスワードの一方、または両方が違います。"
+          "string": "ãƒ¡ãƒ¼ãƒ«ã‚¢ãƒ‰ãƒ¬ã‚¹ã¨ãƒ‘ã‚¹ãƒ¯ãƒ¼ãƒ‰ã®ä¸€æ–¹ã€ã¾ãŸã¯ä¸¡æ–¹ãŒé•ã„ã¾ã™ã€‚"
         }
       }
     },
@@ -1225,7 +1225,7 @@
       },
       "alert": {
         "success": {
-          "string": "{email}に詳細の対応についての情報が記されたメールが送信されました。"
+          "string": "{email}ã«è©³ç´°ã®å¯¾å¿œã«ã¤ã„ã¦ã®æƒ…å ±ãŒè¨˜ã•ã‚ŒãŸãƒ¡ãƒ¼ãƒ«ãŒé€ä¿¡ã•ã‚Œã¾ã—ãŸã€‚"
         }
       }
     },
@@ -1233,59 +1233,59 @@
       "enabled": {
         "null": {
           "0": {
-            "string": "後で通知する。"
+            "string": "å¾Œã§é€šçŸ¥ã™ã‚‹ã€‚"
           },
           "1": {
-            "string": "管理者には引き続きスクリーン上部にメッセージが表示されます。"
+            "string": "ç®¡ç†è€…ã«ã¯å¼•ãç¶šãã‚¹ã‚¯ãƒªãƒ¼ãƒ³ä¸Šéƒ¨ã«ãƒ¡ãƒƒã‚»ãƒ¼ã‚¸ãŒè¡¨ç¤ºã•ã‚Œã¾ã™ã€‚"
           }
         },
         "true": {
           "0": {
             "full": {
-              "string": "{weWillShare}また、{termsOfService}と{privacyPolicy}に同意します。",
+              "string": "{weWillShare}ã¾ãŸã€{termsOfService}ã¨{privacyPolicy}ã«åŒæ„ã—ã¾ã™ã€‚",
               "developer_comment": "The following are separate strings that will be translated below. They will be formatted within ODK Central, for example, they might be bold or a link.\n\n- {weWillShare} has the text: We are willing to share anonymous usage data monthly with the Central team,\n- {termsOfService} has the text: Terms of Service\n- {privacyPolicy} has the text: Privacy Policy"
             },
             "weWillShare": {
-              "string": "私たちは毎月、匿名化された利用情報をCentralチームと共有します。",
+              "string": "ç§ãŸã¡ã¯æ¯Žæœˆã€åŒ¿ååŒ–ã•ã‚ŒãŸåˆ©ç”¨æƒ…å ±ã‚’Centralãƒãƒ¼ãƒ ã¨å…±æœ‰ã—ã¾ã™ã€‚",
               "developer_comment": "This text will be formatted within ODK Central, for example, it might be bold or a link. It will be inserted where {weWillShare} is in the following text:\n\n{weWillShare} and we accept the {termsOfService} and {privacyPolicy}."
             },
             "termsOfService": {
-              "string": "利用規約",
+              "string": "åˆ©ç”¨è¦ç´„",
               "developer_comment": "This text will be formatted within ODK Central, for example, it might be bold or a link. It will be inserted where {termsOfService} is in the following text:\n\n{weWillShare} and we accept the {termsOfService} and {privacyPolicy}."
             },
             "privacyPolicy": {
-              "string": "プライバシーポリシー",
+              "string": "ãƒ—ãƒ©ã‚¤ãƒã‚·ãƒ¼ãƒãƒªã‚·ãƒ¼",
               "developer_comment": "This text will be formatted within ODK Central, for example, it might be bold or a link. It will be inserted where {privacyPolicy} is in the following text:\n\n{weWillShare} and we accept the {termsOfService} and {privacyPolicy}."
             }
           },
           "1": {
-            "string": "どのような情報が送信されるのか？"
+            "string": "ã©ã®ã‚ˆã†ãªæƒ…å ±ãŒé€ä¿¡ã•ã‚Œã‚‹ã®ã‹ï¼Ÿ"
           }
         },
         "false": {
           "0": {
-            "string": "私たちはデータを共有することに興味はありません。"
+            "string": "ç§ãŸã¡ã¯ãƒ‡ãƒ¼ã‚¿ã‚’å…±æœ‰ã™ã‚‹ã“ã¨ã«èˆˆå‘³ã¯ã‚ã‚Šã¾ã›ã‚“ã€‚"
           },
           "1": {
-            "string": "あなたはこれに関する再通知を受け取ることはありません。"
+            "string": "ã‚ãªãŸã¯ã“ã‚Œã«é–¢ã™ã‚‹å†é€šçŸ¥ã‚’å—ã‘å–ã‚‹ã“ã¨ã¯ã‚ã‚Šã¾ã›ã‚“ã€‚"
           }
         }
       },
       "contact": {
         "0": {
-          "string": "私は報告にコンタクトの情報を含みます。"
+          "string": "ç§ã¯å ±å‘Šã«ã‚³ãƒ³ã‚¿ã‚¯ãƒˆã®æƒ…å ±ã‚’å«ã¿ã¾ã™ã€‚"
         },
         "1": {
-          "string": "私たちからあなたのODK Centralの利用状況について問い合わせることがあります。"
+          "string": "ç§ãŸã¡ã‹ã‚‰ã‚ãªãŸã®ODK Centralã®åˆ©ç”¨çŠ¶æ³ã«ã¤ã„ã¦å•ã„åˆã‚ã›ã‚‹ã“ã¨ãŒã‚ã‚Šã¾ã™ã€‚"
         }
       },
       "field": {
         "workEmail": {
-          "string": "職場のメールアドレス",
+          "string": "è·å ´ã®ãƒ¡ãƒ¼ãƒ«ã‚¢ãƒ‰ãƒ¬ã‚¹",
           "developer_comment": "This is the text of a form field."
         },
         "organization": {
-          "string": "組織名",
+          "string": "çµ„ç¹”å",
           "developer_comment": "This is the text of a form field."
         }
       },
@@ -1297,27 +1297,27 @@
     },
     "AnalyticsIntroduction": {
       "title": {
-        "string": "Centralの改善に貢献",
+        "string": "Centralã®æ”¹å–„ã«è²¢çŒ®",
         "developer_comment": "This is the title at the top of a pop-up."
       },
       "introduction": {
         "0": {
           "full": {
-            "string": "システム管理の{usageReporting}タブで、あなたは匿名の利用データを共有するか、あなたのコンタクトをCentralの開発チームと共有するかを選択できます。",
+            "string": "ã‚·ã‚¹ãƒ†ãƒ ç®¡ç†ã®{usageReporting}ã‚¿ãƒ–ã§ã€ã‚ãªãŸã¯åŒ¿åã®åˆ©ç”¨ãƒ‡ãƒ¼ã‚¿ã‚’å…±æœ‰ã™ã‚‹ã‹ã€ã‚ãªãŸã®ã‚³ãƒ³ã‚¿ã‚¯ãƒˆã‚’Centralã®é–‹ç™ºãƒãƒ¼ãƒ ã¨å…±æœ‰ã™ã‚‹ã‹ã‚’é¸æŠžã§ãã¾ã™ã€‚",
             "developer_comment": "{usageReporting} is a separate string that will be translated below. Its text will be formatted within ODK Central, for example, it might be bold or a link. Its text is:\n\nUsage Reporting"
           },
           "usageReporting": {
-            "string": "利用状況報告",
+            "string": "åˆ©ç”¨çŠ¶æ³å ±å‘Š",
             "developer_comment": "This text will be formatted within ODK Central, for example, it might be bold or a link. It will be inserted where {usageReporting} is in the following text:\n\nIn the {usageReporting} tab in System Settings, you can choose to share anonymized usage data or contact information with the Central team."
           }
         },
         "1": {
-          "string": "そこで、あなたはこのメッセージを再び表示しないように設定できます。"
+          "string": "ãã“ã§ã€ã‚ãªãŸã¯ã“ã®ãƒ¡ãƒƒã‚»ãƒ¼ã‚¸ã‚’å†ã³è¡¨ç¤ºã—ãªã„ã‚ˆã†ã«è¨­å®šã§ãã¾ã™ã€‚"
         }
       },
       "action": {
         "improveCentral": {
-          "string": "Centralを改善する。",
+          "string": "Centralã‚’æ”¹å–„ã™ã‚‹ã€‚",
           "developer_comment": "This is the text for an action, for example, the text of a button."
         }
       }
@@ -1325,87 +1325,87 @@
     "AnalyticsList": {
       "heading": {
         "0": {
-          "string": "以下で、あなたはこのCentralサーバーがCentralチームと匿名化された利用情報を共有するかどうかを選択できます。この設定はサーバー全体の及びます。"
+          "string": "ä»¥ä¸‹ã§ã€ã‚ãªãŸã¯ã“ã®Centralã‚µãƒ¼ãƒãƒ¼ãŒCentralãƒãƒ¼ãƒ ã¨åŒ¿ååŒ–ã•ã‚ŒãŸåˆ©ç”¨æƒ…å ±ã‚’å…±æœ‰ã™ã‚‹ã‹ã©ã†ã‹ã‚’é¸æŠžã§ãã¾ã™ã€‚ã“ã®è¨­å®šã¯ã‚µãƒ¼ãƒãƒ¼å…¨ä½“ã®åŠã³ã¾ã™ã€‚"
         }
       },
       "auditsTitle": {
-        "string": "最新の利用情報",
+        "string": "æœ€æ–°ã®åˆ©ç”¨æƒ…å ±",
         "developer_comment": "This is a title shown above a section of the page."
       }
     },
     "AnalyticsMetricsTable": {
       "recent": {
-        "string": "過去45日間"
+        "string": "éŽåŽ»45æ—¥é–“"
       },
       "fields": {
         "num_admins": {
-          "string": "管理者数"
+          "string": "ç®¡ç†è€…æ•°"
         },
         "num_projects_encryption": {
-          "string": "暗号化が有効化されたプロジェクト数"
+          "string": "æš—å·åŒ–ãŒæœ‰åŠ¹åŒ–ã•ã‚ŒãŸãƒ—ãƒ­ã‚¸ã‚§ã‚¯ãƒˆæ•°"
         },
         "num_questions_biggest_form": {
-          "string": "最も大きなフォームの質問数"
+          "string": "æœ€ã‚‚å¤§ããªãƒ•ã‚©ãƒ¼ãƒ ã®è³ªå•æ•°"
         },
         "num_audit_log_entries": {
-          "string": "監査ログ数"
+          "string": "ç›£æŸ»ãƒ­ã‚°æ•°"
         },
         "num_archived_projects": {
-          "string": "アーカイブされたプロジェクト数"
+          "string": "ã‚¢ãƒ¼ã‚«ã‚¤ãƒ–ã•ã‚ŒãŸãƒ—ãƒ­ã‚¸ã‚§ã‚¯ãƒˆæ•°"
         },
         "num_unique_managers": {
-          "string": "固有のプロジェクトマネジャー数"
+          "string": "å›ºæœ‰ã®ãƒ—ãƒ­ã‚¸ã‚§ã‚¯ãƒˆãƒžãƒã‚¸ãƒ£ãƒ¼æ•°"
         },
         "num_unique_viewers": {
-          "string": "固有のプロジェクト閲覧者数"
+          "string": "å›ºæœ‰ã®ãƒ—ãƒ­ã‚¸ã‚§ã‚¯ãƒˆé–²è¦§è€…æ•°"
         },
         "num_unique_collectors": {
-          "string": "固有のデータ収集者数"
+          "string": "å›ºæœ‰ã®ãƒ‡ãƒ¼ã‚¿åŽé›†è€…æ•°"
         },
         "database_size": {
-          "string": "システムのデータベースサイズ"
+          "string": "ã‚·ã‚¹ãƒ†ãƒ ã®ãƒ‡ãƒ¼ã‚¿ãƒ™ãƒ¼ã‚¹ã‚µã‚¤ã‚º"
         },
         "uses_external_db": {
           "string": ""
         },
         "num_managers": {
-          "string": "プロジェクト・マネージャー数"
+          "string": "ãƒ—ãƒ­ã‚¸ã‚§ã‚¯ãƒˆãƒ»ãƒžãƒãƒ¼ã‚¸ãƒ£ãƒ¼æ•°"
         },
         "num_viewers": {
-          "string": "プロジェクト・閲覧者数"
+          "string": "ãƒ—ãƒ­ã‚¸ã‚§ã‚¯ãƒˆãƒ»é–²è¦§è€…æ•°"
         },
         "num_data_collectors": {
-          "string": "データ収集者数"
+          "string": "ãƒ‡ãƒ¼ã‚¿åŽé›†è€…æ•°"
         },
         "num_app_users": {
-          "string": "アプリユーザー数"
+          "string": "ã‚¢ãƒ—ãƒªãƒ¦ãƒ¼ã‚¶ãƒ¼æ•°"
         },
         "num_device_ids": {
-          "string": "デバイスID数"
+          "string": "ãƒ‡ãƒã‚¤ã‚¹IDæ•°"
         },
         "num_public_access_links": {
-          "string": "一般公開リンク数"
+          "string": "ä¸€èˆ¬å…¬é–‹ãƒªãƒ³ã‚¯æ•°"
         },
         "num_forms": {
-          "string": "フォーム数"
+          "string": "ãƒ•ã‚©ãƒ¼ãƒ æ•°"
         },
         "num_forms_with_repeats": {
-          "string": "リピートを有するフォーム数"
+          "string": "ãƒªãƒ”ãƒ¼ãƒˆã‚’æœ‰ã™ã‚‹ãƒ•ã‚©ãƒ¼ãƒ æ•°"
         },
         "num_forms_with_geospatial": {
-          "string": "ジオデータを有するフォーム数"
+          "string": "ã‚¸ã‚ªãƒ‡ãƒ¼ã‚¿ã‚’æœ‰ã™ã‚‹ãƒ•ã‚©ãƒ¼ãƒ æ•°"
         },
         "num_forms_with_encryption": {
-          "string": "暗号化されたフォーム数"
+          "string": "æš—å·åŒ–ã•ã‚ŒãŸãƒ•ã‚©ãƒ¼ãƒ æ•°"
         },
         "num_forms_with_audits": {
-          "string": "監査を受けたフォーム数"
+          "string": "ç›£æŸ»ã‚’å—ã‘ãŸãƒ•ã‚©ãƒ¼ãƒ æ•°"
         },
         "num_forms_webforms_enabled": {
           "string": ""
         },
         "num_reused_form_ids": {
-          "string": "再利用されたフォームID数"
+          "string": "å†åˆ©ç”¨ã•ã‚ŒãŸãƒ•ã‚©ãƒ¼ãƒ IDæ•°"
         },
         "num_open_forms": {
           "string": ""
@@ -1417,34 +1417,34 @@
           "string": ""
         },
         "num_submissions_received": {
-          "string": "提出済みフォーム数　ー　受信済み"
+          "string": "æå‡ºæ¸ˆã¿ãƒ•ã‚©ãƒ¼ãƒ æ•°ã€€ãƒ¼ã€€å—ä¿¡æ¸ˆã¿"
         },
         "num_submissions_approved": {
-          "string": "提出済みフォーム数　ー　承認済み"
+          "string": "æå‡ºæ¸ˆã¿ãƒ•ã‚©ãƒ¼ãƒ æ•°ã€€ãƒ¼ã€€æ‰¿èªæ¸ˆã¿"
         },
         "num_submissions_has_issues": {
-          "string": "提出済みフォーム数　ー　問題有り"
+          "string": "æå‡ºæ¸ˆã¿ãƒ•ã‚©ãƒ¼ãƒ æ•°ã€€ãƒ¼ã€€å•é¡Œæœ‰ã‚Š"
         },
         "num_submissions_rejected": {
-          "string": "提出済みフォーム数　ー　リジェクト済み"
+          "string": "æå‡ºæ¸ˆã¿ãƒ•ã‚©ãƒ¼ãƒ æ•°ã€€ãƒ¼ã€€ãƒªã‚¸ã‚§ã‚¯ãƒˆæ¸ˆã¿"
         },
         "num_submissions_edited": {
-          "string": "提出済みフォーム数　ー　編集済み"
+          "string": "æå‡ºæ¸ˆã¿ãƒ•ã‚©ãƒ¼ãƒ æ•°ã€€ãƒ¼ã€€ç·¨é›†æ¸ˆã¿"
         },
         "num_submissions_with_edits": {
-          "string": "編集された提出済みフォーム数"
+          "string": "ç·¨é›†ã•ã‚ŒãŸæå‡ºæ¸ˆã¿ãƒ•ã‚©ãƒ¼ãƒ æ•°"
         },
         "num_submissions_with_comments": {
-          "string": "コメントのある提出済みフォーム数"
+          "string": "ã‚³ãƒ¡ãƒ³ãƒˆã®ã‚ã‚‹æå‡ºæ¸ˆã¿ãƒ•ã‚©ãƒ¼ãƒ æ•°"
         },
         "num_submissions_from_app_users": {
-          "string": "アプリユーザーから提出されたフォーム数"
+          "string": "ã‚¢ãƒ—ãƒªãƒ¦ãƒ¼ã‚¶ãƒ¼ã‹ã‚‰æå‡ºã•ã‚ŒãŸãƒ•ã‚©ãƒ¼ãƒ æ•°"
         },
         "num_submissions_from_public_links": {
-          "string": "一般公開リンクから提出されたフォーム数"
+          "string": "ä¸€èˆ¬å…¬é–‹ãƒªãƒ³ã‚¯ã‹ã‚‰æå‡ºã•ã‚ŒãŸãƒ•ã‚©ãƒ¼ãƒ æ•°"
         },
         "num_submissions_from_web_users": {
-          "string": "Webユーザーから提出されたフォーム数"
+          "string": "Webãƒ¦ãƒ¼ã‚¶ãƒ¼ã‹ã‚‰æå‡ºã•ã‚ŒãŸãƒ•ã‚©ãƒ¼ãƒ æ•°"
         },
         "description_length": {
           "string": ""
@@ -1618,31 +1618,31 @@
     },
     "AnalyticsPreview": {
       "title": {
-        "string": "匿名化された利用状況報告",
+        "string": "åŒ¿ååŒ–ã•ã‚ŒãŸåˆ©ç”¨çŠ¶æ³å ±å‘Š",
         "developer_comment": "This is the title at the top of a pop-up."
       },
       "introduction": {
         "0": {
-          "string": "利用データの送信を検討して頂き、ありがとうございます。データによりあなたのニーズは満たされやすくなります。"
+          "string": "åˆ©ç”¨ãƒ‡ãƒ¼ã‚¿ã®é€ä¿¡ã‚’æ¤œè¨Žã—ã¦é ‚ãã€ã‚ã‚ŠãŒã¨ã†ã”ã–ã„ã¾ã™ã€‚ãƒ‡ãƒ¼ã‚¿ã«ã‚ˆã‚Šã‚ãªãŸã®ãƒ‹ãƒ¼ã‚ºã¯æº€ãŸã•ã‚Œã‚„ã™ããªã‚Šã¾ã™ã€‚"
         },
         "1": {
-          "string": "ここで表示されている情報を私たちは収集しています。新たな機能や要望に応えるため、収集する情報を時折変更しますが、ここで表示されるような集計データのみを収集します。"
+          "string": "ã“ã“ã§è¡¨ç¤ºã•ã‚Œã¦ã„ã‚‹æƒ…å ±ã‚’ç§ãŸã¡ã¯åŽé›†ã—ã¦ã„ã¾ã™ã€‚æ–°ãŸãªæ©Ÿèƒ½ã‚„è¦æœ›ã«å¿œãˆã‚‹ãŸã‚ã€åŽé›†ã™ã‚‹æƒ…å ±ã‚’æ™‚æŠ˜å¤‰æ›´ã—ã¾ã™ãŒã€ã“ã“ã§è¡¨ç¤ºã•ã‚Œã‚‹ã‚ˆã†ãªé›†è¨ˆãƒ‡ãƒ¼ã‚¿ã®ã¿ã‚’åŽé›†ã—ã¾ã™ã€‚"
         },
         "2": {
-          "string": "あなたはいつでもここで何が収集されているのかを確認できます。"
+          "string": "ã‚ãªãŸã¯ã„ã¤ã§ã‚‚ã“ã“ã§ä½•ãŒåŽé›†ã•ã‚Œã¦ã„ã‚‹ã®ã‹ã‚’ç¢ºèªã§ãã¾ã™ã€‚"
         }
       },
       "projects": {
         "title": {
-          "string": "プロジェクトの概要",
+          "string": "ãƒ—ãƒ­ã‚¸ã‚§ã‚¯ãƒˆã®æ¦‚è¦",
           "developer_comment": "This is the title shown above a series of metrics about Project usage."
         },
         "subtitle": {
-          "string": "{count, plural, other {（最もアクティブな{count}つのプロジェクトについて）}}"
+          "string": "{count, plural, other {ï¼ˆæœ€ã‚‚ã‚¢ã‚¯ãƒ†ã‚£ãƒ–ãª{count}ã¤ã®ãƒ—ãƒ­ã‚¸ã‚§ã‚¯ãƒˆã«ã¤ã„ã¦ï¼‰}}"
         }
       },
       "submissionStates": {
-        "string": "提出済フォームの状態",
+        "string": "æå‡ºæ¸ˆãƒ•ã‚©ãƒ¼ãƒ ã®çŠ¶æ…‹",
         "developer_comment": "This is the title of a single table in the analytics metrics report of metrics about submission state (approved, rejected, etc)"
       },
       "entities": {
@@ -1662,7 +1662,7 @@
     "AsyncRoute": {
       "alert": {
         "loadError": {
-          "string": "リクエストされたページを読み込むことができませんでした。ページを更新して、もう一度試みて下さい。"
+          "string": "ãƒªã‚¯ã‚¨ã‚¹ãƒˆã•ã‚ŒãŸãƒšãƒ¼ã‚¸ã‚’èª­ã¿è¾¼ã‚€ã“ã¨ãŒã§ãã¾ã›ã‚“ã§ã—ãŸã€‚ãƒšãƒ¼ã‚¸ã‚’æ›´æ–°ã—ã¦ã€ã‚‚ã†ä¸€åº¦è©¦ã¿ã¦ä¸‹ã•ã„ã€‚"
         }
       }
     },
@@ -1675,35 +1675,35 @@
     "AuditList": {
       "heading": {
         "0": {
-          "string": "ここでは、このサーバーで行われた重要な操作履歴を閲覧できます。ユーザーやプロジェクト、フォーム設定への変更は、ここで確認できます。"
+          "string": "ã“ã“ã§ã¯ã€ã“ã®ã‚µãƒ¼ãƒãƒ¼ã§è¡Œã‚ã‚ŒãŸé‡è¦ãªæ“ä½œå±¥æ­´ã‚’é–²è¦§ã§ãã¾ã™ã€‚ãƒ¦ãƒ¼ã‚¶ãƒ¼ã‚„ãƒ—ãƒ­ã‚¸ã‚§ã‚¯ãƒˆã€ãƒ•ã‚©ãƒ¼ãƒ è¨­å®šã¸ã®å¤‰æ›´ã¯ã€ã“ã“ã§ç¢ºèªã§ãã¾ã™ã€‚"
         }
       },
       "emptyTable": {
-        "string": "照合できる監査ログの記録がありません。"
+        "string": "ç…§åˆã§ãã‚‹ç›£æŸ»ãƒ­ã‚°ã®è¨˜éŒ²ãŒã‚ã‚Šã¾ã›ã‚“ã€‚"
       }
     },
     "AuditRow": {
       "deletedMessage": {
-        "string": "これは削除されました。",
+        "string": "ã“ã‚Œã¯å‰Šé™¤ã•ã‚Œã¾ã—ãŸã€‚",
         "developer_comment": "This shows as a tool tip in the audit log explaining that a resource has been deleted."
       },
       "purgedMessage": {
-        "string": "これは完全に削除されました。",
+        "string": "ã“ã‚Œã¯å®Œå…¨ã«å‰Šé™¤ã•ã‚Œã¾ã—ãŸã€‚",
         "developer_comment": "This shows as a tool tip in the audit log explaining that a resource has been purged (deleted forever)."
       }
     },
     "AuditTable": {
       "header": {
         "initiator": {
-          "string": "操作者",
+          "string": "æ“ä½œè€…",
           "developer_comment": "This is the text of a table column header."
         },
         "target": {
-          "string": "操作の対象",
+          "string": "æ“ä½œã®å¯¾è±¡",
           "developer_comment": "This is the text of a table column header."
         },
         "details": {
-          "string": "詳細",
+          "string": "è©³ç´°",
           "developer_comment": "This is the text of a table column header."
         }
       }
@@ -2167,7 +2167,7 @@
         },
         "formsCount": {
           "string": "{count, plural, other {}}",
-          "developer_comment": "This text will be inserted where {formsCount} is in the following sentence:\n\nThe Entity List “{name}” is linked to {formsCount}."
+          "developer_comment": "This text will be inserted where {formsCount} is in the following sentence:\n\nThe Entity List â€œ{name}â€ is linked to {formsCount}."
         }
       }
     },
@@ -2217,26 +2217,26 @@
     },
     "Download": {
       "body": {
-        "string": "{filename}はすぐにダウンロードされます。ダウンロードが始めると、このページから移動しても構いません。"
+        "string": "{filename}ã¯ã™ãã«ãƒ€ã‚¦ãƒ³ãƒ­ãƒ¼ãƒ‰ã•ã‚Œã¾ã™ã€‚ãƒ€ã‚¦ãƒ³ãƒ­ãƒ¼ãƒ‰ãŒå§‹ã‚ã‚‹ã¨ã€ã“ã®ãƒšãƒ¼ã‚¸ã‹ã‚‰ç§»å‹•ã—ã¦ã‚‚æ§‹ã„ã¾ã›ã‚“ã€‚"
       }
     },
     "EnketoFill": {
       "disabled": {
         "processing": {
-          "string": "Webフォームはまだ利用できません。現在、処理中です。後ほどページを更新し、もう一度試して下さい。"
+          "string": "Webãƒ•ã‚©ãƒ¼ãƒ ã¯ã¾ã åˆ©ç”¨ã§ãã¾ã›ã‚“ã€‚ç¾åœ¨ã€å‡¦ç†ä¸­ã§ã™ã€‚å¾Œã»ã©ãƒšãƒ¼ã‚¸ã‚’æ›´æ–°ã—ã€ã‚‚ã†ä¸€åº¦è©¦ã—ã¦ä¸‹ã•ã„ã€‚"
         },
         "notOpen": {
-          "string": "このフォームは現在、新規のフォーム提出を受け付けていません。"
+          "string": "ã“ã®ãƒ•ã‚©ãƒ¼ãƒ ã¯ç¾åœ¨ã€æ–°è¦ã®ãƒ•ã‚©ãƒ¼ãƒ æå‡ºã‚’å—ã‘ä»˜ã‘ã¦ã„ã¾ã›ã‚“ã€‚"
         }
       }
     },
     "EnketoPreview": {
       "disabled": {
         "processing": {
-          "string": "このフォームのプレビュー処理が終了していません。後ほどページを更新し、もう一度試して下さい。"
+          "string": "ã“ã®ãƒ•ã‚©ãƒ¼ãƒ ã®ãƒ—ãƒ¬ãƒ“ãƒ¥ãƒ¼å‡¦ç†ãŒçµ‚äº†ã—ã¦ã„ã¾ã›ã‚“ã€‚å¾Œã»ã©ãƒšãƒ¼ã‚¸ã‚’æ›´æ–°ã—ã€ã‚‚ã†ä¸€åº¦è©¦ã—ã¦ä¸‹ã•ã„ã€‚"
         },
         "notOpen": {
-          "string": "このバージョンのODK Centralでは、プレビューは、公開状態のフォームでのみ利用可能です。"
+          "string": "ã“ã®ãƒãƒ¼ã‚¸ãƒ§ãƒ³ã®ODK Centralã§ã¯ã€ãƒ—ãƒ¬ãƒ“ãƒ¥ãƒ¼ã¯ã€å…¬é–‹çŠ¶æ…‹ã®ãƒ•ã‚©ãƒ¼ãƒ ã§ã®ã¿åˆ©ç”¨å¯èƒ½ã§ã™ã€‚"
         }
       }
     },
@@ -2788,7 +2788,7 @@
         },
         "downloadTemplate": {
           "string": "",
-          "developer_comment": "This text will be formatted within ODK Central, for example, it might be bold or a link. It will be inserted where {downloadTemplate} is in the following text:\n\nIf you aren’t sure, you can {downloadTemplate}"
+          "developer_comment": "This text will be formatted within ODK Central, for example, it might be bold or a link. It will be inserted where {downloadTemplate} is in the following text:\n\nIf you arenâ€™t sure, you can {downloadTemplate}"
         }
       }
     },
@@ -2923,35 +2923,35 @@
     "FieldKeyList": {
       "action": {
         "create": {
-          "string": "アプリユーザーの作成",
+          "string": "ã‚¢ãƒ—ãƒªãƒ¦ãƒ¼ã‚¶ãƒ¼ã®ä½œæˆ",
           "developer_comment": "This is the text for an action, for example, the text of a button."
         }
       },
       "heading": {
         "0": {
           "full": {
-            "string": "アプリユーザーは、{collect} などのアプリケーションによる収集データに使用します。通常、アプリユーザーは「ワクチン接種従事者」のような共有の役割を示しますが、個人を示すこともあります。このプロジェクトのアプリユーザーは、このプロジェクトのフォームのみをダウンロードして使用できます。新規のアプリユーザーを作成しても、初期状態ではどのフォームにもアクセスできません。各アプリユーザーがアクセスできるフォームを設定するには、{formAccess}タブを使用します。",
+            "string": "ã‚¢ãƒ—ãƒªãƒ¦ãƒ¼ã‚¶ãƒ¼ã¯ã€{collect} ãªã©ã®ã‚¢ãƒ—ãƒªã‚±ãƒ¼ã‚·ãƒ§ãƒ³ã«ã‚ˆã‚‹åŽé›†ãƒ‡ãƒ¼ã‚¿ã«ä½¿ç”¨ã—ã¾ã™ã€‚é€šå¸¸ã€ã‚¢ãƒ—ãƒªãƒ¦ãƒ¼ã‚¶ãƒ¼ã¯ã€Œãƒ¯ã‚¯ãƒãƒ³æŽ¥ç¨®å¾“äº‹è€…ã€ã®ã‚ˆã†ãªå…±æœ‰ã®å½¹å‰²ã‚’ç¤ºã—ã¾ã™ãŒã€å€‹äººã‚’ç¤ºã™ã“ã¨ã‚‚ã‚ã‚Šã¾ã™ã€‚ã“ã®ãƒ—ãƒ­ã‚¸ã‚§ã‚¯ãƒˆã®ã‚¢ãƒ—ãƒªãƒ¦ãƒ¼ã‚¶ãƒ¼ã¯ã€ã“ã®ãƒ—ãƒ­ã‚¸ã‚§ã‚¯ãƒˆã®ãƒ•ã‚©ãƒ¼ãƒ ã®ã¿ã‚’ãƒ€ã‚¦ãƒ³ãƒ­ãƒ¼ãƒ‰ã—ã¦ä½¿ç”¨ã§ãã¾ã™ã€‚æ–°è¦ã®ã‚¢ãƒ—ãƒªãƒ¦ãƒ¼ã‚¶ãƒ¼ã‚’ä½œæˆã—ã¦ã‚‚ã€åˆæœŸçŠ¶æ…‹ã§ã¯ã©ã®ãƒ•ã‚©ãƒ¼ãƒ ã«ã‚‚ã‚¢ã‚¯ã‚»ã‚¹ã§ãã¾ã›ã‚“ã€‚å„ã‚¢ãƒ—ãƒªãƒ¦ãƒ¼ã‚¶ãƒ¼ãŒã‚¢ã‚¯ã‚»ã‚¹ã§ãã‚‹ãƒ•ã‚©ãƒ¼ãƒ ã‚’è¨­å®šã™ã‚‹ã«ã¯ã€{formAccess}ã‚¿ãƒ–ã‚’ä½¿ç”¨ã—ã¾ã™ã€‚",
             "developer_comment": "{collect} is a link whose text is \"ODK Collect\".\n\n{formAccess} is a separate string that will be translated below. Its text will be formatted within ODK Central, for example, it might be bold or a link. Its text is:\n\nForm Access"
           },
           "formAccess": {
-            "string": "フォームへのアクセス",
-            "developer_comment": "This text will be formatted within ODK Central, for example, it might be bold or a link. It will be inserted where {formAccess} is in the following text:\n\nApp Users are used to collect data from an application such as {collect}. They typically represent a shared role such as “Vaccinator” but may also represent individuals. App Users in this Project can only download and use Forms within this Project. When you create a new App User, it will not have access to any Forms at first. To set the Forms each App User may access, use the {formAccess} tab."
+            "string": "ãƒ•ã‚©ãƒ¼ãƒ ã¸ã®ã‚¢ã‚¯ã‚»ã‚¹",
+            "developer_comment": "This text will be formatted within ODK Central, for example, it might be bold or a link. It will be inserted where {formAccess} is in the following text:\n\nApp Users are used to collect data from an application such as {collect}. They typically represent a shared role such as â€œVaccinatorâ€ but may also represent individuals. App Users in this Project can only download and use Forms within this Project. When you create a new App User, it will not have access to any Forms at first. To set the Forms each App User may access, use the {formAccess} tab."
           }
         },
         "1": {
           "full": {
-            "string": "アプリユーザーは、データ収集者が複数のフォームにアクセスする必要がある場合やオフラインの場合、または複雑なフォームを使用している場合に最適です。回答者に自己申告してもらう必要がある場合や、オンラインのみのフォームの場合は、{clickHere}して他の選択肢を見て下さい。",
+            "string": "ã‚¢ãƒ—ãƒªãƒ¦ãƒ¼ã‚¶ãƒ¼ã¯ã€ãƒ‡ãƒ¼ã‚¿åŽé›†è€…ãŒè¤‡æ•°ã®ãƒ•ã‚©ãƒ¼ãƒ ã«ã‚¢ã‚¯ã‚»ã‚¹ã™ã‚‹å¿…è¦ãŒã‚ã‚‹å ´åˆã‚„ã‚ªãƒ•ãƒ©ã‚¤ãƒ³ã®å ´åˆã€ã¾ãŸã¯è¤‡é›‘ãªãƒ•ã‚©ãƒ¼ãƒ ã‚’ä½¿ç”¨ã—ã¦ã„ã‚‹å ´åˆã«æœ€é©ã§ã™ã€‚å›žç­”è€…ã«è‡ªå·±ç”³å‘Šã—ã¦ã‚‚ã‚‰ã†å¿…è¦ãŒã‚ã‚‹å ´åˆã‚„ã€ã‚ªãƒ³ãƒ©ã‚¤ãƒ³ã®ã¿ã®ãƒ•ã‚©ãƒ¼ãƒ ã®å ´åˆã¯ã€{clickHere}ã—ã¦ä»–ã®é¸æŠžè‚¢ã‚’è¦‹ã¦ä¸‹ã•ã„ã€‚",
             "developer_comment": "{clickHere} is a separate string that will be translated below. Its text will be formatted within ODK Central, for example, it might be bold or a link. Its text is:\n\nclick here"
           },
           "clickHere": {
-            "string": "こちらをクリック",
+            "string": "ã“ã¡ã‚‰ã‚’ã‚¯ãƒªãƒƒã‚¯",
             "developer_comment": "This text will be formatted within ODK Central, for example, it might be bold or a link. It will be inserted where {clickHere} is in the following text:\n\nApp Users are most appropriate when data collectors need access to multiple Forms, are offline, or you have a complex Form. If you need respondents to self-report or have an online-only form, {clickHere} for other options."
           }
         }
       },
       "header": {
         "lastUsed": {
-          "string": "最終利用日時",
+          "string": "æœ€çµ‚åˆ©ç”¨æ—¥æ™‚",
           "developer_comment": "This is the text of a table column header."
         },
         "lastUsedAndActions": {
@@ -2959,16 +2959,16 @@
           "developer_comment": "Header for the table column that shows the last used date and action buttons."
         },
         "configureClient": {
-          "string": "クライアントの設定",
+          "string": "ã‚¯ãƒ©ã‚¤ã‚¢ãƒ³ãƒˆã®è¨­å®š",
           "developer_comment": "Header for the table column that shows QR codes to configure data collection clients such as ODK Collect."
         }
       },
       "emptyTable": {
-        "string": "アプリユーザーが登録されていません。デバイスからフォームのダウンロードと提出を行うには、アプリユーザーを作成する必要があります。"
+        "string": "ã‚¢ãƒ—ãƒªãƒ¦ãƒ¼ã‚¶ãƒ¼ãŒç™»éŒ²ã•ã‚Œã¦ã„ã¾ã›ã‚“ã€‚ãƒ‡ãƒã‚¤ã‚¹ã‹ã‚‰ãƒ•ã‚©ãƒ¼ãƒ ã®ãƒ€ã‚¦ãƒ³ãƒ­ãƒ¼ãƒ‰ã¨æå‡ºã‚’è¡Œã†ã«ã¯ã€ã‚¢ãƒ—ãƒªãƒ¦ãƒ¼ã‚¶ãƒ¼ã‚’ä½œæˆã™ã‚‹å¿…è¦ãŒã‚ã‚Šã¾ã™ã€‚"
       },
       "alert": {
         "create": {
-          "string": "アプリユーザー\"{displayName}\"は正常に作成されました。"
+          "string": "ã‚¢ãƒ—ãƒªãƒ¦ãƒ¼ã‚¶ãƒ¼\"{displayName}\"ã¯æ­£å¸¸ã«ä½œæˆã•ã‚Œã¾ã—ãŸã€‚"
         },
         "edit": {
           "string": ""
@@ -2980,36 +2980,36 @@
     },
     "FieldKeyNew": {
       "title": {
-        "string": "アプリユーザーの作成",
+        "string": "ã‚¢ãƒ—ãƒªãƒ¦ãƒ¼ã‚¶ãƒ¼ã®ä½œæˆ",
         "developer_comment": "This is the title at the top of a pop-up."
       },
       "introduction": {
         "0": {
-          "string": "作成されるユーザーは、初期状態ではいずれのフォームにもアクセスできません。ユーザー作成後に、フォームを割り当てることができます。"
+          "string": "ä½œæˆã•ã‚Œã‚‹ãƒ¦ãƒ¼ã‚¶ãƒ¼ã¯ã€åˆæœŸçŠ¶æ…‹ã§ã¯ã„ãšã‚Œã®ãƒ•ã‚©ãƒ¼ãƒ ã«ã‚‚ã‚¢ã‚¯ã‚»ã‚¹ã§ãã¾ã›ã‚“ã€‚ãƒ¦ãƒ¼ã‚¶ãƒ¼ä½œæˆå¾Œã«ã€ãƒ•ã‚©ãƒ¼ãƒ ã‚’å‰²ã‚Šå½“ã¦ã‚‹ã“ã¨ãŒã§ãã¾ã™ã€‚"
         }
       },
       "success": {
         "0": {
-          "string": "アプリユーザー\"{displayName}\"が、作成されました。"
+          "string": "ã‚¢ãƒ—ãƒªãƒ¦ãƒ¼ã‚¶ãƒ¼\"{displayName}\"ãŒã€ä½œæˆã•ã‚Œã¾ã—ãŸã€‚"
         },
         "1": {
-          "string": "「{displayName}」に対するモバイル端末を今すぐ設定できます。もしくは、アプリユーザーの一覧から「QRコードを表示」をクリックすることで後で設定も可能です。",
+          "string": "ã€Œ{displayName}ã€ã«å¯¾ã™ã‚‹ãƒ¢ãƒã‚¤ãƒ«ç«¯æœ«ã‚’ä»Šã™ãè¨­å®šã§ãã¾ã™ã€‚ã‚‚ã—ãã¯ã€ã‚¢ãƒ—ãƒªãƒ¦ãƒ¼ã‚¶ãƒ¼ã®ä¸€è¦§ã‹ã‚‰ã€ŒQRã‚³ãƒ¼ãƒ‰ã‚’è¡¨ç¤ºã€ã‚’ã‚¯ãƒªãƒƒã‚¯ã™ã‚‹ã“ã¨ã§å¾Œã§è¨­å®šã‚‚å¯èƒ½ã§ã™ã€‚",
           "developer_comment": "Clicking \"See code\" displays a QR code."
         },
         "2": {
           "full": {
-            "string": "このプロジェクトの\"{formAccessSettings}\"にて、フォームに対するユーザーのアクセス権限を付与できます。",
+            "string": "ã“ã®ãƒ—ãƒ­ã‚¸ã‚§ã‚¯ãƒˆã®\"{formAccessSettings}\"ã«ã¦ã€ãƒ•ã‚©ãƒ¼ãƒ ã«å¯¾ã™ã‚‹ãƒ¦ãƒ¼ã‚¶ãƒ¼ã®ã‚¢ã‚¯ã‚»ã‚¹æ¨©é™ã‚’ä»˜ä¸Žã§ãã¾ã™ã€‚",
             "developer_comment": "{formAccessSettings} is a separate string that will be translated below. Its text will be formatted within ODK Central, for example, it might be bold or a link. Its text is:\n\nForm Access settings"
           },
           "formAccessSettings": {
-            "string": "フォームアクセスの設定",
-            "developer_comment": "This text will be formatted within ODK Central, for example, it might be bold or a link. It will be inserted where {formAccessSettings} is in the following text:\n\nYou may wish to visit this Project’s {formAccessSettings} to give this user access to Forms."
+            "string": "ãƒ•ã‚©ãƒ¼ãƒ ã‚¢ã‚¯ã‚»ã‚¹ã®è¨­å®š",
+            "developer_comment": "This text will be formatted within ODK Central, for example, it might be bold or a link. It will be inserted where {formAccessSettings} is in the following text:\n\nYou may wish to visit this Projectâ€™s {formAccessSettings} to give this user access to Forms."
           }
         }
       },
       "action": {
         "createAnother": {
-          "string": "別のものを作成",
+          "string": "åˆ¥ã®ã‚‚ã®ã‚’ä½œæˆ",
           "developer_comment": "This is the text of a button that is used to create another App User."
         }
       }
@@ -3017,11 +3017,11 @@
     "FieldKeyQrPanel": {
       "title": {
         "managed": {
-          "string": "クライアントの設定コード",
+          "string": "ã‚¯ãƒ©ã‚¤ã‚¢ãƒ³ãƒˆã®è¨­å®šã‚³ãƒ¼ãƒ‰",
           "developer_comment": "This is the title at the top of a pop-up. \"Client\" refers to a data collection client like ODK Collect. \"Code\" refers to a QR code."
         },
         "legacy": {
-          "string": "従来のクライアント設定コード",
+          "string": "å¾“æ¥ã®ã‚¯ãƒ©ã‚¤ã‚¢ãƒ³ãƒˆè¨­å®šã‚³ãƒ¼ãƒ‰",
           "developer_comment": "This is the title at the top of a pop-up. \"Client\" refers to a data collection client like ODK Collect. \"Code\" refers to a QR code."
         }
       },
@@ -3029,92 +3029,92 @@
         "0": {
           "managed": {
             "full": {
-              "string": "これは{managedCode}です。",
+              "string": "ã“ã‚Œã¯{managedCode}ã§ã™ã€‚",
               "developer_comment": "{managedCode} is a separate string that will be translated below. Its text will be formatted within ODK Central, for example, it might be bold or a link. Its text is:\n\nManaged QR Code"
             },
             "managedCode": {
-              "string": "管理型のQRコード",
+              "string": "ç®¡ç†åž‹ã®QRã‚³ãƒ¼ãƒ‰",
               "developer_comment": "This text will be formatted within ODK Central, for example, it might be bold or a link. It will be inserted where {managedCode} is in the following text:\n\nThis is a {managedCode}."
             }
           },
           "legacy": {
             "full": {
-              "string": "これは{legacyCode}です。",
+              "string": "ã“ã‚Œã¯{legacyCode}ã§ã™ã€‚",
               "developer_comment": "{legacyCode} is a separate string that will be translated below. Its text will be formatted within ODK Central, for example, it might be bold or a link. Its text is:\n\nLegacy QR Code"
             },
             "legacyCode": {
-              "string": "従来型のQRコード",
+              "string": "å¾“æ¥åž‹ã®QRã‚³ãƒ¼ãƒ‰",
               "developer_comment": "This text will be formatted within ODK Central, for example, it might be bold or a link. It will be inserted where {legacyCode} is in the following text:\n\nThis is a {legacyCode}."
             }
           }
         },
         "1": {
           "managed": {
-            "string": "ODK Collectは、「{displayName}」で利用可能なフォームと完全に一致し、アップデートも自動的に適用されます。ユーザーが手動で空フォームを取得する必要はありません。さらに、インターネット接続が見つかった時点で、確定済のフォームが自動的に送信されます。",
+            "string": "ODK Collectã¯ã€ã€Œ{displayName}ã€ã§åˆ©ç”¨å¯èƒ½ãªãƒ•ã‚©ãƒ¼ãƒ ã¨å®Œå…¨ã«ä¸€è‡´ã—ã€ã‚¢ãƒƒãƒ—ãƒ‡ãƒ¼ãƒˆã‚‚è‡ªå‹•çš„ã«é©ç”¨ã•ã‚Œã¾ã™ã€‚ãƒ¦ãƒ¼ã‚¶ãƒ¼ãŒæ‰‹å‹•ã§ç©ºãƒ•ã‚©ãƒ¼ãƒ ã‚’å–å¾—ã™ã‚‹å¿…è¦ã¯ã‚ã‚Šã¾ã›ã‚“ã€‚ã•ã‚‰ã«ã€ã‚¤ãƒ³ã‚¿ãƒ¼ãƒãƒƒãƒˆæŽ¥ç¶šãŒè¦‹ã¤ã‹ã£ãŸæ™‚ç‚¹ã§ã€ç¢ºå®šæ¸ˆã®ãƒ•ã‚©ãƒ¼ãƒ ãŒè‡ªå‹•çš„ã«é€ä¿¡ã•ã‚Œã¾ã™ã€‚",
             "developer_comment": "\"Get Blank Form\" is the text of a button in ODK Collect."
           },
           "legacy": {
-            "string": "ユーザーは、手動で端末に空フォームを取得し、更新するフォームを決定する必要があります。また、確定済フォームを手動で提出する必要があります。",
+            "string": "ãƒ¦ãƒ¼ã‚¶ãƒ¼ã¯ã€æ‰‹å‹•ã§ç«¯æœ«ã«ç©ºãƒ•ã‚©ãƒ¼ãƒ ã‚’å–å¾—ã—ã€æ›´æ–°ã™ã‚‹ãƒ•ã‚©ãƒ¼ãƒ ã‚’æ±ºå®šã™ã‚‹å¿…è¦ãŒã‚ã‚Šã¾ã™ã€‚ã¾ãŸã€ç¢ºå®šæ¸ˆãƒ•ã‚©ãƒ¼ãƒ ã‚’æ‰‹å‹•ã§æå‡ºã™ã‚‹å¿…è¦ãŒã‚ã‚Šã¾ã™ã€‚",
             "developer_comment": "\"Get Blank Form\" and \"Send Finalized Form\" are the text of buttons in ODK Collect."
           }
         },
         "2": {
           "managed": {
             "full": {
-              "string": "従来通りの操作のためには、{switchToLegacy}",
+              "string": "å¾“æ¥é€šã‚Šã®æ“ä½œã®ãŸã‚ã«ã¯ã€{switchToLegacy}",
               "developer_comment": "The following are separate strings that will be translated below. They will be formatted within ODK Central, for example, they might be bold or a link.\n\n- {switchToLegacy} has the text: switch to a {legacyCode}\n- {legacyCode} has the text: Legacy QR Code"
             },
             "switchToLegacy": {
-              "string": "{legacyCode}に切り替える。",
+              "string": "{legacyCode}ã«åˆ‡ã‚Šæ›¿ãˆã‚‹ã€‚",
               "developer_comment": "This text will be formatted within ODK Central, for example, it might be bold or a link. It will be inserted where {switchToLegacy} is in the following text:\n\nFor the old behavior, {switchToLegacy}.\n\nNote that {legacyCode} is a separate string that will be translated below. Its text is:\n\nLegacy QR Code"
             },
             "legacyCode": {
-              "string": "従来型のQRコード",
+              "string": "å¾“æ¥åž‹ã®QRã‚³ãƒ¼ãƒ‰",
               "developer_comment": "This text will be formatted within ODK Central, for example, it might be bold or a link. It will be inserted where {legacyCode} is in the following text:\n\nFor the old behavior, switch to a {legacyCode}."
             }
           },
           "legacy": {
             "full": {
-              "string": "より管理された確実な処理のために、{switchToManaged}",
+              "string": "ã‚ˆã‚Šç®¡ç†ã•ã‚ŒãŸç¢ºå®Ÿãªå‡¦ç†ã®ãŸã‚ã«ã€{switchToManaged}",
               "developer_comment": "The following are separate strings that will be translated below. They will be formatted within ODK Central, for example, they might be bold or a link.\n\n- {switchToManaged} has the text: switch to a {managedCode}\n- {managedCode} has the text: Managed QR Code"
             },
             "switchToManaged": {
-              "string": "{managedCode}に切り替える。",
+              "string": "{managedCode}ã«åˆ‡ã‚Šæ›¿ãˆã‚‹ã€‚",
               "developer_comment": "This text will be formatted within ODK Central, for example, it might be bold or a link. It will be inserted where {switchToManaged} is in the following text:\n\nFor a more controlled and foolproof process, {switchToManaged}.\n\nNote that {managedCode} is a separate string that will be translated below. Its text is:\n\nManaged QR Code"
             },
             "managedCode": {
-              "string": "管理型のQRコード",
+              "string": "ç®¡ç†åž‹ã®QRã‚³ãƒ¼ãƒ‰",
               "developer_comment": "This text will be formatted within ODK Central, for example, it might be bold or a link. It will be inserted where {managedCode} is in the following text:\n\nFor a more controlled and foolproof process, switch to a {managedCode}."
             }
           }
         },
         "3": {
-          "string": "このQRコードをスキャンして、アカウント名\"{displayName}\"の端末を設定する。"
+          "string": "ã“ã®QRã‚³ãƒ¼ãƒ‰ã‚’ã‚¹ã‚­ãƒ£ãƒ³ã—ã¦ã€ã‚¢ã‚«ã‚¦ãƒ³ãƒˆå\"{displayName}\"ã®ç«¯æœ«ã‚’è¨­å®šã™ã‚‹ã€‚"
         }
       }
     },
     "FieldKeyRevoke": {
       "title": {
-        "string": "アプリユーザーのアクセス権の取消",
+        "string": "ã‚¢ãƒ—ãƒªãƒ¦ãƒ¼ã‚¶ãƒ¼ã®ã‚¢ã‚¯ã‚»ã‚¹æ¨©ã®å–æ¶ˆ",
         "developer_comment": "This is the title at the top of a pop-up."
       },
       "introduction": {
         "0": {
-          "string": "アプリユーザー\"{displayName}\"のアクセス権を本当に取り消しますか？",
+          "string": "ã‚¢ãƒ—ãƒªãƒ¦ãƒ¼ã‚¶ãƒ¼\"{displayName}\"ã®ã‚¢ã‚¯ã‚»ã‚¹æ¨©ã‚’æœ¬å½“ã«å–ã‚Šæ¶ˆã—ã¾ã™ã‹ï¼Ÿ",
           "developer_comment": "{displayName} is formatted in bold."
         },
         "1": {
-          "string": "このユーザーからこれまでに提出されたフォームは残りますが、このユーザーに依存している人は、フォームのダウンロードや提出フォームのアップロードを継続するために、新しいユーザーを作成する必要があります。"
+          "string": "ã“ã®ãƒ¦ãƒ¼ã‚¶ãƒ¼ã‹ã‚‰ã“ã‚Œã¾ã§ã«æå‡ºã•ã‚ŒãŸãƒ•ã‚©ãƒ¼ãƒ ã¯æ®‹ã‚Šã¾ã™ãŒã€ã“ã®ãƒ¦ãƒ¼ã‚¶ãƒ¼ã«ä¾å­˜ã—ã¦ã„ã‚‹äººã¯ã€ãƒ•ã‚©ãƒ¼ãƒ ã®ãƒ€ã‚¦ãƒ³ãƒ­ãƒ¼ãƒ‰ã‚„æå‡ºãƒ•ã‚©ãƒ¼ãƒ ã®ã‚¢ãƒƒãƒ—ãƒ­ãƒ¼ãƒ‰ã‚’ç¶™ç¶šã™ã‚‹ãŸã‚ã«ã€æ–°ã—ã„ãƒ¦ãƒ¼ã‚¶ãƒ¼ã‚’ä½œæˆã™ã‚‹å¿…è¦ãŒã‚ã‚Šã¾ã™ã€‚"
         }
       }
     },
     "FieldKeyRow": {
       "seeCode": {
-        "string": "QRコードを表示",
+        "string": "QRã‚³ãƒ¼ãƒ‰ã‚’è¡¨ç¤º",
         "developer_comment": "Clicking on this text displays an App User QR code for configuring ODK Collect."
       },
       "accessRevoked": {
-        "string": "アクセス権の取消済み",
+        "string": "ã‚¢ã‚¯ã‚»ã‚¹æ¨©ã®å–æ¶ˆæ¸ˆã¿",
         "developer_comment": "This text is shown for an App User whose access has been revoked."
       },
       "action": {
@@ -3123,7 +3123,7 @@
           "developer_comment": "This is the text for an action, for example, the text of a button."
         },
         "revokeAccess": {
-          "string": "アクセス権の取消",
+          "string": "ã‚¢ã‚¯ã‚»ã‚¹æ¨©ã®å–æ¶ˆ",
           "developer_comment": "This is the text for an action, for example, the text of a button."
         }
       }
@@ -3161,17 +3161,17 @@
       },
       "problem": {
         "noneUploaded": {
-          "string": "{message}　アップロードに成功したファイルはありません。",
+          "string": "{message}ã€€ã‚¢ãƒƒãƒ—ãƒ­ãƒ¼ãƒ‰ã«æˆåŠŸã—ãŸãƒ•ã‚¡ã‚¤ãƒ«ã¯ã‚ã‚Šã¾ã›ã‚“ã€‚",
           "developer_comment": "{message} is an error message from the server."
         },
         "someUploaded": {
-          "string": "{count, plural, other {{message}　{total}件のファイルの内、{uploaded}件のみがアップロードに成功しました。}}",
+          "string": "{count, plural, other {{message}ã€€{total}ä»¶ã®ãƒ•ã‚¡ã‚¤ãƒ«ã®å†…ã€{uploaded}ä»¶ã®ã¿ãŒã‚¢ãƒƒãƒ—ãƒ­ãƒ¼ãƒ‰ã«æˆåŠŸã—ã¾ã—ãŸã€‚}}",
           "developer_comment": "This string is an error message. It is shown only if the user tried to upload multiple files. {message} is an error message from the server. {uploaded} and {total} are numbers. {uploaded} is at least 1, and {total} is at least 2. The string will be pluralized based on {uploaded}."
         }
       },
       "alert": {
         "success": {
-          "string": "{count, plural, other {{count}のファイルのアップロードに成功}}"
+          "string": "{count, plural, other {{count}ã®ãƒ•ã‚¡ã‚¤ãƒ«ã®ã‚¢ãƒƒãƒ—ãƒ­ãƒ¼ãƒ‰ã«æˆåŠŸ}}"
         },
         "link": {
           "string": ""
@@ -3179,7 +3179,7 @@
       },
       "header": {
         "uploaded": {
-          "string": "アップロード済",
+          "string": "ã‚¢ãƒƒãƒ—ãƒ­ãƒ¼ãƒ‰æ¸ˆ",
           "developer_comment": "This is the text of a table column header. The column shows when each Media File was uploaded."
         }
       }
@@ -3187,32 +3187,32 @@
     "FormAttachmentNameMismatch": {
       "title": {
         "upload": {
-          "string": "ファイルのアップロード",
+          "string": "ãƒ•ã‚¡ã‚¤ãƒ«ã®ã‚¢ãƒƒãƒ—ãƒ­ãƒ¼ãƒ‰",
           "developer_comment": "This is the title at the top of a pop-up."
         },
         "replace": {
-          "string": "ファイルの置換",
+          "string": "ãƒ•ã‚¡ã‚¤ãƒ«ã®ç½®æ›",
           "developer_comment": "This is the title at the top of a pop-up."
         }
       },
       "introduction": {
         "0": {
-          "string": "{filename}を{attachmentName}としてアップロードしますか？",
+          "string": "{filename}ã‚’{attachmentName}ã¨ã—ã¦ã‚¢ãƒƒãƒ—ãƒ­ãƒ¼ãƒ‰ã—ã¾ã™ã‹ï¼Ÿ",
           "developer_comment": "{filename} and {attachmentName} are formatted in bold."
         },
         "1": {
-          "string": "ファイル名が一致しないため、ダブルチェックしています。"
+          "string": "ãƒ•ã‚¡ã‚¤ãƒ«åãŒä¸€è‡´ã—ãªã„ãŸã‚ã€ãƒ€ãƒ–ãƒ«ãƒã‚§ãƒƒã‚¯ã—ã¦ã„ã¾ã™ã€‚"
         }
       }
     },
     "FormAttachmentPopups": {
       "title": {
-        "string": "ファイルのアップロード",
+        "string": "ãƒ•ã‚¡ã‚¤ãƒ«ã®ã‚¢ãƒƒãƒ—ãƒ­ãƒ¼ãƒ‰",
         "developer_comment": "This is the title at the top of a pop-up."
       },
       "duringDragover": {
         "dropToUpload": {
-          "string": "このファイルを{attachmentName}としてアップロードする。",
+          "string": "ã“ã®ãƒ•ã‚¡ã‚¤ãƒ«ã‚’{attachmentName}ã¨ã—ã¦ã‚¢ãƒƒãƒ—ãƒ­ãƒ¼ãƒ‰ã™ã‚‹ã€‚",
           "developer_comment": "{attachmentName} is formatted in bold."
         },
         "dragover": {
@@ -3220,11 +3220,11 @@
         },
         "dropToPrepare": {
           "full": {
-            "string": "このフォームにアップロードする{countOfFiles}を準備し、今すぐドロップしてください。",
+            "string": "ã“ã®ãƒ•ã‚©ãƒ¼ãƒ ã«ã‚¢ãƒƒãƒ—ãƒ­ãƒ¼ãƒ‰ã™ã‚‹{countOfFiles}ã‚’æº–å‚™ã—ã€ä»Šã™ããƒ‰ãƒ­ãƒƒãƒ—ã—ã¦ãã ã•ã„ã€‚",
             "developer_comment": "{countOfFiles} is a separate string that will be translated below. Its text will be formatted within ODK Central, for example, it might be bold or a link. In its plural form, its text is:\n\n{count} files"
           },
           "countOfFiles": {
-            "string": "{count, plural, other {{count}件のファイル}}",
+            "string": "{count, plural, other {{count}ä»¶ã®ãƒ•ã‚¡ã‚¤ãƒ«}}",
             "developer_comment": "This text will be formatted within ODK Central, for example, it might be bold or a link. It will be inserted where {countOfFiles} is in the following text:\n\nDrop now to prepare {countOfFiles} for upload to this Form."
           }
         }
@@ -3232,42 +3232,42 @@
       "afterSelection": {
         "matched": {
           "full": {
-            "string": "{count, plural, other {{countOfFiles}はアップロードできます。}}",
+            "string": "{count, plural, other {{countOfFiles}ã¯ã‚¢ãƒƒãƒ—ãƒ­ãƒ¼ãƒ‰ã§ãã¾ã™ã€‚}}",
             "developer_comment": "{countOfFiles} is a separate string that will be translated below. Its text will be formatted within ODK Central, for example, it might be bold or a link. In its plural form, its text is:\n\n{count} files"
           },
           "countOfFiles": {
-            "string": "{count, plural, other {{count}件のファイル}}",
+            "string": "{count, plural, other {{count}ä»¶ã®ãƒ•ã‚¡ã‚¤ãƒ«}}",
             "developer_comment": "This text will be formatted within ODK Central, for example, it might be bold or a link. It will be inserted where {countOfFiles} is in the following text. (The plural form of the text is shown.)\n\n{countOfFiles} ready for upload."
           }
         },
         "someUnmatched": {
           "full": {
-            "string": "{count, plural, other {{countOfFiles}は認識できない名前のため無視されます。これらのアップロードには、名前を変更するか、それぞれ個別にアップロード対象にドラッグ＆ドロップしてください。}}",
+            "string": "{count, plural, other {{countOfFiles}ã¯èªè­˜ã§ããªã„åå‰ã®ãŸã‚ç„¡è¦–ã•ã‚Œã¾ã™ã€‚ã“ã‚Œã‚‰ã®ã‚¢ãƒƒãƒ—ãƒ­ãƒ¼ãƒ‰ã«ã¯ã€åå‰ã‚’å¤‰æ›´ã™ã‚‹ã‹ã€ãã‚Œãžã‚Œå€‹åˆ¥ã«ã‚¢ãƒƒãƒ—ãƒ­ãƒ¼ãƒ‰å¯¾è±¡ã«ãƒ‰ãƒ©ãƒƒã‚°ï¼†ãƒ‰ãƒ­ãƒƒãƒ—ã—ã¦ãã ã•ã„ã€‚}}",
             "developer_comment": "{countOfFiles} is a separate string that will be translated below. Its text will be formatted within ODK Central, for example, it might be bold or a link. In its plural form, its text is:\n\n{count} files"
           },
           "countOfFiles": {
-            "string": "{count, plural, other {{count}件のファイル}}",
-            "developer_comment": "This text will be formatted within ODK Central, for example, it might be bold or a link. It will be inserted where {countOfFiles} is in the following text. (The plural form of the text is shown.)\n\n{countOfFiles} have a name we don’t recognize and will be ignored. To upload them, rename them or drag them individually onto their targets."
+            "string": "{count, plural, other {{count}ä»¶ã®ãƒ•ã‚¡ã‚¤ãƒ«}}",
+            "developer_comment": "This text will be formatted within ODK Central, for example, it might be bold or a link. It will be inserted where {countOfFiles} is in the following text. (The plural form of the text is shown.)\n\n{countOfFiles} have a name we donâ€™t recognize and will be ignored. To upload them, rename them or drag them individually onto their targets."
           }
         },
         "noneMatched": {
-          "string": "{count, plural, other {アップロードを試みているファイルが何れも認識できません。上記の名前に合わせてファイル名を変更するか、それぞれ個別に対象にドラッグしてください。}}"
+          "string": "{count, plural, other {ã‚¢ãƒƒãƒ—ãƒ­ãƒ¼ãƒ‰ã‚’è©¦ã¿ã¦ã„ã‚‹ãƒ•ã‚¡ã‚¤ãƒ«ãŒä½•ã‚Œã‚‚èªè­˜ã§ãã¾ã›ã‚“ã€‚ä¸Šè¨˜ã®åå‰ã«åˆã‚ã›ã¦ãƒ•ã‚¡ã‚¤ãƒ«åã‚’å¤‰æ›´ã™ã‚‹ã‹ã€ãã‚Œãžã‚Œå€‹åˆ¥ã«å¯¾è±¡ã«ãƒ‰ãƒ©ãƒƒã‚°ã—ã¦ãã ã•ã„ã€‚}}"
         }
       },
       "duringUpload": {
         "total": {
-          "string": "{count, plural, other {お待ちください。{count}をアップロードしています。}}"
+          "string": "{count, plural, other {ãŠå¾…ã¡ãã ã•ã„ã€‚{count}ã‚’ã‚¢ãƒƒãƒ—ãƒ­ãƒ¼ãƒ‰ã—ã¦ã„ã¾ã™ã€‚}}"
         },
         "current": {
-          "string": "{filename}を送信中（{percentUploaded}）",
+          "string": "{filename}ã‚’é€ä¿¡ä¸­ï¼ˆ{percentUploaded}ï¼‰",
           "developer_comment": "Displayed in a pop-up to indicate a file that is currently being uploaded to be attached to a Form."
         },
         "remaining": {
           "beforeLast": {
-            "string": "{count, plural, other {{count}件のファイルが残っています。}}"
+            "string": "{count, plural, other {{count}ä»¶ã®ãƒ•ã‚¡ã‚¤ãƒ«ãŒæ®‹ã£ã¦ã„ã¾ã™ã€‚}}"
           },
           "last": {
-            "string": "末尾のデータ"
+            "string": "æœ«å°¾ã®ãƒ‡ãƒ¼ã‚¿"
           }
         }
       }
@@ -3275,33 +3275,33 @@
     "FormAttachmentRow": {
       "type": {
         "image": {
-          "string": "画像",
+          "string": "ç”»åƒ",
           "developer_comment": "This is a type of Form Attachment."
         },
         "audio": {
-          "string": "音声",
+          "string": "éŸ³å£°",
           "developer_comment": "This is a type of Form Attachment."
         },
         "video": {
-          "string": "ビデオ",
+          "string": "ãƒ“ãƒ‡ã‚ª",
           "developer_comment": "This is a type of Form Attachment."
         },
         "file": {
-          "string": "データファイル",
+          "string": "ãƒ‡ãƒ¼ã‚¿ãƒ•ã‚¡ã‚¤ãƒ«",
           "developer_comment": "This is a type of Form Attachment."
         }
       },
       "replace": {
-        "string": "置換",
+        "string": "ç½®æ›",
         "developer_comment": "This is a label that is shown next to a Form Attachment that would be replaced if the selected files were uploaded."
       },
       "notUploaded": {
         "text": {
-          "string": "アップロード未完了",
+          "string": "ã‚¢ãƒƒãƒ—ãƒ­ãƒ¼ãƒ‰æœªå®Œäº†",
           "developer_comment": "This is shown for a Form Attachment that has not been uploaded."
         },
         "title": {
-          "string": "１つ以上のファイルをドラッグ＆ドロップしてアップロードする。"
+          "string": "ï¼‘ã¤ä»¥ä¸Šã®ãƒ•ã‚¡ã‚¤ãƒ«ã‚’ãƒ‰ãƒ©ãƒƒã‚°ï¼†ãƒ‰ãƒ­ãƒƒãƒ—ã—ã¦ã‚¢ãƒƒãƒ—ãƒ­ãƒ¼ãƒ‰ã™ã‚‹ã€‚"
         }
       },
       "linkedToDataset": {
@@ -3324,27 +3324,27 @@
     },
     "FormAttachmentUploadFiles": {
       "title": {
-        "string": "ファイルのアップロード",
+        "string": "ãƒ•ã‚¡ã‚¤ãƒ«ã®ã‚¢ãƒƒãƒ—ãƒ­ãƒ¼ãƒ‰",
         "developer_comment": "This is the title at the top of a pop-up."
       },
       "introduction": {
         "0": {
           "full": {
-            "string": "ファイルのアップロードは、１つまたは複数のファイルをこのページの表に{dragAndDrop}することで可能です。",
+            "string": "ãƒ•ã‚¡ã‚¤ãƒ«ã®ã‚¢ãƒƒãƒ—ãƒ­ãƒ¼ãƒ‰ã¯ã€ï¼‘ã¤ã¾ãŸã¯è¤‡æ•°ã®ãƒ•ã‚¡ã‚¤ãƒ«ã‚’ã“ã®ãƒšãƒ¼ã‚¸ã®è¡¨ã«{dragAndDrop}ã™ã‚‹ã“ã¨ã§å¯èƒ½ã§ã™ã€‚",
             "developer_comment": "{dragAndDrop} is a separate string that will be translated below. Its text will be formatted within ODK Central, for example, it might be bold or a link. Its text is:\n\ndrag and drop"
           },
           "dragAndDrop": {
-            "string": "ドラッグ＆ドロップ",
+            "string": "ãƒ‰ãƒ©ãƒƒã‚°ï¼†ãƒ‰ãƒ­ãƒƒãƒ—",
             "developer_comment": "This text will be formatted within ODK Central, for example, it might be bold or a link. It will be inserted where {dragAndDrop} is in the following text:\n\nTo upload files, you can {dragAndDrop} one or more files onto the table on this page."
           }
         },
         "1": {
           "full": {
-            "string": "プロンプトからファイルを選択したい場合は、表にあるものとファイル名が一致していることを確認してから、{clickHere}。",
+            "string": "ãƒ—ãƒ­ãƒ³ãƒ—ãƒˆã‹ã‚‰ãƒ•ã‚¡ã‚¤ãƒ«ã‚’é¸æŠžã—ãŸã„å ´åˆã¯ã€è¡¨ã«ã‚ã‚‹ã‚‚ã®ã¨ãƒ•ã‚¡ã‚¤ãƒ«åãŒä¸€è‡´ã—ã¦ã„ã‚‹ã“ã¨ã‚’ç¢ºèªã—ã¦ã‹ã‚‰ã€{clickHere}ã€‚",
             "developer_comment": "{clickHere} is a separate string that will be translated below. Its text will be formatted within ODK Central, for example, it might be bold or a link. Its text is:\n\nclick here to choose"
           },
           "clickHere": {
-            "string": "こちらをクリックして選択する",
+            "string": "ã“ã¡ã‚‰ã‚’ã‚¯ãƒªãƒƒã‚¯ã—ã¦é¸æŠžã™ã‚‹",
             "developer_comment": "This text will be formatted within ODK Central, for example, it might be bold or a link. It will be inserted where {clickHere} is in the following text:\n\nIf you would rather select files from a prompt, ensure that their names match the ones in the table and then {clickHere}."
           }
         }
@@ -3352,12 +3352,12 @@
     },
     "FormDelete": {
       "title": {
-        "string": "フォームの削除",
+        "string": "ãƒ•ã‚©ãƒ¼ãƒ ã®å‰Šé™¤",
         "developer_comment": "This is the title at the top of a pop-up."
       },
       "introduction": {
         "0": {
-          "string": "フォーム{name}および、その提出済フォームが削除されます。\n本当に削除してもよろしいですか？"
+          "string": "ãƒ•ã‚©ãƒ¼ãƒ {name}ãŠã‚ˆã³ã€ãã®æå‡ºæ¸ˆãƒ•ã‚©ãƒ¼ãƒ ãŒå‰Šé™¤ã•ã‚Œã¾ã™ã€‚\næœ¬å½“ã«å‰Šé™¤ã—ã¦ã‚‚ã‚ˆã‚ã—ã„ã§ã™ã‹ï¼Ÿ"
         },
         "1": {
           "string": ""
@@ -3370,7 +3370,7 @@
     "FormDraftAbandon": {
       "title": {
         "abandon": {
-          "string": "下書きの削除",
+          "string": "ä¸‹æ›¸ãã®å‰Šé™¤",
           "developer_comment": "This is the title at the top of a pop-up."
         }
       },
@@ -3391,14 +3391,14 @@
       },
       "action": {
         "abandon": {
-          "string": "削除",
+          "string": "å‰Šé™¤",
           "developer_comment": "This is the text for an action, for example, the text of a button."
         }
       }
     },
     "FormDraftPublish": {
       "title": {
-        "string": "下書きの公開",
+        "string": "ä¸‹æ›¸ãã®å…¬é–‹",
         "developer_comment": "This is the title at the top of a pop-up."
       },
       "warnings": {
@@ -3414,11 +3414,11 @@
         },
         "testing": {
           "full": {
-            "string": "まだテストフォームのアップロードにより、{tested}していません。これは必須ではありませんが、強く推奨します。",
+            "string": "ã¾ã ãƒ†ã‚¹ãƒˆãƒ•ã‚©ãƒ¼ãƒ ã®ã‚¢ãƒƒãƒ—ãƒ­ãƒ¼ãƒ‰ã«ã‚ˆã‚Šã€{tested}ã—ã¦ã„ã¾ã›ã‚“ã€‚ã“ã‚Œã¯å¿…é ˆã§ã¯ã‚ã‚Šã¾ã›ã‚“ãŒã€å¼·ãæŽ¨å¥¨ã—ã¾ã™ã€‚",
             "developer_comment": "This is a warning shown to the user.\n\n{tested} is a separate string that will be translated below. Its text will be formatted within ODK Central, for example, it might be bold or a link. Its text is:\n\ntested this Form"
           },
           "tested": {
-            "string": "このフォームをテスト",
+            "string": "ã“ã®ãƒ•ã‚©ãƒ¼ãƒ ã‚’ãƒ†ã‚¹ãƒˆ",
             "developer_comment": "This text will be formatted within ODK Central, for example, it might be bold or a link. It will be inserted where {tested} is in the following text:\n\nYou have not yet {tested} by uploading a test Submission. You do not have to do this, but it is highly recommended."
           }
         }
@@ -3428,10 +3428,10 @@
           "string": ""
         },
         "1": {
-          "string": "既存の提出済フォームは影響を受けませんが、全ての下書きへのテスト提出済フォームは削除されます。"
+          "string": "æ—¢å­˜ã®æå‡ºæ¸ˆãƒ•ã‚©ãƒ¼ãƒ ã¯å½±éŸ¿ã‚’å—ã‘ã¾ã›ã‚“ãŒã€å…¨ã¦ã®ä¸‹æ›¸ãã¸ã®ãƒ†ã‚¹ãƒˆæå‡ºæ¸ˆãƒ•ã‚©ãƒ¼ãƒ ã¯å‰Šé™¤ã•ã‚Œã¾ã™ã€‚"
         },
         "2": {
-          "string": "フォームの各バージョンには、それぞれ独自のバージョン名が必要です。現在、あなたの下書きフォームには、以前に公開されたバージョンと同じ名前が付けられています。新しいバージョン名を設定するには、希望する名前を付けた定義フォームをアップロードするか、もしくは、以下に新しい名前を入力すれば、サーバーのほうで変更を行います。"
+          "string": "ãƒ•ã‚©ãƒ¼ãƒ ã®å„ãƒãƒ¼ã‚¸ãƒ§ãƒ³ã«ã¯ã€ãã‚Œãžã‚Œç‹¬è‡ªã®ãƒãƒ¼ã‚¸ãƒ§ãƒ³åãŒå¿…è¦ã§ã™ã€‚ç¾åœ¨ã€ã‚ãªãŸã®ä¸‹æ›¸ããƒ•ã‚©ãƒ¼ãƒ ã«ã¯ã€ä»¥å‰ã«å…¬é–‹ã•ã‚ŒãŸãƒãƒ¼ã‚¸ãƒ§ãƒ³ã¨åŒã˜åå‰ãŒä»˜ã‘ã‚‰ã‚Œã¦ã„ã¾ã™ã€‚æ–°ã—ã„ãƒãƒ¼ã‚¸ãƒ§ãƒ³åã‚’è¨­å®šã™ã‚‹ã«ã¯ã€å¸Œæœ›ã™ã‚‹åå‰ã‚’ä»˜ã‘ãŸå®šç¾©ãƒ•ã‚©ãƒ¼ãƒ ã‚’ã‚¢ãƒƒãƒ—ãƒ­ãƒ¼ãƒ‰ã™ã‚‹ã‹ã€ã‚‚ã—ãã¯ã€ä»¥ä¸‹ã«æ–°ã—ã„åå‰ã‚’å…¥åŠ›ã™ã‚Œã°ã€ã‚µãƒ¼ãƒãƒ¼ã®ã»ã†ã§å¤‰æ›´ã‚’è¡Œã„ã¾ã™ã€‚"
         },
         "3": {
           "string": ""
@@ -3442,7 +3442,7 @@
       },
       "problem": {
         "409_6": {
-          "string": "バージョン名が以前の下書き、または削除されたフォームと競合しています。以下の入力項目から新しいものに変更するか、もしくは新しい定義フォームをアップロードしてください。"
+          "string": "ãƒãƒ¼ã‚¸ãƒ§ãƒ³åãŒä»¥å‰ã®ä¸‹æ›¸ãã€ã¾ãŸã¯å‰Šé™¤ã•ã‚ŒãŸãƒ•ã‚©ãƒ¼ãƒ ã¨ç«¶åˆã—ã¦ã„ã¾ã™ã€‚ä»¥ä¸‹ã®å…¥åŠ›é …ç›®ã‹ã‚‰æ–°ã—ã„ã‚‚ã®ã«å¤‰æ›´ã™ã‚‹ã‹ã€ã‚‚ã—ãã¯æ–°ã—ã„å®šç¾©ãƒ•ã‚©ãƒ¼ãƒ ã‚’ã‚¢ãƒƒãƒ—ãƒ­ãƒ¼ãƒ‰ã—ã¦ãã ã•ã„ã€‚"
         }
       },
       "field": {
@@ -3495,11 +3495,11 @@
       "actions": {
         "action": {
           "abandon": {
-            "string": "下書きの削除",
+            "string": "ä¸‹æ›¸ãã®å‰Šé™¤",
             "developer_comment": "This is the text for an action, for example, the text of a button."
           },
           "publish": {
-            "string": "下書きの公開",
+            "string": "ä¸‹æ›¸ãã®å…¬é–‹",
             "developer_comment": "This is the text for an action, for example, the text of a button."
           }
         }
@@ -3512,7 +3512,7 @@
           "string": ""
         },
         "abandon": {
-          "string": "このフォームの下書きは正常に削除されました。"
+          "string": "ã“ã®ãƒ•ã‚©ãƒ¼ãƒ ã®ä¸‹æ›¸ãã¯æ­£å¸¸ã«å‰Šé™¤ã•ã‚Œã¾ã—ãŸã€‚"
         }
       }
     },
@@ -3535,7 +3535,7 @@
         }
       },
       "collectProjectName": {
-        "string": "[下書き] {name}",
+        "string": "[ä¸‹æ›¸ã] {name}",
         "developer_comment": "This text will be shown in ODK Collect when testing a Draft Form. {name} is the title of the Draft Form."
       }
     },
@@ -3669,7 +3669,7 @@
       "projectNav": {
         "action": {
           "back": {
-            "string": "プロジェクトの概要に戻る",
+            "string": "ãƒ—ãƒ­ã‚¸ã‚§ã‚¯ãƒˆã®æ¦‚è¦ã«æˆ»ã‚‹",
             "developer_comment": "This is the text for an action, for example, the text of a button."
           }
         }
@@ -3699,29 +3699,29 @@
       "draftNav": {
         "action": {
           "create": {
-            "string": "新規下書きの作成",
+            "string": "æ–°è¦ä¸‹æ›¸ãã®ä½œæˆ",
             "developer_comment": "This is the text for an action, for example, the text of a button."
           }
         },
         "title": {
-          "string": "下書き",
+          "string": "ä¸‹æ›¸ã",
           "developer_comment": "This text appears on its own and is not part of a longer sentence. It may be shown as a title, for example, at the top of the page."
         }
       }
     },
     "FormList": {
       "title": {
-        "string": "フォーム",
+        "string": "ãƒ•ã‚©ãƒ¼ãƒ ",
         "developer_comment": "This is a title shown above a section of the page."
       },
       "action": {
         "create": {
-          "string": "新規作成",
+          "string": "æ–°è¦ä½œæˆ",
           "developer_comment": "This is the text of a button that is used to create a new Form."
         }
       },
       "emptyTable": {
-        "string": "表示できるフォームはありません。"
+        "string": "è¡¨ç¤ºã§ãã‚‹ãƒ•ã‚©ãƒ¼ãƒ ã¯ã‚ã‚Šã¾ã›ã‚“ã€‚"
       },
       "alert": {
         "create": {
@@ -3733,22 +3733,22 @@
       "introduction": {
         "0": {
           "create": {
-            "string": "フォーム作成のため、XForms（XMLファイル）、またはXLSForm（Excelファイル）をアップロードして下さい。",
+            "string": "ãƒ•ã‚©ãƒ¼ãƒ ä½œæˆã®ãŸã‚ã€XFormsï¼ˆXMLãƒ•ã‚¡ã‚¤ãƒ«ï¼‰ã€ã¾ãŸã¯XLSFormï¼ˆExcelãƒ•ã‚¡ã‚¤ãƒ«ï¼‰ã‚’ã‚¢ãƒƒãƒ—ãƒ­ãƒ¼ãƒ‰ã—ã¦ä¸‹ã•ã„ã€‚",
             "developer_comment": "The words \"XForms\" and \"XLSForm\" should not be translated."
           },
           "update": {
-            "string": "下書きの更新のため、XForms（XMLファイル）、またはXLSForm（Excelファイル）をアップロードして下さい。",
+            "string": "ä¸‹æ›¸ãã®æ›´æ–°ã®ãŸã‚ã€XFormsï¼ˆXMLãƒ•ã‚¡ã‚¤ãƒ«ï¼‰ã€ã¾ãŸã¯XLSFormï¼ˆExcelãƒ•ã‚¡ã‚¤ãƒ«ï¼‰ã‚’ã‚¢ãƒƒãƒ—ãƒ­ãƒ¼ãƒ‰ã—ã¦ä¸‹ã•ã„ã€‚",
             "developer_comment": "The words \"XForms\" and \"XLSForm\" should not be translated."
           }
         },
         "1": {
           "full": {
-            "string": "もしまだフォームをお持ちでない場合、フォームデザインを支援する{tools}。",
+            "string": "ã‚‚ã—ã¾ã ãƒ•ã‚©ãƒ¼ãƒ ã‚’ãŠæŒã¡ã§ãªã„å ´åˆã€ãƒ•ã‚©ãƒ¼ãƒ ãƒ‡ã‚¶ã‚¤ãƒ³ã‚’æ”¯æ´ã™ã‚‹{tools}ã€‚",
             "developer_comment": "{tools} is a separate string that will be translated below. Its text will be formatted within ODK Central, for example, it might be bold or a link. Its text is:\n\ntools available"
           },
           "tools": {
-            "string": "ツールを利用できます",
-            "developer_comment": "This text will be formatted within ODK Central, for example, it might be bold or a link. It will be inserted where {tools} is in the following text:\n\nIf you don’t already have one, there are {tools} to help you design your Form."
+            "string": "ãƒ„ãƒ¼ãƒ«ã‚’åˆ©ç”¨ã§ãã¾ã™",
+            "developer_comment": "This text will be formatted within ODK Central, for example, it might be bold or a link. It will be inserted where {tools} is in the following text:\n\nIf you donâ€™t already have one, there are {tools} to help you design your Form."
           }
         },
         "2": {
@@ -3757,21 +3757,21 @@
       },
       "dropZone": {
         "full": {
-          "string": "アップロードするには、ここにファイルをドロップする、または、こちらからファイルを{chooseOne}",
+          "string": "ã‚¢ãƒƒãƒ—ãƒ­ãƒ¼ãƒ‰ã™ã‚‹ã«ã¯ã€ã“ã“ã«ãƒ•ã‚¡ã‚¤ãƒ«ã‚’ãƒ‰ãƒ­ãƒƒãƒ—ã™ã‚‹ã€ã¾ãŸã¯ã€ã“ã¡ã‚‰ã‹ã‚‰ãƒ•ã‚¡ã‚¤ãƒ«ã‚’{chooseOne}",
           "developer_comment": "{chooseOne} is a separate string that will be translated below. Its text will be formatted within ODK Central, for example, it might be bold or a link. Its text is:\n\nchoose one"
         },
         "chooseOne": {
-          "string": "１つ選択",
+          "string": "ï¼‘ã¤é¸æŠž",
           "developer_comment": "This text will be formatted within ODK Central, for example, it might be bold or a link. It will be inserted where {chooseOne} is in the following text:\n\nDrop a file here, or {chooseOne} to upload."
         }
       },
       "action": {
         "uploadAnyway": {
-          "string": "ひとまず、アップロード",
+          "string": "ã²ã¨ã¾ãšã€ã‚¢ãƒƒãƒ—ãƒ­ãƒ¼ãƒ‰",
           "developer_comment": "This is the text for an action, for example, the text of a button."
         },
         "upload": {
-          "string": "アップロード",
+          "string": "ã‚¢ãƒƒãƒ—ãƒ­ãƒ¼ãƒ‰",
           "developer_comment": "This is the text for an action, for example, the text of a button."
         }
       },
@@ -3782,14 +3782,14 @@
       },
       "problem": {
         "400_8": {
-          "string": "アップロードされた定義フォームは、このフォームのものとは異なるようです。formIdが間違っています（\"{expected}\"であるべきですが、\"{actual}\"となっています）。"
+          "string": "ã‚¢ãƒƒãƒ—ãƒ­ãƒ¼ãƒ‰ã•ã‚ŒãŸå®šç¾©ãƒ•ã‚©ãƒ¼ãƒ ã¯ã€ã“ã®ãƒ•ã‚©ãƒ¼ãƒ ã®ã‚‚ã®ã¨ã¯ç•°ãªã‚‹ã‚ˆã†ã§ã™ã€‚formIdãŒé–“é•ã£ã¦ã„ã¾ã™ï¼ˆ\"{expected}\"ã§ã‚ã‚‹ã¹ãã§ã™ãŒã€\"{actual}\"ã¨ãªã£ã¦ã„ã¾ã™ï¼‰ã€‚"
         },
         "400_15": {
-          "string": "XLSFormを変換できませんでした：{error}",
+          "string": "XLSFormã‚’å¤‰æ›ã§ãã¾ã›ã‚“ã§ã—ãŸï¼š{error}",
           "developer_comment": "The word \"XLSForm\" should not be translated."
         },
         "409_3": {
-          "string": "このプロジェクトには、フォームID\"{xmlFormId}\"のフォームがすでに存在しています。"
+          "string": "ã“ã®ãƒ—ãƒ­ã‚¸ã‚§ã‚¯ãƒˆã«ã¯ã€ãƒ•ã‚©ãƒ¼ãƒ ID\"{xmlFormId}\"ã®ãƒ•ã‚©ãƒ¼ãƒ ãŒã™ã§ã«å­˜åœ¨ã—ã¦ã„ã¾ã™ã€‚"
         }
       },
       "fields": {
@@ -3831,7 +3831,7 @@
       },
       "title": {
         "create": {
-          "string": "フォームの作成",
+          "string": "ãƒ•ã‚©ãƒ¼ãƒ ã®ä½œæˆ",
           "developer_comment": "This is the title at the top of a page."
         }
       }
@@ -3839,13 +3839,13 @@
     "FormOverviewRightNow": {
       "stateCaption": {
         "open": {
-          "string": "このフォームはダウンロードでき、フォームの提出も受け付けています。"
+          "string": "ã“ã®ãƒ•ã‚©ãƒ¼ãƒ ã¯ãƒ€ã‚¦ãƒ³ãƒ­ãƒ¼ãƒ‰ã§ãã€ãƒ•ã‚©ãƒ¼ãƒ ã®æå‡ºã‚‚å—ã‘ä»˜ã‘ã¦ã„ã¾ã™ã€‚"
         },
         "closing": {
-          "string": "このフォームはダウンロードできませんが、フォームの提出は受け付けています。"
+          "string": "ã“ã®ãƒ•ã‚©ãƒ¼ãƒ ã¯ãƒ€ã‚¦ãƒ³ãƒ­ãƒ¼ãƒ‰ã§ãã¾ã›ã‚“ãŒã€ãƒ•ã‚©ãƒ¼ãƒ ã®æå‡ºã¯å—ã‘ä»˜ã‘ã¦ã„ã¾ã™ã€‚"
         },
         "closed": {
-          "string": "このフォームはダウンロードできませんし、フォームの提出も受け付けていません。"
+          "string": "ã“ã®ãƒ•ã‚©ãƒ¼ãƒ ã¯ãƒ€ã‚¦ãƒ³ãƒ­ãƒ¼ãƒ‰ã§ãã¾ã›ã‚“ã—ã€ãƒ•ã‚©ãƒ¼ãƒ ã®æå‡ºã‚‚å—ã‘ä»˜ã‘ã¦ã„ã¾ã›ã‚“ã€‚"
         }
       }
     },
@@ -3859,17 +3859,17 @@
           "string": ""
         },
         "1": {
-          "string": "全てのデータ、設定、権限を含んだ以前のフォームの状態に復元されます"
+          "string": "å…¨ã¦ã®ãƒ‡ãƒ¼ã‚¿ã€è¨­å®šã€æ¨©é™ã‚’å«ã‚“ã ä»¥å‰ã®ãƒ•ã‚©ãƒ¼ãƒ ã®çŠ¶æ…‹ã«å¾©å…ƒã•ã‚Œã¾ã™"
         },
         "2": {
-          "string": "フォームを再削除した場合、完全に削除されるまで、さらに30日を要します。"
+          "string": "ãƒ•ã‚©ãƒ¼ãƒ ã‚’å†å‰Šé™¤ã—ãŸå ´åˆã€å®Œå…¨ã«å‰Šé™¤ã•ã‚Œã‚‹ã¾ã§ã€ã•ã‚‰ã«30æ—¥ã‚’è¦ã—ã¾ã™ã€‚"
         }
       }
     },
     "FormRow": {
       "action": {
         "fill": {
-          "string": "フォームに記入",
+          "string": "ãƒ•ã‚©ãƒ¼ãƒ ã«è¨˜å…¥",
           "developer_comment": "This appears on a button linking to a fillable Form"
         }
       },
@@ -3880,23 +3880,23 @@
     "FormSettings": {
       "state": {
         "title": {
-          "string": "フォームの状態",
+          "string": "ãƒ•ã‚©ãƒ¼ãƒ ã®çŠ¶æ…‹",
           "developer_comment": "This is a title shown above a section of the page."
         },
         "body": {
           "full": {
-            "string": "このフォームの状態を設定するには、各プロジェクトの{formAccessSettings}を確認して下さい。",
+            "string": "ã“ã®ãƒ•ã‚©ãƒ¼ãƒ ã®çŠ¶æ…‹ã‚’è¨­å®šã™ã‚‹ã«ã¯ã€å„ãƒ—ãƒ­ã‚¸ã‚§ã‚¯ãƒˆã®{formAccessSettings}ã‚’ç¢ºèªã—ã¦ä¸‹ã•ã„ã€‚",
             "developer_comment": "{formAccessSettings} is a separate string that will be translated below. Its text will be formatted within ODK Central, for example, it might be bold or a link. Its text is:\n\nForm Access settings"
           },
           "formAccessSettings": {
-            "string": "フォームアクセスの設定",
-            "developer_comment": "This text will be formatted within ODK Central, for example, it might be bold or a link. It will be inserted where {formAccessSettings} is in the following text:\n\nTo set this Form’s state, please visit the Project {formAccessSettings}."
+            "string": "ãƒ•ã‚©ãƒ¼ãƒ ã‚¢ã‚¯ã‚»ã‚¹ã®è¨­å®š",
+            "developer_comment": "This text will be formatted within ODK Central, for example, it might be bold or a link. It will be inserted where {formAccessSettings} is in the following text:\n\nTo set this Formâ€™s state, please visit the Project {formAccessSettings}."
           }
         }
       },
       "action": {
         "delete": {
-          "string": "フォームを削除",
+          "string": "ãƒ•ã‚©ãƒ¼ãƒ ã‚’å‰Šé™¤",
           "developer_comment": "This is the text for an action, for example, the text of a button."
         }
       },
@@ -3982,14 +3982,14 @@
           "developer_comment": "This is the text of a column header referring to how recent a Form's latest submission was."
         },
         "idAndVersion": {
-          "string": "フォームIDとバージョン",
+          "string": "ãƒ•ã‚©ãƒ¼ãƒ IDã¨ãƒãƒ¼ã‚¸ãƒ§ãƒ³",
           "developer_comment": "This is the text of a column header in a table of Forms. The column shows the ID of each Form, as well as the name of its primary version."
         }
       }
     },
     "FormTrashList": {
       "title": {
-        "string": "ゴミ箱"
+        "string": "ã‚´ãƒŸç®±"
       },
       "trashCount": {
         "string": "({count})",
@@ -4001,12 +4001,12 @@
         }
       },
       "message": {
-        "string": "フォームとフォームに関連したデータは30日後に削除されます。"
+        "string": "ãƒ•ã‚©ãƒ¼ãƒ ã¨ãƒ•ã‚©ãƒ¼ãƒ ã«é–¢é€£ã—ãŸãƒ‡ãƒ¼ã‚¿ã¯30æ—¥å¾Œã«å‰Šé™¤ã•ã‚Œã¾ã™ã€‚"
       }
     },
     "FormTrashRow": {
       "deletedDate": {
-        "string": "削除 {dateTime}",
+        "string": "å‰Šé™¤ {dateTime}",
         "developer_comment": "This text shows when the Form was deleted. {dateTime} shows the date and time, for example: \"2020/01/01 01:23\". It may show a formatted date like \"2020/01/01\", or it may use a word like \"today\", \"yesterday\", or \"Sunday\"."
       },
       "disabled": {
@@ -4024,19 +4024,19 @@
     "FormVersionDefDropdown": {
       "action": {
         "def": {
-          "string": "定義フォーム",
+          "string": "å®šç¾©ãƒ•ã‚©ãƒ¼ãƒ ",
           "developer_comment": "This is the text of a button. \"Definition\" refers to a Form definition."
         },
         "viewXml": {
-          "string": "XMLをブラウザで表示する",
+          "string": "XMLã‚’ãƒ–ãƒ©ã‚¦ã‚¶ã§è¡¨ç¤ºã™ã‚‹",
           "developer_comment": "This is the text for an action, for example, the text of a button."
         },
         "downloadXForm": {
-          "string": "XFormとしてダウンロード（.xml形式）",
+          "string": "XFormã¨ã—ã¦ãƒ€ã‚¦ãƒ³ãƒ­ãƒ¼ãƒ‰ï¼ˆ.xmlå½¢å¼ï¼‰",
           "developer_comment": "This is the text of a link to download a Form definition. The word \"XForm\" should not be translated."
         },
         "downloadXlsForm": {
-          "string": "XLSFormとしてダウンロード（{extension}形式）",
+          "string": "XLSFormã¨ã—ã¦ãƒ€ã‚¦ãƒ³ãƒ­ãƒ¼ãƒ‰ï¼ˆ{extension}å½¢å¼ï¼‰",
           "developer_comment": "This is the text of a link to download a Form definition. {extension} is either .xls or .xlsx. The word \"XLSForm\" should not be translated."
         }
       }
@@ -4053,25 +4053,25 @@
     },
     "FormVersionString": {
       "blank": {
-        "string": "(未設定)",
+        "string": "(æœªè¨­å®š)",
         "developer_comment": "This is shown for a Form with a blank version name."
       }
     },
     "FormVersionTable": {
       "header": {
         "published": {
-          "string": "公開済み",
+          "string": "å…¬é–‹æ¸ˆã¿",
           "developer_comment": "This is the text of a table column header. The column shows who published the version of the Form, as well as when they did so."
         },
         "definition": {
-          "string": "定義フォーム",
+          "string": "å®šç¾©ãƒ•ã‚©ãƒ¼ãƒ ",
           "developer_comment": "This is the text of a table column header. \"Definition\" refers to a Form definition."
         }
       }
     },
     "FormVersionViewXml": {
       "title": {
-        "string": "XMLの閲覧",
+        "string": "XMLã®é–²è¦§",
         "developer_comment": "This is the title at the top of a pop-up."
       }
     },
@@ -4160,11 +4160,11 @@
     },
     "MarkdownTextarea": {
       "markdownSupported": {
-        "string": "マークダウンがサポートされています。",
+        "string": "ãƒžãƒ¼ã‚¯ãƒ€ã‚¦ãƒ³ãŒã‚µãƒãƒ¼ãƒˆã•ã‚Œã¦ã„ã¾ã™ã€‚",
         "developer_comment": "This is a link to an external website with Markdown style guidelines"
       },
       "preview": {
-        "string": "プレビュー",
+        "string": "ãƒ—ãƒ¬ãƒ“ãƒ¥ãƒ¼",
         "developer_comment": "This is text shown as a label above the preview of Markdown formatting (special formatting of user-submitted text)"
       }
     },
@@ -4179,28 +4179,28 @@
     "Navbar": {
       "action": {
         "toggle": {
-          "string": "ナビゲーションを有効化",
+          "string": "ãƒŠãƒ“ã‚²ãƒ¼ã‚·ãƒ§ãƒ³ã‚’æœ‰åŠ¹åŒ–",
           "developer_comment": "Used by screen readers to describe the button used to show or hide the navigation bar on small screens (\"hamburger menu\")."
         }
       },
       "analyticsNotice": {
-        "string": "Centralの改善を支援！"
+        "string": "Centralã®æ”¹å–„ã‚’æ”¯æ´ï¼"
       }
     },
     "NavbarActions": {
       "notLoggedIn": {
-        "string": "ログイン",
+        "string": "ãƒ­ã‚°ã‚¤ãƒ³",
         "developer_comment": "This text is shown if the user is not logged in. It is shown in the navigation bar at the top of the page."
       },
       "action": {
         "logOut": {
-          "string": "ログアウト",
+          "string": "ãƒ­ã‚°ã‚¢ã‚¦ãƒˆ",
           "developer_comment": "This is the text for an action, for example, the text of a button."
         }
       },
       "alert": {
         "logOut": {
-          "string": "ログアウトに成功しました。"
+          "string": "ãƒ­ã‚°ã‚¢ã‚¦ãƒˆã«æˆåŠŸã—ã¾ã—ãŸã€‚"
         }
       }
     },
@@ -4210,25 +4210,25 @@
         "developer_comment": "This text is used to label a help menu that lists links to useful resources."
       },
       "version": {
-        "string": "バージョン",
+        "string": "ãƒãƒ¼ã‚¸ãƒ§ãƒ³",
         "developer_comment": "An identifier of a particular version of something (of Central, of a Form, of an Entity)"
       }
     },
     "NavbarLinks": {
       "current": {
-        "string": "現在",
+        "string": "ç¾åœ¨",
         "developer_comment": "Used by screen readers to identify the currently-selected navigation tab"
       }
     },
     "NavbarLocaleDropdown": {
       "helpTranslate": {
-        "string": "Centralの翻訳に貢献する",
+        "string": "Centralã®ç¿»è¨³ã«è²¢çŒ®ã™ã‚‹",
         "developer_comment": "This is shown below the list of languages and links to the ODK Central translation guide."
       }
     },
     "NotFound": {
       "body": {
-        "string": "リクエストされたページは見つかりません。"
+        "string": "ãƒªã‚¯ã‚¨ã‚¹ãƒˆã•ã‚ŒãŸãƒšãƒ¼ã‚¸ã¯è¦‹ã¤ã‹ã‚Šã¾ã›ã‚“ã€‚"
       }
     },
     "OdataDataAccess": {
@@ -4310,20 +4310,20 @@
     },
     "ProjectArchive": {
       "title": {
-        "string": "プロジェクトのアーカイブ",
+        "string": "ãƒ—ãƒ­ã‚¸ã‚§ã‚¯ãƒˆã®ã‚¢ãƒ¼ã‚«ã‚¤ãƒ–",
         "developer_comment": "This is the title at the top of a pop-up."
       },
       "introduction": {
         "0": {
-          "string": "プロジェクト \"{name}\"をアーカイブしようとしています。現在と同様に機能しますが、Centralのトップページのプロジェクトリストの一番下に表示されます。"
+          "string": "ãƒ—ãƒ­ã‚¸ã‚§ã‚¯ãƒˆ \"{name}\"ã‚’ã‚¢ãƒ¼ã‚«ã‚¤ãƒ–ã—ã‚ˆã†ã¨ã—ã¦ã„ã¾ã™ã€‚ç¾åœ¨ã¨åŒæ§˜ã«æ©Ÿèƒ½ã—ã¾ã™ãŒã€Centralã®ãƒˆãƒƒãƒ—ãƒšãƒ¼ã‚¸ã®ãƒ—ãƒ­ã‚¸ã‚§ã‚¯ãƒˆãƒªã‚¹ãƒˆã®ä¸€ç•ªä¸‹ã«è¡¨ç¤ºã•ã‚Œã¾ã™ã€‚"
         },
         "1": {
           "full": {
-            "string": "{noUndo}プロジェクトの非アーカイブ化機能は将来的にリリースされる予定です。",
+            "string": "{noUndo}ãƒ—ãƒ­ã‚¸ã‚§ã‚¯ãƒˆã®éžã‚¢ãƒ¼ã‚«ã‚¤ãƒ–åŒ–æ©Ÿèƒ½ã¯å°†æ¥çš„ã«ãƒªãƒªãƒ¼ã‚¹ã•ã‚Œã‚‹äºˆå®šã§ã™ã€‚",
             "developer_comment": "{noUndo} is a separate string that will be translated below. Its text will be formatted within ODK Central, for example, it might be bold or a link. Its text is:\n\nThis action cannot be undone"
           },
           "noUndo": {
-            "string": "この操作は取り消しできません。",
+            "string": "ã“ã®æ“ä½œã¯å–ã‚Šæ¶ˆã—ã§ãã¾ã›ã‚“ã€‚",
             "developer_comment": "This text will be formatted within ODK Central, for example, it might be bold or a link. It will be inserted where {noUndo} is in the following text:\n\n{noUndo}, but the ability to unarchive a Project is planned for a future release."
           }
         }
@@ -4369,12 +4369,12 @@
     },
     "ProjectEdit": {
       "title": {
-        "string": "基本詳細",
+        "string": "åŸºæœ¬è©³ç´°",
         "developer_comment": "This is a title shown above a section of the page."
       },
       "field": {
         "name": {
-          "string": "プロジェクト名",
+          "string": "ãƒ—ãƒ­ã‚¸ã‚§ã‚¯ãƒˆå",
           "developer_comment": "This is the text of a form field."
         },
         "description": {
@@ -4394,7 +4394,7 @@
     },
     "ProjectEnableEncryption": {
       "title": {
-        "string": "暗号化を有効にする",
+        "string": "æš—å·åŒ–ã‚’æœ‰åŠ¹ã«ã™ã‚‹",
         "developer_comment": "This is the title at the top of a pop-up."
       },
       "steps": {
@@ -4402,21 +4402,21 @@
           "introduction": {
             "0": {
               "0": {
-                "string": "暗号化を有効にすると、次のようになります。"
+                "string": "æš—å·åŒ–ã‚’æœ‰åŠ¹ã«ã™ã‚‹ã¨ã€æ¬¡ã®ã‚ˆã†ã«ãªã‚Šã¾ã™ã€‚"
               },
               "1": {
-                "string": "確定済フォームは、モバイル端末の内部で暗号化されます。"
+                "string": "ç¢ºå®šæ¸ˆãƒ•ã‚©ãƒ¼ãƒ ã¯ã€ãƒ¢ãƒã‚¤ãƒ«ç«¯æœ«ã®å†…éƒ¨ã§æš—å·åŒ–ã•ã‚Œã¾ã™ã€‚"
               },
               "2": {
-                "string": "提出済フォームはCentralサーバーで暗号化されます。"
+                "string": "æå‡ºæ¸ˆãƒ•ã‚©ãƒ¼ãƒ ã¯Centralã‚µãƒ¼ãƒãƒ¼ã§æš—å·åŒ–ã•ã‚Œã¾ã™ã€‚"
               },
               "3": {
                 "0": {
-                  "string": "手動で{submission}キーを設定したフォームでは、そのキーが引き続き使用されるため、手動で復号化する必要があります。",
+                  "string": "æ‰‹å‹•ã§{submission}ã‚­ãƒ¼ã‚’è¨­å®šã—ãŸãƒ•ã‚©ãƒ¼ãƒ ã§ã¯ã€ãã®ã‚­ãƒ¼ãŒå¼•ãç¶šãä½¿ç”¨ã•ã‚Œã‚‹ãŸã‚ã€æ‰‹å‹•ã§å¾©å·åŒ–ã™ã‚‹å¿…è¦ãŒã‚ã‚Šã¾ã™ã€‚",
                   "developer_comment": "{submission} will have the text \"<submission>\", which is XML and will not be translated."
                 },
                 "1": {
-                  "string": "これらのフォームでCentralの自動暗号化処理を使用するには、{base64RsaPublicKey}の設定を削除して下さい。",
+                  "string": "ã“ã‚Œã‚‰ã®ãƒ•ã‚©ãƒ¼ãƒ ã§Centralã®è‡ªå‹•æš—å·åŒ–å‡¦ç†ã‚’ä½¿ç”¨ã™ã‚‹ã«ã¯ã€{base64RsaPublicKey}ã®è¨­å®šã‚’å‰Šé™¤ã—ã¦ä¸‹ã•ã„ã€‚",
                   "developer_comment": "{base64RsaPublicKey} will have the text \"base64RsaPublicKey\", which is code and will not be translated."
                 }
               },
@@ -4427,7 +4427,7 @@
                 "string": ""
               },
               "6": {
-                "string": "提出されたデータをWebブラウザで編集できなくなります。"
+                "string": "æå‡ºã•ã‚ŒãŸãƒ‡ãƒ¼ã‚¿ã‚’Webãƒ–ãƒ©ã‚¦ã‚¶ã§ç·¨é›†ã§ããªããªã‚Šã¾ã™ã€‚"
               },
               "7": {
                 "string": ""
@@ -4435,17 +4435,17 @@
             },
             "1": {
               "0": {
-                "string": "また、このバージョンのODK Centralでは以下のようになっています。",
+                "string": "ã¾ãŸã€ã“ã®ãƒãƒ¼ã‚¸ãƒ§ãƒ³ã®ODK Centralã§ã¯ä»¥ä¸‹ã®ã‚ˆã†ã«ãªã£ã¦ã„ã¾ã™ã€‚",
                 "developer_comment": "don't translate this sentence, it is not used anywhere"
               },
               "1": {
                 "0": {
-                  "string": "既存の提出されたフォームは暗号化されずに残ります。"
+                  "string": "æ—¢å­˜ã®æå‡ºã•ã‚ŒãŸãƒ•ã‚©ãƒ¼ãƒ ã¯æš—å·åŒ–ã•ã‚Œãšã«æ®‹ã‚Šã¾ã™ã€‚"
                 }
               },
               "2": {
                 "0": {
-                  "string": "一度有効にされた暗号化を無効にすることはできません。"
+                  "string": "ä¸€åº¦æœ‰åŠ¹ã«ã•ã‚ŒãŸæš—å·åŒ–ã‚’ç„¡åŠ¹ã«ã™ã‚‹ã“ã¨ã¯ã§ãã¾ã›ã‚“ã€‚"
                 }
               },
               "3": {
@@ -4454,11 +4454,11 @@
             },
             "2": {
               "full": {
-                "string": "暗号化についての詳細は{here}にあります。この内容でよろしければ、「次へ」をクリックして次に進みます。",
+                "string": "æš—å·åŒ–ã«ã¤ã„ã¦ã®è©³ç´°ã¯{here}ã«ã‚ã‚Šã¾ã™ã€‚ã“ã®å†…å®¹ã§ã‚ˆã‚ã—ã‘ã‚Œã°ã€ã€Œæ¬¡ã¸ã€ã‚’ã‚¯ãƒªãƒƒã‚¯ã—ã¦æ¬¡ã«é€²ã¿ã¾ã™ã€‚",
                 "developer_comment": "{here} is a separate string that will be translated below. Its text will be formatted within ODK Central, for example, it might be bold or a link. Its text is:\n\nhere"
               },
               "here": {
-                "string": "こちら",
+                "string": "ã“ã¡ã‚‰",
                 "developer_comment": "This text will be formatted within ODK Central, for example, it might be bold or a link. It will be inserted where {here} is in the following text:\n\nYou can learn more about encryption {here}. If this sounds like something you want, press Next to proceed."
               }
             }
@@ -4475,7 +4475,7 @@
                 "developer_comment": "{no} is a separate string that will be translated below. Its text will be formatted within ODK Central, for example, it might be bold or a link. Its text is:\n\nno"
               },
               "no": {
-                "string": "ません",
+                "string": "ã¾ã›ã‚“",
                 "developer_comment": "This text will be formatted within ODK Central, for example, it might be bold or a link. It will be inserted where {no} is in the following text:\n\nIf you lose this encryption password, there is {no} way to recover it or your data."
               }
             }
@@ -4502,11 +4502,11 @@
     "ProjectFormAccess": {
       "heading": {
         "0": {
-          "string": "アプリユーザーは、以下の表で明示的にアクセス権限を与えられたフォームに対してのみ、閲覧・記入ができます。プロジェクト・マネージャーとデータ収集者は、Webブラウザを使って、公開状態のプロジェクト内のどのフォームにも、記入できます。"
+          "string": "ã‚¢ãƒ—ãƒªãƒ¦ãƒ¼ã‚¶ãƒ¼ã¯ã€ä»¥ä¸‹ã®è¡¨ã§æ˜Žç¤ºçš„ã«ã‚¢ã‚¯ã‚»ã‚¹æ¨©é™ã‚’ä¸Žãˆã‚‰ã‚ŒãŸãƒ•ã‚©ãƒ¼ãƒ ã«å¯¾ã—ã¦ã®ã¿ã€é–²è¦§ãƒ»è¨˜å…¥ãŒã§ãã¾ã™ã€‚ãƒ—ãƒ­ã‚¸ã‚§ã‚¯ãƒˆãƒ»ãƒžãƒãƒ¼ã‚¸ãƒ£ãƒ¼ã¨ãƒ‡ãƒ¼ã‚¿åŽé›†è€…ã¯ã€Webãƒ–ãƒ©ã‚¦ã‚¶ã‚’ä½¿ã£ã¦ã€å…¬é–‹çŠ¶æ…‹ã®ãƒ—ãƒ­ã‚¸ã‚§ã‚¯ãƒˆå†…ã®ã©ã®ãƒ•ã‚©ãƒ¼ãƒ ã«ã‚‚ã€è¨˜å…¥ã§ãã¾ã™ã€‚"
         }
       },
       "emptyTable": {
-        "string": "表示できるフォームはありません。"
+        "string": "è¡¨ç¤ºã§ãã‚‹ãƒ•ã‚©ãƒ¼ãƒ ã¯ã‚ã‚Šã¾ã›ã‚“ã€‚"
       },
       "alert": {
         "success": {
@@ -4516,67 +4516,67 @@
     },
     "ProjectFormAccessRow": {
       "draftTitle": {
-        "string": "このフォームには公開バージョンがまだありません。下書きが公開されるまで、端末上には表示されません。フォームを公開すると、ここで示される設定が適応されます。"
+        "string": "ã“ã®ãƒ•ã‚©ãƒ¼ãƒ ã«ã¯å…¬é–‹ãƒãƒ¼ã‚¸ãƒ§ãƒ³ãŒã¾ã ã‚ã‚Šã¾ã›ã‚“ã€‚ä¸‹æ›¸ããŒå…¬é–‹ã•ã‚Œã‚‹ã¾ã§ã€ç«¯æœ«ä¸Šã«ã¯è¡¨ç¤ºã•ã‚Œã¾ã›ã‚“ã€‚ãƒ•ã‚©ãƒ¼ãƒ ã‚’å…¬é–‹ã™ã‚‹ã¨ã€ã“ã“ã§ç¤ºã•ã‚Œã‚‹è¨­å®šãŒé©å¿œã•ã‚Œã¾ã™ã€‚"
       },
       "field": {
         "state": {
-          "string": "状態",
+          "string": "çŠ¶æ…‹",
           "developer_comment": "This is the text of a form field. \"State\" refers to the Form State. Form States control the lifecycle state of each Form."
         },
         "appUserAccess": {
-          "string": "アプリユーザーのアクセス",
+          "string": "ã‚¢ãƒ—ãƒªãƒ¦ãƒ¼ã‚¶ãƒ¼ã®ã‚¢ã‚¯ã‚»ã‚¹",
           "developer_comment": "This is the text of a form field."
         }
       }
     },
     "ProjectFormAccessStates": {
       "title": {
-        "string": "フォームの状態",
+        "string": "ãƒ•ã‚©ãƒ¼ãƒ ã®çŠ¶æ…‹",
         "developer_comment": "This is the title at the top of a pop-up."
       },
       "introduction": {
         "0": {
-          "string": "フォームの状態では、各フォームのライフサイクルにおける状態を制御します。例外もありますが、通常、フォームは「公開」から始まり、「クロージング状態」を経て、不要になったら「終了」となります。"
+          "string": "ãƒ•ã‚©ãƒ¼ãƒ ã®çŠ¶æ…‹ã§ã¯ã€å„ãƒ•ã‚©ãƒ¼ãƒ ã®ãƒ©ã‚¤ãƒ•ã‚µã‚¤ã‚¯ãƒ«ã«ãŠã‘ã‚‹çŠ¶æ…‹ã‚’åˆ¶å¾¡ã—ã¾ã™ã€‚ä¾‹å¤–ã‚‚ã‚ã‚Šã¾ã™ãŒã€é€šå¸¸ã€ãƒ•ã‚©ãƒ¼ãƒ ã¯ã€Œå…¬é–‹ã€ã‹ã‚‰å§‹ã¾ã‚Šã€ã€Œã‚¯ãƒ­ãƒ¼ã‚¸ãƒ³ã‚°çŠ¶æ…‹ã€ã‚’çµŒã¦ã€ä¸è¦ã«ãªã£ãŸã‚‰ã€Œçµ‚äº†ã€ã¨ãªã‚Šã¾ã™ã€‚"
         },
         "1": {
           "full": {
-            "string": "{open}のフォームはダウンロードでき、新規のフォームの提出も受け付けます。",
+            "string": "{open}ã®ãƒ•ã‚©ãƒ¼ãƒ ã¯ãƒ€ã‚¦ãƒ³ãƒ­ãƒ¼ãƒ‰ã§ãã€æ–°è¦ã®ãƒ•ã‚©ãƒ¼ãƒ ã®æå‡ºã‚‚å—ã‘ä»˜ã‘ã¾ã™ã€‚",
             "developer_comment": "{open} is a separate string that will be translated below. Its text will be formatted within ODK Central, for example, it might be bold or a link. Its text is:\n\nOpen"
           },
           "open": {
-            "string": "公開中",
+            "string": "å…¬é–‹ä¸­",
             "developer_comment": "This text will be formatted within ODK Central, for example, it might be bold or a link. It will be inserted where {open} is in the following text:\n\n{open} Forms are available to download and will accept new Submissions."
           }
         },
         "2": {
           "full": {
-            "string": "{closing}のフォームは新規のフォームの提出を受け付けますが、ダウンロードはでき{not}。",
+            "string": "{closing}ã®ãƒ•ã‚©ãƒ¼ãƒ ã¯æ–°è¦ã®ãƒ•ã‚©ãƒ¼ãƒ ã®æå‡ºã‚’å—ã‘ä»˜ã‘ã¾ã™ãŒã€ãƒ€ã‚¦ãƒ³ãƒ­ãƒ¼ãƒ‰ã¯ã§ã{not}ã€‚",
             "developer_comment": "The following are separate strings that will be translated below. They will be formatted within ODK Central, for example, they might be bold or a link.\n\n- {closing} has the text: Closing\n- {not} has the text: not"
           },
           "closing": {
-            "string": "クロージング状態",
+            "string": "ã‚¯ãƒ­ãƒ¼ã‚¸ãƒ³ã‚°çŠ¶æ…‹",
             "developer_comment": "This text will be formatted within ODK Central, for example, it might be bold or a link. It will be inserted where {closing} is in the following text:\n\n{closing} Forms will accept new Submissions, but are {not} available to download."
           },
           "not": {
-            "string": "ません",
+            "string": "ã¾ã›ã‚“",
             "developer_comment": "This text will be formatted within ODK Central, for example, it might be bold or a link. It will be inserted where {not} is in the following text:\n\n{closing} Forms will accept new Submissions, but are {not} available to download."
           }
         },
         "3": {
           "full": {
-            "string": "{closed}したフォームはダウンロードでき{not1}。また新規のフォームの提出も受け付け{not2}。",
+            "string": "{closed}ã—ãŸãƒ•ã‚©ãƒ¼ãƒ ã¯ãƒ€ã‚¦ãƒ³ãƒ­ãƒ¼ãƒ‰ã§ã{not1}ã€‚ã¾ãŸæ–°è¦ã®ãƒ•ã‚©ãƒ¼ãƒ ã®æå‡ºã‚‚å—ã‘ä»˜ã‘{not2}ã€‚",
             "developer_comment": "The following are separate strings that will be translated below. They will be formatted within ODK Central, for example, they might be bold or a link.\n\n- {closed} has the text: Closed\n- {not1} has the text: not\n- {not2} has the text: not"
           },
           "closed": {
-            "string": "終了",
+            "string": "çµ‚äº†",
             "developer_comment": "This text will be formatted within ODK Central, for example, it might be bold or a link. It will be inserted where {closed} is in the following text:\n\n{closed} Forms are {not1} available to download and will {not2} accept new Submissions."
           },
           "not1": {
-            "string": "ません",
+            "string": "ã¾ã›ã‚“",
             "developer_comment": "This text will be formatted within ODK Central, for example, it might be bold or a link. It will be inserted where {not1} is in the following text:\n\n{closed} Forms are {not1} available to download and will {not2} accept new Submissions."
           },
           "not2": {
-            "string": "ません",
+            "string": "ã¾ã›ã‚“",
             "developer_comment": "This text will be formatted within ODK Central, for example, it might be bold or a link. It will be inserted where {not2} is in the following text:\n\n{closed} Forms are {not1} available to download and will {not2} accept new Submissions."
           }
         }
@@ -4585,11 +4585,11 @@
     "ProjectFormAccessTable": {
       "header": {
         "form": {
-          "string": "フォーム",
+          "string": "ãƒ•ã‚©ãƒ¼ãƒ ",
           "developer_comment": "This is the text of a table column header."
         },
         "state": {
-          "string": "状態",
+          "string": "çŠ¶æ…‹",
           "developer_comment": "This is the text of a table column header."
         }
       }
@@ -4630,7 +4630,7 @@
       },
       "action": {
         "create": {
-          "string": "新規作成",
+          "string": "æ–°è¦ä½œæˆ",
           "developer_comment": "This is the text of a button that is used to create a new Project."
         }
       },
@@ -4644,18 +4644,18 @@
       },
       "alert": {
         "create": {
-          "string": "新規プロジェクトは正しく作成されました。"
+          "string": "æ–°è¦ãƒ—ãƒ­ã‚¸ã‚§ã‚¯ãƒˆã¯æ­£ã—ãä½œæˆã•ã‚Œã¾ã—ãŸã€‚"
         }
       }
     },
     "ProjectNew": {
       "title": {
-        "string": "プロジェクトの作成",
+        "string": "ãƒ—ãƒ­ã‚¸ã‚§ã‚¯ãƒˆã®ä½œæˆ",
         "developer_comment": "This is the title at the top of a pop-up."
       },
       "introduction": {
         "0": {
-          "string": "プロジェクトでは、フォームやアプリユーザーをグループ化して、このWebサイトとデータ収集デバイスの両方で、整理と管理を簡易化します。"
+          "string": "ãƒ—ãƒ­ã‚¸ã‚§ã‚¯ãƒˆã§ã¯ã€ãƒ•ã‚©ãƒ¼ãƒ ã‚„ã‚¢ãƒ—ãƒªãƒ¦ãƒ¼ã‚¶ãƒ¼ã‚’ã‚°ãƒ«ãƒ¼ãƒ—åŒ–ã—ã¦ã€ã“ã®Webã‚µã‚¤ãƒˆã¨ãƒ‡ãƒ¼ã‚¿åŽé›†ãƒ‡ãƒã‚¤ã‚¹ã®ä¸¡æ–¹ã§ã€æ•´ç†ã¨ç®¡ç†ã‚’ç°¡æ˜“åŒ–ã—ã¾ã™ã€‚"
         }
       }
     },
@@ -4678,34 +4678,34 @@
     "ProjectSettings": {
       "encryption": {
         "title": {
-          "string": "暗号化",
+          "string": "æš—å·åŒ–",
           "developer_comment": "This is a title shown above a section of the page."
         },
         "body": {
           "unencrypted": {
             "0": {
-              "string": "このプロジェクトでは、提出フォームの暗号化は有効化されていません。"
+              "string": "ã“ã®ãƒ—ãƒ­ã‚¸ã‚§ã‚¯ãƒˆã§ã¯ã€æå‡ºãƒ•ã‚©ãƒ¼ãƒ ã®æš—å·åŒ–ã¯æœ‰åŠ¹åŒ–ã•ã‚Œã¦ã„ã¾ã›ã‚“ã€‚"
             }
           },
           "encrypted": {
             "0": {
               "full": {
-                "string": "このプロジェクトの提出されたフォームの暗号化は、{enabled}",
+                "string": "ã“ã®ãƒ—ãƒ­ã‚¸ã‚§ã‚¯ãƒˆã®æå‡ºã•ã‚ŒãŸãƒ•ã‚©ãƒ¼ãƒ ã®æš—å·åŒ–ã¯ã€{enabled}",
                 "developer_comment": "{enabled} is a separate string that will be translated below. Its text will be formatted within ODK Central, for example, it might be bold or a link. Its text is:\n\nenabled"
               },
               "enabled": {
-                "string": "有効にされています。",
+                "string": "æœ‰åŠ¹ã«ã•ã‚Œã¦ã„ã¾ã™ã€‚",
                 "developer_comment": "This text will be formatted within ODK Central, for example, it might be bold or a link. It will be inserted where {enabled} is in the following text:\n\nSubmission data encryption is {enabled} for this Project."
               }
             },
             "1": {
-              "string": "このバージョンのODK Centralでは、一度有効にされた暗号化は無効にできません。"
+              "string": "ã“ã®ãƒãƒ¼ã‚¸ãƒ§ãƒ³ã®ODK Centralã§ã¯ã€ä¸€åº¦æœ‰åŠ¹ã«ã•ã‚ŒãŸæš—å·åŒ–ã¯ç„¡åŠ¹ã«ã§ãã¾ã›ã‚“ã€‚"
             }
           }
         },
         "action": {
           "enableEncryption": {
-            "string": "暗号化を有効にする",
+            "string": "æš—å·åŒ–ã‚’æœ‰åŠ¹ã«ã™ã‚‹",
             "developer_comment": "This is the text for an action, for example, the text of a button."
           }
         }
@@ -4713,16 +4713,16 @@
       "dangerZone": {
         "action": {
           "archive": {
-            "string": "このプロジェクトをアーカイブする",
+            "string": "ã“ã®ãƒ—ãƒ­ã‚¸ã‚§ã‚¯ãƒˆã‚’ã‚¢ãƒ¼ã‚«ã‚¤ãƒ–ã™ã‚‹",
             "developer_comment": "This is the text for an action, for example, the text of a button."
           }
         },
         "archived": {
           "0": {
-            "string": "このプロジェクトはアーカイブされました。"
+            "string": "ã“ã®ãƒ—ãƒ­ã‚¸ã‚§ã‚¯ãƒˆã¯ã‚¢ãƒ¼ã‚«ã‚¤ãƒ–ã•ã‚Œã¾ã—ãŸã€‚"
           },
           "1": {
-            "string": "このバージョンのODK Centralでは、プロジェクトの非アーカイブ化はできません。プロジェクトの非アーカイブ機能は将来的にリリースされる予定です。"
+            "string": "ã“ã®ãƒãƒ¼ã‚¸ãƒ§ãƒ³ã®ODK Centralã§ã¯ã€ãƒ—ãƒ­ã‚¸ã‚§ã‚¯ãƒˆã®éžã‚¢ãƒ¼ã‚«ã‚¤ãƒ–åŒ–ã¯ã§ãã¾ã›ã‚“ã€‚ãƒ—ãƒ­ã‚¸ã‚§ã‚¯ãƒˆã®éžã‚¢ãƒ¼ã‚«ã‚¤ãƒ–æ©Ÿèƒ½ã¯å°†æ¥çš„ã«ãƒªãƒªãƒ¼ã‚¹ã•ã‚Œã‚‹äºˆå®šã§ã™ã€‚"
           }
         }
       },
@@ -4746,45 +4746,45 @@
     },
     "ProjectSubmissionOptions": {
       "title": {
-        "string": "フォーム提出方法の選択肢",
+        "string": "ãƒ•ã‚©ãƒ¼ãƒ æå‡ºæ–¹æ³•ã®é¸æŠžè‚¢",
         "developer_comment": "This is the title at the top of a pop-up."
       },
       "introduction": {
         "0": {
-          "string": "ODK Centralへのデータ提出方法にはいくつかの選択肢があります。",
+          "string": "ODK Centralã¸ã®ãƒ‡ãƒ¼ã‚¿æå‡ºæ–¹æ³•ã«ã¯ã„ãã¤ã‹ã®é¸æŠžè‚¢ãŒã‚ã‚Šã¾ã™ã€‚",
           "developer_comment": "This text is shown above a list of options for submitting data."
         },
         "1": {
           "full": {
-            "string": "{appUsers}を作成し、Androidアプリの{collect}を使用して下さい。この方法は、データ収集者が複数のフォームにアクセスする必要がある場合や、オフラインである場合、複雑なフォームを持っている場合などに最適です",
+            "string": "{appUsers}ã‚’ä½œæˆã—ã€Androidã‚¢ãƒ—ãƒªã®{collect}ã‚’ä½¿ç”¨ã—ã¦ä¸‹ã•ã„ã€‚ã“ã®æ–¹æ³•ã¯ã€ãƒ‡ãƒ¼ã‚¿åŽé›†è€…ãŒè¤‡æ•°ã®ãƒ•ã‚©ãƒ¼ãƒ ã«ã‚¢ã‚¯ã‚»ã‚¹ã™ã‚‹å¿…è¦ãŒã‚ã‚‹å ´åˆã‚„ã€ã‚ªãƒ•ãƒ©ã‚¤ãƒ³ã§ã‚ã‚‹å ´åˆã€è¤‡é›‘ãªãƒ•ã‚©ãƒ¼ãƒ ã‚’æŒã£ã¦ã„ã‚‹å ´åˆãªã©ã«æœ€é©ã§ã™",
             "developer_comment": "This text is shown in a list of options for submitting data. {collect} is a link whose text is \"ODK Collect\".\n\n{appUsers} is a separate string that will be translated below. Its text will be formatted within ODK Central, for example, it might be bold or a link. Its text is:\n\nApp Users"
           },
           "appUsers": {
-            "string": "アプリユーザー",
+            "string": "ã‚¢ãƒ—ãƒªãƒ¦ãƒ¼ã‚¶ãƒ¼",
             "developer_comment": "This text will be formatted within ODK Central, for example, it might be bold or a link. It will be inserted where {appUsers} is in the following text:\n\nCreate {appUsers} and use the {collect} Android application. This is most appropriate when data collectors need access to multiple Forms, are offline, or you have a complex Form."
           }
         },
         "2": {
           "full": {
-            "string": "１つ以上の{publicLinks}を作成し、回答者と共有する。回答者は自身でフォームに入力し、提出する。",
+            "string": "ï¼‘ã¤ä»¥ä¸Šã®{publicLinks}ã‚’ä½œæˆã—ã€å›žç­”è€…ã¨å…±æœ‰ã™ã‚‹ã€‚å›žç­”è€…ã¯è‡ªèº«ã§ãƒ•ã‚©ãƒ¼ãƒ ã«å…¥åŠ›ã—ã€æå‡ºã™ã‚‹ã€‚",
             "developer_comment": "This text is shown in a list of options for submitting data.\n\n{publicLinks} is a separate string that will be translated below. Its text will be formatted within ODK Central, for example, it might be bold or a link. Its text is:\n\nPublic Access Links"
           },
           "publicLinks": {
-            "string": "一般公開リンク",
+            "string": "ä¸€èˆ¬å…¬é–‹ãƒªãƒ³ã‚¯",
             "developer_comment": "This text will be formatted within ODK Central, for example, it might be bold or a link. It will be inserted where {publicLinks} is in the following text:\n\nCreate one or more {publicLinks} to share with respondents who will self-report."
           }
         },
         "3": {
           "full": {
-            "string": "データを収集する各個人に、{dataCollector}の役割を持つ{webUser}を作成します。これらのユーザーはCentralにログインし、Webブラウザでこのフォームに入力します。プロジェクトマネージャーもブラウザ経由でフォームが提出できます。",
+            "string": "ãƒ‡ãƒ¼ã‚¿ã‚’åŽé›†ã™ã‚‹å„å€‹äººã«ã€{dataCollector}ã®å½¹å‰²ã‚’æŒã¤{webUser}ã‚’ä½œæˆã—ã¾ã™ã€‚ã“ã‚Œã‚‰ã®ãƒ¦ãƒ¼ã‚¶ãƒ¼ã¯Centralã«ãƒ­ã‚°ã‚¤ãƒ³ã—ã€Webãƒ–ãƒ©ã‚¦ã‚¶ã§ã“ã®ãƒ•ã‚©ãƒ¼ãƒ ã«å…¥åŠ›ã—ã¾ã™ã€‚ãƒ—ãƒ­ã‚¸ã‚§ã‚¯ãƒˆãƒžãƒãƒ¼ã‚¸ãƒ£ãƒ¼ã‚‚ãƒ–ãƒ©ã‚¦ã‚¶çµŒç”±ã§ãƒ•ã‚©ãƒ¼ãƒ ãŒæå‡ºã§ãã¾ã™ã€‚",
             "developer_comment": "This text is shown in a list of options for submitting data.\n\nThe following are separate strings that will be translated below. They will be formatted within ODK Central, for example, they might be bold or a link.\n\n- {webUser} has the text: Web User\n- {dataCollector} has the text: Data Collector"
           },
           "webUser": {
-            "string": "Webユーザー",
+            "string": "Webãƒ¦ãƒ¼ã‚¶ãƒ¼",
             "developer_comment": "This text will be formatted within ODK Central, for example, it might be bold or a link. It will be inserted where {webUser} is in the following text:\n\nCreate a {webUser} with the Role of {dataCollector} for each individual who will be collecting data. These Users will log into Central to fill out this Form in a web browser. Project Managers can also create Submissions from a web browser."
           },
           "dataCollector": {
-            "string": "データ収集者",
+            "string": "ãƒ‡ãƒ¼ã‚¿åŽé›†è€…",
             "developer_comment": "This text will be formatted within ODK Central, for example, it might be bold or a link. It will be inserted where {dataCollector} is in the following text:\n\nCreate a {webUser} with the Role of {dataCollector} for each individual who will be collecting data. These Users will log into Central to fill out this Form in a web browser. Project Managers can also create Submissions from a web browser."
           }
         }
@@ -4793,16 +4793,16 @@
     "ProjectUserList": {
       "heading": {
         "0": {
-          "string": "サーバー管理者は、自動的に全てのプロジェクトの管理者となります。その他のユーザーは、このプロジェクトに限定した役割を持つことができます。",
+          "string": "ã‚µãƒ¼ãƒãƒ¼ç®¡ç†è€…ã¯ã€è‡ªå‹•çš„ã«å…¨ã¦ã®ãƒ—ãƒ­ã‚¸ã‚§ã‚¯ãƒˆã®ç®¡ç†è€…ã¨ãªã‚Šã¾ã™ã€‚ãã®ä»–ã®ãƒ¦ãƒ¼ã‚¶ãƒ¼ã¯ã€ã“ã®ãƒ—ãƒ­ã‚¸ã‚§ã‚¯ãƒˆã«é™å®šã—ãŸå½¹å‰²ã‚’æŒã¤ã“ã¨ãŒã§ãã¾ã™ã€‚",
           "developer_comment": "This text is shown above a list of Roles."
         },
         "1": {
           "full": {
-            "string": "{projectManagers}は、このプロジェクトに関連するあらゆる管理作業を行うことができ、Webブラウザでフォームを入力できます。",
+            "string": "{projectManagers}ã¯ã€ã“ã®ãƒ—ãƒ­ã‚¸ã‚§ã‚¯ãƒˆã«é–¢é€£ã™ã‚‹ã‚ã‚‰ã‚†ã‚‹ç®¡ç†ä½œæ¥­ã‚’è¡Œã†ã“ã¨ãŒã§ãã€Webãƒ–ãƒ©ã‚¦ã‚¶ã§ãƒ•ã‚©ãƒ¼ãƒ ã‚’å…¥åŠ›ã§ãã¾ã™ã€‚",
             "developer_comment": "This text is shown in a list of Roles.\n\n{projectManagers} is a separate string that will be translated below. Its text will be formatted within ODK Central, for example, it might be bold or a link. Its text is:\n\nProject Managers"
           },
           "projectManagers": {
-            "string": "プロジェクト・マネージャー",
+            "string": "ãƒ—ãƒ­ã‚¸ã‚§ã‚¯ãƒˆãƒ»ãƒžãƒãƒ¼ã‚¸ãƒ£ãƒ¼",
             "developer_comment": "This text will be formatted within ODK Central, for example, it might be bold or a link. It will be inserted where {projectManagers} is in the following text:\n\n{projectManagers} can perform any administrative task related to this Project and can fill Forms out in a web browser"
           }
         },
@@ -4812,17 +4812,17 @@
             "developer_comment": "This text is shown in a list of Roles.\n\n{projectViewers} is a separate string that will be translated below. Its text will be formatted within ODK Central, for example, it might be bold or a link. Its text is:\n\nProject Viewers"
           },
           "projectViewers": {
-            "string": "プロジェクト・閲覧者",
+            "string": "ãƒ—ãƒ­ã‚¸ã‚§ã‚¯ãƒˆãƒ»é–²è¦§è€…",
             "developer_comment": "This text will be formatted within ODK Central, for example, it might be bold or a link. It will be inserted where {projectViewers} is in the following text:\n\n{projectViewers} can access and download all Form and Entity data in this Project, but cannot make any changes to settings or data"
           }
         },
         "3": {
           "full": {
-            "string": "{dataCollectors}は、Webブラウザでフォームを入力できますが、データや設定を閲覧・変更はできません。",
+            "string": "{dataCollectors}ã¯ã€Webãƒ–ãƒ©ã‚¦ã‚¶ã§ãƒ•ã‚©ãƒ¼ãƒ ã‚’å…¥åŠ›ã§ãã¾ã™ãŒã€ãƒ‡ãƒ¼ã‚¿ã‚„è¨­å®šã‚’é–²è¦§ãƒ»å¤‰æ›´ã¯ã§ãã¾ã›ã‚“ã€‚",
             "developer_comment": "This text is shown in a list of Roles.\n\n{dataCollectors} is a separate string that will be translated below. Its text will be formatted within ODK Central, for example, it might be bold or a link. Its text is:\n\nData Collectors"
           },
           "dataCollectors": {
-            "string": "データ収集者",
+            "string": "ãƒ‡ãƒ¼ã‚¿åŽé›†è€…",
             "developer_comment": "This text will be formatted within ODK Central, for example, it might be bold or a link. It will be inserted where {dataCollectors} is in the following text:\n\n{dataCollectors} can fill Forms out in a web browser, but cannot view or change data or settings"
           }
         }
@@ -4830,34 +4830,34 @@
       "field": {
         "q": {
           "canList": {
-            "string": "ユーザーの検索",
+            "string": "ãƒ¦ãƒ¼ã‚¶ãƒ¼ã®æ¤œç´¢",
             "developer_comment": "This is the text of a form field."
           },
           "cannotList": {
-            "string": "正確なユーザーのメールアドレスを入力する。",
+            "string": "æ­£ç¢ºãªãƒ¦ãƒ¼ã‚¶ãƒ¼ã®ãƒ¡ãƒ¼ãƒ«ã‚¢ãƒ‰ãƒ¬ã‚¹ã‚’å…¥åŠ›ã™ã‚‹ã€‚",
             "developer_comment": "This is the text of a form field."
           }
         }
       },
       "header": {
         "user": {
-          "string": "ユーザー",
+          "string": "ãƒ¦ãƒ¼ã‚¶ãƒ¼",
           "developer_comment": "This is the text of a table column header."
         },
         "projectRole": {
-          "string": "プロジェクトでの役割",
+          "string": "ãƒ—ãƒ­ã‚¸ã‚§ã‚¯ãƒˆã§ã®å½¹å‰²",
           "developer_comment": "This is the text of a table column header."
         }
       },
       "emptyTable": {
-        "string": "このプロジェクトに割り当てられたユーザーはまだいません。ユーザーを追加するには、上の検索ボックスでユーザーを検索してください。"
+        "string": "ã“ã®ãƒ—ãƒ­ã‚¸ã‚§ã‚¯ãƒˆã«å‰²ã‚Šå½“ã¦ã‚‰ã‚ŒãŸãƒ¦ãƒ¼ã‚¶ãƒ¼ã¯ã¾ã ã„ã¾ã›ã‚“ã€‚ãƒ¦ãƒ¼ã‚¶ãƒ¼ã‚’è¿½åŠ ã™ã‚‹ã«ã¯ã€ä¸Šã®æ¤œç´¢ãƒœãƒƒã‚¯ã‚¹ã§ãƒ¦ãƒ¼ã‚¶ãƒ¼ã‚’æ¤œç´¢ã—ã¦ãã ã•ã„ã€‚"
       },
       "alert": {
         "unassignWithoutReassign": {
-          "string": "問題が発生しました 。\"{displayName}\"はプロジェクトから除外されました。"
+          "string": "å•é¡ŒãŒç™ºç”Ÿã—ã¾ã—ãŸ ã€‚\"{displayName}\"ã¯ãƒ—ãƒ­ã‚¸ã‚§ã‚¯ãƒˆã‹ã‚‰é™¤å¤–ã•ã‚Œã¾ã—ãŸã€‚"
         },
         "assignRole": {
-          "string": "成功です！\"{displayName}\"には、このプロジェクトで\"{roleName}\"の役割が割当てられました。"
+          "string": "æˆåŠŸã§ã™ï¼\"{displayName}\"ã«ã¯ã€ã“ã®ãƒ—ãƒ­ã‚¸ã‚§ã‚¯ãƒˆã§\"{roleName}\"ã®å½¹å‰²ãŒå‰²å½“ã¦ã‚‰ã‚Œã¾ã—ãŸã€‚"
         },
         "unassignRole": {
           "string": ""
@@ -4865,40 +4865,40 @@
       },
       "action": {
         "clearSearch": {
-          "string": "検索条件の解除",
+          "string": "æ¤œç´¢æ¡ä»¶ã®è§£é™¤",
           "developer_comment": "This is the text for an action, for example, the text of a button."
         }
       }
     },
     "ProjectUserRow": {
       "cannotAssignRole": {
-        "string": "自分自身のプロジェクトの役割を変更することはできません。"
+        "string": "è‡ªåˆ†è‡ªèº«ã®ãƒ—ãƒ­ã‚¸ã‚§ã‚¯ãƒˆã®å½¹å‰²ã‚’å¤‰æ›´ã™ã‚‹ã“ã¨ã¯ã§ãã¾ã›ã‚“ã€‚"
       },
       "field": {
         "projectRole": {
-          "string": "プロジェクトでの役割",
+          "string": "ãƒ—ãƒ­ã‚¸ã‚§ã‚¯ãƒˆã§ã®å½¹å‰²",
           "developer_comment": "This is the text of a form field."
         }
       }
     },
     "PublicLinkCreate": {
       "title": {
-        "string": "一般公開リンクの作成",
+        "string": "ä¸€èˆ¬å…¬é–‹ãƒªãƒ³ã‚¯ã®ä½œæˆ",
         "developer_comment": "This is the title at the top of a pop-up."
       },
       "introduction": {
         "0": {
-          "string": "このリンクを持っている人は誰でも、ウェブブラウザからこのフォームに記入することができます。リンクをどこに投稿したのか、誰と共有したのか、いつから有効化するかなどの詳細を思い出すには、表示名を使ってください。"
+          "string": "ã“ã®ãƒªãƒ³ã‚¯ã‚’æŒã£ã¦ã„ã‚‹äººã¯èª°ã§ã‚‚ã€ã‚¦ã‚§ãƒ–ãƒ–ãƒ©ã‚¦ã‚¶ã‹ã‚‰ã“ã®ãƒ•ã‚©ãƒ¼ãƒ ã«è¨˜å…¥ã™ã‚‹ã“ã¨ãŒã§ãã¾ã™ã€‚ãƒªãƒ³ã‚¯ã‚’ã©ã“ã«æŠ•ç¨¿ã—ãŸã®ã‹ã€èª°ã¨å…±æœ‰ã—ãŸã®ã‹ã€ã„ã¤ã‹ã‚‰æœ‰åŠ¹åŒ–ã™ã‚‹ã‹ãªã©ã®è©³ç´°ã‚’æ€ã„å‡ºã™ã«ã¯ã€è¡¨ç¤ºåã‚’ä½¿ã£ã¦ãã ã•ã„ã€‚"
         }
       },
       "field": {
         "once": {
-          "string": "一回限りのデータ提出機能",
+          "string": "ä¸€å›žé™ã‚Šã®ãƒ‡ãƒ¼ã‚¿æå‡ºæ©Ÿèƒ½",
           "developer_comment": "This is the text of a form field."
         }
       },
       "onceHelp": {
-        "string": "各プラウザから一回しかフォームの提出を受け付けない。",
+        "string": "å„ãƒ—ãƒ©ã‚¦ã‚¶ã‹ã‚‰ä¸€å›žã—ã‹ãƒ•ã‚©ãƒ¼ãƒ ã®æå‡ºã‚’å—ã‘ä»˜ã‘ãªã„ã€‚",
         "developer_comment": "This is help text for the \"Single Submission\" checkbox."
       }
     },
@@ -4915,34 +4915,34 @@
     "PublicLinkList": {
       "action": {
         "create": {
-          "string": "一般公開リンクの作成",
+          "string": "ä¸€èˆ¬å…¬é–‹ãƒªãƒ³ã‚¯ã®ä½œæˆ",
           "developer_comment": "This is the text for an action, for example, the text of a button."
         }
       },
       "heading": {
         "0": {
           "full": {
-            "string": "一般公開リンクを持っている人は誰でも、Webブラウザでこのフォームに記入できます。複数のリンクを作成し、フォームの異なる配布状況を追跡したり、特定のグループの人々がフォームにアクセスできる時間を制限することが可能です。これらのリンクは、フォームが公開中の{state}の場合にのみ機能します。",
+            "string": "ä¸€èˆ¬å…¬é–‹ãƒªãƒ³ã‚¯ã‚’æŒã£ã¦ã„ã‚‹äººã¯èª°ã§ã‚‚ã€Webãƒ–ãƒ©ã‚¦ã‚¶ã§ã“ã®ãƒ•ã‚©ãƒ¼ãƒ ã«è¨˜å…¥ã§ãã¾ã™ã€‚è¤‡æ•°ã®ãƒªãƒ³ã‚¯ã‚’ä½œæˆã—ã€ãƒ•ã‚©ãƒ¼ãƒ ã®ç•°ãªã‚‹é…å¸ƒçŠ¶æ³ã‚’è¿½è·¡ã—ãŸã‚Šã€ç‰¹å®šã®ã‚°ãƒ«ãƒ¼ãƒ—ã®äººã€…ãŒãƒ•ã‚©ãƒ¼ãƒ ã«ã‚¢ã‚¯ã‚»ã‚¹ã§ãã‚‹æ™‚é–“ã‚’åˆ¶é™ã™ã‚‹ã“ã¨ãŒå¯èƒ½ã§ã™ã€‚ã“ã‚Œã‚‰ã®ãƒªãƒ³ã‚¯ã¯ã€ãƒ•ã‚©ãƒ¼ãƒ ãŒå…¬é–‹ä¸­ã®{state}ã®å ´åˆã«ã®ã¿æ©Ÿèƒ½ã—ã¾ã™ã€‚",
             "developer_comment": "{state} is a separate string that will be translated below. Its text will be formatted within ODK Central, for example, it might be bold or a link. Its text is:\n\nstate"
           },
           "state": {
-            "string": "ステータス",
+            "string": "ã‚¹ãƒ†ãƒ¼ã‚¿ã‚¹",
             "developer_comment": "This text will be formatted within ODK Central, for example, it might be bold or a link. It will be inserted where {state} is in the following text:\n\nAnyone with a Public Access Link can fill out this Form in a web browser. You can create multiple Links to track different distributions of the Form, to limit how long a specific group of people has access to the Form, and more. These links will only work if the Form is in the Open {state}."
           }
         },
         "1": {
           "full": {
-            "string": "一般公開リンクは、自己申告を目的としています。同じフォームを何度も送信する必要があるデータ収集者がいる場合は、{clickHere}して他の方法を確認して下さい。",
+            "string": "ä¸€èˆ¬å…¬é–‹ãƒªãƒ³ã‚¯ã¯ã€è‡ªå·±ç”³å‘Šã‚’ç›®çš„ã¨ã—ã¦ã„ã¾ã™ã€‚åŒã˜ãƒ•ã‚©ãƒ¼ãƒ ã‚’ä½•åº¦ã‚‚é€ä¿¡ã™ã‚‹å¿…è¦ãŒã‚ã‚‹ãƒ‡ãƒ¼ã‚¿åŽé›†è€…ãŒã„ã‚‹å ´åˆã¯ã€{clickHere}ã—ã¦ä»–ã®æ–¹æ³•ã‚’ç¢ºèªã—ã¦ä¸‹ã•ã„ã€‚",
             "developer_comment": "{clickHere} is a separate string that will be translated below. Its text will be formatted within ODK Central, for example, it might be bold or a link. Its text is:\n\nclick here"
           },
           "clickHere": {
-            "string": "こちらをクリック",
+            "string": "ã“ã¡ã‚‰ã‚’ã‚¯ãƒªãƒƒã‚¯",
             "developer_comment": "This text will be formatted within ODK Central, for example, it might be bold or a link. It will be inserted where {clickHere} is in the following text:\n\nPublic Links are intended for self-reporting. If you are working with data collectors who need to submit the same Form multiple times, {clickHere} for other options."
           }
         }
       },
       "emptyTable": {
-        "string": "このフォームに一般公開リンクはありません。"
+        "string": "ã“ã®ãƒ•ã‚©ãƒ¼ãƒ ã«ä¸€èˆ¬å…¬é–‹ãƒªãƒ³ã‚¯ã¯ã‚ã‚Šã¾ã›ã‚“ã€‚"
       },
       "alert": {
         "create": {
@@ -4952,18 +4952,18 @@
           "string": ""
         },
         "revoke": {
-          "string": "一般公開リンク\"{displayName}\"の無効化に成功しました。以後、このリンクでのサフォームの提出は受付られません。"
+          "string": "ä¸€èˆ¬å…¬é–‹ãƒªãƒ³ã‚¯\"{displayName}\"ã®ç„¡åŠ¹åŒ–ã«æˆåŠŸã—ã¾ã—ãŸã€‚ä»¥å¾Œã€ã“ã®ãƒªãƒ³ã‚¯ã§ã®ã‚µãƒ•ã‚©ãƒ¼ãƒ ã®æå‡ºã¯å—ä»˜ã‚‰ã‚Œã¾ã›ã‚“ã€‚"
         }
       }
     },
     "PublicLinkRevoke": {
       "title": {
-        "string": "一般公開リンクの無効化",
+        "string": "ä¸€èˆ¬å…¬é–‹ãƒªãƒ³ã‚¯ã®ç„¡åŠ¹åŒ–",
         "developer_comment": "This is the title at the top of a pop-up."
       },
       "introduction": {
         "0": {
-          "string": "一般公開リンクを無効化しようとしています。これにより、この一般公開リンクを用いた全てのデータの提出が出来なくなります。これには現在すでに入力が開始されたフォームの提出も含まれます。"
+          "string": "ä¸€èˆ¬å…¬é–‹ãƒªãƒ³ã‚¯ã‚’ç„¡åŠ¹åŒ–ã—ã‚ˆã†ã¨ã—ã¦ã„ã¾ã™ã€‚ã“ã‚Œã«ã‚ˆã‚Šã€ã“ã®ä¸€èˆ¬å…¬é–‹ãƒªãƒ³ã‚¯ã‚’ç”¨ã„ãŸå…¨ã¦ã®ãƒ‡ãƒ¼ã‚¿ã®æå‡ºãŒå‡ºæ¥ãªããªã‚Šã¾ã™ã€‚ã“ã‚Œã«ã¯ç¾åœ¨ã™ã§ã«å…¥åŠ›ãŒé–‹å§‹ã•ã‚ŒãŸãƒ•ã‚©ãƒ¼ãƒ ã®æå‡ºã‚‚å«ã¾ã‚Œã¾ã™ã€‚"
         }
       }
     },
@@ -4974,32 +4974,32 @@
           "developer_comment": "This is the text for an action, for example, the text of a button."
         },
         "revoke": {
-          "string": "無効化する",
+          "string": "ç„¡åŠ¹åŒ–ã™ã‚‹",
           "developer_comment": "This is the text for an action, for example, the text of a button."
         }
       },
       "revoked": {
-        "string": "無効",
+        "string": "ç„¡åŠ¹",
         "developer_comment": "This text is shown for a Public Access Link that has been revoked. The text appears on its own and is not part of a longer sentence."
       },
       "unavailable": {
         "text": {
-          "string": "まだ利用できません。",
+          "string": "ã¾ã åˆ©ç”¨ã§ãã¾ã›ã‚“ã€‚",
           "developer_comment": "This text is shown for a Public Access Link that is not available yet."
         },
         "title": {
-          "string": "一般公開リンクはまだ利用できません。処理が終了していません。後ほどページを更新し、もう一度試して下さい。"
+          "string": "ä¸€èˆ¬å…¬é–‹ãƒªãƒ³ã‚¯ã¯ã¾ã åˆ©ç”¨ã§ãã¾ã›ã‚“ã€‚å‡¦ç†ãŒçµ‚äº†ã—ã¦ã„ã¾ã›ã‚“ã€‚å¾Œã»ã©ãƒšãƒ¼ã‚¸ã‚’æ›´æ–°ã—ã€ã‚‚ã†ä¸€åº¦è©¦ã—ã¦ä¸‹ã•ã„ã€‚"
         }
       }
     },
     "PublicLinkTable": {
       "header": {
         "once": {
-          "string": "一回限りのデータ提出機能",
+          "string": "ä¸€å›žé™ã‚Šã®ãƒ‡ãƒ¼ã‚¿æå‡ºæ©Ÿèƒ½",
           "developer_comment": "This is the text of a table column header."
         },
         "accessLink": {
-          "string": "アクセスリンク",
+          "string": "ã‚¢ã‚¯ã‚»ã‚¹ãƒªãƒ³ã‚¯",
           "developer_comment": "This is the text of a table column header."
         },
         "createdAtAndActions": {
@@ -5010,7 +5010,7 @@
     },
     "SubmissionAnalyze": {
       "title": {
-        "string": "ODataの利用",
+        "string": "ODataã®åˆ©ç”¨",
         "developer_comment": "This is the title at the top of a pop-up."
       },
       "introduction": {
@@ -5039,11 +5039,11 @@
             "developer_comment": "The following are separate strings that will be translated below. They will be formatted within ODK Central, for example, they might be bold or a link.\n\n- {pageForExcel} has the text: this page\n- {pageForPowerBi} has the text: this page"
           },
           "pageForExcel": {
-            "string": "このページ",
+            "string": "ã“ã®ãƒšãƒ¼ã‚¸",
             "developer_comment": "This text will be formatted within ODK Central, for example, it might be bold or a link. It will be inserted where {pageForExcel} is in the following text:\n\nFor help using OData with Power BI, see {pageForPowerBi}. For help with Excel, see {pageForExcel}."
           },
           "pageForPowerBi": {
-            "string": "このページ",
+            "string": "ã“ã®ãƒšãƒ¼ã‚¸",
             "developer_comment": "This text will be formatted within ODK Central, for example, it might be bold or a link. It will be inserted where {pageForPowerBi} is in the following text:\n\nFor help using OData with Power BI, see {pageForPowerBi}. For help with Excel, see {pageForExcel}."
           }
         },
@@ -5057,11 +5057,11 @@
         },
         "other": {
           "full": {
-            "string": "ODataに関するサポートの詳細は、{article}を参照して下さい。",
+            "string": "ODataã«é–¢ã™ã‚‹ã‚µãƒãƒ¼ãƒˆã®è©³ç´°ã¯ã€{article}ã‚’å‚ç…§ã—ã¦ä¸‹ã•ã„ã€‚",
             "developer_comment": "{article} is a separate string that will be translated below. Its text will be formatted within ODK Central, for example, it might be bold or a link. Its text is:\n\nthis article"
           },
           "article": {
-            "string": "こちら",
+            "string": "ã“ã¡ã‚‰",
             "developer_comment": "This text will be formatted within ODK Central, for example, it might be bold or a link. It will be inserted where {article} is in the following text:\n\nFor a full description of our OData support, please see {article}."
           }
         }
@@ -5072,23 +5072,23 @@
         "string": ""
       },
       "formVersion": {
-        "string": "フォームのバージョン"
+        "string": "ãƒ•ã‚©ãƒ¼ãƒ ã®ãƒãƒ¼ã‚¸ãƒ§ãƒ³"
       },
       "deviceId": {
-        "string": "デバイスID"
+        "string": "ãƒ‡ãƒã‚¤ã‚¹ID"
       },
       "userAgent": {
-        "string": "ユーザーエージェント"
+        "string": "ãƒ¦ãƒ¼ã‚¶ãƒ¼ã‚¨ãƒ¼ã‚¸ã‚§ãƒ³ãƒˆ"
       },
       "attachments": {
         "string": "",
         "developer_comment": "This refers specifically to Submission Attachments."
       },
       "present": {
-        "string": "{count, plural, other {{count}件の提出済メディアファイル}}"
+        "string": "{count, plural, other {{count}ä»¶ã®æå‡ºæ¸ˆãƒ¡ãƒ‡ã‚£ã‚¢ãƒ•ã‚¡ã‚¤ãƒ«}}"
       },
       "expected": {
-        "string": "{count, plural, other {{count}件の期待されるメディアファイル数}}",
+        "string": "{count, plural, other {{count}ä»¶ã®æœŸå¾…ã•ã‚Œã‚‹ãƒ¡ãƒ‡ã‚£ã‚¢ãƒ•ã‚¡ã‚¤ãƒ«æ•°}}",
         "developer_comment": "This shows the number of files that were expected to be submitted."
       },
       "attachmentSummary": {
@@ -5098,25 +5098,25 @@
     },
     "SubmissionComment": {
       "editWithoutComment": {
-        "string": "データが編集されました。あなたが実施した変更について説明して下さい。"
+        "string": "ãƒ‡ãƒ¼ã‚¿ãŒç·¨é›†ã•ã‚Œã¾ã—ãŸã€‚ã‚ãªãŸãŒå®Ÿæ–½ã—ãŸå¤‰æ›´ã«ã¤ã„ã¦èª¬æ˜Žã—ã¦ä¸‹ã•ã„ã€‚"
       }
     },
     "SubmissionDecrypt": {
       "title": {
-        "string": "提出済フォームをダウンロードする",
+        "string": "æå‡ºæ¸ˆãƒ•ã‚©ãƒ¼ãƒ ã‚’ãƒ€ã‚¦ãƒ³ãƒ­ãƒ¼ãƒ‰ã™ã‚‹",
         "developer_comment": "This is the title at the top of a pop-up."
       },
       "exportOptions": {
-        "string": "エクスポート設定",
+        "string": "ã‚¨ã‚¯ã‚¹ãƒãƒ¼ãƒˆè¨­å®š",
         "developer_comment": "This text is shown above options for downloading Submissions."
       },
       "field": {
         "splitSelectMultiples": {
-          "string": "複数選択項目を列に切り分ける。",
+          "string": "è¤‡æ•°é¸æŠžé …ç›®ã‚’åˆ—ã«åˆ‡ã‚Šåˆ†ã‘ã‚‹ã€‚",
           "developer_comment": "This is the text of a form field."
         },
         "removeGroupNames": {
-          "string": "グループ名を取り除く",
+          "string": "ã‚°ãƒ«ãƒ¼ãƒ—åã‚’å–ã‚Šé™¤ã",
           "developer_comment": "This is the text of a form field."
         },
         "deletedFields": {
@@ -5128,13 +5128,13 @@
         "string": ""
       },
       "noSelectMultiple": {
-        "string": "このフォームには複数選択項目がありません。"
+        "string": "ã“ã®ãƒ•ã‚©ãƒ¼ãƒ ã«ã¯è¤‡æ•°é¸æŠžé …ç›®ãŒã‚ã‚Šã¾ã›ã‚“ã€‚"
       },
       "encryptedForm": {
-        "string": "この方法でフォームの暗号化は行えません。"
+        "string": "ã“ã®æ–¹æ³•ã§ãƒ•ã‚©ãƒ¼ãƒ ã®æš—å·åŒ–ã¯è¡Œãˆã¾ã›ã‚“ã€‚"
       },
       "deletedFieldsDisabledForDraft": {
-        "string": "この方法で下書きの処理は行えません。"
+        "string": "ã“ã®æ–¹æ³•ã§ä¸‹æ›¸ãã®å‡¦ç†ã¯è¡Œãˆã¾ã›ã‚“ã€‚"
       },
       "introduction": {
         "0": {
@@ -5142,21 +5142,21 @@
         }
       },
       "hint": {
-        "string": "ヒント：{hint}",
+        "string": "ãƒ’ãƒ³ãƒˆï¼š{hint}",
         "developer_comment": "This text is shown if there is an encryption password hint. {hint} is the encryption password hint."
       },
       "noRepeat": {
-        "string": "このフォームはリピート項目がありません。",
+        "string": "ã“ã®ãƒ•ã‚©ãƒ¼ãƒ ã¯ãƒªãƒ”ãƒ¼ãƒˆé …ç›®ãŒã‚ã‚Šã¾ã›ã‚“ã€‚",
         "developer_comment": "\"Repeats\" refers to repeat groups."
       },
       "action": {
         "download": {
           "mainTable": {
-            "string": "主なデータ（リピートを含まない）",
+            "string": "ä¸»ãªãƒ‡ãƒ¼ã‚¿ï¼ˆãƒªãƒ”ãƒ¼ãƒˆã‚’å«ã¾ãªã„ï¼‰",
             "developer_comment": "This is the text of a button. \"Repeats\" refers to repeat groups."
           },
           "allTables": {
-            "string": "全てのデータ",
+            "string": "å…¨ã¦ã®ãƒ‡ãƒ¼ã‚¿",
             "developer_comment": "This is the text for an action, for example, the text of a button."
           },
           "withAttachments": {
@@ -5167,7 +5167,7 @@
       },
       "alert": {
         "unavailable": {
-          "string": "データのダウンロードはまだ利用できません。しばらく待って、再試行してください。"
+          "string": "ãƒ‡ãƒ¼ã‚¿ã®ãƒ€ã‚¦ãƒ³ãƒ­ãƒ¼ãƒ‰ã¯ã¾ã åˆ©ç”¨ã§ãã¾ã›ã‚“ã€‚ã—ã°ã‚‰ãå¾…ã£ã¦ã€å†è©¦è¡Œã—ã¦ãã ã•ã„ã€‚"
         },
         "submit": {
           "string": ""
@@ -5194,16 +5194,16 @@
     "SubmissionDiffItem": {
       "editCaption": {
         "added": {
-          "string": "（追加済み）",
+          "string": "ï¼ˆè¿½åŠ æ¸ˆã¿ï¼‰",
           "developer_comment": "The description of how a specific field in a form submission changed"
         },
         "deleted": {
-          "string": "（削除済み）",
+          "string": "ï¼ˆå‰Šé™¤æ¸ˆã¿ï¼‰",
           "developer_comment": "The description of how a specific field in a form submission changed"
         }
       },
       "empty": {
-        "string": "空",
+        "string": "ç©º",
         "developer_comment": "Text showing that a value in a submission edit is empty"
       }
     },
@@ -5230,8 +5230,8 @@
     "SubmissionFeedEntry": {
       "title": {
         "create": {
-          "string": "{name}による提出済フォーム",
-          "developer_comment": "This text is shown in the list of actions performed on a Submission. There is an icon before the text that corresponds to the word \"Submitted\", so it is essential for \"Submitted\" to also come first in the translation. If that is unnatural in your language, you can also split the text into two parts. For example, instead of:\n\nSubmitted by {name}\n\nyou could split it into:\n\nSubmitted • {name}"
+          "string": "{name}ã«ã‚ˆã‚‹æå‡ºæ¸ˆãƒ•ã‚©ãƒ¼ãƒ ",
+          "developer_comment": "This text is shown in the list of actions performed on a Submission. There is an icon before the text that corresponds to the word \"Submitted\", so it is essential for \"Submitted\" to also come first in the translation. If that is unnatural in your language, you can also split the text into two parts. For example, instead of:\n\nSubmitted by {name}\n\nyou could split it into:\n\nSubmitted â€¢ {name}"
         },
         "entity": {
           "create": {
@@ -5247,66 +5247,66 @@
         "updateReviewState": {
           "null": {
             "full": {
-              "string": "{name}による{reviewState}報告",
-              "developer_comment": "This text is shown in the list of actions performed on a Submission. There is an icon before the text that corresponds to the Review State, so it is essential for the Review State to also come first in the translation. If that is unnatural in your language, you can also split the text into two parts. For example, instead of:\n\n{reviewState} per {name}\n\nyou could split it into:\n\n{reviewState} • {name}\n\n{reviewState} is a separate string that will be translated below. Its text will be formatted within ODK Central, for example, it might be bold or a link. Its text is:\n\nReceived"
+              "string": "{name}ã«ã‚ˆã‚‹{reviewState}å ±å‘Š",
+              "developer_comment": "This text is shown in the list of actions performed on a Submission. There is an icon before the text that corresponds to the Review State, so it is essential for the Review State to also come first in the translation. If that is unnatural in your language, you can also split the text into two parts. For example, instead of:\n\n{reviewState} per {name}\n\nyou could split it into:\n\n{reviewState} â€¢ {name}\n\n{reviewState} is a separate string that will be translated below. Its text will be formatted within ODK Central, for example, it might be bold or a link. Its text is:\n\nReceived"
             },
             "reviewState": {
-              "string": "受信済み",
+              "string": "å—ä¿¡æ¸ˆã¿",
               "developer_comment": "This text will be formatted within ODK Central, for example, it might be bold or a link. It will be inserted where {reviewState} is in the following text:\n\n{reviewState} per {name}"
             }
           },
           "hasIssues": {
             "full": {
-              "string": "{name}による{reviewState}報告",
-              "developer_comment": "This text is shown in the list of actions performed on a Submission. There is an icon before the text that corresponds to the Review State, so it is essential for the Review State to also come first in the translation. If that is unnatural in your language, you can also split the text into two parts. For example, instead of:\n\n{reviewState} per {name}\n\nyou could split it into:\n\n{reviewState} • {name}\n\n{reviewState} is a separate string that will be translated below. Its text will be formatted within ODK Central, for example, it might be bold or a link. Its text is:\n\nHas Issues"
+              "string": "{name}ã«ã‚ˆã‚‹{reviewState}å ±å‘Š",
+              "developer_comment": "This text is shown in the list of actions performed on a Submission. There is an icon before the text that corresponds to the Review State, so it is essential for the Review State to also come first in the translation. If that is unnatural in your language, you can also split the text into two parts. For example, instead of:\n\n{reviewState} per {name}\n\nyou could split it into:\n\n{reviewState} â€¢ {name}\n\n{reviewState} is a separate string that will be translated below. Its text will be formatted within ODK Central, for example, it might be bold or a link. Its text is:\n\nHas Issues"
             },
             "reviewState": {
-              "string": "問題有り",
+              "string": "å•é¡Œæœ‰ã‚Š",
               "developer_comment": "This text will be formatted within ODK Central, for example, it might be bold or a link. It will be inserted where {reviewState} is in the following text:\n\n{reviewState} per {name}"
             }
           },
           "edited": {
             "full": {
-              "string": "{name}による{reviewState}",
-              "developer_comment": "This text is shown in the list of actions performed on a Submission. There is an icon before the text that corresponds to the Review State, so it is essential for the Review State to also come first in the translation. If that is unnatural in your language, you can also split the text into two parts. For example, instead of:\n\n{reviewState} by {name}\n\nyou could split it into:\n\n{reviewState} • {name}\n\n{reviewState} is a separate string that will be translated below. Its text will be formatted within ODK Central, for example, it might be bold or a link. Its text is:\n\nEdited"
+              "string": "{name}ã«ã‚ˆã‚‹{reviewState}",
+              "developer_comment": "This text is shown in the list of actions performed on a Submission. There is an icon before the text that corresponds to the Review State, so it is essential for the Review State to also come first in the translation. If that is unnatural in your language, you can also split the text into two parts. For example, instead of:\n\n{reviewState} by {name}\n\nyou could split it into:\n\n{reviewState} â€¢ {name}\n\n{reviewState} is a separate string that will be translated below. Its text will be formatted within ODK Central, for example, it might be bold or a link. Its text is:\n\nEdited"
             },
             "reviewState": {
-              "string": "編集済み",
+              "string": "ç·¨é›†æ¸ˆã¿",
               "developer_comment": "This text will be formatted within ODK Central, for example, it might be bold or a link. It will be inserted where {reviewState} is in the following text:\n\n{reviewState} by {name}"
             }
           },
           "approved": {
             "full": {
-              "string": "{name}による{reviewState}",
-              "developer_comment": "This text is shown in the list of actions performed on a Submission. There is an icon before the text that corresponds to the Review State, so it is essential for the Review State to also come first in the translation. If that is unnatural in your language, you can also split the text into two parts. For example, instead of:\n\n{reviewState} by {name}\n\nyou could split it into:\n\n{reviewState} • {name}\n\n{reviewState} is a separate string that will be translated below. Its text will be formatted within ODK Central, for example, it might be bold or a link. Its text is:\n\nApproved"
+              "string": "{name}ã«ã‚ˆã‚‹{reviewState}",
+              "developer_comment": "This text is shown in the list of actions performed on a Submission. There is an icon before the text that corresponds to the Review State, so it is essential for the Review State to also come first in the translation. If that is unnatural in your language, you can also split the text into two parts. For example, instead of:\n\n{reviewState} by {name}\n\nyou could split it into:\n\n{reviewState} â€¢ {name}\n\n{reviewState} is a separate string that will be translated below. Its text will be formatted within ODK Central, for example, it might be bold or a link. Its text is:\n\nApproved"
             },
             "reviewState": {
-              "string": "承認済み",
+              "string": "æ‰¿èªæ¸ˆã¿",
               "developer_comment": "This text will be formatted within ODK Central, for example, it might be bold or a link. It will be inserted where {reviewState} is in the following text:\n\n{reviewState} by {name}"
             }
           },
           "rejected": {
             "full": {
-              "string": "{name}による{reviewState}",
-              "developer_comment": "This text is shown in the list of actions performed on a Submission. There is an icon before the text that corresponds to the Review State, so it is essential for the Review State to also come first in the translation. If that is unnatural in your language, you can also split the text into two parts. For example, instead of:\n\n{reviewState} by {name}\n\nyou could split it into:\n\n{reviewState} • {name}\n\n{reviewState} is a separate string that will be translated below. Its text will be formatted within ODK Central, for example, it might be bold or a link. Its text is:\n\nRejected"
+              "string": "{name}ã«ã‚ˆã‚‹{reviewState}",
+              "developer_comment": "This text is shown in the list of actions performed on a Submission. There is an icon before the text that corresponds to the Review State, so it is essential for the Review State to also come first in the translation. If that is unnatural in your language, you can also split the text into two parts. For example, instead of:\n\n{reviewState} by {name}\n\nyou could split it into:\n\n{reviewState} â€¢ {name}\n\n{reviewState} is a separate string that will be translated below. Its text will be formatted within ODK Central, for example, it might be bold or a link. Its text is:\n\nRejected"
             },
             "reviewState": {
-              "string": "リジェクト済み",
+              "string": "ãƒªã‚¸ã‚§ã‚¯ãƒˆæ¸ˆã¿",
               "developer_comment": "This text will be formatted within ODK Central, for example, it might be bold or a link. It will be inserted where {reviewState} is in the following text:\n\n{reviewState} by {name}"
             }
           }
         },
         "comment": {
-          "string": "{name}によるコメント",
-          "developer_comment": "This text is shown in the list of actions performed on a Submission. There is an icon before the text that corresponds to the word \"Comment\", so it is essential for \"Comment\" to also come first in the translation. If that is unnatural in your language, you can also split the text into two parts. For example, instead of:\n\nComment by {name}\n\nyou could split it into:\n\nComment • {name}"
+          "string": "{name}ã«ã‚ˆã‚‹ã‚³ãƒ¡ãƒ³ãƒˆ",
+          "developer_comment": "This text is shown in the list of actions performed on a Submission. There is an icon before the text that corresponds to the word \"Comment\", so it is essential for \"Comment\" to also come first in the translation. If that is unnatural in your language, you can also split the text into two parts. For example, instead of:\n\nComment by {name}\n\nyou could split it into:\n\nComment â€¢ {name}"
         },
         "delete": {
           "string": "",
-          "developer_comment": "This text is shown in the list of actions performed on a Submission. There is an icon before the text that corresponds to the word \"Deleted\", so it is essential for \"Deleted\" to also come first in the translation. If that is unnatural in your language, you can also split the text into two parts. For example, instead of:\n\nDeleted by {name}\n\nyou could split it into:\n\nDeleted • {name}"
+          "developer_comment": "This text is shown in the list of actions performed on a Submission. There is an icon before the text that corresponds to the word \"Deleted\", so it is essential for \"Deleted\" to also come first in the translation. If that is unnatural in your language, you can also split the text into two parts. For example, instead of:\n\nDeleted by {name}\n\nyou could split it into:\n\nDeleted â€¢ {name}"
         },
         "undelete": {
           "string": "",
-          "developer_comment": "This text is shown in the list of actions performed on a Submission. There is an icon before the text that corresponds to the word \"Restored\", so it is essential for \"Restored\" to also come first in the translation. If that is unnatural in your language, you can also split the text into two parts. For example, instead of:\n\nRestored by {name}\n\nyou could split it into:\n\nRestored • {name}"
+          "developer_comment": "This text is shown in the list of actions performed on a Submission. There is an icon before the text that corresponds to the word \"Restored\", so it is essential for \"Restored\" to also come first in the translation. If that is unnatural in your language, you can also split the text into two parts. For example, instead of:\n\nRestored by {name}\n\nyou could split it into:\n\nRestored â€¢ {name}"
         },
         "submissionBacklog": {
           "hold": {
@@ -5334,11 +5334,11 @@
     "SubmissionFieldDropdown": {
       "field": {
         "columns": {
-          "string": "表示された列",
+          "string": "è¡¨ç¤ºã•ã‚ŒãŸåˆ—",
           "developer_comment": "This is shown beneath text that indicates the number of columns that the user has selected to display in a table. For example, that text may read \"10 of 100\", where 10 is the number of columns selected, and 100 is the total number of columns."
         },
         "search": {
-          "string": "列を検索",
+          "string": "åˆ—ã‚’æ¤œç´¢",
           "developer_comment": "This is the text of a form field."
         }
       },
@@ -5359,7 +5359,7 @@
     "SubmissionFilters": {
       "field": {
         "submissionDate": {
-          "string": "フォームの送信日",
+          "string": "ãƒ•ã‚©ãƒ¼ãƒ ã®é€ä¿¡æ—¥",
           "developer_comment": "This is the text of a form field that allows the user to filter Submissions by a date range."
         }
       },
@@ -5383,7 +5383,7 @@
     "SubmissionFiltersSubmitter": {
       "field": {
         "submitter": {
-          "string": "フォーム送信者",
+          "string": "ãƒ•ã‚©ãƒ¼ãƒ é€ä¿¡è€…",
           "developer_comment": "This is the text of a form field that shows the names of users and Public Access Links that have submitted Submissions."
         },
         "search": {
@@ -5417,7 +5417,7 @@
         }
       },
       "noMatching": {
-        "string": "照合できる提出済フォームはありません。"
+        "string": "ç…§åˆã§ãã‚‹æå‡ºæ¸ˆãƒ•ã‚©ãƒ¼ãƒ ã¯ã‚ã‚Šã¾ã›ã‚“ã€‚"
       },
       "emptyMap": {
         "string": ""
@@ -5450,15 +5450,15 @@
       },
       "loading": {
         "withoutCount": {
-          "string": "提出済フォームの読み込み中...",
+          "string": "æå‡ºæ¸ˆãƒ•ã‚©ãƒ¼ãƒ ã®èª­ã¿è¾¼ã¿ä¸­...",
           "developer_comment": "This text is shown when the number of Submissions loading is unknown."
         },
         "all": {
-          "string": "{count, plural, other {{count}の提出済フォームを読み込み中...}}"
+          "string": "{count, plural, other {{count}ã®æå‡ºæ¸ˆãƒ•ã‚©ãƒ¼ãƒ ã‚’èª­ã¿è¾¼ã¿ä¸­...}}"
         },
         "filtered": {
           "withoutCount": {
-            "string": "照合できる提出済フォームの読み込み中...",
+            "string": "ç…§åˆã§ãã‚‹æå‡ºæ¸ˆãƒ•ã‚©ãƒ¼ãƒ ã®èª­ã¿è¾¼ã¿ä¸­...",
             "developer_comment": "This text is shown when the number of Submissions loading is unknown."
           }
         }
@@ -5508,11 +5508,11 @@
     "SubmissionShow": {
       "back": {
         "title": {
-          "string": "提出フォームの詳細",
+          "string": "æå‡ºãƒ•ã‚©ãƒ¼ãƒ ã®è©³ç´°",
           "developer_comment": "This is shown at the top of the page."
         },
         "back": {
-          "string": "提出フォームの一覧に戻る",
+          "string": "æå‡ºãƒ•ã‚©ãƒ¼ãƒ ã®ä¸€è¦§ã«æˆ»ã‚‹",
           "developer_comment": "This is shown at the top of the page."
         }
       }
@@ -5520,7 +5520,7 @@
     "SubmissionTable": {
       "header": {
         "stateAndActions": {
-          "string": "レビュー・ステータスと操作",
+          "string": "ãƒ¬ãƒ“ãƒ¥ãƒ¼ãƒ»ã‚¹ãƒ†ãƒ¼ã‚¿ã‚¹ã¨æ“ä½œ",
           "developer_comment": "This is the text of a table column header."
         },
         "deletedAt": {
@@ -5531,12 +5531,12 @@
     },
     "SubmissionUpdateReviewState": {
       "title": {
-        "string": "レビュー・ステータスの更新",
+        "string": "ãƒ¬ãƒ“ãƒ¥ãƒ¼ãƒ»ã‚¹ãƒ†ãƒ¼ã‚¿ã‚¹ã®æ›´æ–°",
         "developer_comment": "This is the title at the top of a pop-up."
       },
       "field": {
         "notes": {
-          "string": "メモとコメント（任意）",
+          "string": "ãƒ¡ãƒ¢ã¨ã‚³ãƒ¡ãƒ³ãƒˆï¼ˆä»»æ„ï¼‰",
           "developer_comment": "This is the text of a form field."
         }
       }
@@ -5549,13 +5549,13 @@
     },
     "TimeAndUser": {
       "text": {
-        "string": "{displayName}が{dateTime}の時点で実施",
+        "string": "{displayName}ãŒ{dateTime}ã®æ™‚ç‚¹ã§å®Ÿæ–½",
         "developer_comment": "This shows the date and time at which a particular user completed an action, for example: \"2020/01/01 01:23 by Alice\". {dateTime} may show a formatted date like \"2020/01/01\", or it may use a word like \"today\", \"yesterday\", or \"Sunday\"."
       }
     },
     "UserEditBasicDetails": {
       "title": {
-        "string": "基本詳細",
+        "string": "åŸºæœ¬è©³ç´°",
         "developer_comment": "This is a title shown above a section of the page."
       },
       "emailDisabled": {
@@ -5563,7 +5563,7 @@
       },
       "action": {
         "update": {
-          "string": "詳細の更新",
+          "string": "è©³ç´°ã®æ›´æ–°",
           "developer_comment": "This is the text for an action, for example, the text of a button."
         }
       },
@@ -5574,13 +5574,13 @@
       },
       "alert": {
         "success": {
-          "string": "ユーザー詳細の保存完了！"
+          "string": "ãƒ¦ãƒ¼ã‚¶ãƒ¼è©³ç´°ã®ä¿å­˜å®Œäº†ï¼"
         }
       }
     },
     "UserEditPassword": {
       "title": {
-        "string": "パスワードの変更",
+        "string": "ãƒ‘ã‚¹ãƒ¯ãƒ¼ãƒ‰ã®å¤‰æ›´",
         "developer_comment": "This is a title shown above a section of the page."
       },
       "oidcBody": {
@@ -5588,44 +5588,44 @@
       },
       "action": {
         "change": {
-          "string": "パスワードの変更",
+          "string": "ãƒ‘ã‚¹ãƒ¯ãƒ¼ãƒ‰ã®å¤‰æ›´",
           "developer_comment": "This is the text for an action, for example, the text of a button."
         }
       },
       "cannotChange": {
-        "string": "アカウントオーナーのみがパスワードを設定できます。"
+        "string": "ã‚¢ã‚«ã‚¦ãƒ³ãƒˆã‚ªãƒ¼ãƒŠãƒ¼ã®ã¿ãŒãƒ‘ã‚¹ãƒ¯ãƒ¼ãƒ‰ã‚’è¨­å®šã§ãã¾ã™ã€‚"
       },
       "alert": {
         "mismatch": {
-          "string": "新しいパスワードが一致することを確認して下さい。"
+          "string": "æ–°ã—ã„ãƒ‘ã‚¹ãƒ¯ãƒ¼ãƒ‰ãŒä¸€è‡´ã™ã‚‹ã“ã¨ã‚’ç¢ºèªã—ã¦ä¸‹ã•ã„ã€‚"
         },
         "success": {
-          "string": "成功です！パスワードが更新されました。"
+          "string": "æˆåŠŸã§ã™ï¼ãƒ‘ã‚¹ãƒ¯ãƒ¼ãƒ‰ãŒæ›´æ–°ã•ã‚Œã¾ã—ãŸã€‚"
         }
       }
     },
     "UserHome": {
       "title": {
-        "string": "ユーザー管理",
+        "string": "ãƒ¦ãƒ¼ã‚¶ãƒ¼ç®¡ç†",
         "developer_comment": "This is shown as the title at the top of the page."
       }
     },
     "UserList": {
       "action": {
         "create": {
-          "string": "Webユーザーの作成",
+          "string": "Webãƒ¦ãƒ¼ã‚¶ãƒ¼ã®ä½œæˆ",
           "developer_comment": "This is the text for an action, for example, the text of a button."
         }
       },
       "heading": {
         "0": {
-          "string": "Webユーザーは、このサーバー上のプロジェクトを監督・管理するアカウントを保有します。管理者は、サイト内の全てを管理できます。プロジェクトの設定から「サーバーでの役割」が無いユーザーに対して、任意のプロジェクトの役割を付与できます。サーバーの管理者と一部のプロジェクトでの役割を持つ者は、Webブラウザーを使ってフォームを入力できます。{collect}などのアプリでデータを送信する場合は、プロジェクトごとにアプリユーザーを作成して下さい。",
+          "string": "Webãƒ¦ãƒ¼ã‚¶ãƒ¼ã¯ã€ã“ã®ã‚µãƒ¼ãƒãƒ¼ä¸Šã®ãƒ—ãƒ­ã‚¸ã‚§ã‚¯ãƒˆã‚’ç›£ç£ãƒ»ç®¡ç†ã™ã‚‹ã‚¢ã‚«ã‚¦ãƒ³ãƒˆã‚’ä¿æœ‰ã—ã¾ã™ã€‚ç®¡ç†è€…ã¯ã€ã‚µã‚¤ãƒˆå†…ã®å…¨ã¦ã‚’ç®¡ç†ã§ãã¾ã™ã€‚ãƒ—ãƒ­ã‚¸ã‚§ã‚¯ãƒˆã®è¨­å®šã‹ã‚‰ã€Œã‚µãƒ¼ãƒãƒ¼ã§ã®å½¹å‰²ã€ãŒç„¡ã„ãƒ¦ãƒ¼ã‚¶ãƒ¼ã«å¯¾ã—ã¦ã€ä»»æ„ã®ãƒ—ãƒ­ã‚¸ã‚§ã‚¯ãƒˆã®å½¹å‰²ã‚’ä»˜ä¸Žã§ãã¾ã™ã€‚ã‚µãƒ¼ãƒãƒ¼ã®ç®¡ç†è€…ã¨ä¸€éƒ¨ã®ãƒ—ãƒ­ã‚¸ã‚§ã‚¯ãƒˆã§ã®å½¹å‰²ã‚’æŒã¤è€…ã¯ã€Webãƒ–ãƒ©ã‚¦ã‚¶ãƒ¼ã‚’ä½¿ã£ã¦ãƒ•ã‚©ãƒ¼ãƒ ã‚’å…¥åŠ›ã§ãã¾ã™ã€‚{collect}ãªã©ã®ã‚¢ãƒ—ãƒªã§ãƒ‡ãƒ¼ã‚¿ã‚’é€ä¿¡ã™ã‚‹å ´åˆã¯ã€ãƒ—ãƒ­ã‚¸ã‚§ã‚¯ãƒˆã”ã¨ã«ã‚¢ãƒ—ãƒªãƒ¦ãƒ¼ã‚¶ãƒ¼ã‚’ä½œæˆã—ã¦ä¸‹ã•ã„ã€‚",
           "developer_comment": "{collect} is a link whose text is \"ODK Collect\"."
         }
       },
       "header": {
         "sitewideRole": {
-          "string": "サーバーでの役割",
+          "string": "ã‚µãƒ¼ãƒãƒ¼ã§ã®å½¹å‰²",
           "developer_comment": "This is the text of a table column header."
         },
         "lastActive": {
@@ -5635,27 +5635,27 @@
       },
       "alert": {
         "create": {
-          "string": "ユーザー\"{displayName}\"の作成に成功しました。"
+          "string": "ãƒ¦ãƒ¼ã‚¶ãƒ¼\"{displayName}\"ã®ä½œæˆã«æˆåŠŸã—ã¾ã—ãŸã€‚"
         },
         "assignRole": {
-          "string": "成功です！\"{displayName}\"はサーバーでの役割\"{roleName}\"を与えられました。"
+          "string": "æˆåŠŸã§ã™ï¼\"{displayName}\"ã¯ã‚µãƒ¼ãƒãƒ¼ã§ã®å½¹å‰²\"{roleName}\"ã‚’ä¸Žãˆã‚‰ã‚Œã¾ã—ãŸã€‚"
         },
         "resetPassword": {
-          "string": "\"{displayName}\"のパスワードが無効です。{email}宛に、今後の対応についての手続き方法を記載したメールが送信されました。"
+          "string": "\"{displayName}\"ã®ãƒ‘ã‚¹ãƒ¯ãƒ¼ãƒ‰ãŒç„¡åŠ¹ã§ã™ã€‚{email}å®›ã«ã€ä»Šå¾Œã®å¯¾å¿œã«ã¤ã„ã¦ã®æ‰‹ç¶šãæ–¹æ³•ã‚’è¨˜è¼‰ã—ãŸãƒ¡ãƒ¼ãƒ«ãŒé€ä¿¡ã•ã‚Œã¾ã—ãŸã€‚"
         },
         "retire": {
-          "string": "ユーザー\"{displayName}\"を除外しました。"
+          "string": "ãƒ¦ãƒ¼ã‚¶ãƒ¼\"{displayName}\"ã‚’é™¤å¤–ã—ã¾ã—ãŸã€‚"
         }
       }
     },
     "UserNew": {
       "title": {
-        "string": "Webユーザーの作成",
+        "string": "Webãƒ¦ãƒ¼ã‚¶ãƒ¼ã®ä½œæˆ",
         "developer_comment": "This is the title at the top of a pop-up."
       },
       "introduction": {
         "0": {
-          "string": "このアカウントを作成すると、登録したメールアドレスにパスワード設定方法と今後の手順を記載したメールが送信されます。"
+          "string": "ã“ã®ã‚¢ã‚«ã‚¦ãƒ³ãƒˆã‚’ä½œæˆã™ã‚‹ã¨ã€ç™»éŒ²ã—ãŸãƒ¡ãƒ¼ãƒ«ã‚¢ãƒ‰ãƒ¬ã‚¹ã«ãƒ‘ã‚¹ãƒ¯ãƒ¼ãƒ‰è¨­å®šæ–¹æ³•ã¨ä»Šå¾Œã®æ‰‹é †ã‚’è¨˜è¼‰ã—ãŸãƒ¡ãƒ¼ãƒ«ãŒé€ä¿¡ã•ã‚Œã¾ã™ã€‚"
         }
       },
       "oidcIntroduction": {
@@ -5671,36 +5671,36 @@
     },
     "UserResetPassword": {
       "title": {
-        "string": "パスワードのリセット",
+        "string": "ãƒ‘ã‚¹ãƒ¯ãƒ¼ãƒ‰ã®ãƒªã‚»ãƒƒãƒˆ",
         "developer_comment": "This is the title at the top of a pop-up."
       },
       "introduction": {
         "full": {
-          "string": "次の{resetPassword}クリックすると、ユーザー\"{displayName}\"<{email}>のパスワードが今すぐ無効化されます。その際、{email}に今後の手順を記載したメールが送信されます。",
+          "string": "æ¬¡ã®{resetPassword}ã‚¯ãƒªãƒƒã‚¯ã™ã‚‹ã¨ã€ãƒ¦ãƒ¼ã‚¶ãƒ¼\"{displayName}\"<{email}>ã®ãƒ‘ã‚¹ãƒ¯ãƒ¼ãƒ‰ãŒä»Šã™ãç„¡åŠ¹åŒ–ã•ã‚Œã¾ã™ã€‚ãã®éš›ã€{email}ã«ä»Šå¾Œã®æ‰‹é †ã‚’è¨˜è¼‰ã—ãŸãƒ¡ãƒ¼ãƒ«ãŒé€ä¿¡ã•ã‚Œã¾ã™ã€‚",
           "developer_comment": "{resetPassword} is a separate string that will be translated below. Its text will be formatted within ODK Central, for example, it might be bold or a link. Its text is:\n\nReset password"
         },
         "resetPassword": {
-          "string": "パスワードのリセット",
-          "developer_comment": "This text will be formatted within ODK Central, for example, it might be bold or a link. It will be inserted where {resetPassword} is in the following text:\n\nOnce you click {resetPassword} below, the password for the user “{displayName}” <{email}> will be immediately invalidated. An email will be sent to {email} with instructions on how to proceed."
+          "string": "ãƒ‘ã‚¹ãƒ¯ãƒ¼ãƒ‰ã®ãƒªã‚»ãƒƒãƒˆ",
+          "developer_comment": "This text will be formatted within ODK Central, for example, it might be bold or a link. It will be inserted where {resetPassword} is in the following text:\n\nOnce you click {resetPassword} below, the password for the user â€œ{displayName}â€ <{email}> will be immediately invalidated. An email will be sent to {email} with instructions on how to proceed."
         }
       }
     },
     "UserRetire": {
       "title": {
-        "string": "除外されたユーザー",
+        "string": "é™¤å¤–ã•ã‚ŒãŸãƒ¦ãƒ¼ã‚¶ãƒ¼",
         "developer_comment": "This is the title at the top of a pop-up. An Administrator can use the pop-up to retire another Web User."
       },
       "introduction": {
         "0": {
-          "string": "ユーザーアカウント\"{displayName}\"<{email}>を除外しようとしています。このユーザーは、即座にいかなるアクションも実行できなくなり、ログアウトされます。"
+          "string": "ãƒ¦ãƒ¼ã‚¶ãƒ¼ã‚¢ã‚«ã‚¦ãƒ³ãƒˆ\"{displayName}\"<{email}>ã‚’é™¤å¤–ã—ã‚ˆã†ã¨ã—ã¦ã„ã¾ã™ã€‚ã“ã®ãƒ¦ãƒ¼ã‚¶ãƒ¼ã¯ã€å³åº§ã«ã„ã‹ãªã‚‹ã‚¢ã‚¯ã‚·ãƒ§ãƒ³ã‚‚å®Ÿè¡Œã§ããªããªã‚Šã€ãƒ­ã‚°ã‚¢ã‚¦ãƒˆã•ã‚Œã¾ã™ã€‚"
         },
         "1": {
           "full": {
-            "string": "{noUndo}が、新しいアカウントは同じメールアドレスでいつでも再作成することができます。",
+            "string": "{noUndo}ãŒã€æ–°ã—ã„ã‚¢ã‚«ã‚¦ãƒ³ãƒˆã¯åŒã˜ãƒ¡ãƒ¼ãƒ«ã‚¢ãƒ‰ãƒ¬ã‚¹ã§ã„ã¤ã§ã‚‚å†ä½œæˆã™ã‚‹ã“ã¨ãŒã§ãã¾ã™ã€‚",
             "developer_comment": "{noUndo} is a separate string that will be translated below. Its text will be formatted within ODK Central, for example, it might be bold or a link. Its text is:\n\nThis action cannot be undone"
           },
           "noUndo": {
-            "string": "この操作は取り消しできません",
+            "string": "ã“ã®æ“ä½œã¯å–ã‚Šæ¶ˆã—ã§ãã¾ã›ã‚“",
             "developer_comment": "This text will be formatted within ODK Central, for example, it might be bold or a link. It will be inserted where {noUndo} is in the following text:\n\n{noUndo}, but a new account can always be created for that person with the same email address."
           }
         }
@@ -5708,11 +5708,11 @@
     },
     "UserRow": {
       "cannotAssignRole": {
-        "string": "自分自身のサーバーでの役割を編集できません。"
+        "string": "è‡ªåˆ†è‡ªèº«ã®ã‚µãƒ¼ãƒãƒ¼ã§ã®å½¹å‰²ã‚’ç·¨é›†ã§ãã¾ã›ã‚“ã€‚"
       },
       "field": {
         "sitewideRole": {
-          "string": "サーバーでの役割",
+          "string": "ã‚µãƒ¼ãƒãƒ¼ã§ã®å½¹å‰²",
           "developer_comment": "This is the text of a form field."
         }
       },
@@ -5721,12 +5721,12 @@
         "developer_comment": "An Administrator may reset the password for another Web User, but not for their own account."
       },
       "cannotRetire": {
-        "string": "自分自身を除外させることはできません。",
+        "string": "è‡ªåˆ†è‡ªèº«ã‚’é™¤å¤–ã•ã›ã‚‹ã“ã¨ã¯ã§ãã¾ã›ã‚“ã€‚",
         "developer_comment": "An Administrator may retire other Web Users, but not their own account."
       },
       "action": {
         "retire": {
-          "string": "ユーザーの除外",
+          "string": "ãƒ¦ãƒ¼ã‚¶ãƒ¼ã®é™¤å¤–",
           "developer_comment": "This is the text for an action, for example, the text of a button."
         }
       },
@@ -5747,7 +5747,7 @@
   "presenter": {
     "Project": {
       "nameWithArchived": {
-        "string": "{name}（アーカイブ済）",
+        "string": "{name}ï¼ˆã‚¢ãƒ¼ã‚«ã‚¤ãƒ–æ¸ˆï¼‰",
         "developer_comment": "{name} is the name of a Project. We append \"(archived)\" to the name if the Project is archived."
       }
     }

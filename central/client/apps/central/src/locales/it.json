@@ -56,7 +56,7 @@
       "form": "Azioni del form",
       "field_key": "Azioni utente applicazione",
       "public_link": "Azioni del link di accesso pubblico",
-      "dataset": "Azioni dell'elenco delle entità",
+      "dataset": "Azioni dell'elenco delle entitÃ ",
       "config": "Azioni di configurazione del server",
       "upgrade": "Aggiornamento del server",
       "task": "Funzionamento del sistema"
@@ -79,7 +79,7 @@
       "dataset": {
         "update": "Aggiorna",
         "update_publish": "Pubblica",
-        "update_property_delete": "Elimina proprietà",
+        "update_property_delete": "Elimina proprietÃ ",
         "create": "@:audit.action.default.create",
         "delete": "@:audit.action.default.delete"
       },
@@ -154,7 +154,7 @@
     "finish": "Termina",
     "logIn": "Accedi",
     "looksGood": "Sembra tutto in ordine, procedere",
-    "more": "Di più",
+    "more": "Di piÃ¹",
     "neverMind": "Lascia perdere, annulla",
     "next": "Prossimo",
     "noCancel": "No, annulla",
@@ -204,15 +204,15 @@
     "email": "Indirizzo email",
     "instanceId": "ID della istanza",
     "lastSubmission": "Ultimo invio",
-    "recentActivity": "Attività recente",
+    "recentActivity": "AttivitÃ  recente",
     "name": "Nome",
     "listName": "Nome dell'elenco",
     "submitterName": "Inviato da",
     "submissionDate": "Inviato alle",
     "time": "Tempo",
     "type": "Tipo",
-    "entities": "Entità totali",
-    "lastEntity": "Ultima entità"
+    "entities": "EntitÃ  totali",
+    "lastEntity": "Ultima entitÃ "
   },
   "plural": {
     "appUser": "Utente dell'applicazione | Utenti dell'applicazione | Utenti dell'applicazione",
@@ -234,18 +234,18 @@
     "appUsers": "Utenti dell'applicazione",
     "attachments": "Allegati",
     "config": "Configurazione del Server",
-    "entity": "Entità",
-    "entities": "Entità",
-    "entityList": "Lista Entità",
-    "entityLists": "Liste Entità",
+    "entity": "EntitÃ ",
+    "entities": "EntitÃ ",
+    "entityList": "Lista EntitÃ ",
+    "entityLists": "Liste EntitÃ ",
     "form": "Formulario",
     "forms": "Formulari",
     "newForm": "Nuovo formulario",
     "formAttachments": "Allegati del formulario",
     "project": "Progetto",
     "projects": "Progetti",
-    "property": "Proprietà",
-    "properties": "Proprietà",
+    "property": "ProprietÃ ",
+    "properties": "ProprietÃ ",
     "publicLink": "Link con accesso pubblico",
     "user": "Utente",
     "users": "Utenti",
@@ -260,13 +260,13 @@
   },
   "alert": {
     "passwordTooShort": "La password deve essere almeno 10 caratteri.",
-    "updateEntity": "L'Entità è stata aggiornata con successo.",
+    "updateEntity": "L'EntitÃ  Ã¨ stata aggiornata con successo.",
     "updateReviewState": "Stato revisione salvato correttamente!",
-    "versionChange": "Il server è stato aggiornato con successo.",
-    "submissionDeleted": "L'invio è stato eliminato con successo.",
-    "submissionRestored": "L'invio è stata ripristinato.",
-    "entityRestored": "La Entità “{label}” è stata ripristinata.",
-    "entityDeleted": "La Entità “{label}” è stata cancellata."
+    "versionChange": "Il server Ã¨ stato aggiornato con successo.",
+    "submissionDeleted": "L'invio Ã¨ stato eliminato con successo.",
+    "submissionRestored": "L'invio Ã¨ stata ripristinato.",
+    "entityRestored": "La EntitÃ  â€œ{label}â€ Ã¨ stata ripristinata.",
+    "entityDeleted": "La EntitÃ  â€œ{label}â€ Ã¨ stata cancellata."
   },
   "moreInfo": {
     "clickHere": {
@@ -277,7 +277,7 @@
       "full": "Per maggiori informazioni, si prega di consultare {helpArticle}.",
       "helpArticle": "Questo articolo d'aiuto"
     },
-    "learnMore": "Per saperne di più."
+    "learnMore": "Per saperne di piÃ¹."
   },
   "login": {
     "odkLogo": "Logo ODK",
@@ -289,10 +289,10 @@
   "analytics": {
     "alwaysImprove": "Stiamo sempre cercando di migliorare ODK Central",
     "needFeedback": {
-      "full": "Per fare questo, abbiamo bisogno del {your} feedback, cosicché possiamo capire come stai usando Central, e come potrebbe essere meglio per te.",
+      "full": "Per fare questo, abbiamo bisogno del {your} feedback, cosicchÃ© possiamo capire come stai usando Central, e come potrebbe essere meglio per te.",
       "your": "tuo"
     },
-    "mailingListOptIn": "Inviami occasionalmente delle e-mail sulle nuove funzionalità e sulle migliori prassi."
+    "mailingListOptIn": "Inviami occasionalmente delle e-mail sulle nuove funzionalitÃ  e sulle migliori prassi."
   },
   "submission": {
     "missingAttachment": "Allegati mancanti",
@@ -300,22 +300,22 @@
       "edit": "Modifica ({count})"
     },
     "editDisabled": "Non puoi modificare invii criptati",
-    "binaryLinkTitle": "Il file è stato inviato. Clicca per scaricare.",
-    "encryptionMessage": "L'anteprima dei dati non è disponibile a causa della crittografia.",
+    "binaryLinkTitle": "Il file Ã¨ stato inviato. Clicca per scaricare.",
+    "encryptionMessage": "L'anteprima dei dati non Ã¨ disponibile a causa della crittografia.",
     "noSubmission": "(nessuno)",
     "emptyTable": "Non ci sono ancora invii.",
-    "fileDownloadUnavailable": "Il download dei documenti non è disponibile per gli invii cancellati"
+    "fileDownloadUnavailable": "Il download dei documenti non Ã¨ disponibile per gli invii cancellati"
   },
   "entity": {
     "label": "Label",
-    "entityLabel": "Etichetta dell'entità",
-    "entityId": "ID dell'Entità",
+    "entityLabel": "Etichetta dell'entitÃ ",
+    "entityId": "ID dell'EntitÃ ",
     "noProperties": "Questo formulario imposta solo l'\"etichetta\".",
     "noEntity": "(nessuno)",
     "conflictsCount": "{count} conflitto | {count} conflitti | {count} conflitti"
   },
   "common": {
-    "activity": "Attività",
+    "activity": "AttivitÃ ",
     "anybody": "(Chiunque)",
     "areYouSure": "Sei sicuro di voler procedere?",
     "basicInfo": "Informazioni di base",
@@ -334,7 +334,7 @@
     "map": "Mappa",
     "no": "No",
     "noResults": "Nessun risultato",
-    "noUndo": "Quest'azione non può essere annullata",
+    "noUndo": "Quest'azione non puÃ² essere annullata",
     "rowNumber": "Riga",
     "success": "Successo!",
     "system": "Sistema",
@@ -345,9 +345,9 @@
     "table": "Tabella",
     "total": "Totale",
     "totalSubmissions": "Invii totali",
-    "propertiesCount": "{inform} di {count} propietà | {inform} di {count} proprietà | {inform} di {count} proprietà",
-    "new": "Novità!",
-    "totalEntities": "Entità totali",
+    "propertiesCount": "{inform} di {count} propietÃ  | {inform} di {count} proprietÃ  | {inform} di {count} proprietÃ ",
+    "new": "NovitÃ !",
+    "totalEntities": "EntitÃ  totali",
     "versionShort": "v{version}",
     "warning": "Avvertimento",
     "none": "(nessuno)",
@@ -360,28 +360,28 @@
   "mixin": {
     "request": {
       "alert": {
-        "fileSize": "Il file “{name}” che stai tentando di caricare è più grande del limite di 100 MB.",
+        "fileSize": "Il file â€œ{name}â€ che stai tentando di caricare Ã¨ piÃ¹ grande del limite di 100 MB.",
         "entityTooLarge": "I dati che stai tentando di caricare sono troppo grandi."
       }
     }
   },
   "util": {
     "csv": {
-      "readError": "Si è verificato un problema durante la lettura del file:{message}",
-      "invalidCSV": "Il file “{name}” non è un file .csv valido. Non può essere letto.",
-      "rowError": "C'è un problema sulla riga {row} del file:{message}",
-      "invalidQuotes": "Un campo tra virgolette non è valido. Controlla la riga per vedere se sono presenti valori insoliti.",
-      "emptyRow": "La riga è vuota.",
+      "readError": "Si Ã¨ verificato un problema durante la lettura del file:{message}",
+      "invalidCSV": "Il file â€œ{name}â€ non Ã¨ un file .csv valido. Non puÃ² essere letto.",
+      "rowError": "C'Ã¨ un problema sulla riga {row} del file:{message}",
+      "invalidQuotes": "Un campo tra virgolette non Ã¨ valido. Controlla la riga per vedere se sono presenti valori insoliti.",
+      "emptyRow": "La riga Ã¨ vuota.",
       "dataWithoutHeader": "Attesa {expected} colonna, ma trovate {actual}. | Attese {expected} colonne, ma trovate {actual}. | Attese {expected} colonne, ma trovate {actual}."
     },
     "request": {
-      "noRequest": "Qualcosa è andato storto: non c'era nessuna request.",
-      "noResponse": "Qualcosa è andato storto: non c'era nessuna risposta alla tua request.",
-      "errorNotProblem": "Qualcosa è andato storto: codice error {status}.",
+      "noRequest": "Qualcosa Ã¨ andato storto: non c'era nessuna request.",
+      "noResponse": "Qualcosa Ã¨ andato storto: non c'era nessuna risposta alla tua request.",
+      "errorNotProblem": "Qualcosa Ã¨ andato storto: codice error {status}.",
       "problem": {
         "404_1": "Impossibile trovare la risorsa che stai cercando. La risorsa potrebbe essere stata eliminata.",
         "409_17": {
-          "message": "Questo formulario tenta di creare nuove proprietà dell'entità che corrisponde a una esistente, tranne che per la capitalizzazione: | Questo formulario tenta di creare nuove proprietà dell'entità che corrispondano a quelle esistenti, tranne che per la capitalizzazione: | Questo formulario tenta di creare nuove proprietà dell'entità che corrispondano a quelle esistenti, tranne che per la capitalizzazione:",
+          "message": "Questo formulario tenta di creare nuove proprietÃ  dell'entitÃ  che corrisponde a una esistente, tranne che per la capitalizzazione: | Questo formulario tenta di creare nuove proprietÃ  dell'entitÃ  che corrispondano a quelle esistenti, tranne che per la capitalizzazione: | Questo formulario tenta di creare nuove proprietÃ  dell'entitÃ  che corrispondano a quelle esistenti, tranne che per la capitalizzazione:",
           "duplicateProperty": "{provided} (esistente: {current})"
         }
       }
@@ -389,9 +389,9 @@
     "session": {
       "alert": {
         "expiresSoon": "La tua sessione sta scadendo! Verrai disconnesso tra 2 minuti.",
-        "expired": "La tua sessione è scaduta. Effettua nuovamente il login per continuare.",
+        "expired": "La tua sessione Ã¨ scaduta. Effettua nuovamente il login per continuare.",
         "logoutError": {
-          "thereWasProblem": "C'è stato un errore nel log out.",
+          "thereWasProblem": "C'Ã¨ stato un errore nel log out.",
           "pleaseRefresh": "Aggiorna la pagina e riprova."
         }
       }
@@ -401,9 +401,9 @@
     "unsavedChanges": "Sei sicuro di voler lasciare questa pagina? Le tue modifiche potrebbero non essere salvate."
   },
   "formStateDescription": {
-    "open": "Questo Formulario è scaricabile e accetta Invii.",
-    "closing": "Questo Formulario non è scaricabile e ma tuttavia accetta Invii.",
-    "closed": "Questo Formulario non è scaricabile e non accetta Invii."
+    "open": "Questo Formulario Ã¨ scaricabile e accetta Invii.",
+    "closing": "Questo Formulario non Ã¨ scaricabile e ma tuttavia accetta Invii.",
+    "closed": "Questo Formulario non Ã¨ scaricabile e non accetta Invii."
   },
   "requestData": {
     "project": {

@@ -19,9 +19,9 @@ wait_for_http_response() {
       sleep 0.25
     done
   "; then
-    printf >&2 '✅\n'
+    printf >&2 'Ã¢Å“â€¦\n'
   else
-    printf >&2 '❌\n'
+    printf >&2 'Ã¢ÂÅ’\n'
     log "!!! URL timed out: $url"
     exit 1
   fi

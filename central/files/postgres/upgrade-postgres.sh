@@ -61,7 +61,7 @@ else
       log "!!!"
       log "!!! pg_upgrade FAILED; dumping log files..."
       log "!!!"
-      tail -n+1 pg_upgrade_*.log || log "No pg_upgrade log files found ¯\_(ツ)_/¯"
+      tail -n+1 pg_upgrade_*.log || log "No pg_upgrade log files found Ã‚Â¯\_(Ã£Æ’â€ž)_/Ã‚Â¯"
       log "!!!"
       log "!!! pg_upgrade FAILED; check above for clues."
       log "!!!"

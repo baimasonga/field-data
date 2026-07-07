@@ -540,7 +540,7 @@
   },
   "field": {
     "comment": {
-      "string": "Leave a comment…",
+      "string": "Leave a commentâ€¦",
       "developer_comment": "This is the text of a form field."
     },
     "dateRange": {
@@ -837,7 +837,7 @@
       "string": "The Submission has been restored."
     },
     "entityRestored": {
-      "string": "Entity “{label}” has been restored."
+      "string": "Entity â€œ{label}â€ has been restored."
     }
   },
   "moreInfo": {
@@ -944,7 +944,7 @@
       "developer_comment": "This is the UUID of an Entity."
     },
     "noProperties": {
-      "string": "This Form only sets the “label”."
+      "string": "This Form only sets the â€œlabelâ€."
     },
     "noEntity": {
       "string": "(none)"
@@ -1010,7 +1010,7 @@
       "string": "Last update"
     },
     "loading": {
-      "string": "Loading…"
+      "string": "Loadingâ€¦"
     },
     "map": {
       "string": "Map"
@@ -1094,7 +1094,7 @@
     "request": {
       "alert": {
         "fileSize": {
-          "string": "The file “{name}” that you are trying to upload is larger than the 100 MB limit."
+          "string": "The file â€œ{name}â€ that you are trying to upload is larger than the 100 MB limit."
         },
         "entityTooLarge": {
           "string": "The data that you are trying to upload is too large."
@@ -1109,7 +1109,7 @@
         "developer_comment": "{message} is a description of the problem."
       },
       "invalidCSV": {
-        "string": "The file “{name}” is not a valid .csv file. It cannot be read."
+        "string": "The file â€œ{name}â€ is not a valid .csv file. It cannot be read."
       },
       "rowError": {
         "string": "There is a problem on row {row} of the file: {message}",
@@ -1291,7 +1291,7 @@
             "string": "We are not interested in sharing any information."
           },
           "1": {
-            "string": "You won’t see a reminder about this again."
+            "string": "You wonâ€™t see a reminder about this again."
           }
         }
       },
@@ -1821,7 +1821,7 @@
       },
       "introduction": {
         "0": {
-          "string": "Are you sure you want to delete the Entity List “{name}”? This cannot be undone."
+          "string": "Are you sure you want to delete the Entity List â€œ{name}â€? This cannot be undone."
         }
       }
     },
@@ -1884,7 +1884,7 @@
       },
       "success": {
         "0": {
-          "string": "The Entity List “{name}” has been created."
+          "string": "The Entity List â€œ{name}â€ has been created."
         },
         "1": {
           "string": "You can get started with it by adding its data properties directly on this page, or by uploading Forms that use it. In this case, any properties the Form calls out will be automatically created when you publish the Form."
@@ -1892,7 +1892,7 @@
       },
       "problem": {
         "409_3": {
-          "string": "An Entity List already exists in this Project with the name of “{datasetName}”."
+          "string": "An Entity List already exists in this Project with the name of â€œ{datasetName}â€."
         }
       }
     },
@@ -1919,12 +1919,12 @@
           "string": "Delete Property"
         },
         "body": {
-          "string": "Are you sure you want to delete the Property “{propertyName}”? This cannot be undone.",
+          "string": "Are you sure you want to delete the Property â€œ{propertyName}â€? This cannot be undone.",
           "developer_comment": "This is shown on a confirmation dialog box. {propertyName} is the name of the property that is being deleted."
         }
       },
       "deleted": {
-        "string": "Property “{name}” has been deleted.",
+        "string": "Property â€œ{name}â€ has been deleted.",
         "developer_comment": "This is shown after a Property has been successfully deleted. {name} is the name of the deleted property."
       }
     },
@@ -1933,7 +1933,7 @@
         "string": "Delete Property"
       },
       "intro": {
-        "string": "Before you can delete the Property “{propertyName}”, you must:",
+        "string": "Before you can delete the Property â€œ{propertyName}â€, you must:",
         "developer_comment": "This text is followed by a list of actions."
       },
       "clearEntities": {
@@ -1975,7 +1975,7 @@
       },
       "problem": {
         "409_3": {
-          "string": "A property already exists in this Entity List with the name of “{propertyName}”."
+          "string": "A property already exists in this Entity List with the name of â€œ{propertyName}â€."
         }
       }
     },
@@ -2019,7 +2019,7 @@
           "developer_comment": "Placeholder text shown on a access rule filter dropdown."
         },
         "userPropertyLabel": {
-          "string": "is equal to the user‘s",
+          "string": "is equal to the userâ€˜s",
           "developer_comment": "This text is shown above the access rule filter dropdown. Translators are free not to translate this literally"
         },
         "userPropertyPlaceholder": {
@@ -2172,17 +2172,17 @@
       },
       "alert": {
         "delete": {
-          "string": "The Entity List “{name}” has been successfully deleted."
+          "string": "The Entity List â€œ{name}â€ has been successfully deleted."
         }
       },
       "dependentForms": {
         "description": {
           "0": {
-            "string": "The Entity List “{name}” is linked to {formsCount}.",
+            "string": "The Entity List â€œ{name}â€ is linked to {formsCount}.",
             "developer_comment": "{formsCount} is the number of Forms that are dependent on the Entity List. Example: 4 Forms"
           },
           "1": {
-            "string": "Before you can delete it, you’ll need to unlink it from the related Forms.",
+            "string": "Before you can delete it, youâ€™ll need to unlink it from the related Forms.",
             "developer_comment": "\"It\" refers to an Entity List."
           },
           "2": {
@@ -2191,7 +2191,7 @@
         },
         "formsCount": {
           "string": "{count, plural, one {{count} Form} other {{count} Forms}}",
-          "developer_comment": "This text will be inserted where {formsCount} is in the following sentence:\n\nThe Entity List “{name}” is linked to {formsCount}."
+          "developer_comment": "This text will be inserted where {formsCount} is in the following sentence:\n\nThe Entity List â€œ{name}â€ is linked to {formsCount}."
         }
       }
     },
@@ -2309,7 +2309,7 @@
           "string": "If any values need to be adjusted, you can edit the Entity data directly."
         },
         "1": {
-          "string": "If everything looks okay, click “Mark as resolved” to dismiss this warning."
+          "string": "If everything looks okay, click â€œMark as resolvedâ€ to dismiss this warning."
         }
       },
       "confirmation": {
@@ -2375,7 +2375,7 @@
       },
       "introduction": {
         "0": {
-          "string": "Are you sure you want to delete “{label}”?",
+          "string": "Are you sure you want to delete â€œ{label}â€?",
           "developer_comment": "{label} is the label of an Entity."
         }
       },
@@ -2409,11 +2409,11 @@
       },
       "tab": {
         "baseDiff": {
-          "string": "Author’s View",
+          "string": "Authorâ€™s View",
           "developer_comment": "A comparison between two versions of an Entity, from the point of view of the data collector (the author)"
         },
         "serverDiff": {
-          "string": "Central’s View",
+          "string": "Centralâ€™s View",
           "developer_comment": "A comparison between two versions of an Entity, from the point of view of the Central server"
         },
         "updating": {
@@ -2448,7 +2448,7 @@
         "developer_comment": "{version} is a short identifier of an Entity version, for example, \"v3\". {source} indicates what created the Entity version, for example, \"Update by Alice\"."
       },
       "accuracyWarning": {
-        "string": "In this case, the author’s view may not be accurate.",
+        "string": "In this case, the authorâ€™s view may not be accurate.",
         "developer_comment": "The author's view is a comparison between two versions of an Entity, from the point of view of the data collector (the author)."
       }
     },
@@ -2558,7 +2558,7 @@
           "developer_comment": "This is the text of a form field that shows the names of users that have created Entities."
         },
         "search": {
-          "string": "Search creators…",
+          "string": "Search creatorsâ€¦",
           "developer_comment": "This is the text of a form field."
         }
       },
@@ -2595,7 +2595,7 @@
       },
       "alert": {
         "delete": {
-          "string": "Entity “{label}” has been deleted."
+          "string": "Entity â€œ{label}â€ has been deleted."
         },
         "bulkDelete": {
           "string": "{count, plural, one {{count} Entity successfully deleted.} other {{count} Entities successfully deleted.}}"
@@ -2667,15 +2667,15 @@
     },
     "EntityResolve": {
       "title": {
-        "string": "Parallel updates to “{label}”",
+        "string": "Parallel updates to â€œ{label}â€",
         "developer_comment": "This is the title at the top of a pop-up. {label} is the label of an Entity."
       },
       "instructions": {
         "0": {
-          "string": "Updates were made to “{label}” in parallel. This means changes may be in conflict with each other, as they were authored against older data than they were eventually applied to by Central."
+          "string": "Updates were made to â€œ{label}â€ in parallel. This means changes may be in conflict with each other, as they were authored against older data than they were eventually applied to by Central."
         },
         "1": {
-          "string": "Review the updates, make any edits you need to, and if you are sure this Entity data is correct press “Mark as resolved” to clear this warning message."
+          "string": "Review the updates, make any edits you need to, and if you are sure this Entity data is correct press â€œMark as resolvedâ€ to clear this warning message."
         }
       },
       "action": {
@@ -2718,7 +2718,7 @@
       },
       "introduction": {
         "0": {
-          "string": "Are you sure you want to restore “{label}”?",
+          "string": "Are you sure you want to restore â€œ{label}â€?",
           "developer_comment": "{label} is the label of an Entity."
         },
         "1": {
@@ -2759,7 +2759,7 @@
         "developer_comment": "This is the title at the top of a pop-up. {label} is the label of an Entity."
       },
       "geometryDisabled": {
-        "string": "Geometry can’t be updated from the map."
+        "string": "Geometry canâ€™t be updated from the map."
       },
       "problem": {
         "409_15": {
@@ -2807,12 +2807,12 @@
     "EntityUploadDataTemplate": {
       "text": {
         "full": {
-          "string": "If you aren’t sure, you can {downloadTemplate}",
+          "string": "If you arenâ€™t sure, you can {downloadTemplate}",
           "developer_comment": "{downloadTemplate} is a separate string that will be translated below. Its text will be formatted within ODK Central, for example, it might be bold or a link. Its text is:\n\nDownload a data template (.csv)"
         },
         "downloadTemplate": {
           "string": "Download a data template (.csv)",
-          "developer_comment": "This text will be formatted within ODK Central, for example, it might be bold or a link. It will be inserted where {downloadTemplate} is in the following text:\n\nIf you aren’t sure, you can {downloadTemplate}"
+          "developer_comment": "This text will be formatted within ODK Central, for example, it might be bold or a link. It will be inserted where {downloadTemplate} is in the following text:\n\nIf you arenâ€™t sure, you can {downloadTemplate}"
         }
       }
     },
@@ -2828,7 +2828,7 @@
         }
       },
       "parsing": {
-        "string": "Reading data…"
+        "string": "Reading dataâ€¦"
       }
     },
     "EntityUploadHeaderErrors": {
@@ -2868,11 +2868,11 @@
       },
       "status": {
         "sending": {
-          "string": "Sending file… ({percentUploaded})",
+          "string": "Sending fileâ€¦ ({percentUploaded})",
           "developer_comment": "This text is shown while a file is being uploaded to the server."
         },
         "processing": {
-          "string": "Processing file…",
+          "string": "Processing fileâ€¦",
           "developer_comment": "This text is shown after a file has been uploaded to the server, but before the server has finished processing it."
         }
       }
@@ -2917,13 +2917,13 @@
     "ExtraTranslations": {
       "outdatedVersionHtml": {
         "heading": {
-          "string": "You’re using a significantly outdated version of ODK Central"
+          "string": "Youâ€™re using a significantly outdated version of ODK Central"
         },
         "sentence1": {
           "string": "Upgrade now to protect your data and take advantage of the latest features."
         },
         "sentence2": {
-          "string": "If you don’t want to maintain Central, try {OdkCloudLink}.",
+          "string": "If you donâ€™t want to maintain Central, try {OdkCloudLink}.",
           "developer_comment": "{OdkCloudLink} is a hyperlink to the ODK Cloud webpage and the text of it is \"ODK Cloud\", which doesn't need to be translated."
         }
       }
@@ -2968,7 +2968,7 @@
       },
       "alert": {
         "started": {
-          "string": "Backup started. It will run in the background — refresh to see the result.",
+          "string": "Backup started. It will run in the background â€” refresh to see the result.",
           "developer_comment": "Shown after a manual backup is triggered; it runs in the background."
         }
       }
@@ -3117,14 +3117,14 @@
         "string": "No media has been uploaded yet."
       },
       "confirmDelete": {
-        "string": "Are you sure you want to delete “{name}”?"
+        "string": "Are you sure you want to delete â€œ{name}â€?"
       },
       "alert": {
         "uploaded": {
-          "string": "“{name}” has been uploaded."
+          "string": "â€œ{name}â€ has been uploaded."
         },
         "deleted": {
-          "string": "“{name}” has been deleted."
+          "string": "â€œ{name}â€ has been deleted."
         }
       }
     },
@@ -3135,7 +3135,7 @@
           "developer_comment": "This is the text of a form field."
         },
         "url": {
-          "string": "URL (https://…)",
+          "string": "URL (https://â€¦)",
           "developer_comment": "This is the text of a form field."
         },
         "events": {
@@ -3195,14 +3195,14 @@
         "string": "No webhooks have been configured yet."
       },
       "confirmDelete": {
-        "string": "Are you sure you want to delete the webhook “{name}”?"
+        "string": "Are you sure you want to delete the webhook â€œ{name}â€?"
       },
       "alert": {
         "created": {
-          "string": "Webhook “{name}” has been created."
+          "string": "Webhook â€œ{name}â€ has been created."
         },
         "deleted": {
-          "string": "Webhook “{name}” has been deleted."
+          "string": "Webhook â€œ{name}â€ has been deleted."
         }
       },
       "detail": {
@@ -3234,7 +3234,7 @@
     },
     "FieldKeyEdit": {
       "title": {
-        "string": "Edit App User “{displayName}”",
+        "string": "Edit App User â€œ{displayName}â€",
         "developer_comment": "This is the title at the top of a pop-up for editing an App User. {displayName} is the the name of the App User"
       },
       "displayNameLabel": {
@@ -3252,12 +3252,12 @@
       "heading": {
         "0": {
           "full": {
-            "string": "App Users are used to collect data from an application such as {collect}. They typically represent a shared role such as “Vaccinator” but may also represent individuals. App Users in this Project can only download and use Forms within this Project. When you create a new App User, it will not have access to any Forms at first. To set the Forms each App User may access, use the {formAccess} tab.",
+            "string": "App Users are used to collect data from an application such as {collect}. They typically represent a shared role such as â€œVaccinatorâ€ but may also represent individuals. App Users in this Project can only download and use Forms within this Project. When you create a new App User, it will not have access to any Forms at first. To set the Forms each App User may access, use the {formAccess} tab.",
             "developer_comment": "{collect} is a link whose text is \"ODK Collect\".\n\n{formAccess} is a separate string that will be translated below. Its text will be formatted within ODK Central, for example, it might be bold or a link. Its text is:\n\nForm Access"
           },
           "formAccess": {
             "string": "Form Access",
-            "developer_comment": "This text will be formatted within ODK Central, for example, it might be bold or a link. It will be inserted where {formAccess} is in the following text:\n\nApp Users are used to collect data from an application such as {collect}. They typically represent a shared role such as “Vaccinator” but may also represent individuals. App Users in this Project can only download and use Forms within this Project. When you create a new App User, it will not have access to any Forms at first. To set the Forms each App User may access, use the {formAccess} tab."
+            "developer_comment": "This text will be formatted within ODK Central, for example, it might be bold or a link. It will be inserted where {formAccess} is in the following text:\n\nApp Users are used to collect data from an application such as {collect}. They typically represent a shared role such as â€œVaccinatorâ€ but may also represent individuals. App Users in this Project can only download and use Forms within this Project. When you create a new App User, it will not have access to any Forms at first. To set the Forms each App User may access, use the {formAccess} tab."
           }
         },
         "1": {
@@ -3290,13 +3290,13 @@
       },
       "alert": {
         "create": {
-          "string": "The App User “{displayName}” was created successfully."
+          "string": "The App User â€œ{displayName}â€ was created successfully."
         },
         "edit": {
-          "string": "The App User “{displayName}” was updated successfully."
+          "string": "The App User â€œ{displayName}â€ was updated successfully."
         },
         "revoke": {
-          "string": "App User {displayName}’s access successfully revoked."
+          "string": "App User {displayName}â€™s access successfully revoked."
         }
       }
     },
@@ -3312,20 +3312,20 @@
       },
       "success": {
         "0": {
-          "string": "The App User “{displayName}” has been created."
+          "string": "The App User â€œ{displayName}â€ has been created."
         },
         "1": {
-          "string": "You can configure a mobile device for “{displayName}” right now, or you can do it later from the App Users table by clicking “See code.”",
+          "string": "You can configure a mobile device for â€œ{displayName}â€ right now, or you can do it later from the App Users table by clicking â€œSee code.â€",
           "developer_comment": "Clicking \"See code\" displays a QR code."
         },
         "2": {
           "full": {
-            "string": "You may wish to visit this Project’s {formAccessSettings} to give this user access to Forms.",
+            "string": "You may wish to visit this Projectâ€™s {formAccessSettings} to give this user access to Forms.",
             "developer_comment": "{formAccessSettings} is a separate string that will be translated below. Its text will be formatted within ODK Central, for example, it might be bold or a link. Its text is:\n\nForm Access settings"
           },
           "formAccessSettings": {
             "string": "Form Access settings",
-            "developer_comment": "This text will be formatted within ODK Central, for example, it might be bold or a link. It will be inserted where {formAccessSettings} is in the following text:\n\nYou may wish to visit this Project’s {formAccessSettings} to give this user access to Forms."
+            "developer_comment": "This text will be formatted within ODK Central, for example, it might be bold or a link. It will be inserted where {formAccessSettings} is in the following text:\n\nYou may wish to visit this Projectâ€™s {formAccessSettings} to give this user access to Forms."
           }
         }
       },
@@ -3372,7 +3372,7 @@
         },
         "1": {
           "managed": {
-            "string": "Collect will exactly match the Forms available to “{displayName}” including automatically applying updates. Users will not need to manually Get Blank Forms. Additionally, finalized Forms will be sent automatically as soon as a connection is found.",
+            "string": "Collect will exactly match the Forms available to â€œ{displayName}â€ including automatically applying updates. Users will not need to manually Get Blank Forms. Additionally, finalized Forms will be sent automatically as soon as a connection is found.",
             "developer_comment": "\"Get Blank Form\" is the text of a button in ODK Collect."
           },
           "legacy": {
@@ -3411,7 +3411,7 @@
           }
         },
         "3": {
-          "string": "Scan this QR code to configure a device with the account “{displayName}”."
+          "string": "Scan this QR code to configure a device with the account â€œ{displayName}â€."
         }
       }
     },
@@ -3564,16 +3564,16 @@
         },
         "someUnmatched": {
           "full": {
-            "string": "{count, plural, one {{countOfFiles} has a name we don’t recognize and will be ignored. To upload it, rename it or drag it onto its target.} other {{countOfFiles} have a name we don’t recognize and will be ignored. To upload them, rename them or drag them individually onto their targets.}}",
+            "string": "{count, plural, one {{countOfFiles} has a name we donâ€™t recognize and will be ignored. To upload it, rename it or drag it onto its target.} other {{countOfFiles} have a name we donâ€™t recognize and will be ignored. To upload them, rename them or drag them individually onto their targets.}}",
             "developer_comment": "{countOfFiles} is a separate string that will be translated below. Its text will be formatted within ODK Central, for example, it might be bold or a link. In its plural form, its text is:\n\n{count} files"
           },
           "countOfFiles": {
             "string": "{count, plural, one {{count} file} other {{count} files}}",
-            "developer_comment": "This text will be formatted within ODK Central, for example, it might be bold or a link. It will be inserted where {countOfFiles} is in the following text. (The plural form of the text is shown.)\n\n{countOfFiles} have a name we don’t recognize and will be ignored. To upload them, rename them or drag them individually onto their targets."
+            "developer_comment": "This text will be formatted within ODK Central, for example, it might be bold or a link. It will be inserted where {countOfFiles} is in the following text. (The plural form of the text is shown.)\n\n{countOfFiles} have a name we donâ€™t recognize and will be ignored. To upload them, rename them or drag them individually onto their targets."
           }
         },
         "noneMatched": {
-          "string": "{count, plural, one {We don’t recognize the file you are trying to upload. Please rename it to match the names listed above, or drag it individually onto its target.} other {We don’t recognize any of the files you are trying to upload. Please rename them to match the names listed above, or drag them individually onto their targets.}}"
+          "string": "{count, plural, one {We donâ€™t recognize the file you are trying to upload. Please rename it to match the names listed above, or drag it individually onto its target.} other {We donâ€™t recognize any of the files you are trying to upload. Please rename them to match the names listed above, or drag them individually onto their targets.}}"
         }
       },
       "duringUpload": {
@@ -3686,7 +3686,7 @@
         }
       },
       "noDeleteEntities": {
-        "string": "Any Entities created by this Form’s Submissions will not be deleted. In a future version of Central, it will be possible to delete Entities."
+        "string": "Any Entities created by this Formâ€™s Submissions will not be deleted. In a future version of Central, it will be possible to delete Entities."
       }
     },
     "FormDraftAbandon": {
@@ -3775,7 +3775,7 @@
       },
       "placeholder": {
         "note": {
-          "string": "Describe this version (optional)…"
+          "string": "Describe this version (optional)â€¦"
         }
       }
     },
@@ -4047,7 +4047,7 @@
       },
       "alert": {
         "create": {
-          "string": "“{name}” has been created as a Form Draft."
+          "string": "â€œ{name}â€ has been created as a Form Draft."
         }
       }
     },
@@ -4065,12 +4065,12 @@
         },
         "1": {
           "full": {
-            "string": "If you don’t already have one, there are {tools} to help you design your Form.",
+            "string": "If you donâ€™t already have one, there are {tools} to help you design your Form.",
             "developer_comment": "{tools} is a separate string that will be translated below. Its text will be formatted within ODK Central, for example, it might be bold or a link. Its text is:\n\ntools available"
           },
           "tools": {
             "string": "tools available",
-            "developer_comment": "This text will be formatted within ODK Central, for example, it might be bold or a link. It will be inserted where {tools} is in the following text:\n\nIf you don’t already have one, there are {tools} to help you design your Form."
+            "developer_comment": "This text will be formatted within ODK Central, for example, it might be bold or a link. It will be inserted where {tools} is in the following text:\n\nIf you donâ€™t already have one, there are {tools} to help you design your Form."
           }
         },
         "2": {
@@ -4104,14 +4104,14 @@
       },
       "problem": {
         "400_8": {
-          "string": "The Form definition you have uploaded does not appear to be for this Form. It has the wrong formId (expected “{expected}”, got “{actual}”)."
+          "string": "The Form definition you have uploaded does not appear to be for this Form. It has the wrong formId (expected â€œ{expected}â€, got â€œ{actual}â€)."
         },
         "400_15": {
           "string": "The XLSForm could not be converted: {error}",
           "developer_comment": "The word \"XLSForm\" should not be translated."
         },
         "409_3": {
-          "string": "A Form already exists in this Project with the Form ID of “{xmlFormId}”."
+          "string": "A Form already exists in this Project with the Form ID of â€œ{xmlFormId}â€."
         }
       },
       "fields": {
@@ -4130,13 +4130,13 @@
         },
         "3": {
           "deletedFormExists": {
-            "string": "There is a form with ID \"{value}\" in the Trash. If you upload this Form, you won’t be able to restore the other one with the matching ID."
+            "string": "There is a form with ID \"{value}\" in the Trash. If you upload this Form, you wonâ€™t be able to restore the other one with the matching ID."
           },
           "structureChanged": {
             "string": "The following fields have been deleted, renamed or are now in different groups or repeats. These fields will not be visible in the Submission table or included in exports by default."
           },
           "oldEntityVersion": {
-            "string": "Entities specification version “{version}” is not compatible with Offline Entities. We recommend using version 2024.1.0 or later."
+            "string": "Entities specification version â€œ{version}â€ is not compatible with Offline Entities. We recommend using version 2024.1.0 or later."
           }
         },
         "4": {
@@ -4207,12 +4207,12 @@
         },
         "body": {
           "full": {
-            "string": "To set this Form’s state, please visit the Project {formAccessSettings}.",
+            "string": "To set this Formâ€™s state, please visit the Project {formAccessSettings}.",
             "developer_comment": "{formAccessSettings} is a separate string that will be translated below. Its text will be formatted within ODK Central, for example, it might be bold or a link. Its text is:\n\nForm Access settings"
           },
           "formAccessSettings": {
             "string": "Form Access settings",
-            "developer_comment": "This text will be formatted within ODK Central, for example, it might be bold or a link. It will be inserted where {formAccessSettings} is in the following text:\n\nTo set this Form’s state, please visit the Project {formAccessSettings}."
+            "developer_comment": "This text will be formatted within ODK Central, for example, it might be bold or a link. It will be inserted where {formAccessSettings} is in the following text:\n\nTo set this Formâ€™s state, please visit the Project {formAccessSettings}."
           }
         }
       },
@@ -4224,7 +4224,7 @@
       },
       "alert": {
         "delete": {
-          "string": "The Form “{name}” has been successfully deleted."
+          "string": "The Form â€œ{name}â€ has been successfully deleted."
         }
       },
       "webFormsSetting": {
@@ -4233,7 +4233,7 @@
           "developer_comment": "Title of a section on Forms settings page, that allows users to choose which form experience they want to use"
         },
         "description": {
-          "string": "Fill out, preview and edit your “{formName}” Form using",
+          "string": "Fill out, preview and edit your â€œ{formName}â€ Form using",
           "developer_comment": "Description of a section. {formName} is replaced with the name of the Form"
         },
         "enketoDescription": {
@@ -4251,11 +4251,11 @@
           }
         },
         "enketoSelected": {
-          "string": "You’re now using Enketo to fill out, preview and edit your “{formName}” form.",
+          "string": "Youâ€™re now using Enketo to fill out, preview and edit your â€œ{formName}â€ form.",
           "developer_comment": "Success message when Enketo is selected as web form technology. {formName} is replaced with the name of the Form"
         },
         "owfSelected": {
-          "string": "You’re now using ODK Web Forms to fill out, preview and edit your “{formName}” form.",
+          "string": "Youâ€™re now using ODK Web Forms to fill out, preview and edit your â€œ{formName}â€ form.",
           "developer_comment": "Success message when ODK Web Forms is selected as web form technology. {formName} is replaced with the name of the Form"
         }
       }
@@ -4319,7 +4319,7 @@
       },
       "alert": {
         "restore": {
-          "string": "The Form “{name}” has been successfully restored."
+          "string": "The Form â€œ{name}â€ has been successfully restored."
         }
       },
       "message": {
@@ -4564,15 +4564,15 @@
     "OdataLoadingMessage": {
       "entity": {
         "withoutCount": {
-          "string": "Loading Entities…",
+          "string": "Loading Entitiesâ€¦",
           "developer_comment": "This text is shown when the number of Entities loading is unknown."
         },
         "all": {
-          "string": "{count, plural, one {Loading {count} Entity…} other {Loading {count} Entities…}}"
+          "string": "{count, plural, one {Loading {count} Entityâ€¦} other {Loading {count} Entitiesâ€¦}}"
         },
         "filtered": {
           "withoutCount": {
-            "string": "Loading matching Entities…",
+            "string": "Loading matching Entitiesâ€¦",
             "developer_comment": "This text is shown when the number of Entities loading is unknown."
           }
         }
@@ -4637,7 +4637,7 @@
       },
       "introduction": {
         "0": {
-          "string": "You are about to archive the Project “{name}”. It will still work as it does now, but it will be sorted to the bottom of the Project List on the Central homepage."
+          "string": "You are about to archive the Project â€œ{name}â€. It will still work as it does now, but it will be sorted to the bottom of the Project List on the Central homepage."
         },
         "1": {
           "full": {
@@ -4961,7 +4961,7 @@
           "string": "To get started, create a Project. Projects help you organize your data by grouping related Forms and Users."
         },
         "cannotCreate": {
-          "string": "There are no Projects to show. If you expect to see Projects here, talk to the person who gave you this account. They may need to assign a Project Role for Projects you’re supposed to see."
+          "string": "There are no Projects to show. If you expect to see Projects here, talk to the person who gave you this account. They may need to assign a Project Role for Projects youâ€™re supposed to see."
         }
       },
       "alert": {
@@ -5050,7 +5050,7 @@
       },
       "alert": {
         "archive": {
-          "string": "The Project “{name}” has been archived."
+          "string": "The Project â€œ{name}â€ has been archived."
         }
       }
     },
@@ -5152,11 +5152,11 @@
       "field": {
         "q": {
           "canList": {
-            "string": "Search for a user…",
+            "string": "Search for a userâ€¦",
             "developer_comment": "This is the text of a form field."
           },
           "cannotList": {
-            "string": "Enter exact user email address…",
+            "string": "Enter exact user email addressâ€¦",
             "developer_comment": "This is the text of a form field."
           }
         }
@@ -5176,13 +5176,13 @@
       },
       "alert": {
         "unassignWithoutReassign": {
-          "string": "Something went wrong. “{displayName}” has been removed from the Project."
+          "string": "Something went wrong. â€œ{displayName}â€ has been removed from the Project."
         },
         "assignRole": {
-          "string": "Success! “{displayName}” has been given a Role of “{roleName}” on this Project."
+          "string": "Success! â€œ{displayName}â€ has been given a Role of â€œ{roleName}â€ on this Project."
         },
         "unassignRole": {
-          "string": "“{displayName}” has been removed from this Project."
+          "string": "â€œ{displayName}â€ has been removed from this Project."
         }
       },
       "action": {
@@ -5226,7 +5226,7 @@
     },
     "PublicLinkEdit": {
       "title": {
-        "string": "Edit Public Access Link “{displayName}”",
+        "string": "Edit Public Access Link â€œ{displayName}â€",
         "developer_comment": "This is the title at the top of a pop-up for editing a Public Access Link. {displayName} is the display name of the Public Link"
       },
       "displayNameLabel": {
@@ -5271,10 +5271,10 @@
           "string": "Your Public Access Link has been created and is now live. Copy it below to distribute it."
         },
         "edit": {
-          "string": "The Public Access Link “{displayName}” was updated successfully."
+          "string": "The Public Access Link â€œ{displayName}â€ was updated successfully."
         },
         "revoke": {
-          "string": "The Public Access Link “{displayName}” was revoked successfully. No further Submissions will be accepted using this Link."
+          "string": "The Public Access Link â€œ{displayName}â€ was revoked successfully. No further Submissions will be accepted using this Link."
         }
       }
     },
@@ -5434,7 +5434,7 @@
       },
       "field": {
         "splitSelectMultiples": {
-          "string": "Split “select multiple” choices into columns",
+          "string": "Split â€œselect multipleâ€ choices into columns",
           "developer_comment": "This is the text of a form field."
         },
         "removeGroupNames": {
@@ -5492,7 +5492,7 @@
           "string": "The data download is not yet available. Please try again in a moment."
         },
         "submit": {
-          "string": "Data download should begin soon. Once it begins, you can close this message. If it hasn’t started in 20 seconds, please try again."
+          "string": "Data download should begin soon. Once it begins, you can close this message. If it hasnâ€™t started in 20 seconds, please try again."
         },
         "parseError": {
           "string": "Something went wrong while requesting your data."
@@ -5553,7 +5553,7 @@
       "title": {
         "create": {
           "string": "Submitted by {name}",
-          "developer_comment": "This text is shown in the list of actions performed on a Submission. There is an icon before the text that corresponds to the word \"Submitted\", so it is essential for \"Submitted\" to also come first in the translation. If that is unnatural in your language, you can also split the text into two parts. For example, instead of:\n\nSubmitted by {name}\n\nyou could split it into:\n\nSubmitted • {name}"
+          "developer_comment": "This text is shown in the list of actions performed on a Submission. There is an icon before the text that corresponds to the word \"Submitted\", so it is essential for \"Submitted\" to also come first in the translation. If that is unnatural in your language, you can also split the text into two parts. For example, instead of:\n\nSubmitted by {name}\n\nyou could split it into:\n\nSubmitted â€¢ {name}"
         },
         "entity": {
           "create": {
@@ -5570,7 +5570,7 @@
           "null": {
             "full": {
               "string": "{reviewState} per {name}",
-              "developer_comment": "This text is shown in the list of actions performed on a Submission. There is an icon before the text that corresponds to the Review State, so it is essential for the Review State to also come first in the translation. If that is unnatural in your language, you can also split the text into two parts. For example, instead of:\n\n{reviewState} per {name}\n\nyou could split it into:\n\n{reviewState} • {name}\n\n{reviewState} is a separate string that will be translated below. Its text will be formatted within ODK Central, for example, it might be bold or a link. Its text is:\n\nReceived"
+              "developer_comment": "This text is shown in the list of actions performed on a Submission. There is an icon before the text that corresponds to the Review State, so it is essential for the Review State to also come first in the translation. If that is unnatural in your language, you can also split the text into two parts. For example, instead of:\n\n{reviewState} per {name}\n\nyou could split it into:\n\n{reviewState} â€¢ {name}\n\n{reviewState} is a separate string that will be translated below. Its text will be formatted within ODK Central, for example, it might be bold or a link. Its text is:\n\nReceived"
             },
             "reviewState": {
               "string": "Received",
@@ -5580,7 +5580,7 @@
           "hasIssues": {
             "full": {
               "string": "{reviewState} per {name}",
-              "developer_comment": "This text is shown in the list of actions performed on a Submission. There is an icon before the text that corresponds to the Review State, so it is essential for the Review State to also come first in the translation. If that is unnatural in your language, you can also split the text into two parts. For example, instead of:\n\n{reviewState} per {name}\n\nyou could split it into:\n\n{reviewState} • {name}\n\n{reviewState} is a separate string that will be translated below. Its text will be formatted within ODK Central, for example, it might be bold or a link. Its text is:\n\nHas Issues"
+              "developer_comment": "This text is shown in the list of actions performed on a Submission. There is an icon before the text that corresponds to the Review State, so it is essential for the Review State to also come first in the translation. If that is unnatural in your language, you can also split the text into two parts. For example, instead of:\n\n{reviewState} per {name}\n\nyou could split it into:\n\n{reviewState} â€¢ {name}\n\n{reviewState} is a separate string that will be translated below. Its text will be formatted within ODK Central, for example, it might be bold or a link. Its text is:\n\nHas Issues"
             },
             "reviewState": {
               "string": "Has Issues",
@@ -5590,7 +5590,7 @@
           "edited": {
             "full": {
               "string": "{reviewState} by {name}",
-              "developer_comment": "This text is shown in the list of actions performed on a Submission. There is an icon before the text that corresponds to the Review State, so it is essential for the Review State to also come first in the translation. If that is unnatural in your language, you can also split the text into two parts. For example, instead of:\n\n{reviewState} by {name}\n\nyou could split it into:\n\n{reviewState} • {name}\n\n{reviewState} is a separate string that will be translated below. Its text will be formatted within ODK Central, for example, it might be bold or a link. Its text is:\n\nEdited"
+              "developer_comment": "This text is shown in the list of actions performed on a Submission. There is an icon before the text that corresponds to the Review State, so it is essential for the Review State to also come first in the translation. If that is unnatural in your language, you can also split the text into two parts. For example, instead of:\n\n{reviewState} by {name}\n\nyou could split it into:\n\n{reviewState} â€¢ {name}\n\n{reviewState} is a separate string that will be translated below. Its text will be formatted within ODK Central, for example, it might be bold or a link. Its text is:\n\nEdited"
             },
             "reviewState": {
               "string": "Edited",
@@ -5600,7 +5600,7 @@
           "approved": {
             "full": {
               "string": "{reviewState} by {name}",
-              "developer_comment": "This text is shown in the list of actions performed on a Submission. There is an icon before the text that corresponds to the Review State, so it is essential for the Review State to also come first in the translation. If that is unnatural in your language, you can also split the text into two parts. For example, instead of:\n\n{reviewState} by {name}\n\nyou could split it into:\n\n{reviewState} • {name}\n\n{reviewState} is a separate string that will be translated below. Its text will be formatted within ODK Central, for example, it might be bold or a link. Its text is:\n\nApproved"
+              "developer_comment": "This text is shown in the list of actions performed on a Submission. There is an icon before the text that corresponds to the Review State, so it is essential for the Review State to also come first in the translation. If that is unnatural in your language, you can also split the text into two parts. For example, instead of:\n\n{reviewState} by {name}\n\nyou could split it into:\n\n{reviewState} â€¢ {name}\n\n{reviewState} is a separate string that will be translated below. Its text will be formatted within ODK Central, for example, it might be bold or a link. Its text is:\n\nApproved"
             },
             "reviewState": {
               "string": "Approved",
@@ -5610,7 +5610,7 @@
           "rejected": {
             "full": {
               "string": "{reviewState} by {name}",
-              "developer_comment": "This text is shown in the list of actions performed on a Submission. There is an icon before the text that corresponds to the Review State, so it is essential for the Review State to also come first in the translation. If that is unnatural in your language, you can also split the text into two parts. For example, instead of:\n\n{reviewState} by {name}\n\nyou could split it into:\n\n{reviewState} • {name}\n\n{reviewState} is a separate string that will be translated below. Its text will be formatted within ODK Central, for example, it might be bold or a link. Its text is:\n\nRejected"
+              "developer_comment": "This text is shown in the list of actions performed on a Submission. There is an icon before the text that corresponds to the Review State, so it is essential for the Review State to also come first in the translation. If that is unnatural in your language, you can also split the text into two parts. For example, instead of:\n\n{reviewState} by {name}\n\nyou could split it into:\n\n{reviewState} â€¢ {name}\n\n{reviewState} is a separate string that will be translated below. Its text will be formatted within ODK Central, for example, it might be bold or a link. Its text is:\n\nRejected"
             },
             "reviewState": {
               "string": "Rejected",
@@ -5620,15 +5620,15 @@
         },
         "comment": {
           "string": "Comment by {name}",
-          "developer_comment": "This text is shown in the list of actions performed on a Submission. There is an icon before the text that corresponds to the word \"Comment\", so it is essential for \"Comment\" to also come first in the translation. If that is unnatural in your language, you can also split the text into two parts. For example, instead of:\n\nComment by {name}\n\nyou could split it into:\n\nComment • {name}"
+          "developer_comment": "This text is shown in the list of actions performed on a Submission. There is an icon before the text that corresponds to the word \"Comment\", so it is essential for \"Comment\" to also come first in the translation. If that is unnatural in your language, you can also split the text into two parts. For example, instead of:\n\nComment by {name}\n\nyou could split it into:\n\nComment â€¢ {name}"
         },
         "delete": {
           "string": "Deleted by {name}",
-          "developer_comment": "This text is shown in the list of actions performed on a Submission. There is an icon before the text that corresponds to the word \"Deleted\", so it is essential for \"Deleted\" to also come first in the translation. If that is unnatural in your language, you can also split the text into two parts. For example, instead of:\n\nDeleted by {name}\n\nyou could split it into:\n\nDeleted • {name}"
+          "developer_comment": "This text is shown in the list of actions performed on a Submission. There is an icon before the text that corresponds to the word \"Deleted\", so it is essential for \"Deleted\" to also come first in the translation. If that is unnatural in your language, you can also split the text into two parts. For example, instead of:\n\nDeleted by {name}\n\nyou could split it into:\n\nDeleted â€¢ {name}"
         },
         "undelete": {
           "string": "Restored by {name}",
-          "developer_comment": "This text is shown in the list of actions performed on a Submission. There is an icon before the text that corresponds to the word \"Restored\", so it is essential for \"Restored\" to also come first in the translation. If that is unnatural in your language, you can also split the text into two parts. For example, instead of:\n\nRestored by {name}\n\nyou could split it into:\n\nRestored • {name}"
+          "developer_comment": "This text is shown in the list of actions performed on a Submission. There is an icon before the text that corresponds to the word \"Restored\", so it is essential for \"Restored\" to also come first in the translation. If that is unnatural in your language, you can also split the text into two parts. For example, instead of:\n\nRestored by {name}\n\nyou could split it into:\n\nRestored â€¢ {name}"
         },
         "submissionBacklog": {
           "hold": {
@@ -5660,7 +5660,7 @@
           "developer_comment": "This is shown beneath text that indicates the number of columns that the user has selected to display in a table. For example, that text may read \"10 of 100\", where 10 is the number of columns selected, and 100 is the total number of columns."
         },
         "search": {
-          "string": "Search columns…",
+          "string": "Search columnsâ€¦",
           "developer_comment": "This is the text of a form field."
         }
       },
@@ -5709,7 +5709,7 @@
           "developer_comment": "This is the text of a form field that shows the names of users and Public Access Links that have submitted Submissions."
         },
         "search": {
-          "string": "Search submitters…",
+          "string": "Search submittersâ€¦",
           "developer_comment": "This is the text of a form field."
         }
       },
@@ -5772,15 +5772,15 @@
       },
       "loading": {
         "withoutCount": {
-          "string": "Loading Submissions…",
+          "string": "Loading Submissionsâ€¦",
           "developer_comment": "This text is shown when the number of Submissions loading is unknown."
         },
         "all": {
-          "string": "{count, plural, one {Loading {count} Submission…} other {Loading {count} Submissions…}}"
+          "string": "{count, plural, one {Loading {count} Submissionâ€¦} other {Loading {count} Submissionsâ€¦}}"
         },
         "filtered": {
           "withoutCount": {
-            "string": "Loading matching Submissions…",
+            "string": "Loading matching Submissionsâ€¦",
             "developer_comment": "This text is shown when the number of Submissions loading is unknown."
           }
         }
@@ -5788,7 +5788,7 @@
     },
     "SubmissionMapPopup": {
       "missingField": {
-        "string": "This Submission was mapped using {field}, which isn’t in the published Form version.",
+        "string": "This Submission was mapped using {field}, which isnâ€™t in the published Form version.",
         "developer_comment": "{field} is the name of a Form field."
       },
       "mappedField": {
@@ -5798,7 +5798,7 @@
     },
     "SubmissionMapView": {
       "loading": {
-        "string": "Preparing map — loading known Submissions and scanning for new ones. This could take a while."
+        "string": "Preparing map â€” loading known Submissions and scanning for new ones. This could take a while."
       },
       "overlapTitle": {
         "string": "{count, plural, one {{count} Submission in this area} other {{count} Submissions in this area}}"
@@ -5941,7 +5941,7 @@
       },
       "heading": {
         "0": {
-          "string": "Web Users have accounts on this website to oversee and administer the Projects on this server. Administrators can manage anything on the site. Users with no Sitewide Role can be given a Role on any Project, from that Project’s settings. Sitewide Administrators and some Project Roles can use a web browser to fill out Forms. To submit data through an application such as {collect}, create App Users for each Project.",
+          "string": "Web Users have accounts on this website to oversee and administer the Projects on this server. Administrators can manage anything on the site. Users with no Sitewide Role can be given a Role on any Project, from that Projectâ€™s settings. Sitewide Administrators and some Project Roles can use a web browser to fill out Forms. To submit data through an application such as {collect}, create App Users for each Project.",
           "developer_comment": "{collect} is a link whose text is \"ODK Collect\"."
         }
       },
@@ -5957,16 +5957,16 @@
       },
       "alert": {
         "create": {
-          "string": "A user was created successfully for “{displayName}”."
+          "string": "A user was created successfully for â€œ{displayName}â€."
         },
         "assignRole": {
-          "string": "Success! “{displayName}” has been given a Sitewide Role of “{roleName}”."
+          "string": "Success! â€œ{displayName}â€ has been given a Sitewide Role of â€œ{roleName}â€."
         },
         "resetPassword": {
-          "string": "The password for “{displayName}” has been invalidated. An email has been sent to {email} with instructions on how to proceed."
+          "string": "The password for â€œ{displayName}â€ has been invalidated. An email has been sent to {email} with instructions on how to proceed."
         },
         "retire": {
-          "string": "The user “{displayName}” has been retired."
+          "string": "The user â€œ{displayName}â€ has been retired."
         }
       }
     },
@@ -5998,12 +5998,12 @@
       },
       "introduction": {
         "full": {
-          "string": "Once you click {resetPassword} below, the password for the user “{displayName}” <{email}> will be immediately invalidated. An email will be sent to {email} with instructions on how to proceed.",
+          "string": "Once you click {resetPassword} below, the password for the user â€œ{displayName}â€ <{email}> will be immediately invalidated. An email will be sent to {email} with instructions on how to proceed.",
           "developer_comment": "{resetPassword} is a separate string that will be translated below. Its text will be formatted within ODK Central, for example, it might be bold or a link. Its text is:\n\nReset password"
         },
         "resetPassword": {
           "string": "Reset password",
-          "developer_comment": "This text will be formatted within ODK Central, for example, it might be bold or a link. It will be inserted where {resetPassword} is in the following text:\n\nOnce you click {resetPassword} below, the password for the user “{displayName}” <{email}> will be immediately invalidated. An email will be sent to {email} with instructions on how to proceed."
+          "developer_comment": "This text will be formatted within ODK Central, for example, it might be bold or a link. It will be inserted where {resetPassword} is in the following text:\n\nOnce you click {resetPassword} below, the password for the user â€œ{displayName}â€ <{email}> will be immediately invalidated. An email will be sent to {email} with instructions on how to proceed."
         }
       }
     },
@@ -6014,7 +6014,7 @@
       },
       "introduction": {
         "0": {
-          "string": "You are about to retire the user account “{displayName}” <{email}>. That user will be immediately barred from performing any actions and logged out."
+          "string": "You are about to retire the user account â€œ{displayName}â€ <{email}>. That user will be immediately barred from performing any actions and logged out."
         },
         "1": {
           "full": {
@@ -6058,7 +6058,7 @@
     },
     "WhatsNew": {
       "title": {
-        "string": "Entity Filtering 🎯 and ODK Web Forms by Default 🌐",
+        "string": "Entity Filtering ðŸŽ¯ and ODK Web Forms by Default ðŸŒ",
         "developer_comment": "This is the title at the top of a pop-up."
       },
       "body": {

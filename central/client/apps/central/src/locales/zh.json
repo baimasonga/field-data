@@ -1,132 +1,132 @@
 {
   "title": {
-    "resetPassword": "重置密码",
-    "setPassword": "设置密码",
-    "editProfile": "编辑资料",
-    "download": "下载",
-    "pageNotFound": "页面不存在",
-    "details": "详情"
+    "resetPassword": "é‡ç½®å¯†ç ",
+    "setPassword": "è®¾ç½®å¯†ç ",
+    "editProfile": "ç¼–è¾‘èµ„æ–™",
+    "download": "ä¸‹è½½",
+    "pageNotFound": "é¡µé¢ä¸å­˜åœ¨",
+    "details": "è¯¦æƒ…"
   },
   "projectShow": {
     "tab": {
-      "formAccess": "表单权限"
+      "formAccess": "è¡¨å•æƒé™"
     }
   },
   "formHead": {
     "tab": {
-      "publicAccess": "公开访问",
-      "versions": "版本",
-      "editForm": "编辑表单"
+      "publicAccess": "å…¬å¼€è®¿é—®",
+      "versions": "ç‰ˆæœ¬",
+      "editForm": "ç¼–è¾‘è¡¨å•"
     }
   },
   "systemHome": {
-    "title": "系统设置",
+    "title": "ç³»ç»Ÿè®¾ç½®",
     "tab": {
-      "audits": "服务器审计记录",
-      "customization": "自定义",
-      "analytics": "使用报告"
+      "audits": "æœåŠ¡å™¨å®¡è®¡è®°å½•",
+      "customization": "è‡ªå®šä¹‰",
+      "analytics": "ä½¿ç”¨æŠ¥å‘Š"
     }
   },
   "role": {
-    "none": "无",
-    "admin": "管理员",
-    "manager": "项目经理",
-    "viewer": "项目查看者",
-    "formfill": "数据收集者"
+    "none": "æ— ",
+    "admin": "ç®¡ç†å‘˜",
+    "manager": "é¡¹ç›®ç»ç†",
+    "viewer": "é¡¹ç›®æŸ¥çœ‹è€…",
+    "formfill": "æ•°æ®æ”¶é›†è€…"
   },
   "formState": {
-    "open": "开启",
-    "closing": "正在关闭",
-    "closed": "已关闭",
-    "unpublished": "尚未发布"
+    "open": "å¼€å¯",
+    "closing": "æ­£åœ¨å…³é—­",
+    "closed": "å·²å…³é—­",
+    "unpublished": "å°šæœªå‘å¸ƒ"
   },
   "reviewState": {
-    "received": "已接收",
-    "hasIssues": "有疑问",
-    "edited": "已编辑",
-    "approved": "已批准",
-    "rejected": "已拒绝",
+    "received": "å·²æŽ¥æ”¶",
+    "hasIssues": "æœ‰ç–‘é—®",
+    "edited": "å·²ç¼–è¾‘",
+    "approved": "å·²æ‰¹å‡†",
+    "rejected": "å·²æ‹’ç»",
     "null": "@:reviewState.received"
   },
   "audit": {
     "category": {
-      "nonverbose": "所有操作记录",
-      "user": "网页使用者的操作记录",
-      "project": "项目操作记录",
-      "form": "表单操作记录",
-      "field_key": "APP用户操作记录",
-      "public_link": "公开链接操作记录",
-      "dataset": "实体清单操作记录",
-      "config": "服务器设置记录",
-      "upgrade": "服务器更新",
-      "task": "系统操作"
+      "nonverbose": "æ‰€æœ‰æ“ä½œè®°å½•",
+      "user": "ç½‘é¡µä½¿ç”¨è€…çš„æ“ä½œè®°å½•",
+      "project": "é¡¹ç›®æ“ä½œè®°å½•",
+      "form": "è¡¨å•æ“ä½œè®°å½•",
+      "field_key": "APPç”¨æˆ·æ“ä½œè®°å½•",
+      "public_link": "å…¬å¼€é“¾æŽ¥æ“ä½œè®°å½•",
+      "dataset": "å®žä½“æ¸…å•æ“ä½œè®°å½•",
+      "config": "æœåŠ¡å™¨è®¾ç½®è®°å½•",
+      "upgrade": "æœåŠ¡å™¨æ›´æ–°",
+      "task": "ç³»ç»Ÿæ“ä½œ"
     },
     "action": {
       "default": {
-        "create": "创建",
-        "update": "更新详情",
-        "session_end": "撤销",
-        "delete": "删除"
+        "create": "åˆ›å»º",
+        "update": "æ›´æ–°è¯¦æƒ…",
+        "session_end": "æ’¤é”€",
+        "delete": "åˆ é™¤"
       },
-      "analytics": "使用报告",
+      "analytics": "ä½¿ç”¨æŠ¥å‘Š",
       "blobs": {
-        "s3_upload": "上传文件至储存空间",
-        "s3_failed_to_pending": "标记文件以重新上传至储存空间"
+        "s3_upload": "ä¸Šä¼ æ–‡ä»¶è‡³å‚¨å­˜ç©ºé—´",
+        "s3_failed_to_pending": "æ ‡è®°æ–‡ä»¶ä»¥é‡æ–°ä¸Šä¼ è‡³å‚¨å­˜ç©ºé—´"
       },
       "config": {
-        "set": "设置"
+        "set": "è®¾ç½®"
       },
       "dataset": {
-        "update": "更新",
-        "update_publish": "发布",
-        "update_property_delete": "删除属性",
+        "update": "æ›´æ–°",
+        "update_publish": "å‘å¸ƒ",
+        "update_property_delete": "åˆ é™¤å±žæ€§",
         "create": "@:audit.action.default.create",
         "delete": "@:audit.action.default.delete"
       },
       "entity": {
-        "bulk_delete": "批量删除",
-        "bulk_restore": "批量恢复"
+        "bulk_delete": "æ‰¹é‡åˆ é™¤",
+        "bulk_restore": "æ‰¹é‡æ¢å¤"
       },
       "field_key": {
-        "assignment_create": "授予权限",
-        "assignment_delete": "移除权限",
+        "assignment_create": "æŽˆäºˆæƒé™",
+        "assignment_delete": "ç§»é™¤æƒé™",
         "create": "@:audit.action.default.create",
         "session_end": "@:audit.action.default.session_end",
         "delete": "@:audit.action.default.delete"
       },
       "form": {
-        "update_draft_set": "创建或更新草稿",
-        "update_draft_replace": "替换草稿",
-        "update_publish": "发布草稿",
-        "update_draft_delete": "放弃草稿",
-        "attachment_update": "更新附件",
-        "submission_export": "下载提交的内容",
-        "restore": "恢复",
-        "purge": "清除",
+        "update_draft_set": "åˆ›å»ºæˆ–æ›´æ–°è‰ç¨¿",
+        "update_draft_replace": "æ›¿æ¢è‰ç¨¿",
+        "update_publish": "å‘å¸ƒè‰ç¨¿",
+        "update_draft_delete": "æ”¾å¼ƒè‰ç¨¿",
+        "attachment_update": "æ›´æ–°é™„ä»¶",
+        "submission_export": "ä¸‹è½½æäº¤çš„å†…å®¹",
+        "restore": "æ¢å¤",
+        "purge": "æ¸…é™¤",
         "create": "@:audit.action.default.create",
         "update": "@:audit.action.default.update",
         "delete": "@:audit.action.default.delete"
       },
       "public_link": {
-        "assignment_create": "授予权限",
-        "assignment_delete": "移除权限",
+        "assignment_create": "æŽˆäºˆæƒé™",
+        "assignment_delete": "ç§»é™¤æƒé™",
         "create": "@:audit.action.default.create",
         "session_end": "@:audit.action.default.session_end",
         "delete": "@:audit.action.default.delete"
       },
       "submission": {
-        "purge": "清除上传的内容"
+        "purge": "æ¸…é™¤ä¸Šä¼ çš„å†…å®¹"
       },
       "upgrade": {
-        "process_form": "编辑表单",
-        "process_form_draft": "编辑表单草稿",
-        "process_form_entities_version": "标记表单以升级",
-        "server": "新版本"
+        "process_form": "ç¼–è¾‘è¡¨å•",
+        "process_form_draft": "ç¼–è¾‘è¡¨å•è‰ç¨¿",
+        "process_form_entities_version": "æ ‡è®°è¡¨å•ä»¥å‡çº§",
+        "server": "æ–°ç‰ˆæœ¬"
       },
       "user": {
-        "assignment_create": "分配角色",
-        "assignment_delete": "撤销角色",
-        "delete": "退出",
+        "assignment_create": "åˆ†é…è§’è‰²",
+        "assignment_delete": "æ’¤é”€è§’è‰²",
+        "delete": "é€€å‡º",
         "create": "@:audit.action.default.create",
         "update": "@:audit.action.default.update",
         "session_create": "@:action.logIn"
@@ -139,273 +139,273 @@
     }
   },
   "action": {
-    "cancel": "取消",
-    "clear": "清除",
-    "close": "关闭",
-    "comment": "评论",
-    "continue": "继续",
-    "create": "创建",
-    "createSubmission": "新的上传",
-    "delete": "删除",
-    "done": "完成",
-    "download": "下载",
-    "edit": "编辑",
-    "editProfile": "编辑资料",
-    "finish": "完成",
-    "logIn": "登录",
-    "looksGood": "一切顺利，请继续",
-    "more": "更多",
-    "neverMind": "不用了，请取消",
-    "next": "下一步",
-    "noCancel": "不是，请取消",
-    "ok": "确认",
-    "proceed": "继续",
-    "refresh": "刷新",
-    "refreshPage": "刷新页面",
-    "resetPassword": "重置密码",
-    "review": "审核",
-    "save": "保存",
-    "saveSettings": "保存设置",
-    "sort": "排序",
-    "undo": "撤销",
-    "update": "更新",
-    "yesProceed": "是的，请继续",
-    "showPreview": "预览",
-    "hidePreview": "隐藏预览",
-    "expand": "展开",
-    "collapse": "收起",
-    "selectRow": "选择行",
-    "reset": "重设",
-    "upload": "上传",
-    "reviewParallelUpdates": "审核并行更新",
-    "restore": "恢复"
+    "cancel": "å–æ¶ˆ",
+    "clear": "æ¸…é™¤",
+    "close": "å…³é—­",
+    "comment": "è¯„è®º",
+    "continue": "ç»§ç»­",
+    "create": "åˆ›å»º",
+    "createSubmission": "æ–°çš„ä¸Šä¼ ",
+    "delete": "åˆ é™¤",
+    "done": "å®Œæˆ",
+    "download": "ä¸‹è½½",
+    "edit": "ç¼–è¾‘",
+    "editProfile": "ç¼–è¾‘èµ„æ–™",
+    "finish": "å®Œæˆ",
+    "logIn": "ç™»å½•",
+    "looksGood": "ä¸€åˆ‡é¡ºåˆ©ï¼Œè¯·ç»§ç»­",
+    "more": "æ›´å¤š",
+    "neverMind": "ä¸ç”¨äº†ï¼Œè¯·å–æ¶ˆ",
+    "next": "ä¸‹ä¸€æ­¥",
+    "noCancel": "ä¸æ˜¯ï¼Œè¯·å–æ¶ˆ",
+    "ok": "ç¡®è®¤",
+    "proceed": "ç»§ç»­",
+    "refresh": "åˆ·æ–°",
+    "refreshPage": "åˆ·æ–°é¡µé¢",
+    "resetPassword": "é‡ç½®å¯†ç ",
+    "review": "å®¡æ ¸",
+    "save": "ä¿å­˜",
+    "saveSettings": "ä¿å­˜è®¾ç½®",
+    "sort": "æŽ’åº",
+    "undo": "æ’¤é”€",
+    "update": "æ›´æ–°",
+    "yesProceed": "æ˜¯çš„ï¼Œè¯·ç»§ç»­",
+    "showPreview": "é¢„è§ˆ",
+    "hidePreview": "éšè—é¢„è§ˆ",
+    "expand": "å±•å¼€",
+    "collapse": "æ”¶èµ·",
+    "selectRow": "é€‰æ‹©è¡Œ",
+    "reset": "é‡è®¾",
+    "upload": "ä¸Šä¼ ",
+    "reviewParallelUpdates": "å®¡æ ¸å¹¶è¡Œæ›´æ–°",
+    "restore": "æ¢å¤"
   },
   "field": {
-    "comment": "写评论...",
-    "dateRange": "日期范围",
-    "displayName": "展示名称",
-    "email": "邮件地址",
-    "name": "名字",
-    "newPassword": "新密码",
-    "oldPassword": "旧密码",
-    "passphrase": "密码短语",
-    "password": "密码",
-    "passwordConfirm": "新密码（确认）",
-    "title": "标题",
-    "type": "类型"
+    "comment": "å†™è¯„è®º...",
+    "dateRange": "æ—¥æœŸèŒƒå›´",
+    "displayName": "å±•ç¤ºåç§°",
+    "email": "é‚®ä»¶åœ°å€",
+    "name": "åå­—",
+    "newPassword": "æ–°å¯†ç ",
+    "oldPassword": "æ—§å¯†ç ",
+    "passphrase": "å¯†ç çŸ­è¯­",
+    "password": "å¯†ç ",
+    "passwordConfirm": "æ–°å¯†ç ï¼ˆç¡®è®¤ï¼‰",
+    "title": "æ ‡é¢˜",
+    "type": "ç±»åž‹"
   },
   "header": {
-    "actions": "操作记录",
-    "created": "已创建",
-    "createdBy": "创建人",
-    "createdAt": "创建于",
-    "updatedBy": "更新于",
-    "displayName": "展示名称",
-    "email": "邮件地址",
-    "instanceId": "实例ID",
-    "lastSubmission": "最新的上传",
-    "recentActivity": "近期活动",
-    "name": "名字",
-    "listName": "列表名称",
-    "submitterName": "上传者",
-    "submissionDate": "上传于",
-    "time": "时间",
-    "type": "类型",
-    "entities": "实体总数",
-    "lastEntity": "最新实体"
+    "actions": "æ“ä½œè®°å½•",
+    "created": "å·²åˆ›å»º",
+    "createdBy": "åˆ›å»ºäºº",
+    "createdAt": "åˆ›å»ºäºŽ",
+    "updatedBy": "æ›´æ–°äºŽ",
+    "displayName": "å±•ç¤ºåç§°",
+    "email": "é‚®ä»¶åœ°å€",
+    "instanceId": "å®žä¾‹ID",
+    "lastSubmission": "æœ€æ–°çš„ä¸Šä¼ ",
+    "recentActivity": "è¿‘æœŸæ´»åŠ¨",
+    "name": "åå­—",
+    "listName": "åˆ—è¡¨åç§°",
+    "submitterName": "ä¸Šä¼ è€…",
+    "submissionDate": "ä¸Šä¼ äºŽ",
+    "time": "æ—¶é—´",
+    "type": "ç±»åž‹",
+    "entities": "å®žä½“æ€»æ•°",
+    "lastEntity": "æœ€æ–°å®žä½“"
   },
   "plural": {
-    "appUser": "APP用户",
-    "form": "表单",
-    "project": "项目",
-    "submission": "上传的内容",
-    "user": "用户",
-    "webUser": "网页用户"
+    "appUser": "APPç”¨æˆ·",
+    "form": "è¡¨å•",
+    "project": "é¡¹ç›®",
+    "submission": "ä¸Šä¼ çš„å†…å®¹",
+    "user": "ç”¨æˆ·",
+    "webUser": "ç½‘é¡µç”¨æˆ·"
   },
   "count": {
-    "appUser": "{count}APP用户",
-    "attachments": "{count}附件",
-    "form": "{count}表单",
-    "submission": "{count}上传的内容",
-    "warning": "{count}警告"
+    "appUser": "{count}APPç”¨æˆ·",
+    "attachments": "{count}é™„ä»¶",
+    "form": "{count}è¡¨å•",
+    "submission": "{count}ä¸Šä¼ çš„å†…å®¹",
+    "warning": "{count}è­¦å‘Š"
   },
   "resource": {
-    "appUser": "APP用户",
-    "appUsers": "APP用户",
-    "attachments": "附件",
-    "config": "服务器设置",
-    "entity": "实体",
-    "entities": "实体",
-    "entityList": "实体列表",
-    "entityLists": "实体列表",
-    "form": "表单",
-    "forms": "表单",
-    "formAttachments": "表单附件",
-    "project": "项目",
-    "projects": "项目",
-    "property": "属性",
-    "properties": "属性",
-    "publicLink": "公开访问链接",
-    "user": "用户",
-    "users": "用户",
-    "webUser": "网页用户",
-    "webUsers": "网页用户",
-    "session": "会话",
-    "submission": "上传的内容",
-    "submissions": "上传的内容",
-    "projectRoles": "项目角色",
-    "formPreview": "表单预览",
-    "draft": "草稿"
+    "appUser": "APPç”¨æˆ·",
+    "appUsers": "APPç”¨æˆ·",
+    "attachments": "é™„ä»¶",
+    "config": "æœåŠ¡å™¨è®¾ç½®",
+    "entity": "å®žä½“",
+    "entities": "å®žä½“",
+    "entityList": "å®žä½“åˆ—è¡¨",
+    "entityLists": "å®žä½“åˆ—è¡¨",
+    "form": "è¡¨å•",
+    "forms": "è¡¨å•",
+    "formAttachments": "è¡¨å•é™„ä»¶",
+    "project": "é¡¹ç›®",
+    "projects": "é¡¹ç›®",
+    "property": "å±žæ€§",
+    "properties": "å±žæ€§",
+    "publicLink": "å…¬å¼€è®¿é—®é“¾æŽ¥",
+    "user": "ç”¨æˆ·",
+    "users": "ç”¨æˆ·",
+    "webUser": "ç½‘é¡µç”¨æˆ·",
+    "webUsers": "ç½‘é¡µç”¨æˆ·",
+    "session": "ä¼šè¯",
+    "submission": "ä¸Šä¼ çš„å†…å®¹",
+    "submissions": "ä¸Šä¼ çš„å†…å®¹",
+    "projectRoles": "é¡¹ç›®è§’è‰²",
+    "formPreview": "è¡¨å•é¢„è§ˆ",
+    "draft": "è‰ç¨¿"
   },
   "alert": {
-    "passwordTooShort": "密码必须超过10个字符。",
-    "updateEntity": "实体已更新成功。",
-    "updateReviewState": "审核已保存成功。",
-    "versionChange": "此服务器已更新成功。",
-    "submissionDeleted": "上传的内容已成功删除。",
-    "submissionRestored": "此上传内容已回复。",
-    "entityRestored": "实体\"{label}\"已恢复。",
-    "entityDeleted": "实体“{label}”已被删除。"
+    "passwordTooShort": "å¯†ç å¿…é¡»è¶…è¿‡10ä¸ªå­—ç¬¦ã€‚",
+    "updateEntity": "å®žä½“å·²æ›´æ–°æˆåŠŸã€‚",
+    "updateReviewState": "å®¡æ ¸å·²ä¿å­˜æˆåŠŸã€‚",
+    "versionChange": "æ­¤æœåŠ¡å™¨å·²æ›´æ–°æˆåŠŸã€‚",
+    "submissionDeleted": "ä¸Šä¼ çš„å†…å®¹å·²æˆåŠŸåˆ é™¤ã€‚",
+    "submissionRestored": "æ­¤ä¸Šä¼ å†…å®¹å·²å›žå¤ã€‚",
+    "entityRestored": "å®žä½“\"{label}\"å·²æ¢å¤ã€‚",
+    "entityDeleted": "å®žä½“â€œ{label}â€å·²è¢«åˆ é™¤ã€‚"
   },
   "moreInfo": {
     "clickHere": {
-      "full": "点击{clickHere}获得更多内容。",
-      "clickHere": "点击此处"
+      "full": "ç‚¹å‡»{clickHere}èŽ·å¾—æ›´å¤šå†…å®¹ã€‚",
+      "clickHere": "ç‚¹å‡»æ­¤å¤„"
     },
     "helpArticle": {
-      "full": "请参考{helpArticle}以获取更多内容。",
-      "helpArticle": "此说明文件"
+      "full": "è¯·å‚è€ƒ{helpArticle}ä»¥èŽ·å–æ›´å¤šå†…å®¹ã€‚",
+      "helpArticle": "æ­¤è¯´æ˜Žæ–‡ä»¶"
     },
-    "learnMore": "了解更多。"
+    "learnMore": "äº†è§£æ›´å¤šã€‚"
   },
   "login": {
-    "odkLogo": "ODK 标志",
-    "defaultTitle": "欢迎使用 ODK Central",
-    "defaultDescription": "登录您的帐户以开始使用",
-    "customLogoAlt": "组织标志"
+    "odkLogo": "ODK æ ‡å¿—",
+    "defaultTitle": "æ¬¢è¿Žä½¿ç”¨ ODK Central",
+    "defaultDescription": "ç™»å½•æ‚¨çš„å¸æˆ·ä»¥å¼€å§‹ä½¿ç”¨",
+    "customLogoAlt": "ç»„ç»‡æ ‡å¿—"
   },
   "analytics": {
-    "alwaysImprove": "我们一直努力改进ODK Central",
+    "alwaysImprove": "æˆ‘ä»¬ä¸€ç›´åŠªåŠ›æ”¹è¿›ODK Central",
     "needFeedback": {
-      "full": "为此，我们需要{your}评价，以便我们了解您是如何使用ODK Central的，以及如何更好的为您服务",
-      "your": "您的"
+      "full": "ä¸ºæ­¤ï¼Œæˆ‘ä»¬éœ€è¦{your}è¯„ä»·ï¼Œä»¥ä¾¿æˆ‘ä»¬äº†è§£æ‚¨æ˜¯å¦‚ä½•ä½¿ç”¨ODK Centralçš„ï¼Œä»¥åŠå¦‚ä½•æ›´å¥½çš„ä¸ºæ‚¨æœåŠ¡",
+      "your": "æ‚¨çš„"
     },
-    "mailingListOptIn": "不定期向我发送有关新功能和最佳实践的电子邮件。"
+    "mailingListOptIn": "ä¸å®šæœŸå‘æˆ‘å‘é€æœ‰å…³æ–°åŠŸèƒ½å’Œæœ€ä½³å®žè·µçš„ç”µå­é‚®ä»¶ã€‚"
   },
   "submission": {
-    "missingAttachment": "无附件",
+    "missingAttachment": "æ— é™„ä»¶",
     "action": {
-      "edit": "编辑（{count}）"
+      "edit": "ç¼–è¾‘ï¼ˆ{count}ï¼‰"
     },
-    "editDisabled": "您无法编辑加密的内容。",
-    "binaryLinkTitle": "文件已提交。点击下载。",
-    "encryptionMessage": "文件已加密，无法预览。",
-    "noSubmission": "（无）",
-    "emptyTable": "目前没有提交的内容。",
-    "fileDownloadUnavailable": "已删除的文件无法下载。"
+    "editDisabled": "æ‚¨æ— æ³•ç¼–è¾‘åŠ å¯†çš„å†…å®¹ã€‚",
+    "binaryLinkTitle": "æ–‡ä»¶å·²æäº¤ã€‚ç‚¹å‡»ä¸‹è½½ã€‚",
+    "encryptionMessage": "æ–‡ä»¶å·²åŠ å¯†ï¼Œæ— æ³•é¢„è§ˆã€‚",
+    "noSubmission": "ï¼ˆæ— ï¼‰",
+    "emptyTable": "ç›®å‰æ²¡æœ‰æäº¤çš„å†…å®¹ã€‚",
+    "fileDownloadUnavailable": "å·²åˆ é™¤çš„æ–‡ä»¶æ— æ³•ä¸‹è½½ã€‚"
   },
   "entity": {
-    "label": "标签",
-    "entityLabel": "实体标签",
-    "entityId": "实体ID",
-    "noProperties": "此表单仅设定“标签”。",
-    "noEntity": "（无）",
-    "conflictsCount": "{count}冲突"
+    "label": "æ ‡ç­¾",
+    "entityLabel": "å®žä½“æ ‡ç­¾",
+    "entityId": "å®žä½“ID",
+    "noProperties": "æ­¤è¡¨å•ä»…è®¾å®šâ€œæ ‡ç­¾â€ã€‚",
+    "noEntity": "ï¼ˆæ— ï¼‰",
+    "conflictsCount": "{count}å†²çª"
   },
   "common": {
-    "activity": "活动",
-    "anybody": "（任何人）",
-    "areYouSure": "您确定要继续吗？",
-    "basicInfo": "基础信息",
-    "conflict": "冲突",
-    "conflicts": "冲突",
-    "dangerZone": "危险区域",
-    "data": "数据",
-    "docs": "文件",
-    "emptyMap": "地图数据不可用。",
-    "emptyValue": "（空）",
-    "error": "错误",
-    "filter": "筛选",
-    "forum": "论坛",
-    "lastUpdate": "最新更新",
-    "loading": "加载中...",
-    "map": "地图",
-    "no": "否",
-    "noResults": "无结果",
-    "noUndo": "此操作无法撤销。",
-    "rowNumber": "行",
-    "success": "成功！",
-    "system": "系统",
-    "yes": "是",
+    "activity": "æ´»åŠ¨",
+    "anybody": "ï¼ˆä»»ä½•äººï¼‰",
+    "areYouSure": "æ‚¨ç¡®å®šè¦ç»§ç»­å—ï¼Ÿ",
+    "basicInfo": "åŸºç¡€ä¿¡æ¯",
+    "conflict": "å†²çª",
+    "conflicts": "å†²çª",
+    "dangerZone": "å±é™©åŒºåŸŸ",
+    "data": "æ•°æ®",
+    "docs": "æ–‡ä»¶",
+    "emptyMap": "åœ°å›¾æ•°æ®ä¸å¯ç”¨ã€‚",
+    "emptyValue": "ï¼ˆç©ºï¼‰",
+    "error": "é”™è¯¯",
+    "filter": "ç­›é€‰",
+    "forum": "è®ºå›",
+    "lastUpdate": "æœ€æ–°æ›´æ–°",
+    "loading": "åŠ è½½ä¸­...",
+    "map": "åœ°å›¾",
+    "no": "å¦",
+    "noResults": "æ— ç»“æžœ",
+    "noUndo": "æ­¤æ“ä½œæ— æ³•æ’¤é”€ã€‚",
+    "rowNumber": "è¡Œ",
+    "success": "æˆåŠŸï¼",
+    "system": "ç³»ç»Ÿ",
+    "yes": "æ˜¯",
     "tab": {
-      "settings": "设置"
+      "settings": "è®¾ç½®"
     },
-    "table": "表格",
-    "total": "总计",
-    "totalSubmissions": "上传总计",
-    "propertiesCount": "{inform}/{count}特性",
-    "new": "更新！",
-    "totalEntities": "实体总计",
-    "versionShort": "版本{version}",
-    "warning": "警告",
-    "none": "（无）",
-    "search": "搜索",
-    "reviewState": "审核状态",
-    "status": "状态",
-    "version": "版本",
-    "trash": "回收站"
+    "table": "è¡¨æ ¼",
+    "total": "æ€»è®¡",
+    "totalSubmissions": "ä¸Šä¼ æ€»è®¡",
+    "propertiesCount": "{inform}/{count}ç‰¹æ€§",
+    "new": "æ›´æ–°ï¼",
+    "totalEntities": "å®žä½“æ€»è®¡",
+    "versionShort": "ç‰ˆæœ¬{version}",
+    "warning": "è­¦å‘Š",
+    "none": "ï¼ˆæ— ï¼‰",
+    "search": "æœç´¢",
+    "reviewState": "å®¡æ ¸çŠ¶æ€",
+    "status": "çŠ¶æ€",
+    "version": "ç‰ˆæœ¬",
+    "trash": "å›žæ”¶ç«™"
   },
   "mixin": {
     "request": {
       "alert": {
-        "fileSize": "您上传的文件“{name}”已超过100MB的限制。",
-        "entityTooLarge": "您上传的数据过大。"
+        "fileSize": "æ‚¨ä¸Šä¼ çš„æ–‡ä»¶â€œ{name}â€å·²è¶…è¿‡100MBçš„é™åˆ¶ã€‚",
+        "entityTooLarge": "æ‚¨ä¸Šä¼ çš„æ•°æ®è¿‡å¤§ã€‚"
       }
     }
   },
   "util": {
     "csv": {
-      "readError": "读取您的文件{message}时出现问题",
-      "invalidCSV": "此文件“{name}”不是一个有效的.csv文件。无法读取。",
-      "rowError": "此文件{message}的第{row}行有错误",
-      "invalidQuotes": "引用的字段无效。请检查改行是否有异常值。",
-      "emptyRow": "这一行为空白。",
-      "dataWithoutHeader": "预期有 {expected} 列，但实际只有 {actual} 列。"
+      "readError": "è¯»å–æ‚¨çš„æ–‡ä»¶{message}æ—¶å‡ºçŽ°é—®é¢˜",
+      "invalidCSV": "æ­¤æ–‡ä»¶â€œ{name}â€ä¸æ˜¯ä¸€ä¸ªæœ‰æ•ˆçš„.csvæ–‡ä»¶ã€‚æ— æ³•è¯»å–ã€‚",
+      "rowError": "æ­¤æ–‡ä»¶{message}çš„ç¬¬{row}è¡Œæœ‰é”™è¯¯",
+      "invalidQuotes": "å¼•ç”¨çš„å­—æ®µæ— æ•ˆã€‚è¯·æ£€æŸ¥æ”¹è¡Œæ˜¯å¦æœ‰å¼‚å¸¸å€¼ã€‚",
+      "emptyRow": "è¿™ä¸€è¡Œä¸ºç©ºç™½ã€‚",
+      "dataWithoutHeader": "é¢„æœŸæœ‰ {expected} åˆ—ï¼Œä½†å®žé™…åªæœ‰ {actual} åˆ—ã€‚"
     },
     "request": {
-      "noRequest": "请求错误：未检测到有效请求。",
-      "noResponse": "请求错误：未收到请求响应。",
-      "errorNotProblem": "出现错误：错误代码{status}。",
+      "noRequest": "è¯·æ±‚é”™è¯¯ï¼šæœªæ£€æµ‹åˆ°æœ‰æ•ˆè¯·æ±‚ã€‚",
+      "noResponse": "è¯·æ±‚é”™è¯¯ï¼šæœªæ”¶åˆ°è¯·æ±‚å“åº”ã€‚",
+      "errorNotProblem": "å‡ºçŽ°é”™è¯¯ï¼šé”™è¯¯ä»£ç {status}ã€‚",
       "problem": {
-        "404_1": "无法找到您的资源。此资源可能已经删除。",
+        "404_1": "æ— æ³•æ‰¾åˆ°æ‚¨çš„èµ„æºã€‚æ­¤èµ„æºå¯èƒ½å·²ç»åˆ é™¤ã€‚",
         "409_17": {
-          "message": "此表单尝试创建与现有实体相同的新实体属性（大写除外）：",
-          "duplicateProperty": "{provided}（已存在：{current}）"
+          "message": "æ­¤è¡¨å•å°è¯•åˆ›å»ºä¸ŽçŽ°æœ‰å®žä½“ç›¸åŒçš„æ–°å®žä½“å±žæ€§ï¼ˆå¤§å†™é™¤å¤–ï¼‰ï¼š",
+          "duplicateProperty": "{provided}ï¼ˆå·²å­˜åœ¨ï¼š{current}ï¼‰"
         }
       }
     },
     "session": {
       "alert": {
-        "expiresSoon": "您的会话即将过期！您将于2分钟后登出。",
-        "expired": "您的会话已过期。请重新登录以继续。",
+        "expiresSoon": "æ‚¨çš„ä¼šè¯å³å°†è¿‡æœŸï¼æ‚¨å°†äºŽ2åˆ†é’ŸåŽç™»å‡ºã€‚",
+        "expired": "æ‚¨çš„ä¼šè¯å·²è¿‡æœŸã€‚è¯·é‡æ–°ç™»å½•ä»¥ç»§ç»­ã€‚",
         "logoutError": {
-          "thereWasProblem": "退出登录时发生错误。",
-          "pleaseRefresh": "请刷新页面并重试。"
+          "thereWasProblem": "é€€å‡ºç™»å½•æ—¶å‘ç”Ÿé”™è¯¯ã€‚",
+          "pleaseRefresh": "è¯·åˆ·æ–°é¡µé¢å¹¶é‡è¯•ã€‚"
         }
       }
     }
   },
   "router": {
-    "unsavedChanges": "您确定要离开此页面吗？您的更改可能不会被保存。"
+    "unsavedChanges": "æ‚¨ç¡®å®šè¦ç¦»å¼€æ­¤é¡µé¢å—ï¼Ÿæ‚¨çš„æ›´æ”¹å¯èƒ½ä¸ä¼šè¢«ä¿å­˜ã€‚"
   },
   "formStateDescription": {
-    "open": "此表单可供下载且正在接收提交。",
-    "closing": "此表单不可下载但仍可接收提交。",
-    "closed": "此表单不可下载且不接收提交。"
+    "open": "æ­¤è¡¨å•å¯ä¾›ä¸‹è½½ä¸”æ­£åœ¨æŽ¥æ”¶æäº¤ã€‚",
+    "closing": "æ­¤è¡¨å•ä¸å¯ä¸‹è½½ä½†ä»å¯æŽ¥æ”¶æäº¤ã€‚",
+    "closed": "æ­¤è¡¨å•ä¸å¯ä¸‹è½½ä¸”ä¸æŽ¥æ”¶æäº¤ã€‚"
   },
   "requestData": {
     "project": {
-      "nameWithArchived": "{name}（已存档）"
+      "nameWithArchived": "{name}ï¼ˆå·²å­˜æ¡£ï¼‰"
     }
   }
 }

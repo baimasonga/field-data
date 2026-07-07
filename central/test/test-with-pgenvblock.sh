@@ -2,7 +2,7 @@
 set -o pipefail
 shopt -s inherit_errexit
 
-printf >&2 "Checking whether with-pgenvblock.pl works… "
+printf >&2 "Checking whether with-pgenvblock.pl worksÃ¢â‚¬Â¦ "
 # for the skeptical reader, on the below:
 # note that the environment setting (with `export`) runs in a subshell, and as such doesn't touch our own environment,
 # and as such thus also not the environment with-pgenvblock.pl's is launched with; and thus the PGBLA environment variable

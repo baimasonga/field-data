@@ -19,7 +19,7 @@ git ls-files -z \
       print "[check-for-large-files] !!! " n " LARGE FILE(S) FOUND";
       exit 1;
     } else {
-      print "[check-for-large-files] No large files found ✅";
+      print "[check-for-large-files] No large files found Ã¢Å“â€¦";
     }
   }
 '

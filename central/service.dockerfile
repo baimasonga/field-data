@@ -18,17 +18,16 @@ RUN echo "deb http://apt.postgresql.org/pub/repos/apt/ $(grep -oP 'VERSION_CODEN
 
 
 FROM node:${node_version}-slim AS intermediate
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends \
-        git \
-    && rm -rf /var/lib/apt/lists/*
-COPY . .
-RUN mkdir /tmp/sentry-versions
-RUN git describe --tags --dirty --always > /tmp/sentry-versions/central
-WORKDIR /server
-RUN git describe --tags --dirty --always > /tmp/sentry-versions/server
-WORKDIR /client
-RUN git describe --tags --dirty --always > /tmp/sentry-versions/client
+
+# For this customized build, do not depend on Git metadata being available
+# inside the Docker build context. This makes the image build reliably from
+# ZIP downloads, copied folders, forks, and Windows workspaces.
+ARG APP_VERSION=1.0.0
+
+RUN mkdir -p /tmp/sentry-versions \
+    && echo "$APP_VERSION" > /tmp/sentry-versions/central \
+    && echo "$APP_VERSION" > /tmp/sentry-versions/server \
+    && echo "$APP_VERSION" > /tmp/sentry-versions/client
 
 
 

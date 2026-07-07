@@ -3,122 +3,122 @@
     "resetPassword": "Obnovit heslo",
     "setPassword": "Nastavit heslo",
     "editProfile": "Upravit profil",
-    "download": "Stáhnout",
-    "pageNotFound": "Stránka nenalezena",
+    "download": "StÃ¡hnout",
+    "pageNotFound": "StrÃ¡nka nenalezena",
     "details": "Detaily"
   },
   "projectShow": {
     "tab": {
-      "formAccess": "Přístup k formulářům"
+      "formAccess": "PÅ™Ã­stup k formulÃ¡Å™Å¯m"
     }
   },
   "formHead": {
     "tab": {
-      "publicAccess": "Veřejný přístup",
+      "publicAccess": "VeÅ™ejnÃ½ pÅ™Ã­stup",
       "versions": "Verze",
-      "editForm": "Upravit formulář"
+      "editForm": "Upravit formulÃ¡Å™"
     }
   },
   "systemHome": {
-    "title": "Řízení systému",
+    "title": "Å˜Ã­zenÃ­ systÃ©mu",
     "tab": {
       "audits": "Protokoly auditu serveru",
-      "analytics": "Hlášení o používání"
+      "analytics": "HlÃ¡Å¡enÃ­ o pouÅ¾Ã­vÃ¡nÃ­"
     }
   },
   "role": {
-    "none": "Žádná",
-    "admin": "Administrátor",
-    "manager": "Projektový manažer",
-    "viewer": "Prohlížeč projektu",
-    "formfill": "Sběratel dat"
+    "none": "Å½Ã¡dnÃ¡",
+    "admin": "AdministrÃ¡tor",
+    "manager": "ProjektovÃ½ manaÅ¾er",
+    "viewer": "ProhlÃ­Å¾eÄ projektu",
+    "formfill": "SbÄ›ratel dat"
   },
   "formState": {
-    "open": "Otevřít",
-    "closing": "Dokončení",
-    "closed": "Dokončeno",
-    "unpublished": "Zatím nezveřejněno"
+    "open": "OtevÅ™Ã­t",
+    "closing": "DokonÄenÃ­",
+    "closed": "DokonÄeno",
+    "unpublished": "ZatÃ­m nezveÅ™ejnÄ›no"
   },
   "reviewState": {
-    "received": "Přijato",
-    "hasIssues": "Má problémy",
+    "received": "PÅ™ijato",
+    "hasIssues": "MÃ¡ problÃ©my",
     "edited": "Upraveno",
-    "approved": "Schváleno",
-    "rejected": "Odmítnuto",
+    "approved": "SchvÃ¡leno",
+    "rejected": "OdmÃ­tnuto",
     "null": "@:reviewState.received"
   },
   "audit": {
     "category": {
-      "nonverbose": "Všechny akce",
-      "user": "Akce webového uživatele",
+      "nonverbose": "VÅ¡echny akce",
+      "user": "Akce webovÃ©ho uÅ¾ivatele",
       "project": "Akce projektu",
-      "form": "Akce formuláře",
-      "field_key": "Akce uživatelů aplikace",
-      "public_link": "Akce s veřejným přístupem",
-      "dataset": "Seznam akcí entit",
+      "form": "Akce formulÃ¡Å™e",
+      "field_key": "Akce uÅ¾ivatelÅ¯ aplikace",
+      "public_link": "Akce s veÅ™ejnÃ½m pÅ™Ã­stupem",
+      "dataset": "Seznam akcÃ­ entit",
       "config": "Akce konfigurace serveru",
       "upgrade": "Upgrade serveru",
-      "task": "Provoz systému"
+      "task": "Provoz systÃ©mu"
     },
     "action": {
       "default": {
-        "create": "Vytvořit",
+        "create": "VytvoÅ™it",
         "update": "Aktualizovat podrobnosti",
-        "session_end": "Zrušit",
+        "session_end": "ZruÅ¡it",
         "delete": "Smazat"
       },
-      "analytics": "Zpráva o použití",
+      "analytics": "ZprÃ¡va o pouÅ¾itÃ­",
       "blobs": {
-        "s3_upload": "Nahrávání souborů do úložiště",
-        "s3_failed_to_pending": "Označení souborů k opětovnému nahrání do úložiště"
+        "s3_upload": "NahrÃ¡vÃ¡nÃ­ souborÅ¯ do ÃºloÅ¾iÅ¡tÄ›",
+        "s3_failed_to_pending": "OznaÄenÃ­ souborÅ¯ k opÄ›tovnÃ©mu nahrÃ¡nÃ­ do ÃºloÅ¾iÅ¡tÄ›"
       },
       "config": {
         "set": "Nastavit"
       },
       "dataset": {
         "update": "Aktualizovat",
-        "update_publish": "Zveřejnit",
+        "update_publish": "ZveÅ™ejnit",
         "create": "@:audit.action.default.create",
         "delete": "@:audit.action.default.delete"
       },
       "field_key": {
-        "assignment_create": "Dát přístup",
-        "assignment_delete": "Odebrat přístup",
+        "assignment_create": "DÃ¡t pÅ™Ã­stup",
+        "assignment_delete": "Odebrat pÅ™Ã­stup",
         "create": "@:audit.action.default.create",
         "session_end": "@:audit.action.default.session_end",
         "delete": "@:audit.action.default.delete"
       },
       "form": {
-        "update_draft_set": "Vytvořit nebo aktualizovat koncept",
-        "update_draft_replace": "Nahrazení návrhu",
-        "update_publish": "Zveřejnit koncept",
+        "update_draft_set": "VytvoÅ™it nebo aktualizovat koncept",
+        "update_draft_replace": "NahrazenÃ­ nÃ¡vrhu",
+        "update_publish": "ZveÅ™ejnit koncept",
         "update_draft_delete": "Opustit koncept",
-        "attachment_update": "Aktualizovat přílohy",
-        "submission_export": "Stáhnout příspěvky",
+        "attachment_update": "Aktualizovat pÅ™Ã­lohy",
+        "submission_export": "StÃ¡hnout pÅ™Ã­spÄ›vky",
         "restore": "Obnovit",
-        "purge": "Vyčistit",
+        "purge": "VyÄistit",
         "create": "@:audit.action.default.create",
         "update": "@:audit.action.default.update",
         "delete": "@:audit.action.default.delete"
       },
       "public_link": {
-        "assignment_create": "Dát přístup",
-        "assignment_delete": "Odebrat přístup",
+        "assignment_create": "DÃ¡t pÅ™Ã­stup",
+        "assignment_delete": "Odebrat pÅ™Ã­stup",
         "create": "@:audit.action.default.create",
         "session_end": "@:audit.action.default.session_end",
         "delete": "@:audit.action.default.delete"
       },
       "submission": {
-        "purge": "Vyčištění podání"
+        "purge": "VyÄiÅ¡tÄ›nÃ­ podÃ¡nÃ­"
       },
       "upgrade": {
-        "process_form": "Zpracování formuláře",
-        "process_form_draft": "Zpracování návrhu formuláře",
-        "process_form_entities_version": "Označit formulář pro aktualizaci",
-        "server": "Nová verze"
+        "process_form": "ZpracovÃ¡nÃ­ formulÃ¡Å™e",
+        "process_form_draft": "ZpracovÃ¡nÃ­ nÃ¡vrhu formulÃ¡Å™e",
+        "process_form_entities_version": "OznaÄit formulÃ¡Å™ pro aktualizaci",
+        "server": "NovÃ¡ verze"
       },
       "user": {
-        "assignment_create": "Přiřadit roli",
+        "assignment_create": "PÅ™iÅ™adit roli",
         "assignment_delete": "Odebrat roli",
         "delete": "Uspat",
         "create": "@:audit.action.default.create",
@@ -133,245 +133,245 @@
     }
   },
   "action": {
-    "cancel": "Zrušit",
+    "cancel": "ZruÅ¡it",
     "clear": "Vymazat",
-    "close": "Zavřít",
-    "comment": "Komentář",
-    "continue": "Pokračovat",
-    "create": "Vytvořit",
-    "createSubmission": "Nové Podání",
+    "close": "ZavÅ™Ã­t",
+    "comment": "KomentÃ¡Å™",
+    "continue": "PokraÄovat",
+    "create": "VytvoÅ™it",
+    "createSubmission": "NovÃ© PodÃ¡nÃ­",
     "delete": "Smazat",
     "done": "Hotovo",
-    "download": "Stáhnout",
+    "download": "StÃ¡hnout",
     "edit": "Upravit",
     "editProfile": "Upravit profil",
-    "finish": "Dokončit",
-    "logIn": "Přihlásit se",
-    "looksGood": "Vypadá to dobře, pokračujte",
-    "more": "Více",
-    "neverMind": "Nevadí, zrušit",
-    "next": "Další",
-    "noCancel": "Ne, zrušit",
+    "finish": "DokonÄit",
+    "logIn": "PÅ™ihlÃ¡sit se",
+    "looksGood": "VypadÃ¡ to dobÅ™e, pokraÄujte",
+    "more": "VÃ­ce",
+    "neverMind": "NevadÃ­, zruÅ¡it",
+    "next": "DalÅ¡Ã­",
+    "noCancel": "Ne, zruÅ¡it",
     "ok": "OK",
-    "proceed": "Pokračovat",
+    "proceed": "PokraÄovat",
     "refresh": "Obnovit",
     "refreshPage": "Obnovit stranu",
     "resetPassword": "Resetovat heslo",
     "review": "Zkontrolovat",
-    "save": "Uložit",
-    "saveSettings": "Uložit nastavení",
-    "sort": "Seřadit",
-    "undo": "Zpět",
+    "save": "UloÅ¾it",
+    "saveSettings": "UloÅ¾it nastavenÃ­",
+    "sort": "SeÅ™adit",
+    "undo": "ZpÄ›t",
     "update": "Aktualizovat",
-    "yesProceed": "Ano, pokračovat",
-    "showPreview": "Náhled",
-    "hidePreview": "Skrýt náhled",
+    "yesProceed": "Ano, pokraÄovat",
+    "showPreview": "NÃ¡hled",
+    "hidePreview": "SkrÃ½t nÃ¡hled",
     "expand": "Rozbalit",
     "collapse": "Sbalit",
-    "upload": "Nahrát"
+    "upload": "NahrÃ¡t"
   },
   "field": {
-    "comment": "Zanechat komentář…",
-    "dateRange": "Časové období",
-    "displayName": "Zobrazit název",
-    "email": "E-mailová adresa",
-    "name": "Jméno",
-    "newPassword": "Nové heslo",
-    "oldPassword": "Staré heslo",
-    "passphrase": "Přístupová fráze",
+    "comment": "Zanechat komentÃ¡Å™â€¦",
+    "dateRange": "ÄŒasovÃ© obdobÃ­",
+    "displayName": "Zobrazit nÃ¡zev",
+    "email": "E-mailovÃ¡ adresa",
+    "name": "JmÃ©no",
+    "newPassword": "NovÃ© heslo",
+    "oldPassword": "StarÃ© heslo",
+    "passphrase": "PÅ™Ã­stupovÃ¡ frÃ¡ze",
     "password": "Heslo",
-    "passwordConfirm": "Nové heslo (potvrzení)",
+    "passwordConfirm": "NovÃ© heslo (potvrzenÃ­)",
     "type": "Typ"
   },
   "header": {
     "actions": "Akce",
-    "created": "Vytvořeno",
-    "createdBy": "Vytvořeno od",
-    "createdAt": "Vytvořeno v",
-    "updatedBy": "Aktualizováno od",
-    "displayName": "Zobrazit jméno",
-    "email": "E-mailová adresa",
+    "created": "VytvoÅ™eno",
+    "createdBy": "VytvoÅ™eno od",
+    "createdAt": "VytvoÅ™eno v",
+    "updatedBy": "AktualizovÃ¡no od",
+    "displayName": "Zobrazit jmÃ©no",
+    "email": "E-mailovÃ¡ adresa",
     "instanceId": "Instance ID",
-    "lastSubmission": "Poslední podání",
-    "recentActivity": "Nedávná aktivita",
-    "name": "Jméno",
-    "listName": "Název seznamu",
-    "submitterName": "Odesláno od",
-    "submissionDate": "Odesláno v",
-    "time": "Čas",
+    "lastSubmission": "PoslednÃ­ podÃ¡nÃ­",
+    "recentActivity": "NedÃ¡vnÃ¡ aktivita",
+    "name": "JmÃ©no",
+    "listName": "NÃ¡zev seznamu",
+    "submitterName": "OdeslÃ¡no od",
+    "submissionDate": "OdeslÃ¡no v",
+    "time": "ÄŒas",
     "type": "Typ",
-    "entities": "Celkem subjektů",
-    "lastEntity": "Nejnovější entita"
+    "entities": "Celkem subjektÅ¯",
+    "lastEntity": "NejnovÄ›jÅ¡Ã­ entita"
   },
   "plural": {
-    "appUser": "Uživatel aplikace | Uživatelé aplikace | Uživatelů aplikace | Uživatelé aplikace",
-    "form": "Formulář | Formulářů | Formulářů | Formuláře",
-    "project": "Projekt | Projektů | Projektů | Projekty",
-    "submission": "Podaný příspěvek | Podaných příspěvků | Podaných příspěvků | Podané příspěvky",
-    "user": "Uživatel | Uživatelé | Uživatelů | Uživatelé",
-    "webUser": "Webový uživatel | Weboví uživatelé | Webových uživatelů | Weboví uživatelé"
+    "appUser": "UÅ¾ivatel aplikace | UÅ¾ivatelÃ© aplikace | UÅ¾ivatelÅ¯ aplikace | UÅ¾ivatelÃ© aplikace",
+    "form": "FormulÃ¡Å™ | FormulÃ¡Å™Å¯ | FormulÃ¡Å™Å¯ | FormulÃ¡Å™e",
+    "project": "Projekt | ProjektÅ¯ | ProjektÅ¯ | Projekty",
+    "submission": "PodanÃ½ pÅ™Ã­spÄ›vek | PodanÃ½ch pÅ™Ã­spÄ›vkÅ¯ | PodanÃ½ch pÅ™Ã­spÄ›vkÅ¯ | PodanÃ© pÅ™Ã­spÄ›vky",
+    "user": "UÅ¾ivatel | UÅ¾ivatelÃ© | UÅ¾ivatelÅ¯ | UÅ¾ivatelÃ©",
+    "webUser": "WebovÃ½ uÅ¾ivatel | WebovÃ­ uÅ¾ivatelÃ© | WebovÃ½ch uÅ¾ivatelÅ¯ | WebovÃ­ uÅ¾ivatelÃ©"
   },
   "count": {
-    "appUser": "{count} uživatel aplikace | {count} uživatelů aplikace | {count} uživatelů aplikace | {count} uživatelů aplikace",
-    "form": "{count} formulář | {count} formulářů | {count} formulářů | {count} formulářů",
-    "submission": "{count} podaný příspěvek | {count} podaných příspěvků | {count} podaných příspěvků | {count} podaných příspěvků"
+    "appUser": "{count} uÅ¾ivatel aplikace | {count} uÅ¾ivatelÅ¯ aplikace | {count} uÅ¾ivatelÅ¯ aplikace | {count} uÅ¾ivatelÅ¯ aplikace",
+    "form": "{count} formulÃ¡Å™ | {count} formulÃ¡Å™Å¯ | {count} formulÃ¡Å™Å¯ | {count} formulÃ¡Å™Å¯",
+    "submission": "{count} podanÃ½ pÅ™Ã­spÄ›vek | {count} podanÃ½ch pÅ™Ã­spÄ›vkÅ¯ | {count} podanÃ½ch pÅ™Ã­spÄ›vkÅ¯ | {count} podanÃ½ch pÅ™Ã­spÄ›vkÅ¯"
   },
   "resource": {
-    "appUser": "Uživatel aplikace",
-    "appUsers": "Uživatelé aplikace",
-    "attachments": "Přílohy",
+    "appUser": "UÅ¾ivatel aplikace",
+    "appUsers": "UÅ¾ivatelÃ© aplikace",
+    "attachments": "PÅ™Ã­lohy",
     "config": "Konfigurace serveru",
     "entity": "Entita",
     "entities": "Subjekty",
     "entityList": "Seznam entit",
     "entityLists": "Seznamy entit",
-    "form": "Formulář",
-    "forms": "Formuláře",
-    "formAttachments": "Přílohy formuláře",
+    "form": "FormulÃ¡Å™",
+    "forms": "FormulÃ¡Å™e",
+    "formAttachments": "PÅ™Ã­lohy formulÃ¡Å™e",
     "project": "Projekt",
     "projects": "Projekty",
     "property": "Vlastnost",
     "properties": "Vlastnosti",
-    "publicLink": "Veřejný odkaz",
-    "user": "Uživatel",
-    "users": "Uživatelé",
-    "webUser": "Webový uživatel",
-    "webUsers": "Uživatelé webu",
+    "publicLink": "VeÅ™ejnÃ½ odkaz",
+    "user": "UÅ¾ivatel",
+    "users": "UÅ¾ivatelÃ©",
+    "webUser": "WebovÃ½ uÅ¾ivatel",
+    "webUsers": "UÅ¾ivatelÃ© webu",
     "session": "Relace",
-    "submission": "Podání",
-    "submissions": "Příspěvky",
+    "submission": "PodÃ¡nÃ­",
+    "submissions": "PÅ™Ã­spÄ›vky",
     "projectRoles": "Role projektu",
-    "formPreview": "Náhled formuláře",
+    "formPreview": "NÃ¡hled formulÃ¡Å™e",
     "draft": "Koncept"
   },
   "alert": {
-    "passwordTooShort": "Heslo musí mít nejméně 10 znaků.",
-    "updateEntity": "Entita byla úspěšně aktualizována.",
-    "updateReviewState": "Kontrola úspěšně uložena",
-    "versionChange": "Server byl úspěšně aktualizován.",
-    "submissionDeleted": "Odeslání bylo úspěšně smazáno.",
-    "submissionRestored": "Odeslání bylo obnoveno."
+    "passwordTooShort": "Heslo musÃ­ mÃ­t nejmÃ©nÄ› 10 znakÅ¯.",
+    "updateEntity": "Entita byla ÃºspÄ›Å¡nÄ› aktualizovÃ¡na.",
+    "updateReviewState": "Kontrola ÃºspÄ›Å¡nÄ› uloÅ¾ena",
+    "versionChange": "Server byl ÃºspÄ›Å¡nÄ› aktualizovÃ¡n.",
+    "submissionDeleted": "OdeslÃ¡nÃ­ bylo ÃºspÄ›Å¡nÄ› smazÃ¡no.",
+    "submissionRestored": "OdeslÃ¡nÃ­ bylo obnoveno."
   },
   "moreInfo": {
     "clickHere": {
-      "full": "Pro více informací {clickHere}.",
-      "clickHere": "klikněte zde"
+      "full": "Pro vÃ­ce informacÃ­ {clickHere}.",
+      "clickHere": "kliknÄ›te zde"
     },
     "helpArticle": {
-      "full": "Pro více informací viz {helpArticle}.",
-      "helpArticle": "tento článek nápovědy"
+      "full": "Pro vÃ­ce informacÃ­ viz {helpArticle}.",
+      "helpArticle": "tento ÄlÃ¡nek nÃ¡povÄ›dy"
     },
-    "learnMore": "Další informace."
+    "learnMore": "DalÅ¡Ã­ informace."
   },
   "analytics": {
-    "alwaysImprove": "Neustále se snažíme ODK Central vylepšovat.",
+    "alwaysImprove": "NeustÃ¡le se snaÅ¾Ã­me ODK Central vylepÅ¡ovat.",
     "needFeedback": {
-      "full": "K tomu potřebujeme {your} zpětnou vazbu, abychom pochopili, jak Central používáte a jak by pro vás mohl být lepší.",
-      "your": "vaší"
+      "full": "K tomu potÅ™ebujeme {your} zpÄ›tnou vazbu, abychom pochopili, jak Central pouÅ¾Ã­vÃ¡te a jak by pro vÃ¡s mohl bÃ½t lepÅ¡Ã­.",
+      "your": "vaÅ¡Ã­"
     },
-    "mailingListOptIn": "Posílejte mi občas e-maily o nových funkcích a osvědčených postupech."
+    "mailingListOptIn": "PosÃ­lejte mi obÄas e-maily o novÃ½ch funkcÃ­ch a osvÄ›dÄenÃ½ch postupech."
   },
   "submission": {
-    "missingAttachment": "Chybějící příloha",
+    "missingAttachment": "ChybÄ›jÃ­cÃ­ pÅ™Ã­loha",
     "action": {
       "edit": "Upravit ({count})"
     },
-    "editDisabled": "Šifrované příspěvky nemůžete upravovat.",
-    "binaryLinkTitle": "Soubor byl odeslán. Kliknutím stáhnete.",
-    "encryptionMessage": "Náhled dat není k dispozici kvůli šifrování.",
-    "noSubmission": "(žádný)",
-    "emptyTable": "Zatím nejsou žádné příspěvky.",
-    "fileDownloadUnavailable": "Stažení souboru není k dispozici pro smazané příspěvky."
+    "editDisabled": "Å ifrovanÃ© pÅ™Ã­spÄ›vky nemÅ¯Å¾ete upravovat.",
+    "binaryLinkTitle": "Soubor byl odeslÃ¡n. KliknutÃ­m stÃ¡hnete.",
+    "encryptionMessage": "NÃ¡hled dat nenÃ­ k dispozici kvÅ¯li Å¡ifrovÃ¡nÃ­.",
+    "noSubmission": "(Å¾Ã¡dnÃ½)",
+    "emptyTable": "ZatÃ­m nejsou Å¾Ã¡dnÃ© pÅ™Ã­spÄ›vky.",
+    "fileDownloadUnavailable": "StaÅ¾enÃ­ souboru nenÃ­ k dispozici pro smazanÃ© pÅ™Ã­spÄ›vky."
   },
   "entity": {
-    "label": "Štítek",
-    "entityLabel": "Štítek Entity",
+    "label": "Å tÃ­tek",
+    "entityLabel": "Å tÃ­tek Entity",
     "entityId": "ID subjektu",
-    "noProperties": "Tento formulář nastavuje pouze \"štítek\".",
-    "noEntity": "(žádný)",
-    "conflictsCount": "{count} konflikt | {count} konflikty | {count} konfliktů | {count} konfliktů"
+    "noProperties": "Tento formulÃ¡Å™ nastavuje pouze \"Å¡tÃ­tek\".",
+    "noEntity": "(Å¾Ã¡dnÃ½)",
+    "conflictsCount": "{count} konflikt | {count} konflikty | {count} konfliktÅ¯ | {count} konfliktÅ¯"
   },
   "common": {
     "activity": "Aktivita",
     "anybody": "(Kdokoli)",
-    "areYouSure": "Opravdu chcete pokračovat?",
-    "basicInfo": "Základní informace",
+    "areYouSure": "Opravdu chcete pokraÄovat?",
+    "basicInfo": "ZÃ¡kladnÃ­ informace",
     "conflict": "Konflikt",
     "conflicts": "Konflikty",
-    "dangerZone": "Nebezpečná zóna",
+    "dangerZone": "NebezpeÄnÃ¡ zÃ³na",
     "data": "Data",
     "docs": "Dokumentace",
-    "emptyMap": "Mapová data zatím nejsou k dispozici.",
-    "emptyValue": "(prázdný)",
+    "emptyMap": "MapovÃ¡ data zatÃ­m nejsou k dispozici.",
+    "emptyValue": "(prÃ¡zdnÃ½)",
     "error": "Chyba",
     "filter": "Filtr",
-    "forum": "Fórum",
-    "lastUpdate": "Poslední aktualizace",
-    "loading": "Načítání...",
+    "forum": "FÃ³rum",
+    "lastUpdate": "PoslednÃ­ aktualizace",
+    "loading": "NaÄÃ­tÃ¡nÃ­...",
     "map": "Mapa",
     "no": "Ne",
-    "noResults": "Žádné výsledky",
-    "noUndo": "Tuto akci nelze vrátit zpět.",
-    "rowNumber": "Řádek",
-    "success": "Úspěch!",
+    "noResults": "Å½Ã¡dnÃ© vÃ½sledky",
+    "noUndo": "Tuto akci nelze vrÃ¡tit zpÄ›t.",
+    "rowNumber": "Å˜Ã¡dek",
+    "success": "ÃšspÄ›ch!",
     "system": "System",
     "yes": "Ano",
     "tab": {
-      "settings": "Nastavení"
+      "settings": "NastavenÃ­"
     },
     "table": "Tabulka",
     "total": "Celkem",
-    "totalSubmissions": "Celkem odeslání",
+    "totalSubmissions": "Celkem odeslÃ¡nÃ­",
     "new": "Novinka!",
     "totalEntities": "Celkem entit",
     "versionShort": "v{version}",
-    "warning": "Upozornění",
-    "none": "(žádný)",
+    "warning": "UpozornÄ›nÃ­",
+    "none": "(Å¾Ã¡dnÃ½)",
     "search": "Hledat",
-    "reviewState": "Přezkoumání stavu",
+    "reviewState": "PÅ™ezkoumÃ¡nÃ­ stavu",
     "status": "Stav",
     "version": "Verze",
-    "trash": "Koš"
+    "trash": "KoÅ¡"
   },
   "mixin": {
     "request": {
       "alert": {
-        "fileSize": "Soubor \"{name}\" který se pokoušíte nahrát, je větší než limit 100 MB.",
-        "entityTooLarge": "Data, která se snažíte nahrát, jsou příliš velká."
+        "fileSize": "Soubor \"{name}\" kterÃ½ se pokouÅ¡Ã­te nahrÃ¡t, je vÄ›tÅ¡Ã­ neÅ¾ limit 100 MB.",
+        "entityTooLarge": "Data, kterÃ¡ se snaÅ¾Ã­te nahrÃ¡t, jsou pÅ™Ã­liÅ¡ velkÃ¡."
       }
     }
   },
   "util": {
     "csv": {
-      "readError": "Při čtení vašeho souboru došlo k problému: {message}",
-      "invalidCSV": "Soubor \"{name}\" není platný soubor .csv. Nelze jej přečíst.",
-      "rowError": "Na {row} řádku souboru je problém: {message}",
-      "invalidQuotes": "Pole s uvozovkami je neplatné. Zkontrolujte řádek, zda v něm nejsou neobvyklé hodnoty.",
-      "emptyRow": "Řádek je prázdný."
+      "readError": "PÅ™i ÄtenÃ­ vaÅ¡eho souboru doÅ¡lo k problÃ©mu: {message}",
+      "invalidCSV": "Soubor \"{name}\" nenÃ­ platnÃ½ soubor .csv. Nelze jej pÅ™eÄÃ­st.",
+      "rowError": "Na {row} Å™Ã¡dku souboru je problÃ©m: {message}",
+      "invalidQuotes": "Pole s uvozovkami je neplatnÃ©. Zkontrolujte Å™Ã¡dek, zda v nÄ›m nejsou neobvyklÃ© hodnoty.",
+      "emptyRow": "Å˜Ã¡dek je prÃ¡zdnÃ½."
     },
     "request": {
-      "noRequest": "Něco se pokazilo: nebyl žádný požadavek.",
-      "noResponse": "Něco se pokazilo: nebyla žádná odezva na váš požadavek.",
-      "errorNotProblem": "Něco se pokazilo: chybový kód {status}.",
+      "noRequest": "NÄ›co se pokazilo: nebyl Å¾Ã¡dnÃ½ poÅ¾adavek.",
+      "noResponse": "NÄ›co se pokazilo: nebyla Å¾Ã¡dnÃ¡ odezva na vÃ¡Å¡ poÅ¾adavek.",
+      "errorNotProblem": "NÄ›co se pokazilo: chybovÃ½ kÃ³d {status}.",
       "problem": {
-        "404_1": "Hledaný zdroj nelze nalézt. Zdroj mohl být smazán.",
+        "404_1": "HledanÃ½ zdroj nelze nalÃ©zt. Zdroj mohl bÃ½t smazÃ¡n.",
         "409_17": {
-          "duplicateProperty": "{provided} (stávající: {current})"
+          "duplicateProperty": "{provided} (stÃ¡vajÃ­cÃ­: {current})"
         }
       }
     }
   },
   "router": {
-    "unsavedChanges": "Opravdu chcete opustit tuto stránku? Vaše změny nemusí být uloženy."
+    "unsavedChanges": "Opravdu chcete opustit tuto strÃ¡nku? VaÅ¡e zmÄ›ny nemusÃ­ bÃ½t uloÅ¾eny."
   },
   "formStateDescription": {
-    "open": "Tento formulář je ke stažení a přijímá příspěvky.",
-    "closing": "Tento formulář nelze stáhnout, ale stále přijímá příspěvky.",
-    "closed": "Tento formulář nelze stáhnout a nepřijímá příspěvky."
+    "open": "Tento formulÃ¡Å™ je ke staÅ¾enÃ­ a pÅ™ijÃ­mÃ¡ pÅ™Ã­spÄ›vky.",
+    "closing": "Tento formulÃ¡Å™ nelze stÃ¡hnout, ale stÃ¡le pÅ™ijÃ­mÃ¡ pÅ™Ã­spÄ›vky.",
+    "closed": "Tento formulÃ¡Å™ nelze stÃ¡hnout a nepÅ™ijÃ­mÃ¡ pÅ™Ã­spÄ›vky."
   },
   "requestData": {
     "project": {
-      "nameWithArchived": "{name} (archivováno)"
+      "nameWithArchived": "{name} (archivovÃ¡no)"
     }
   }
 }

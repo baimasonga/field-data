@@ -1,108 +1,108 @@
 {
   "title": {
-    "resetPassword": "パスワードのリセット",
-    "setPassword": "パスワードの設定",
-    "editProfile": "プロフィールを編集",
-    "download": "ダウンロード",
-    "pageNotFound": "ページが見つかりません。",
-    "details": "詳細"
+    "resetPassword": "ãƒ‘ã‚¹ãƒ¯ãƒ¼ãƒ‰ã®ãƒªã‚»ãƒƒãƒˆ",
+    "setPassword": "ãƒ‘ã‚¹ãƒ¯ãƒ¼ãƒ‰ã®è¨­å®š",
+    "editProfile": "ãƒ—ãƒ­ãƒ•ã‚£ãƒ¼ãƒ«ã‚’ç·¨é›†",
+    "download": "ãƒ€ã‚¦ãƒ³ãƒ­ãƒ¼ãƒ‰",
+    "pageNotFound": "ãƒšãƒ¼ã‚¸ãŒè¦‹ã¤ã‹ã‚Šã¾ã›ã‚“ã€‚",
+    "details": "è©³ç´°"
   },
   "projectShow": {
     "tab": {
-      "formAccess": "フォームへのアクセス"
+      "formAccess": "ãƒ•ã‚©ãƒ¼ãƒ ã¸ã®ã‚¢ã‚¯ã‚»ã‚¹"
     }
   },
   "formHead": {
     "tab": {
-      "publicAccess": "一般公開",
-      "versions": "バージョン"
+      "publicAccess": "ä¸€èˆ¬å…¬é–‹",
+      "versions": "ãƒãƒ¼ã‚¸ãƒ§ãƒ³"
     }
   },
   "systemHome": {
-    "title": "システム管理",
+    "title": "ã‚·ã‚¹ãƒ†ãƒ ç®¡ç†",
     "tab": {
-      "audits": "サーバー監査ログ",
-      "analytics": "利用状況報告"
+      "audits": "ã‚µãƒ¼ãƒãƒ¼ç›£æŸ»ãƒ­ã‚°",
+      "analytics": "åˆ©ç”¨çŠ¶æ³å ±å‘Š"
     }
   },
   "role": {
-    "none": "なし",
-    "admin": "管理者",
-    "manager": "プロジェクト・マネジャー",
-    "viewer": "プロジェクト・閲覧者",
-    "formfill": "データ収集者"
+    "none": "ãªã—",
+    "admin": "ç®¡ç†è€…",
+    "manager": "ãƒ—ãƒ­ã‚¸ã‚§ã‚¯ãƒˆãƒ»ãƒžãƒã‚¸ãƒ£ãƒ¼",
+    "viewer": "ãƒ—ãƒ­ã‚¸ã‚§ã‚¯ãƒˆãƒ»é–²è¦§è€…",
+    "formfill": "ãƒ‡ãƒ¼ã‚¿åŽé›†è€…"
   },
   "formState": {
-    "open": "公開",
-    "closing": "クロージング状態",
-    "closed": "終了"
+    "open": "å…¬é–‹",
+    "closing": "ã‚¯ãƒ­ãƒ¼ã‚¸ãƒ³ã‚°çŠ¶æ…‹",
+    "closed": "çµ‚äº†"
   },
   "reviewState": {
-    "received": "受信済み",
-    "hasIssues": "問題有り",
-    "edited": "編集済み",
-    "approved": "承認済み",
-    "rejected": "リジェクト済み",
+    "received": "å—ä¿¡æ¸ˆã¿",
+    "hasIssues": "å•é¡Œæœ‰ã‚Š",
+    "edited": "ç·¨é›†æ¸ˆã¿",
+    "approved": "æ‰¿èªæ¸ˆã¿",
+    "rejected": "ãƒªã‚¸ã‚§ã‚¯ãƒˆæ¸ˆã¿",
     "null": "@:reviewState.received"
   },
   "audit": {
     "category": {
-      "user": "Webユーザーに対する操作",
-      "project": "プロジェクトに対する操作",
-      "form": "フォームに対する操作",
-      "field_key": "アプリユーザーに対する操作",
-      "public_link": "一般公開リンクに対する操作",
-      "config": "サーバー設定に対する操作",
-      "upgrade": "サーバーの更新"
+      "user": "Webãƒ¦ãƒ¼ã‚¶ãƒ¼ã«å¯¾ã™ã‚‹æ“ä½œ",
+      "project": "ãƒ—ãƒ­ã‚¸ã‚§ã‚¯ãƒˆã«å¯¾ã™ã‚‹æ“ä½œ",
+      "form": "ãƒ•ã‚©ãƒ¼ãƒ ã«å¯¾ã™ã‚‹æ“ä½œ",
+      "field_key": "ã‚¢ãƒ—ãƒªãƒ¦ãƒ¼ã‚¶ãƒ¼ã«å¯¾ã™ã‚‹æ“ä½œ",
+      "public_link": "ä¸€èˆ¬å…¬é–‹ãƒªãƒ³ã‚¯ã«å¯¾ã™ã‚‹æ“ä½œ",
+      "config": "ã‚µãƒ¼ãƒãƒ¼è¨­å®šã«å¯¾ã™ã‚‹æ“ä½œ",
+      "upgrade": "ã‚µãƒ¼ãƒãƒ¼ã®æ›´æ–°"
     },
     "action": {
       "default": {
-        "create": "作成",
-        "update": "詳細の更新",
-        "session_end": "無効化",
-        "delete": "削除"
+        "create": "ä½œæˆ",
+        "update": "è©³ç´°ã®æ›´æ–°",
+        "session_end": "ç„¡åŠ¹åŒ–",
+        "delete": "å‰Šé™¤"
       },
-      "analytics": "利用状況報告",
+      "analytics": "åˆ©ç”¨çŠ¶æ³å ±å‘Š",
       "config": {
-        "set": "設定"
+        "set": "è¨­å®š"
       },
       "dataset": {
         "create": "@:audit.action.default.create",
         "delete": "@:audit.action.default.delete"
       },
       "field_key": {
-        "assignment_create": "アクセス権の付与",
-        "assignment_delete": "アクセス権の取消",
+        "assignment_create": "ã‚¢ã‚¯ã‚»ã‚¹æ¨©ã®ä»˜ä¸Ž",
+        "assignment_delete": "ã‚¢ã‚¯ã‚»ã‚¹æ¨©ã®å–æ¶ˆ",
         "create": "@:audit.action.default.create",
         "session_end": "@:audit.action.default.session_end",
         "delete": "@:audit.action.default.delete"
       },
       "form": {
-        "update_draft_set": "下書きの作成・更新",
-        "update_publish": "下書きの公開",
-        "update_draft_delete": "下書きの削除",
-        "attachment_update": "メディアファイルの更新",
-        "submission_export": "提出済フォームのダウンロード",
-        "purge": "完全に削除",
+        "update_draft_set": "ä¸‹æ›¸ãã®ä½œæˆãƒ»æ›´æ–°",
+        "update_publish": "ä¸‹æ›¸ãã®å…¬é–‹",
+        "update_draft_delete": "ä¸‹æ›¸ãã®å‰Šé™¤",
+        "attachment_update": "ãƒ¡ãƒ‡ã‚£ã‚¢ãƒ•ã‚¡ã‚¤ãƒ«ã®æ›´æ–°",
+        "submission_export": "æå‡ºæ¸ˆãƒ•ã‚©ãƒ¼ãƒ ã®ãƒ€ã‚¦ãƒ³ãƒ­ãƒ¼ãƒ‰",
+        "purge": "å®Œå…¨ã«å‰Šé™¤",
         "create": "@:audit.action.default.create",
         "update": "@:audit.action.default.update",
         "delete": "@:audit.action.default.delete"
       },
       "public_link": {
-        "assignment_create": "アクセス権の付与",
-        "assignment_delete": "アクセス権の取消",
+        "assignment_create": "ã‚¢ã‚¯ã‚»ã‚¹æ¨©ã®ä»˜ä¸Ž",
+        "assignment_delete": "ã‚¢ã‚¯ã‚»ã‚¹æ¨©ã®å–æ¶ˆ",
         "create": "@:audit.action.default.create",
         "session_end": "@:audit.action.default.session_end",
         "delete": "@:audit.action.default.delete"
       },
       "upgrade": {
-        "process_form": "フォームの処理",
-        "process_form_draft": "下書きフォームの処理"
+        "process_form": "ãƒ•ã‚©ãƒ¼ãƒ ã®å‡¦ç†",
+        "process_form_draft": "ä¸‹æ›¸ããƒ•ã‚©ãƒ¼ãƒ ã®å‡¦ç†"
       },
       "user": {
-        "assignment_create": "役割の指定",
-        "assignment_delete": "役割の取消",
-        "delete": "除外",
+        "assignment_create": "å½¹å‰²ã®æŒ‡å®š",
+        "assignment_delete": "å½¹å‰²ã®å–æ¶ˆ",
+        "delete": "é™¤å¤–",
         "create": "@:audit.action.default.create",
         "update": "@:audit.action.default.update",
         "session_create": "@:action.logIn"
@@ -115,163 +115,163 @@
     }
   },
   "action": {
-    "cancel": "キャンセル",
-    "clear": "クリアする",
-    "close": "閉じる",
-    "comment": "コメント",
-    "create": "作成",
-    "done": "完了",
-    "download": "ダウンロード",
-    "edit": "編集",
-    "editProfile": "プロフィールを編集",
-    "logIn": "ログイン",
-    "looksGood": "進んで問題ありません。",
-    "more": "詳細",
-    "neverMind": "大丈夫です、キャンセルします。",
-    "next": "次へ",
-    "noCancel": "いいえ、キャンセルします。",
+    "cancel": "ã‚­ãƒ£ãƒ³ã‚»ãƒ«",
+    "clear": "ã‚¯ãƒªã‚¢ã™ã‚‹",
+    "close": "é–‰ã˜ã‚‹",
+    "comment": "ã‚³ãƒ¡ãƒ³ãƒˆ",
+    "create": "ä½œæˆ",
+    "done": "å®Œäº†",
+    "download": "ãƒ€ã‚¦ãƒ³ãƒ­ãƒ¼ãƒ‰",
+    "edit": "ç·¨é›†",
+    "editProfile": "ãƒ—ãƒ­ãƒ•ã‚£ãƒ¼ãƒ«ã‚’ç·¨é›†",
+    "logIn": "ãƒ­ã‚°ã‚¤ãƒ³",
+    "looksGood": "é€²ã‚“ã§å•é¡Œã‚ã‚Šã¾ã›ã‚“ã€‚",
+    "more": "è©³ç´°",
+    "neverMind": "å¤§ä¸ˆå¤«ã§ã™ã€ã‚­ãƒ£ãƒ³ã‚»ãƒ«ã—ã¾ã™ã€‚",
+    "next": "æ¬¡ã¸",
+    "noCancel": "ã„ã„ãˆã€ã‚­ãƒ£ãƒ³ã‚»ãƒ«ã—ã¾ã™ã€‚",
     "ok": "OK",
-    "proceed": "次へ進む",
-    "refresh": "更新",
-    "resetPassword": "パスワードのリセット",
-    "review": "レビュー",
-    "save": "保存",
-    "saveSettings": "設定の保存",
-    "update": "更新",
-    "yesProceed": "はい、続けます。",
-    "showPreview": "プレビュー",
-    "hidePreview": "プレビューを隠す",
-    "upload": "アップロード"
+    "proceed": "æ¬¡ã¸é€²ã‚€",
+    "refresh": "æ›´æ–°",
+    "resetPassword": "ãƒ‘ã‚¹ãƒ¯ãƒ¼ãƒ‰ã®ãƒªã‚»ãƒƒãƒˆ",
+    "review": "ãƒ¬ãƒ“ãƒ¥ãƒ¼",
+    "save": "ä¿å­˜",
+    "saveSettings": "è¨­å®šã®ä¿å­˜",
+    "update": "æ›´æ–°",
+    "yesProceed": "ã¯ã„ã€ç¶šã‘ã¾ã™ã€‚",
+    "showPreview": "ãƒ—ãƒ¬ãƒ“ãƒ¥ãƒ¼",
+    "hidePreview": "ãƒ—ãƒ¬ãƒ“ãƒ¥ãƒ¼ã‚’éš ã™",
+    "upload": "ã‚¢ãƒƒãƒ—ãƒ­ãƒ¼ãƒ‰"
   },
   "field": {
-    "comment": "コメントを残す...",
-    "dateRange": "期間",
-    "displayName": "表示名",
-    "email": "メールアドレス",
-    "name": "名前",
-    "newPassword": "新しいパスワード",
-    "oldPassword": "現在のパスワード",
-    "passphrase": "パスフレーズ",
-    "password": "パスワード",
-    "passwordConfirm": "新しいパスワード（確認用）",
-    "type": "タイプ"
+    "comment": "ã‚³ãƒ¡ãƒ³ãƒˆã‚’æ®‹ã™...",
+    "dateRange": "æœŸé–“",
+    "displayName": "è¡¨ç¤ºå",
+    "email": "ãƒ¡ãƒ¼ãƒ«ã‚¢ãƒ‰ãƒ¬ã‚¹",
+    "name": "åå‰",
+    "newPassword": "æ–°ã—ã„ãƒ‘ã‚¹ãƒ¯ãƒ¼ãƒ‰",
+    "oldPassword": "ç¾åœ¨ã®ãƒ‘ã‚¹ãƒ¯ãƒ¼ãƒ‰",
+    "passphrase": "ãƒ‘ã‚¹ãƒ•ãƒ¬ãƒ¼ã‚º",
+    "password": "ãƒ‘ã‚¹ãƒ¯ãƒ¼ãƒ‰",
+    "passwordConfirm": "æ–°ã—ã„ãƒ‘ã‚¹ãƒ¯ãƒ¼ãƒ‰ï¼ˆç¢ºèªç”¨ï¼‰",
+    "type": "ã‚¿ã‚¤ãƒ—"
   },
   "header": {
-    "actions": "操作",
-    "created": "作成済み",
-    "createdBy": "作成者",
-    "displayName": "表示名",
-    "email": "メールアドレス",
-    "instanceId": "インスタンスID",
-    "lastSubmission": "最新のフォーム提出日時",
-    "name": "名前",
-    "submitterName": "フォーム提出者",
-    "submissionDate": "フォームの提出日時",
-    "time": "時刻",
-    "type": "タイプ"
+    "actions": "æ“ä½œ",
+    "created": "ä½œæˆæ¸ˆã¿",
+    "createdBy": "ä½œæˆè€…",
+    "displayName": "è¡¨ç¤ºå",
+    "email": "ãƒ¡ãƒ¼ãƒ«ã‚¢ãƒ‰ãƒ¬ã‚¹",
+    "instanceId": "ã‚¤ãƒ³ã‚¹ã‚¿ãƒ³ã‚¹ID",
+    "lastSubmission": "æœ€æ–°ã®ãƒ•ã‚©ãƒ¼ãƒ æå‡ºæ—¥æ™‚",
+    "name": "åå‰",
+    "submitterName": "ãƒ•ã‚©ãƒ¼ãƒ æå‡ºè€…",
+    "submissionDate": "ãƒ•ã‚©ãƒ¼ãƒ ã®æå‡ºæ—¥æ™‚",
+    "time": "æ™‚åˆ»",
+    "type": "ã‚¿ã‚¤ãƒ—"
   },
   "plural": {
-    "appUser": "アプリユーザー",
-    "form": "フォーム",
-    "project": "プロジェクト",
-    "submission": "提出済フォーム",
-    "webUser": "Webユーザー"
+    "appUser": "ã‚¢ãƒ—ãƒªãƒ¦ãƒ¼ã‚¶ãƒ¼",
+    "form": "ãƒ•ã‚©ãƒ¼ãƒ ",
+    "project": "ãƒ—ãƒ­ã‚¸ã‚§ã‚¯ãƒˆ",
+    "submission": "æå‡ºæ¸ˆãƒ•ã‚©ãƒ¼ãƒ ",
+    "webUser": "Webãƒ¦ãƒ¼ã‚¶ãƒ¼"
   },
   "count": {
-    "appUser": "{count}名のアプリユーザー",
-    "form": "{count}件のフォーム",
-    "submission": "{count}件の提出済フォーム"
+    "appUser": "{count}åã®ã‚¢ãƒ—ãƒªãƒ¦ãƒ¼ã‚¶ãƒ¼",
+    "form": "{count}ä»¶ã®ãƒ•ã‚©ãƒ¼ãƒ ",
+    "submission": "{count}ä»¶ã®æå‡ºæ¸ˆãƒ•ã‚©ãƒ¼ãƒ "
   },
   "resource": {
-    "appUser": "アプリユーザー",
-    "appUsers": "アプリユーザー",
-    "config": "サーバー設定",
-    "form": "フォーム",
-    "forms": "フォーム",
-    "project": "プロジェクト",
-    "projects": "プロジェクト",
-    "publicLink": "一般公開リンク",
-    "user": "ユーザー",
-    "users": "ユーザー",
-    "webUser": "Webユーザー",
-    "webUsers": "Webユーザー",
-    "session": "セッション",
-    "submissions": "提出済フォーム",
-    "projectRoles": "プロジェクトでの役割",
-    "draft": "下書き"
+    "appUser": "ã‚¢ãƒ—ãƒªãƒ¦ãƒ¼ã‚¶ãƒ¼",
+    "appUsers": "ã‚¢ãƒ—ãƒªãƒ¦ãƒ¼ã‚¶ãƒ¼",
+    "config": "ã‚µãƒ¼ãƒãƒ¼è¨­å®š",
+    "form": "ãƒ•ã‚©ãƒ¼ãƒ ",
+    "forms": "ãƒ•ã‚©ãƒ¼ãƒ ",
+    "project": "ãƒ—ãƒ­ã‚¸ã‚§ã‚¯ãƒˆ",
+    "projects": "ãƒ—ãƒ­ã‚¸ã‚§ã‚¯ãƒˆ",
+    "publicLink": "ä¸€èˆ¬å…¬é–‹ãƒªãƒ³ã‚¯",
+    "user": "ãƒ¦ãƒ¼ã‚¶ãƒ¼",
+    "users": "ãƒ¦ãƒ¼ã‚¶ãƒ¼",
+    "webUser": "Webãƒ¦ãƒ¼ã‚¶ãƒ¼",
+    "webUsers": "Webãƒ¦ãƒ¼ã‚¶ãƒ¼",
+    "session": "ã‚»ãƒƒã‚·ãƒ§ãƒ³",
+    "submissions": "æå‡ºæ¸ˆãƒ•ã‚©ãƒ¼ãƒ ",
+    "projectRoles": "ãƒ—ãƒ­ã‚¸ã‚§ã‚¯ãƒˆã§ã®å½¹å‰²",
+    "draft": "ä¸‹æ›¸ã"
   },
   "moreInfo": {
     "clickHere": {
-      "full": "さらに詳細を表示するには、{clickHere}して下さい。",
-      "clickHere": "こちらをクリック"
+      "full": "ã•ã‚‰ã«è©³ç´°ã‚’è¡¨ç¤ºã™ã‚‹ã«ã¯ã€{clickHere}ã—ã¦ä¸‹ã•ã„ã€‚",
+      "clickHere": "ã“ã¡ã‚‰ã‚’ã‚¯ãƒªãƒƒã‚¯"
     },
     "helpArticle": {
-      "full": "さらに詳細を表示するには、{helpArticle}を参照して下さい。",
-      "helpArticle": "こちらのヘルプ"
+      "full": "ã•ã‚‰ã«è©³ç´°ã‚’è¡¨ç¤ºã™ã‚‹ã«ã¯ã€{helpArticle}ã‚’å‚ç…§ã—ã¦ä¸‹ã•ã„ã€‚",
+      "helpArticle": "ã“ã¡ã‚‰ã®ãƒ˜ãƒ«ãƒ—"
     },
-    "learnMore": "さらに詳しく知る。"
+    "learnMore": "ã•ã‚‰ã«è©³ã—ãçŸ¥ã‚‹ã€‚"
   },
   "analytics": {
-    "alwaysImprove": "私たちは常にODK Centralを改良しようとしています。",
+    "alwaysImprove": "ç§ãŸã¡ã¯å¸¸ã«ODK Centralã‚’æ”¹è‰¯ã—ã‚ˆã†ã¨ã—ã¦ã„ã¾ã™ã€‚",
     "needFeedback": {
-      "full": "そのために、私たちは{your}フィードバックが必要です。それによりあなたがどの様にCentralを使い、またどの様にすればあなたにとって良くなるのかが分かります。",
-      "your": "あなたの"
+      "full": "ãã®ãŸã‚ã«ã€ç§ãŸã¡ã¯{your}ãƒ•ã‚£ãƒ¼ãƒ‰ãƒãƒƒã‚¯ãŒå¿…è¦ã§ã™ã€‚ãã‚Œã«ã‚ˆã‚Šã‚ãªãŸãŒã©ã®æ§˜ã«Centralã‚’ä½¿ã„ã€ã¾ãŸã©ã®æ§˜ã«ã™ã‚Œã°ã‚ãªãŸã«ã¨ã£ã¦è‰¯ããªã‚‹ã®ã‹ãŒåˆ†ã‹ã‚Šã¾ã™ã€‚",
+      "your": "ã‚ãªãŸã®"
     }
   },
   "submission": {
     "action": {
-      "edit": "編集回数（{count}）"
+      "edit": "ç·¨é›†å›žæ•°ï¼ˆ{count}ï¼‰"
     },
-    "editDisabled": "暗号化され、提出済フォームは編集できません。",
-    "binaryLinkTitle": "ファイルが提出されました。クリックしてダウンロードします。",
-    "encryptionMessage": "暗号化されているのため、データプレビューは利用できません。"
+    "editDisabled": "æš—å·åŒ–ã•ã‚Œã€æå‡ºæ¸ˆãƒ•ã‚©ãƒ¼ãƒ ã¯ç·¨é›†ã§ãã¾ã›ã‚“ã€‚",
+    "binaryLinkTitle": "ãƒ•ã‚¡ã‚¤ãƒ«ãŒæå‡ºã•ã‚Œã¾ã—ãŸã€‚ã‚¯ãƒªãƒƒã‚¯ã—ã¦ãƒ€ã‚¦ãƒ³ãƒ­ãƒ¼ãƒ‰ã—ã¾ã™ã€‚",
+    "encryptionMessage": "æš—å·åŒ–ã•ã‚Œã¦ã„ã‚‹ã®ãŸã‚ã€ãƒ‡ãƒ¼ã‚¿ãƒ—ãƒ¬ãƒ“ãƒ¥ãƒ¼ã¯åˆ©ç”¨ã§ãã¾ã›ã‚“ã€‚"
   },
   "common": {
-    "activity": "アクティビティ",
-    "anybody": "（全員）",
-    "areYouSure": "本当に続けて問題ないですか？",
-    "basicInfo": "基本情報",
-    "dangerZone": "危険エリア",
-    "filter": "フィルター",
-    "no": "いいえ",
-    "noResults": "該当なし",
-    "success": "成功です！",
-    "system": "システム",
-    "yes": "はい",
+    "activity": "ã‚¢ã‚¯ãƒ†ã‚£ãƒ“ãƒ†ã‚£",
+    "anybody": "ï¼ˆå…¨å“¡ï¼‰",
+    "areYouSure": "æœ¬å½“ã«ç¶šã‘ã¦å•é¡Œãªã„ã§ã™ã‹ï¼Ÿ",
+    "basicInfo": "åŸºæœ¬æƒ…å ±",
+    "dangerZone": "å±é™ºã‚¨ãƒªã‚¢",
+    "filter": "ãƒ•ã‚£ãƒ«ã‚¿ãƒ¼",
+    "no": "ã„ã„ãˆ",
+    "noResults": "è©²å½“ãªã—",
+    "success": "æˆåŠŸã§ã™ï¼",
+    "system": "ã‚·ã‚¹ãƒ†ãƒ ",
+    "yes": "ã¯ã„",
     "tab": {
-      "settings": "設定"
+      "settings": "è¨­å®š"
     },
-    "total": "全期間",
-    "reviewState": "レビュー・ステータス",
-    "status": "ステータス",
-    "version": "バージョン",
-    "trash": "ゴミ箱"
+    "total": "å…¨æœŸé–“",
+    "reviewState": "ãƒ¬ãƒ“ãƒ¥ãƒ¼ãƒ»ã‚¹ãƒ†ãƒ¼ã‚¿ã‚¹",
+    "status": "ã‚¹ãƒ†ãƒ¼ã‚¿ã‚¹",
+    "version": "ãƒãƒ¼ã‚¸ãƒ§ãƒ³",
+    "trash": "ã‚´ãƒŸç®±"
   },
   "mixin": {
     "request": {
       "alert": {
-        "fileSize": "アップロードを試みているファイル\"{name}\"は、100MB制限を超過しています。"
+        "fileSize": "ã‚¢ãƒƒãƒ—ãƒ­ãƒ¼ãƒ‰ã‚’è©¦ã¿ã¦ã„ã‚‹ãƒ•ã‚¡ã‚¤ãƒ«\"{name}\"ã¯ã€100MBåˆ¶é™ã‚’è¶…éŽã—ã¦ã„ã¾ã™ã€‚"
       }
     }
   },
   "util": {
     "request": {
-      "noRequest": "問題発生：リクエストがありません。",
-      "noResponse": "問題発生：リクエストへの応答がありません。",
-      "errorNotProblem": "問題発生：エラーコード{status}"
+      "noRequest": "å•é¡Œç™ºç”Ÿï¼šãƒªã‚¯ã‚¨ã‚¹ãƒˆãŒã‚ã‚Šã¾ã›ã‚“ã€‚",
+      "noResponse": "å•é¡Œç™ºç”Ÿï¼šãƒªã‚¯ã‚¨ã‚¹ãƒˆã¸ã®å¿œç­”ãŒã‚ã‚Šã¾ã›ã‚“ã€‚",
+      "errorNotProblem": "å•é¡Œç™ºç”Ÿï¼šã‚¨ãƒ©ãƒ¼ã‚³ãƒ¼ãƒ‰{status}"
     }
   },
   "router": {
-    "unsavedChanges": "このページを終了してもよろしいですか？変更が保存されていない可能性があります。"
+    "unsavedChanges": "ã“ã®ãƒšãƒ¼ã‚¸ã‚’çµ‚äº†ã—ã¦ã‚‚ã‚ˆã‚ã—ã„ã§ã™ã‹ï¼Ÿå¤‰æ›´ãŒä¿å­˜ã•ã‚Œã¦ã„ãªã„å¯èƒ½æ€§ãŒã‚ã‚Šã¾ã™ã€‚"
   },
   "formStateDescription": {
-    "open": "このフォームはダウンロードでき、フォームの提出も受け付けています。",
-    "closing": "このフォームはダウンロードできませんが、フォームの提出は受け付けています。",
-    "closed": "このフォームはダウンロードできませんし、フォームの提出も受け付けていません。"
+    "open": "ã“ã®ãƒ•ã‚©ãƒ¼ãƒ ã¯ãƒ€ã‚¦ãƒ³ãƒ­ãƒ¼ãƒ‰ã§ãã€ãƒ•ã‚©ãƒ¼ãƒ ã®æå‡ºã‚‚å—ã‘ä»˜ã‘ã¦ã„ã¾ã™ã€‚",
+    "closing": "ã“ã®ãƒ•ã‚©ãƒ¼ãƒ ã¯ãƒ€ã‚¦ãƒ³ãƒ­ãƒ¼ãƒ‰ã§ãã¾ã›ã‚“ãŒã€ãƒ•ã‚©ãƒ¼ãƒ ã®æå‡ºã¯å—ã‘ä»˜ã‘ã¦ã„ã¾ã™ã€‚",
+    "closed": "ã“ã®ãƒ•ã‚©ãƒ¼ãƒ ã¯ãƒ€ã‚¦ãƒ³ãƒ­ãƒ¼ãƒ‰ã§ãã¾ã›ã‚“ã—ã€ãƒ•ã‚©ãƒ¼ãƒ ã®æå‡ºã‚‚å—ã‘ä»˜ã‘ã¦ã„ã¾ã›ã‚“ã€‚"
   },
   "requestData": {
     "project": {
-      "nameWithArchived": "{name}（アーカイブ済）"
+      "nameWithArchived": "{name}ï¼ˆã‚¢ãƒ¼ã‚«ã‚¤ãƒ–æ¸ˆï¼‰"
     }
   }
 }

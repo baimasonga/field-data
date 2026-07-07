@@ -4,26 +4,26 @@
     "setPassword": "Definir senha",
     "editProfile": "Editar Perfil",
     "download": "Baixar",
-    "pageNotFound": "Página não encontrada",
+    "pageNotFound": "PÃ¡gina nÃ£o encontrada",
     "details": "Detalhes"
   },
   "projectShow": {
     "tab": {
-      "formAccess": "Acesso a formulário"
+      "formAccess": "Acesso a formulÃ¡rio"
     }
   },
   "formHead": {
     "tab": {
-      "publicAccess": "Acesso Público",
-      "versions": "Versões",
-      "editForm": "Editar Formulário"
+      "publicAccess": "Acesso PÃºblico",
+      "versions": "VersÃµes",
+      "editForm": "Editar FormulÃ¡rio"
     }
   },
   "systemHome": {
     "title": "Gerenciamento do sistema",
     "tab": {
       "audits": "Registros de auditoria do servidor",
-      "analytics": "Relatório de uso"
+      "analytics": "RelatÃ³rio de uso"
     }
   },
   "role": {
@@ -37,11 +37,11 @@
     "open": "Aberto",
     "closing": "Em fechamento",
     "closed": "Fechado",
-    "unpublished": "Ainda não publicado"
+    "unpublished": "Ainda nÃ£o publicado"
   },
   "reviewState": {
     "received": "Recebido",
-    "hasIssues": "Contém erros",
+    "hasIssues": "ContÃ©m erros",
     "edited": "Alterado",
     "approved": "Aprovado",
     "rejected": "Rejeitado",
@@ -49,16 +49,16 @@
   },
   "audit": {
     "category": {
-      "nonverbose": "Todas as ações",
-      "user": "Ações de usuários do site",
-      "project": "Ações do projeto",
-      "form": "Ações de formulário",
-      "field_key": "Ações de usuário de aplicativo",
-      "public_link": "Ações de link público de acesso",
-      "dataset": "Ações da Lista de Entidades",
-      "config": "Ações de configuração de servidor",
-      "upgrade": "Atualização do servidor",
-      "task": "Operação do Sistema"
+      "nonverbose": "Todas as aÃ§Ãµes",
+      "user": "AÃ§Ãµes de usuÃ¡rios do site",
+      "project": "AÃ§Ãµes do projeto",
+      "form": "AÃ§Ãµes de formulÃ¡rio",
+      "field_key": "AÃ§Ãµes de usuÃ¡rio de aplicativo",
+      "public_link": "AÃ§Ãµes de link pÃºblico de acesso",
+      "dataset": "AÃ§Ãµes da Lista de Entidades",
+      "config": "AÃ§Ãµes de configuraÃ§Ã£o de servidor",
+      "upgrade": "AtualizaÃ§Ã£o do servidor",
+      "task": "OperaÃ§Ã£o do Sistema"
     },
     "action": {
       "default": {
@@ -67,7 +67,7 @@
         "session_end": "Revogar",
         "delete": "Excluir"
       },
-      "analytics": "Histórico de uso",
+      "analytics": "HistÃ³rico de uso",
       "blobs": {
         "s3_upload": "Fazer upload de arquivos para o Armazenamento",
         "s3_failed_to_pending": "Sinalizar Arquivos para Refazer upload para o Armazenamento"
@@ -82,8 +82,8 @@
         "delete": "@:audit.action.default.delete"
       },
       "entity": {
-        "bulk_delete": "Exclusão em massa",
-        "bulk_restore": "Recuperação em massa"
+        "bulk_delete": "ExclusÃ£o em massa",
+        "bulk_restore": "RecuperaÃ§Ã£o em massa"
       },
       "field_key": {
         "assignment_create": "Conceder acesso",
@@ -93,7 +93,7 @@
         "delete": "@:audit.action.default.delete"
       },
       "form": {
-        "update_draft_set": "Criar ou atualizar formulário de teste",
+        "update_draft_set": "Criar ou atualizar formulÃ¡rio de teste",
         "update_draft_replace": "Substituir Rascunho",
         "update_publish": "Publicar rascunho",
         "update_draft_delete": "Abandonar rascunho",
@@ -116,14 +116,14 @@
         "purge": "Limpar Respostas"
       },
       "upgrade": {
-        "process_form": "Processar formulário",
-        "process_form_draft": "Processar formulário de teste",
-        "process_form_entities_version": "Marcar Formulário para Atualização",
-        "server": "Nova versão"
+        "process_form": "Processar formulÃ¡rio",
+        "process_form_draft": "Processar formulÃ¡rio de teste",
+        "process_form_entities_version": "Marcar FormulÃ¡rio para AtualizaÃ§Ã£o",
+        "server": "Nova versÃ£o"
       },
       "user": {
-        "assignment_create": "Atribuir função",
-        "assignment_delete": "Remover função",
+        "assignment_create": "Atribuir funÃ§Ã£o",
+        "assignment_delete": "Remover funÃ§Ã£o",
         "delete": "Desativar",
         "create": "@:audit.action.default.create",
         "update": "@:audit.action.default.update",
@@ -140,49 +140,49 @@
     "cancel": "Cancelar",
     "clear": "Limpar",
     "close": "Fechar",
-    "comment": "Comentário",
+    "comment": "ComentÃ¡rio",
     "continue": "Continuar",
     "create": "Criar",
     "createSubmission": "Nova Resposta",
     "delete": "Excluir",
-    "done": "Concluído",
+    "done": "ConcluÃ­do",
     "download": "Baixar",
     "edit": "Editar",
     "editProfile": "Editar perfil",
     "finish": "Concluir",
     "logIn": "Entrar",
     "looksGood": "Parece bom, prosseguir",
-    "more": "Mais informações",
-    "neverMind": "Esqueça, cancelar",
-    "next": "Próximo",
-    "noCancel": "Não, cancelar",
+    "more": "Mais informaÃ§Ãµes",
+    "neverMind": "EsqueÃ§a, cancelar",
+    "next": "PrÃ³ximo",
+    "noCancel": "NÃ£o, cancelar",
     "ok": "Tudo certo",
     "proceed": "Prosseguir",
     "refresh": "Atualizar",
-    "refreshPage": "Atualizar a página",
+    "refreshPage": "Atualizar a pÃ¡gina",
     "resetPassword": "Redefinir senha",
     "review": "Revisar",
     "save": "Salvar",
-    "saveSettings": "Salvar configuração",
+    "saveSettings": "Salvar configuraÃ§Ã£o",
     "sort": "Ordenar",
     "undo": "Desfazer",
     "update": "Atualizar",
     "yesProceed": "Sim, prossiga",
     "showPreview": "Visualizar",
-    "hidePreview": "Ocultar visualização",
+    "hidePreview": "Ocultar visualizaÃ§Ã£o",
     "expand": "Expandir",
     "collapse": "Condensar",
     "selectRow": "Selecionar linha",
     "reset": "Reiniciar",
     "upload": "Carregar",
-    "reviewParallelUpdates": "Revisar atualizações paralelas",
+    "reviewParallelUpdates": "Revisar atualizaÃ§Ãµes paralelas",
     "restore": "Recuperar"
   },
   "field": {
-    "comment": "Deixe um comentário",
+    "comment": "Deixe um comentÃ¡rio",
     "dateRange": "Intervalo de datas",
-    "displayName": "Nome para exibição",
-    "email": "Endereço de email",
+    "displayName": "Nome para exibiÃ§Ã£o",
+    "email": "EndereÃ§o de email",
     "name": "Nome",
     "newPassword": "Nova senha",
     "oldPassword": "Senha antiga",
@@ -192,15 +192,15 @@
     "type": "Tipo"
   },
   "header": {
-    "actions": "Ações",
+    "actions": "AÃ§Ãµes",
     "created": "Criado",
     "createdBy": "Criado por",
     "createdAt": "Criado em",
     "updatedBy": "Atualizado por",
-    "displayName": "Nome para exibição",
-    "email": "Endereço de email",
+    "displayName": "Nome para exibiÃ§Ã£o",
+    "email": "EndereÃ§o de email",
     "instanceId": "Identificador do registro",
-    "lastSubmission": "Última resposta",
+    "lastSubmission": "Ãšltima resposta",
     "recentActivity": "Atividade recente",
     "name": "Nome",
     "listName": "Nome da lista",
@@ -212,94 +212,94 @@
     "lastEntity": "Entidade mais recente"
   },
   "plural": {
-    "appUser": "Usuário de aplicativo | Usuários de aplicativo | Usuários de aplicativo",
-    "form": "Formulário | Formulários | Formulários",
+    "appUser": "UsuÃ¡rio de aplicativo | UsuÃ¡rios de aplicativo | UsuÃ¡rios de aplicativo",
+    "form": "FormulÃ¡rio | FormulÃ¡rios | FormulÃ¡rios",
     "project": "Projeto | Projetos | Projetos",
     "submission": "Resposta | Respostas | Respostas",
-    "user": "Usuário | Usuários | Usuários",
-    "webUser": "Usuário da web | Usuários da web | Usuários da web"
+    "user": "UsuÃ¡rio | UsuÃ¡rios | UsuÃ¡rios",
+    "webUser": "UsuÃ¡rio da web | UsuÃ¡rios da web | UsuÃ¡rios da web"
   },
   "count": {
-    "appUser": "{count} usuário de aplicativo | {count} usuários de aplicativo | {count} usuários de aplicativo",
+    "appUser": "{count} usuÃ¡rio de aplicativo | {count} usuÃ¡rios de aplicativo | {count} usuÃ¡rios de aplicativo",
     "attachments": "{count} anexo | {count} anexos | {count} anexos",
-    "form": "{count} formulário | {count} formulários | {count} formulários",
+    "form": "{count} formulÃ¡rio | {count} formulÃ¡rios | {count} formulÃ¡rios",
     "submission": "{count} resposta | {count} respostas | {count} respostas",
     "warning": "{count} aviso | {count} avisos | {count} avisos"
   },
   "resource": {
-    "appUser": "Usuário de aplicativo",
-    "appUsers": "Usuários de aplicativo",
+    "appUser": "UsuÃ¡rio de aplicativo",
+    "appUsers": "UsuÃ¡rios de aplicativo",
     "attachments": "Anexos",
-    "config": "Configuração do servidor",
+    "config": "ConfiguraÃ§Ã£o do servidor",
     "entity": "Entidade",
     "entities": "Entidades",
     "entityList": "Lista de Entidades",
     "entityLists": "Listas de Entidades",
-    "form": "Formulário",
-    "forms": "Formulários",
-    "formAttachments": "Anexos do formulário",
+    "form": "FormulÃ¡rio",
+    "forms": "FormulÃ¡rios",
+    "formAttachments": "Anexos do formulÃ¡rio",
     "project": "Projeto",
     "projects": "Projetos",
     "property": "Propriedade",
     "properties": "Propriedades",
-    "publicLink": "Link de acesso público",
-    "user": "Usuário",
-    "users": "Usuários",
-    "webUser": "Usuário do site",
-    "webUsers": "Usuários do site",
-    "session": "Sessão",
+    "publicLink": "Link de acesso pÃºblico",
+    "user": "UsuÃ¡rio",
+    "users": "UsuÃ¡rios",
+    "webUser": "UsuÃ¡rio do site",
+    "webUsers": "UsuÃ¡rios do site",
+    "session": "SessÃ£o",
     "submission": "Resposta",
     "submissions": "Respostas",
-    "projectRoles": "Funções de projeto",
-    "formPreview": "Visualizar Formulário",
+    "projectRoles": "FunÃ§Ãµes de projeto",
+    "formPreview": "Visualizar FormulÃ¡rio",
     "draft": "Rascunho"
   },
   "alert": {
-    "passwordTooShort": "A senha precisa ter no mínimo 10 caracteres.",
+    "passwordTooShort": "A senha precisa ter no mÃ­nimo 10 caracteres.",
     "updateEntity": "A entidade foi atualizada com sucesso.",
-    "updateReviewState": "Revisão salva com sucesso.",
+    "updateReviewState": "RevisÃ£o salva com sucesso.",
     "versionChange": "O servidor foi atualizado com sucesso.",
-    "submissionDeleted": "A Resposta foi excluída com sucesso.",
+    "submissionDeleted": "A Resposta foi excluÃ­da com sucesso.",
     "submissionRestored": "A Resposta foi recuperada.",
     "entityRestored": "A Entidade \"{label}\" foi recuperada.",
-    "entityDeleted": "A Entidade \"{label}\" foi excluída."
+    "entityDeleted": "A Entidade \"{label}\" foi excluÃ­da."
   },
   "moreInfo": {
     "clickHere": {
-      "full": "Para mais informações, {clickHere}.",
+      "full": "Para mais informaÃ§Ãµes, {clickHere}.",
       "clickHere": "clique aqui"
     },
     "helpArticle": {
-      "full": "Para mais informações, por favor acesse {helpArticle}",
+      "full": "Para mais informaÃ§Ãµes, por favor acesse {helpArticle}",
       "helpArticle": "este artigo da ajuda"
     },
     "learnMore": "Saiba mais."
   },
   "analytics": {
-    "alwaysImprove": "Nós estamos sempre tentando melhorar o ODK Central.",
+    "alwaysImprove": "NÃ³s estamos sempre tentando melhorar o ODK Central.",
     "needFeedback": {
-      "full": "Para fazer isso nós precisamos do {your} comentário, assim poderemos entender o uso do Central e como torná-lo melhor para você.",
+      "full": "Para fazer isso nÃ³s precisamos do {your} comentÃ¡rio, assim poderemos entender o uso do Central e como tornÃ¡-lo melhor para vocÃª.",
       "your": "seu"
     },
-    "mailingListOptIn": "Envie-me ocasionalmente mensagens sobre novas funcionalidades e boas práticas."
+    "mailingListOptIn": "Envie-me ocasionalmente mensagens sobre novas funcionalidades e boas prÃ¡ticas."
   },
   "submission": {
     "missingAttachment": "Sem anexo",
     "action": {
       "edit": "Editar ({count})"
     },
-    "editDisabled": "Você não pode editar respostas encriptadas.",
+    "editDisabled": "VocÃª nÃ£o pode editar respostas encriptadas.",
     "binaryLinkTitle": "O arquivo foi enviado. Clique para baixar.",
-    "encryptionMessage": "A visualização dos dados não está disponível devido à encriptação.",
+    "encryptionMessage": "A visualizaÃ§Ã£o dos dados nÃ£o estÃ¡ disponÃ­vel devido Ã  encriptaÃ§Ã£o.",
     "noSubmission": "(nenhum)",
-    "emptyTable": "Não existem Respostas ainda.",
-    "fileDownloadUnavailable": "O download de arquivos não está disponível para Respostas excluídas."
+    "emptyTable": "NÃ£o existem Respostas ainda.",
+    "fileDownloadUnavailable": "O download de arquivos nÃ£o estÃ¡ disponÃ­vel para Respostas excluÃ­das."
   },
   "entity": {
-    "label": "Rótulo",
-    "entityLabel": "Rótulo da Entidade",
+    "label": "RÃ³tulo",
+    "entityLabel": "RÃ³tulo da Entidade",
     "entityId": "ID da Entidade",
-    "noProperties": "Este Formulário apenas define o “rótulo”",
+    "noProperties": "Este FormulÃ¡rio apenas define o â€œrÃ³tuloâ€",
     "noEntity": "(nenhuma)",
     "conflictsCount": "{count} conflito | {count} conflitos | {count} conflitos"
   },
@@ -307,29 +307,29 @@
     "activity": "Atividade",
     "anybody": "(Qualquer pessoa)",
     "areYouSure": "Tem certeza que deseja continuar?",
-    "basicInfo": "Informações básicas",
+    "basicInfo": "InformaÃ§Ãµes bÃ¡sicas",
     "conflict": "Conflito",
     "conflicts": "Conflitos",
     "dangerZone": "Zona de perigo",
     "data": "Dados",
-    "docs": "Documentação",
-    "emptyMap": "Ainda não há dados de mapa disponíveis.",
+    "docs": "DocumentaÃ§Ã£o",
+    "emptyMap": "Ainda nÃ£o hÃ¡ dados de mapa disponÃ­veis.",
     "emptyValue": "(vazio)",
     "error": "Erro",
     "filter": "Filtrar",
-    "forum": "Fórum",
-    "lastUpdate": "Última atualização",
+    "forum": "FÃ³rum",
+    "lastUpdate": "Ãšltima atualizaÃ§Ã£o",
     "loading": "Carregando...",
     "map": "Mapa",
-    "no": "Não",
-    "noResults": "Não há resultados",
-    "noUndo": "Esta ação não pode se desfeita.",
+    "no": "NÃ£o",
+    "noResults": "NÃ£o hÃ¡ resultados",
+    "noUndo": "Esta aÃ§Ã£o nÃ£o pode se desfeita.",
     "rowNumber": "Linha",
     "success": "Sucesso!",
     "system": "Sistema",
     "yes": "Sim",
     "tab": {
-      "settings": "Configurações"
+      "settings": "ConfiguraÃ§Ãµes"
     },
     "table": "Tabela",
     "total": "Total",
@@ -341,58 +341,58 @@
     "warning": "Aviso",
     "none": "(nenhum)",
     "search": "Busca",
-    "reviewState": "Status da revisão",
-    "status": "Situação",
-    "version": "Versão",
+    "reviewState": "Status da revisÃ£o",
+    "status": "SituaÃ§Ã£o",
+    "version": "VersÃ£o",
     "trash": "Lixeira"
   },
   "mixin": {
     "request": {
       "alert": {
-        "fileSize": "O arquivo \"{name}\" que você está tentando enviar é maior do que o limite de 100 MB.",
-        "entityTooLarge": "Os dados que você está tentando carregar são muito grandes."
+        "fileSize": "O arquivo \"{name}\" que vocÃª estÃ¡ tentando enviar Ã© maior do que o limite de 100 MB.",
+        "entityTooLarge": "Os dados que vocÃª estÃ¡ tentando carregar sÃ£o muito grandes."
       }
     }
   },
   "util": {
     "csv": {
       "readError": "Ocorreu um problema ao ler seu arquivo: {message}",
-      "invalidCSV": "O arquivo “{name}” não é um arquivo .csv válido. Ele não pode ser lido.",
-      "rowError": "Há um problema na linha {row} do arquivo: {message}",
-      "invalidQuotes": "Um campo entre aspas é inválido. Verifique a linha para ver se há algum valor incomum.",
-      "emptyRow": "A linha está vazia.",
+      "invalidCSV": "O arquivo â€œ{name}â€ nÃ£o Ã© um arquivo .csv vÃ¡lido. Ele nÃ£o pode ser lido.",
+      "rowError": "HÃ¡ um problema na linha {row} do arquivo: {message}",
+      "invalidQuotes": "Um campo entre aspas Ã© invÃ¡lido. Verifique a linha para ver se hÃ¡ algum valor incomum.",
+      "emptyRow": "A linha estÃ¡ vazia.",
       "dataWithoutHeader": "Era esperada {expected} coluna, mas foi encontrada {actual}. | Eram esperadas {expected} colunas, mas foram encontradas {actual}. | Eram esperadas {expected} colunas, mas foram encontradas {actual}."
     },
     "request": {
-      "noRequest": "Algo deu errado: não houve requisição.",
-      "noResponse": "Algo deu errado: não houve resposta à sua requisição.",
-      "errorNotProblem": "Algo deu errado: código de erro {status}.",
+      "noRequest": "Algo deu errado: nÃ£o houve requisiÃ§Ã£o.",
+      "noResponse": "Algo deu errado: nÃ£o houve resposta Ã  sua requisiÃ§Ã£o.",
+      "errorNotProblem": "Algo deu errado: cÃ³digo de erro {status}.",
       "problem": {
-        "404_1": "O recurso que você está procurando não foi encontrado. O recurso pode ter sido excluído.",
+        "404_1": "O recurso que vocÃª estÃ¡ procurando nÃ£o foi encontrado. O recurso pode ter sido excluÃ­do.",
         "409_17": {
-          "message": "Este Formulário tenta criar uma nova propriedade de Entidade que corresponde a uma já existente, exceto pelas letras maiúsculas: | Este Formulário tenta criar novas propriedades de Entidade que correspondem às existentes, exceto pelas letras maiúsculas: | Este Formulário tenta criar novas propriedades de Entidade que correspondem às existentes, exceto pelas letras maiúsculas:",
+          "message": "Este FormulÃ¡rio tenta criar uma nova propriedade de Entidade que corresponde a uma jÃ¡ existente, exceto pelas letras maiÃºsculas: | Este FormulÃ¡rio tenta criar novas propriedades de Entidade que correspondem Ã s existentes, exceto pelas letras maiÃºsculas: | Este FormulÃ¡rio tenta criar novas propriedades de Entidade que correspondem Ã s existentes, exceto pelas letras maiÃºsculas:",
           "duplicateProperty": "{provided}(existentes: {current})"
         }
       }
     },
     "session": {
       "alert": {
-        "expiresSoon": "Sua sessão está prestes a expirar! Você será desconectado em 2 minutos.",
-        "expired": "Sua sessão expirou. Efetue o login novamente para continuar.",
+        "expiresSoon": "Sua sessÃ£o estÃ¡ prestes a expirar! VocÃª serÃ¡ desconectado em 2 minutos.",
+        "expired": "Sua sessÃ£o expirou. Efetue o login novamente para continuar.",
         "logoutError": {
           "thereWasProblem": "Ocorreu um problema ao sair.",
-          "pleaseRefresh": "Por favor, atualize a página e tente novamente."
+          "pleaseRefresh": "Por favor, atualize a pÃ¡gina e tente novamente."
         }
       }
     }
   },
   "router": {
-    "unsavedChanges": "Você tem certeza que deseja sair da dessa página? Suas alterações podem não ter sido salvas."
+    "unsavedChanges": "VocÃª tem certeza que deseja sair da dessa pÃ¡gina? Suas alteraÃ§Ãµes podem nÃ£o ter sido salvas."
   },
   "formStateDescription": {
-    "open": "Esse formulário pode ser baixado e está aceitando respostas.",
-    "closing": "Esse formulário não pode ser baixado, mas ainda aceita respostas.",
-    "closed": "Esse formulário não pode ser baixado, e não aceita mais respostas."
+    "open": "Esse formulÃ¡rio pode ser baixado e estÃ¡ aceitando respostas.",
+    "closing": "Esse formulÃ¡rio nÃ£o pode ser baixado, mas ainda aceita respostas.",
+    "closed": "Esse formulÃ¡rio nÃ£o pode ser baixado, e nÃ£o aceita mais respostas."
   },
   "requestData": {
     "project": {

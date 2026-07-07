@@ -1399,7 +1399,7 @@
           "string": "Idadi ya Fomu zilizo na usimbaji fiche"
         },
         "num_forms_with_audits": {
-          "string": "Idadi ya Fomu zilizo na ukaguzi\n "
+          "string": "Idadi ya Fomu zilizo na ukaguzi\nÂ "
         },
         "num_forms_webforms_enabled": {
           "string": ""
@@ -2167,7 +2167,7 @@
         },
         "formsCount": {
           "string": "{count, plural, one {} other {}}",
-          "developer_comment": "This text will be inserted where {formsCount} is in the following sentence:\n\nThe Entity List “{name}” is linked to {formsCount}."
+          "developer_comment": "This text will be inserted where {formsCount} is in the following sentence:\n\nThe Entity List â€œ{name}â€ is linked to {formsCount}."
         }
       }
     },
@@ -2643,15 +2643,15 @@
     },
     "EntityResolve": {
       "title": {
-        "string": "Masasisho sambamba ya “{label}”",
+        "string": "Masasisho sambamba ya â€œ{label}â€",
         "developer_comment": "This is the title at the top of a pop-up. {label} is the label of an Entity."
       },
       "instructions": {
         "0": {
-          "string": "Masasisho yalifanywa kwa “{label}”  kwa sambamba. Hii inamaanisha kuwa mabadiliko yanaweza kuwa yanakinzana, kwa vile yaliandikwa dhidi ya data ya zamani kuliko yalivyotumiwa na Central."
+          "string": "Masasisho yalifanywa kwa â€œ{label}â€  kwa sambamba. Hii inamaanisha kuwa mabadiliko yanaweza kuwa yanakinzana, kwa vile yaliandikwa dhidi ya data ya zamani kuliko yalivyotumiwa na Central."
         },
         "1": {
-          "string": "Kagua masasisho, fanya mabadiliko yoyote unayohitaji, na ikiwa una uhakika kwamba data hii ya Huluki ni sahihi bonyeza“Mark as resolved” ili kufuta ujumbe huu wa onyo."
+          "string": "Kagua masasisho, fanya mabadiliko yoyote unayohitaji, na ikiwa una uhakika kwamba data hii ya Huluki ni sahihi bonyezaâ€œMark as resolvedâ€ ili kufuta ujumbe huu wa onyo."
         }
       },
       "action": {
@@ -2712,7 +2712,7 @@
           "developer_comment": "This is shown at the top of the page."
         },
         "back": {
-          "string": "Rudi kwenye Jedwali la {datasetName}\n ",
+          "string": "Rudi kwenye Jedwali la {datasetName}\nÂ ",
           "developer_comment": "This is shown at the top of the page. The user can click it to go back."
         }
       }
@@ -2788,7 +2788,7 @@
         },
         "downloadTemplate": {
           "string": "",
-          "developer_comment": "This text will be formatted within ODK Central, for example, it might be bold or a link. It will be inserted where {downloadTemplate} is in the following text:\n\nIf you aren’t sure, you can {downloadTemplate}"
+          "developer_comment": "This text will be formatted within ODK Central, for example, it might be bold or a link. It will be inserted where {downloadTemplate} is in the following text:\n\nIf you arenâ€™t sure, you can {downloadTemplate}"
         }
       }
     },
@@ -2935,7 +2935,7 @@
           },
           "formAccess": {
             "string": "Ufikiaji wa Fomu",
-            "developer_comment": "This text will be formatted within ODK Central, for example, it might be bold or a link. It will be inserted where {formAccess} is in the following text:\n\nApp Users are used to collect data from an application such as {collect}. They typically represent a shared role such as “Vaccinator” but may also represent individuals. App Users in this Project can only download and use Forms within this Project. When you create a new App User, it will not have access to any Forms at first. To set the Forms each App User may access, use the {formAccess} tab."
+            "developer_comment": "This text will be formatted within ODK Central, for example, it might be bold or a link. It will be inserted where {formAccess} is in the following text:\n\nApp Users are used to collect data from an application such as {collect}. They typically represent a shared role such as â€œVaccinatorâ€ but may also represent individuals. App Users in this Project can only download and use Forms within this Project. When you create a new App User, it will not have access to any Forms at first. To set the Forms each App User may access, use the {formAccess} tab."
           }
         },
         "1": {
@@ -3003,7 +3003,7 @@
           },
           "formAccessSettings": {
             "string": "Mipangilio ya Ufikiaji wa Fomu",
-            "developer_comment": "This text will be formatted within ODK Central, for example, it might be bold or a link. It will be inserted where {formAccessSettings} is in the following text:\n\nYou may wish to visit this Project’s {formAccessSettings} to give this user access to Forms."
+            "developer_comment": "This text will be formatted within ODK Central, for example, it might be bold or a link. It will be inserted where {formAccessSettings} is in the following text:\n\nYou may wish to visit this Projectâ€™s {formAccessSettings} to give this user access to Forms."
           }
         }
       },
@@ -3247,7 +3247,7 @@
           },
           "countOfFiles": {
             "string": "{count, plural, one {faili {count}} other {faili {count}}}",
-            "developer_comment": "This text will be formatted within ODK Central, for example, it might be bold or a link. It will be inserted where {countOfFiles} is in the following text. (The plural form of the text is shown.)\n\n{countOfFiles} have a name we don’t recognize and will be ignored. To upload them, rename them or drag them individually onto their targets."
+            "developer_comment": "This text will be formatted within ODK Central, for example, it might be bold or a link. It will be inserted where {countOfFiles} is in the following text. (The plural form of the text is shown.)\n\n{countOfFiles} have a name we donâ€™t recognize and will be ignored. To upload them, rename them or drag them individually onto their targets."
           }
         },
         "noneMatched": {
@@ -3748,7 +3748,7 @@
           },
           "tools": {
             "string": "zana zinazopatikana",
-            "developer_comment": "This text will be formatted within ODK Central, for example, it might be bold or a link. It will be inserted where {tools} is in the following text:\n\nIf you don’t already have one, there are {tools} to help you design your Form."
+            "developer_comment": "This text will be formatted within ODK Central, for example, it might be bold or a link. It will be inserted where {tools} is in the following text:\n\nIf you donâ€™t already have one, there are {tools} to help you design your Form."
           }
         },
         "2": {
@@ -3789,7 +3789,7 @@
           "developer_comment": "The word \"XLSForm\" should not be translated."
         },
         "409_3": {
-          "string": "Tayari kuna Fomu katika Mradi huu yenye Kitambulisho cha Fomu ya “{xmlFormId}”."
+          "string": "Tayari kuna Fomu katika Mradi huu yenye Kitambulisho cha Fomu ya â€œ{xmlFormId}â€."
         }
       },
       "fields": {
@@ -3890,7 +3890,7 @@
           },
           "formAccessSettings": {
             "string": "Mipangilio ya Ufikiaji wa Fomu",
-            "developer_comment": "This text will be formatted within ODK Central, for example, it might be bold or a link. It will be inserted where {formAccessSettings} is in the following text:\n\nTo set this Form’s state, please visit the Project {formAccessSettings}."
+            "developer_comment": "This text will be formatted within ODK Central, for example, it might be bold or a link. It will be inserted where {formAccessSettings} is in the following text:\n\nTo set this Formâ€™s state, please visit the Project {formAccessSettings}."
           }
         }
       },
@@ -5231,7 +5231,7 @@
       "title": {
         "create": {
           "string": "Imewasilishwa na {name}",
-          "developer_comment": "This text is shown in the list of actions performed on a Submission. There is an icon before the text that corresponds to the word \"Submitted\", so it is essential for \"Submitted\" to also come first in the translation. If that is unnatural in your language, you can also split the text into two parts. For example, instead of:\n\nSubmitted by {name}\n\nyou could split it into:\n\nSubmitted • {name}"
+          "developer_comment": "This text is shown in the list of actions performed on a Submission. There is an icon before the text that corresponds to the word \"Submitted\", so it is essential for \"Submitted\" to also come first in the translation. If that is unnatural in your language, you can also split the text into two parts. For example, instead of:\n\nSubmitted by {name}\n\nyou could split it into:\n\nSubmitted â€¢ {name}"
         },
         "entity": {
           "create": {
@@ -5248,7 +5248,7 @@
           "null": {
             "full": {
               "string": "{reviewState} kwa {name}",
-              "developer_comment": "This text is shown in the list of actions performed on a Submission. There is an icon before the text that corresponds to the Review State, so it is essential for the Review State to also come first in the translation. If that is unnatural in your language, you can also split the text into two parts. For example, instead of:\n\n{reviewState} per {name}\n\nyou could split it into:\n\n{reviewState} • {name}\n\n{reviewState} is a separate string that will be translated below. Its text will be formatted within ODK Central, for example, it might be bold or a link. Its text is:\n\nReceived"
+              "developer_comment": "This text is shown in the list of actions performed on a Submission. There is an icon before the text that corresponds to the Review State, so it is essential for the Review State to also come first in the translation. If that is unnatural in your language, you can also split the text into two parts. For example, instead of:\n\n{reviewState} per {name}\n\nyou could split it into:\n\n{reviewState} â€¢ {name}\n\n{reviewState} is a separate string that will be translated below. Its text will be formatted within ODK Central, for example, it might be bold or a link. Its text is:\n\nReceived"
             },
             "reviewState": {
               "string": "Imepokelewa",
@@ -5258,7 +5258,7 @@
           "hasIssues": {
             "full": {
               "string": "{reviewState} kwa {name}",
-              "developer_comment": "This text is shown in the list of actions performed on a Submission. There is an icon before the text that corresponds to the Review State, so it is essential for the Review State to also come first in the translation. If that is unnatural in your language, you can also split the text into two parts. For example, instead of:\n\n{reviewState} per {name}\n\nyou could split it into:\n\n{reviewState} • {name}\n\n{reviewState} is a separate string that will be translated below. Its text will be formatted within ODK Central, for example, it might be bold or a link. Its text is:\n\nHas Issues"
+              "developer_comment": "This text is shown in the list of actions performed on a Submission. There is an icon before the text that corresponds to the Review State, so it is essential for the Review State to also come first in the translation. If that is unnatural in your language, you can also split the text into two parts. For example, instead of:\n\n{reviewState} per {name}\n\nyou could split it into:\n\n{reviewState} â€¢ {name}\n\n{reviewState} is a separate string that will be translated below. Its text will be formatted within ODK Central, for example, it might be bold or a link. Its text is:\n\nHas Issues"
             },
             "reviewState": {
               "string": "Ina Masuala",
@@ -5268,7 +5268,7 @@
           "edited": {
             "full": {
               "string": "{reviewState} kwa {name}",
-              "developer_comment": "This text is shown in the list of actions performed on a Submission. There is an icon before the text that corresponds to the Review State, so it is essential for the Review State to also come first in the translation. If that is unnatural in your language, you can also split the text into two parts. For example, instead of:\n\n{reviewState} by {name}\n\nyou could split it into:\n\n{reviewState} • {name}\n\n{reviewState} is a separate string that will be translated below. Its text will be formatted within ODK Central, for example, it might be bold or a link. Its text is:\n\nEdited"
+              "developer_comment": "This text is shown in the list of actions performed on a Submission. There is an icon before the text that corresponds to the Review State, so it is essential for the Review State to also come first in the translation. If that is unnatural in your language, you can also split the text into two parts. For example, instead of:\n\n{reviewState} by {name}\n\nyou could split it into:\n\n{reviewState} â€¢ {name}\n\n{reviewState} is a separate string that will be translated below. Its text will be formatted within ODK Central, for example, it might be bold or a link. Its text is:\n\nEdited"
             },
             "reviewState": {
               "string": "Imehaririwa",
@@ -5278,7 +5278,7 @@
           "approved": {
             "full": {
               "string": "{reviewState} kwa {name}",
-              "developer_comment": "This text is shown in the list of actions performed on a Submission. There is an icon before the text that corresponds to the Review State, so it is essential for the Review State to also come first in the translation. If that is unnatural in your language, you can also split the text into two parts. For example, instead of:\n\n{reviewState} by {name}\n\nyou could split it into:\n\n{reviewState} • {name}\n\n{reviewState} is a separate string that will be translated below. Its text will be formatted within ODK Central, for example, it might be bold or a link. Its text is:\n\nApproved"
+              "developer_comment": "This text is shown in the list of actions performed on a Submission. There is an icon before the text that corresponds to the Review State, so it is essential for the Review State to also come first in the translation. If that is unnatural in your language, you can also split the text into two parts. For example, instead of:\n\n{reviewState} by {name}\n\nyou could split it into:\n\n{reviewState} â€¢ {name}\n\n{reviewState} is a separate string that will be translated below. Its text will be formatted within ODK Central, for example, it might be bold or a link. Its text is:\n\nApproved"
             },
             "reviewState": {
               "string": "Imeidhinishwa",
@@ -5288,7 +5288,7 @@
           "rejected": {
             "full": {
               "string": "{reviewState} kwa {name}",
-              "developer_comment": "This text is shown in the list of actions performed on a Submission. There is an icon before the text that corresponds to the Review State, so it is essential for the Review State to also come first in the translation. If that is unnatural in your language, you can also split the text into two parts. For example, instead of:\n\n{reviewState} by {name}\n\nyou could split it into:\n\n{reviewState} • {name}\n\n{reviewState} is a separate string that will be translated below. Its text will be formatted within ODK Central, for example, it might be bold or a link. Its text is:\n\nRejected"
+              "developer_comment": "This text is shown in the list of actions performed on a Submission. There is an icon before the text that corresponds to the Review State, so it is essential for the Review State to also come first in the translation. If that is unnatural in your language, you can also split the text into two parts. For example, instead of:\n\n{reviewState} by {name}\n\nyou could split it into:\n\n{reviewState} â€¢ {name}\n\n{reviewState} is a separate string that will be translated below. Its text will be formatted within ODK Central, for example, it might be bold or a link. Its text is:\n\nRejected"
             },
             "reviewState": {
               "string": "Imekataliwa",
@@ -5298,15 +5298,15 @@
         },
         "comment": {
           "string": "Maoni kutoka kwa {name}",
-          "developer_comment": "This text is shown in the list of actions performed on a Submission. There is an icon before the text that corresponds to the word \"Comment\", so it is essential for \"Comment\" to also come first in the translation. If that is unnatural in your language, you can also split the text into two parts. For example, instead of:\n\nComment by {name}\n\nyou could split it into:\n\nComment • {name}"
+          "developer_comment": "This text is shown in the list of actions performed on a Submission. There is an icon before the text that corresponds to the word \"Comment\", so it is essential for \"Comment\" to also come first in the translation. If that is unnatural in your language, you can also split the text into two parts. For example, instead of:\n\nComment by {name}\n\nyou could split it into:\n\nComment â€¢ {name}"
         },
         "delete": {
           "string": "",
-          "developer_comment": "This text is shown in the list of actions performed on a Submission. There is an icon before the text that corresponds to the word \"Deleted\", so it is essential for \"Deleted\" to also come first in the translation. If that is unnatural in your language, you can also split the text into two parts. For example, instead of:\n\nDeleted by {name}\n\nyou could split it into:\n\nDeleted • {name}"
+          "developer_comment": "This text is shown in the list of actions performed on a Submission. There is an icon before the text that corresponds to the word \"Deleted\", so it is essential for \"Deleted\" to also come first in the translation. If that is unnatural in your language, you can also split the text into two parts. For example, instead of:\n\nDeleted by {name}\n\nyou could split it into:\n\nDeleted â€¢ {name}"
         },
         "undelete": {
           "string": "",
-          "developer_comment": "This text is shown in the list of actions performed on a Submission. There is an icon before the text that corresponds to the word \"Restored\", so it is essential for \"Restored\" to also come first in the translation. If that is unnatural in your language, you can also split the text into two parts. For example, instead of:\n\nRestored by {name}\n\nyou could split it into:\n\nRestored • {name}"
+          "developer_comment": "This text is shown in the list of actions performed on a Submission. There is an icon before the text that corresponds to the word \"Restored\", so it is essential for \"Restored\" to also come first in the translation. If that is unnatural in your language, you can also split the text into two parts. For example, instead of:\n\nRestored by {name}\n\nyou could split it into:\n\nRestored â€¢ {name}"
         },
         "submissionBacklog": {
           "hold": {
@@ -5676,12 +5676,12 @@
       },
       "introduction": {
         "full": {
-          "string": "Ukibofya {resetPassword} hapa chini, nenosiri la mtumiaji “{displayName}” <{email}> litabatilishwa mara moja. Barua pepe itatumwa kwa {email} ikiwa na maagizo ya jinsi ya kuendelea.",
+          "string": "Ukibofya {resetPassword} hapa chini, nenosiri la mtumiaji â€œ{displayName}â€ <{email}> litabatilishwa mara moja. Barua pepe itatumwa kwa {email} ikiwa na maagizo ya jinsi ya kuendelea.",
           "developer_comment": "{resetPassword} is a separate string that will be translated below. Its text will be formatted within ODK Central, for example, it might be bold or a link. Its text is:\n\nReset password"
         },
         "resetPassword": {
           "string": "Weka upya nenosiri",
-          "developer_comment": "This text will be formatted within ODK Central, for example, it might be bold or a link. It will be inserted where {resetPassword} is in the following text:\n\nOnce you click {resetPassword} below, the password for the user “{displayName}” <{email}> will be immediately invalidated. An email will be sent to {email} with instructions on how to proceed."
+          "developer_comment": "This text will be formatted within ODK Central, for example, it might be bold or a link. It will be inserted where {resetPassword} is in the following text:\n\nOnce you click {resetPassword} below, the password for the user â€œ{displayName}â€ <{email}> will be immediately invalidated. An email will be sent to {email} with instructions on how to proceed."
         }
       }
     },

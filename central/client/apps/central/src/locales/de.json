@@ -1,6 +1,6 @@
 {
   "title": {
-    "resetPassword": "Passwort zurücksetzen",
+    "resetPassword": "Passwort zurÃ¼cksetzen",
     "setPassword": "Passwort festlegen",
     "editProfile": "Profil bearbeiten",
     "download": "Herunterladen",
@@ -14,7 +14,7 @@
   },
   "formHead": {
     "tab": {
-      "publicAccess": "Öffentlicher Zugriff",
+      "publicAccess": "Ã–ffentlicher Zugriff",
       "versions": "Versionen",
       "editForm": "Formular bearbeiten"
     }
@@ -36,15 +36,15 @@
   },
   "formState": {
     "open": "Offen",
-    "closing": "Schließen",
+    "closing": "SchlieÃŸen",
     "closed": "Geschlossen",
-    "unpublished": "Noch nicht veröffentlicht"
+    "unpublished": "Noch nicht verÃ¶ffentlicht"
   },
   "reviewState": {
     "received": "Empfangen",
     "hasIssues": "Hat Probleme",
     "edited": "Bearbeitet",
-    "approved": "Bestätigt",
+    "approved": "BestÃ¤tigt",
     "rejected": "Abgelehnt",
     "null": "@:reviewState.received"
   },
@@ -55,7 +55,7 @@
       "project": "Projekt-Aktionen",
       "form": "Formular-Aktionen",
       "field_key": "App-Benutzer-Aktionen",
-      "public_link": "Öffentlicher Zugangslink-Aktionen",
+      "public_link": "Ã–ffentlicher Zugangslink-Aktionen",
       "dataset": "Objektlistenaktionen",
       "config": "Server-Konfigurationsaktionen",
       "upgrade": "Server-Aktualisierung",
@@ -66,25 +66,25 @@
         "create": "Erstellen",
         "update": "Details aktualisieren",
         "session_end": "Widerrufen",
-        "delete": "Löschen"
+        "delete": "LÃ¶schen"
       },
       "analytics": "Berichtsnutzung",
       "blobs": {
         "s3_upload": "Dateien in den Speicher hochladen",
-        "s3_failed_to_pending": "Dateien für erneuten Upload zum Speicher markieren"
+        "s3_failed_to_pending": "Dateien fÃ¼r erneuten Upload zum Speicher markieren"
       },
       "config": {
         "set": "Setzen"
       },
       "dataset": {
         "update": "Aktualisieren",
-        "update_publish": "Veröffentlichen",
-        "update_property_delete": "Eigenschaft löschen",
+        "update_publish": "VerÃ¶ffentlichen",
+        "update_property_delete": "Eigenschaft lÃ¶schen",
         "create": "@:audit.action.default.create",
         "delete": "@:audit.action.default.delete"
       },
       "entity": {
-        "bulk_delete": "Massenlöschung",
+        "bulk_delete": "MassenlÃ¶schung",
         "bulk_restore": "Massenwiederherstellung"
       },
       "field_key": {
@@ -97,12 +97,12 @@
       "form": {
         "update_draft_set": "Entwurf verfassen oder aktualisieren",
         "update_draft_replace": "Ersetzen des Entwurfs",
-        "update_publish": "Entwurf veröffentlichen",
-        "update_draft_delete": "Entwurf löschen",
-        "attachment_update": "Anhänge aktualisieren",
-        "submission_export": "Übermittlungen downloaden",
+        "update_publish": "Entwurf verÃ¶ffentlichen",
+        "update_draft_delete": "Entwurf lÃ¶schen",
+        "attachment_update": "AnhÃ¤nge aktualisieren",
+        "submission_export": "Ãœbermittlungen downloaden",
         "restore": "Wiederherstellen",
-        "purge": "Säubern",
+        "purge": "SÃ¤ubern",
         "create": "@:audit.action.default.create",
         "update": "@:audit.action.default.update",
         "delete": "@:audit.action.default.delete"
@@ -115,12 +115,12 @@
         "delete": "@:audit.action.default.delete"
       },
       "submission": {
-        "purge": "Übermittlungen bereinigen"
+        "purge": "Ãœbermittlungen bereinigen"
       },
       "upgrade": {
         "process_form": "Formular verarbeiten",
         "process_form_draft": "Formularentwurf verarbeiten",
-        "process_form_entities_version": "Formular für Upgrade markieren",
+        "process_form_entities_version": "Formular fÃ¼r Upgrade markieren",
         "server": "Neue Version"
       },
       "user": {
@@ -140,13 +140,13 @@
   },
   "action": {
     "cancel": "Abbrechen",
-    "clear": "Löschen",
-    "close": "Schließen",
+    "clear": "LÃ¶schen",
+    "close": "SchlieÃŸen",
     "comment": "Kommentieren",
     "continue": "Weitermachen",
     "create": "Anlegen",
-    "createSubmission": "Neue Übermittlung",
-    "delete": "Löschen",
+    "createSubmission": "Neue Ãœbermittlung",
+    "delete": "LÃ¶schen",
     "done": "Fertig",
     "download": "Herunterladen",
     "edit": "Bearbeiten",
@@ -162,22 +162,22 @@
     "proceed": "Fortfahren",
     "refresh": "Aktualisieren",
     "refreshPage": "Seite aktualisieren",
-    "resetPassword": "Passwort zurücksetzen",
-    "review": "Überprüfen",
+    "resetPassword": "Passwort zurÃ¼cksetzen",
+    "review": "ÃœberprÃ¼fen",
     "save": "Speichern",
     "saveSettings": "Einstellungen speichern",
     "sort": "Sortieren",
-    "undo": "Rückgängig machen",
+    "undo": "RÃ¼ckgÃ¤ngig machen",
     "update": "Aktualisieren",
     "yesProceed": "Ja, fortfahren",
     "showPreview": "Vorschau",
     "hidePreview": "Vorschau ausblenden",
-    "expand": "Vergrössern",
+    "expand": "VergrÃ¶ssern",
     "collapse": "Verkleinern",
-    "selectRow": "Zeile auswählen",
-    "reset": "Zurücksetzen",
+    "selectRow": "Zeile auswÃ¤hlen",
+    "reset": "ZurÃ¼cksetzen",
     "upload": "Hochladen",
-    "reviewParallelUpdates": "Parallele Updates überprüfen",
+    "reviewParallelUpdates": "Parallele Updates Ã¼berprÃ¼fen",
     "restore": "Wiederherstellen"
   },
   "field": {
@@ -190,7 +190,7 @@
     "oldPassword": "Altes Passwort",
     "passphrase": "Passphrase",
     "password": "Passwort",
-    "passwordConfirm": "Neues Passwort (bestätigen)",
+    "passwordConfirm": "Neues Passwort (bestÃ¤tigen)",
     "title": "Titel",
     "type": "Typ"
   },
@@ -203,12 +203,12 @@
     "displayName": "Anzeigename",
     "email": "E-Mail-Adresse",
     "instanceId": "Instanz-ID",
-    "lastSubmission": "Letzte Übermittlung",
-    "recentActivity": "Letzte Aktivität",
+    "lastSubmission": "Letzte Ãœbermittlung",
+    "recentActivity": "Letzte AktivitÃ¤t",
     "name": "Name",
     "listName": "Name der Liste",
-    "submitterName": "Übermittelt von",
-    "submissionDate": "Übermittelt um",
+    "submitterName": "Ãœbermittelt von",
+    "submissionDate": "Ãœbermittelt um",
     "time": "Zeit",
     "type": "Typ",
     "entities": "Objekte insgesamt",
@@ -218,21 +218,21 @@
     "appUser": "App-Benutzer | App-Benutzer",
     "form": "Formular | Formulare",
     "project": "Projekt | Projekte",
-    "submission": "Übermittlung | Übermittlungen",
+    "submission": "Ãœbermittlung | Ãœbermittlungen",
     "user": "Benutzer | Benutzer",
     "webUser": "Web-Benutzer | Web-Benutzer"
   },
   "count": {
     "appUser": "{count} App-Benutzer | {count} App-Benutzer",
-    "attachments": "{count} Anhang | {count} Anhänge",
+    "attachments": "{count} Anhang | {count} AnhÃ¤nge",
     "form": "{count} Formular | {count} Formulare",
-    "submission": "{count} Übermittlung | {count} Übermittlungen",
+    "submission": "{count} Ãœbermittlung | {count} Ãœbermittlungen",
     "warning": "{count} Warnung | {count} Warnungen"
   },
   "resource": {
     "appUser": "App-Benutzer",
     "appUsers": "App-Benutzer",
-    "attachments": "Anhänge",
+    "attachments": "AnhÃ¤nge",
     "config": "Server-Konfiguration",
     "entity": "Objekt",
     "entities": "Objekte",
@@ -241,19 +241,19 @@
     "form": "Formular",
     "forms": "Formulare",
     "newForm": "Neue Formular",
-    "formAttachments": "Formularanhänge",
+    "formAttachments": "FormularanhÃ¤nge",
     "project": "Projekt",
     "projects": "Projekte",
     "property": "Eigenschaft",
     "properties": "Eigenschaften",
-    "publicLink": "Öffentlicher Zugangslink",
+    "publicLink": "Ã–ffentlicher Zugangslink",
     "user": "Benutzer",
     "users": "Benutzer",
     "webUser": "Web-Benutzer",
     "webUsers": "Web-Benutzer",
     "session": "Sitzung",
-    "submission": "Übermittlung",
-    "submissions": "Übermittlungen",
+    "submission": "Ãœbermittlung",
+    "submissions": "Ãœbermittlungen",
     "projectRoles": "Projektrollen",
     "formPreview": "Formular Vorschau",
     "draft": "Entwurf"
@@ -261,12 +261,12 @@
   "alert": {
     "passwordTooShort": "Das Passwort muss mindestens 10 Zeichen lang sein.",
     "updateEntity": "Objekt wurde erfolgreich aktualisiert.",
-    "updateReviewState": "Überprüfung erfolgreich gespeichert.",
+    "updateReviewState": "ÃœberprÃ¼fung erfolgreich gespeichert.",
     "versionChange": "Der Server wurde erfolgreich aktualisiert.",
-    "submissionDeleted": "Die Übermittlung wurde erfolgreich gelöscht.",
-    "submissionRestored": "Die Übermittlung wurde wiederhergestellt.",
-    "entityRestored": "Das Objekt \"{label}“ wurde wiederhergestellt.",
-    "entityDeleted": "Das Objekt \"{label}“ wurde gelöscht."
+    "submissionDeleted": "Die Ãœbermittlung wurde erfolgreich gelÃ¶scht.",
+    "submissionRestored": "Die Ãœbermittlung wurde wiederhergestellt.",
+    "entityRestored": "Das Objekt \"{label}â€œ wurde wiederhergestellt.",
+    "entityDeleted": "Das Objekt \"{label}â€œ wurde gelÃ¶scht."
   },
   "moreInfo": {
     "clickHere": {
@@ -287,35 +287,35 @@
     "customLogoAlt": "Logo der Organisation"
   },
   "analytics": {
-    "alwaysImprove": "Wir sind stets bemüht, ODK Central zu verbessern.",
+    "alwaysImprove": "Wir sind stets bemÃ¼ht, ODK Central zu verbessern.",
     "needFeedback": {
-      "full": "Wir benötigen {your} Feedback, damit wir verstehen können, wie du Central verwendest und wie wir es für dich besser machen können.",
+      "full": "Wir benÃ¶tigen {your} Feedback, damit wir verstehen kÃ¶nnen, wie du Central verwendest und wie wir es fÃ¼r dich besser machen kÃ¶nnen.",
       "your": "dein"
     },
-    "mailingListOptIn": "Senden Sie mir gelegentlich E-Mails über neue Funktionen und bewährte Verfahren."
+    "mailingListOptIn": "Senden Sie mir gelegentlich E-Mails Ã¼ber neue Funktionen und bewÃ¤hrte Verfahren."
   },
   "submission": {
     "missingAttachment": "Fehlender Anhang",
     "action": {
       "edit": "Bearbeiten ({count})"
     },
-    "editDisabled": "Sie können verschlüsselte Übermittlungen nicht bearbeiten.",
-    "binaryLinkTitle": "Datei wurde übermittelt. Zum Downloaden klicken.",
-    "encryptionMessage": "Datenvorschau wegen Verschlüsselung nicht verfügbar",
+    "editDisabled": "Sie kÃ¶nnen verschlÃ¼sselte Ãœbermittlungen nicht bearbeiten.",
+    "binaryLinkTitle": "Datei wurde Ã¼bermittelt. Zum Downloaden klicken.",
+    "encryptionMessage": "Datenvorschau wegen VerschlÃ¼sselung nicht verfÃ¼gbar",
     "noSubmission": "(keine)",
-    "emptyTable": "Es gibt noch keine Übermittlungen.",
-    "fileDownloadUnavailable": "Datei-Download ist für gelöschte Einsendungen nicht verfügbar."
+    "emptyTable": "Es gibt noch keine Ãœbermittlungen.",
+    "fileDownloadUnavailable": "Datei-Download ist fÃ¼r gelÃ¶schte Einsendungen nicht verfÃ¼gbar."
   },
   "entity": {
     "label": "Etikett",
     "entityLabel": "Objektbezeichnung",
     "entityId": "Objekt-ID",
-    "noProperties": "Dieses Formular legt nur das \"Label“ fest.",
+    "noProperties": "Dieses Formular legt nur das \"Labelâ€œ fest.",
     "noEntity": "(keine)",
     "conflictsCount": "{count} Konflikt | {count} Konflikte"
   },
   "common": {
-    "activity": "Aktivität",
+    "activity": "AktivitÃ¤t",
     "anybody": "(Jeder)",
     "areYouSure": "Wollen Sie wirklich fortfahren?",
     "basicInfo": "Basis-Informationen",
@@ -324,7 +324,7 @@
     "dangerZone": "Gefahrenbereich",
     "data": "Daten",
     "docs": "Dokumentation",
-    "emptyMap": "Es sind noch keine Kartendaten verfügbar.",
+    "emptyMap": "Es sind noch keine Kartendaten verfÃ¼gbar.",
     "emptyValue": "(leer)",
     "error": "Fehler",
     "filter": "Filter",
@@ -334,7 +334,7 @@
     "map": "Karte",
     "no": "Nein",
     "noResults": "Keine Ergebnisse",
-    "noUndo": "Diese Aktion kann nicht rückgängig gemacht werden.",
+    "noUndo": "Diese Aktion kann nicht rÃ¼ckgÃ¤ngig gemacht werden.",
     "rowNumber": "Reihe",
     "success": "Das hat geklappt!",
     "system": "System",
@@ -344,7 +344,7 @@
     },
     "table": "Tabelle",
     "total": "Total",
-    "totalSubmissions": "Gesamtzahl der Übermittlungen",
+    "totalSubmissions": "Gesamtzahl der Ãœbermittlungen",
     "propertiesCount": "{inform} von {count} Eigenschaft | {inform} von {count} Eigenschaften",
     "new": "Neu!",
     "totalEntities": "Objekte insgesamt",
@@ -352,7 +352,7 @@
     "warning": "Warnung",
     "none": "(keine)",
     "search": "Suchen",
-    "reviewState": "Überprüfungsstatus",
+    "reviewState": "ÃœberprÃ¼fungsstatus",
     "status": "Status",
     "version": "Version",
     "trash": "Papierkorb"
@@ -360,7 +360,7 @@
   "mixin": {
     "request": {
       "alert": {
-        "fileSize": "Die Datei \"{name}\", die Sie versuchen hochzuladen ist größer als das 100 MB Limit.",
+        "fileSize": "Die Datei \"{name}\", die Sie versuchen hochzuladen ist grÃ¶ÃŸer als das 100 MB Limit.",
         "entityTooLarge": "Die Daten, die Sie hochzuladen versuchen, sind zu gross."
       }
     }
@@ -368,9 +368,9 @@
   "util": {
     "csv": {
       "readError": "Beim Lesen Ihrer Datei ist ein Problem aufgetreten: {message}",
-      "invalidCSV": "Die Datei “{name}” ist keine gültige .csv-Datei. Sie kann nicht gelesen werden.",
+      "invalidCSV": "Die Datei â€œ{name}â€ ist keine gÃ¼ltige .csv-Datei. Sie kann nicht gelesen werden.",
       "rowError": "Es gibt ein Problem in Zeile {row} der Datei: {message}",
-      "invalidQuotes": "Ein angegebenes Feld ist ungültig. Überprüfen Sie die Zeile, um zu sehen, ob es irgendwelche ungewöhnlichen Werte gibt.",
+      "invalidQuotes": "Ein angegebenes Feld ist ungÃ¼ltig. ÃœberprÃ¼fen Sie die Zeile, um zu sehen, ob es irgendwelche ungewÃ¶hnlichen Werte gibt.",
       "emptyRow": "Die Reihe ist leer.",
       "dataWithoutHeader": "Erwartet {expected} column, but found {actual}. | Erwartet {expected} Spalte, aber {actual} gefunden."
     },
@@ -379,16 +379,16 @@
       "noResponse": "Etwas ging schief: Wir haben keine Antwort auf Ihre Anfrage bekommen.",
       "errorNotProblem": "Etwas ging schief: Fehlercode {status}.",
       "problem": {
-        "404_1": "Die gesuchte Ressource kann nicht gefunden werden. Die Ressource wurde möglicherweise gelöscht.",
+        "404_1": "Die gesuchte Ressource kann nicht gefunden werden. Die Ressource wurde mÃ¶glicherweise gelÃ¶scht.",
         "409_17": {
-          "message": "Mit diesem Formular wird versucht, eine neue Objekteigenschaft zu erstellen, die bis auf die Gross- und Kleinschreibung mit einer vorhandenen übereinstimmt: | Dieses Formular versucht, neue Objekteigenschaften zu erstellen, die mit Ausnahme der Groß- und Kleinschreibung mit den vorhandenen übereinstimmen:",
+          "message": "Mit diesem Formular wird versucht, eine neue Objekteigenschaft zu erstellen, die bis auf die Gross- und Kleinschreibung mit einer vorhandenen Ã¼bereinstimmt: | Dieses Formular versucht, neue Objekteigenschaften zu erstellen, die mit Ausnahme der GroÃŸ- und Kleinschreibung mit den vorhandenen Ã¼bereinstimmen:",
           "duplicateProperty": "{provided} (bestehende: {current})"
         }
       }
     },
     "session": {
       "alert": {
-        "expiresSoon": "Ihre Session läuft ab! Sie werden in 2 Minuten ausgeloggt.",
+        "expiresSoon": "Ihre Session lÃ¤uft ab! Sie werden in 2 Minuten ausgeloggt.",
         "expired": "Ihre Session ist abgelaufen. Melden Sie sich erneut an, um fortzufahren.",
         "logoutError": {
           "thereWasProblem": "Es gab ein Problem beim Ausloggen.",
@@ -398,12 +398,12 @@
     }
   },
   "router": {
-    "unsavedChanges": "Wollen Sie diese Seite wirklich verlassen? Ihre Änderungen sind noch nicht gespeichert."
+    "unsavedChanges": "Wollen Sie diese Seite wirklich verlassen? Ihre Ã„nderungen sind noch nicht gespeichert."
   },
   "formStateDescription": {
-    "open": "Dieses Formular kann heruntergeladen werden und Übermittlungen werden akzeptiert.",
-    "closing": "Dieses Formular kann nicht heruntergeladen werden, aber Übermittlungen werden noch akzeptiert.",
-    "closed": "Dieses Formular kann nicht heruntergeladen werden und Übermittlungen werden nicht akzeptiert."
+    "open": "Dieses Formular kann heruntergeladen werden und Ãœbermittlungen werden akzeptiert.",
+    "closing": "Dieses Formular kann nicht heruntergeladen werden, aber Ãœbermittlungen werden noch akzeptiert.",
+    "closed": "Dieses Formular kann nicht heruntergeladen werden und Ãœbermittlungen werden nicht akzeptiert."
   },
   "requestData": {
     "project": {

@@ -169,7 +169,7 @@
         "developer_comment": "This is a category of actions performed on the server. It is shown in a dropdown when filtering the log of actions by type."
       },
       "dataset": {
-        "string": "Azioni dell'elenco delle entità",
+        "string": "Azioni dell'elenco delle entitÃ ",
         "developer_comment": "This is a category of actions performed on the server. It is shown in a dropdown when filtering the log of actions by type."
       },
       "config": {
@@ -238,7 +238,7 @@
           "developer_comment": "This is shown in the log of actions performed on the server. It is a type of action that can be taken on an Entity List."
         },
         "update_property_delete": {
-          "string": "Elimina proprietà",
+          "string": "Elimina proprietÃ ",
           "developer_comment": "This is shown in the log of actions performed on the server. It is a type of action that can be taken on an Entity List."
         }
       },
@@ -418,7 +418,7 @@
       "developer_comment": "This is the text for an action, for example, the text of a button."
     },
     "more": {
-      "string": "Di più",
+      "string": "Di piÃ¹",
       "developer_comment": "This is the text for an action, for example, the text of a button."
     },
     "neverMind": {
@@ -605,7 +605,7 @@
       "developer_comment": "This is the text of a table column header."
     },
     "recentActivity": {
-      "string": "Attività recente",
+      "string": "AttivitÃ  recente",
       "developer_comment": "This is the text of a table column header."
     },
     "name": {
@@ -633,11 +633,11 @@
       "developer_comment": "This is the text of a table column header."
     },
     "entities": {
-      "string": "Entità totali",
+      "string": "EntitÃ  totali",
       "developer_comment": "This is the text of a table column header. The column shows the number of entities for the Entity List"
     },
     "lastEntity": {
-      "string": "Ultima entità",
+      "string": "Ultima entitÃ ",
       "developer_comment": "This is the text of a table column header. The column shows the date and time of the newest entity"
     },
     "value": {
@@ -705,19 +705,19 @@
       "developer_comment": "This text appears on its own and is not part of a longer sentence. It may be shown as a title, for example, at the top of the page."
     },
     "entity": {
-      "string": "Entità",
+      "string": "EntitÃ ",
       "developer_comment": "This text appears on its own and is not part of a longer sentence. It may be shown as a title, for example, at the top of the page."
     },
     "entities": {
-      "string": "Entità",
+      "string": "EntitÃ ",
       "developer_comment": "This text appears on its own and is not part of a longer sentence. It may be shown as a title, for example, at the top of the page."
     },
     "entityList": {
-      "string": "Lista Entità",
+      "string": "Lista EntitÃ ",
       "developer_comment": "This text appears on its own and is not part of a longer sentence. It may be shown as a title, for example, at the top of the page."
     },
     "entityLists": {
-      "string": "Liste Entità",
+      "string": "Liste EntitÃ ",
       "developer_comment": "This text appears on its own and is not part of a longer sentence. It may be shown as a title, for example, at the top of the page."
     },
     "form": {
@@ -745,11 +745,11 @@
       "developer_comment": "This text appears on its own and is not part of a longer sentence. It may be shown as a title, for example, at the top of the page."
     },
     "property": {
-      "string": "Proprietà",
+      "string": "ProprietÃ ",
       "developer_comment": "This is a data property of an Entity."
     },
     "properties": {
-      "string": "Proprietà",
+      "string": "ProprietÃ ",
       "developer_comment": "This refers to the data properties of an Entity."
     },
     "publicLink": {
@@ -798,22 +798,22 @@
       "string": "La password deve essere almeno 10 caratteri."
     },
     "updateEntity": {
-      "string": "L'Entità è stata aggiornata con successo."
+      "string": "L'EntitÃ  Ã¨ stata aggiornata con successo."
     },
     "updateReviewState": {
       "string": "Stato revisione salvato correttamente!"
     },
     "versionChange": {
-      "string": "Il server è stato aggiornato con successo."
+      "string": "Il server Ã¨ stato aggiornato con successo."
     },
     "submissionDeleted": {
-      "string": "L'invio è stato eliminato con successo."
+      "string": "L'invio Ã¨ stato eliminato con successo."
     },
     "submissionRestored": {
-      "string": "L'invio è stata ripristinato."
+      "string": "L'invio Ã¨ stata ripristinato."
     },
     "entityRestored": {
-      "string": "La Entità “{label}” è stata ripristinata."
+      "string": "La EntitÃ  â€œ{label}â€ Ã¨ stata ripristinata."
     }
   },
   "moreInfo": {
@@ -838,13 +838,13 @@
       }
     },
     "learnMore": {
-      "string": "Per saperne di più.",
+      "string": "Per saperne di piÃ¹.",
       "developer_comment": "This is a link to more information."
     }
   },
   "login": {
     "odkLogo": {
-      "string": "Logo ODK "
+      "string": "Logo ODKÂ "
     },
     "defaultTitle": {
       "string": "Benvenuto su ODK Central"
@@ -863,7 +863,7 @@
     },
     "needFeedback": {
       "full": {
-        "string": "Per fare questo, abbiamo bisogno del  {your} feedback, cosicché possiamo capire come stai usando Central, e come potrebbe essere meglio per te.",
+        "string": "Per fare questo, abbiamo bisogno del  {your} feedback, cosicchÃ© possiamo capire come stai usando Central, e come potrebbe essere meglio per te.",
         "developer_comment": "\"This\" refers to improving Central.\n\n{your} is a separate string that will be translated below. Its text will be formatted within ODK Central, for example, it might be bold or a link. Its text is:\n\nyour"
       },
       "your": {
@@ -872,7 +872,7 @@
       }
     },
     "mailingListOptIn": {
-      "string": "Inviami occasionalmente delle e-mail sulle nuove funzionalità e sulle migliori prassi."
+      "string": "Inviami occasionalmente delle e-mail sulle nuove funzionalitÃ  e sulle migliori prassi."
     }
   },
   "submission": {
@@ -891,10 +891,10 @@
       "developer_comment": "This is shown when the Edit button is disabled."
     },
     "binaryLinkTitle": {
-      "string": "Il file è stato inviato. Clicca per scaricare."
+      "string": "Il file Ã¨ stato inviato. Clicca per scaricare."
     },
     "encryptionMessage": {
-      "string": "L'anteprima dei dati non è disponibile a causa della crittografia."
+      "string": "L'anteprima dei dati non Ã¨ disponibile a causa della crittografia."
     },
     "noSubmission": {
       "string": "(nessuno)",
@@ -904,7 +904,7 @@
       "string": "Non ci sono ancora invii."
     },
     "fileDownloadUnavailable": {
-      "string": "Il download dei documenti non è disponibile per gli invii cancellati"
+      "string": "Il download dei documenti non Ã¨ disponibile per gli invii cancellati"
     }
   },
   "entity": {
@@ -913,10 +913,10 @@
       "developer_comment": "This is the label of an Entity."
     },
     "entityLabel": {
-      "string": "Etichetta dell'entità"
+      "string": "Etichetta dell'entitÃ "
     },
     "entityId": {
-      "string": "ID dell'Entità",
+      "string": "ID dell'EntitÃ ",
       "developer_comment": "This is the UUID of an Entity."
     },
     "noProperties": {
@@ -931,7 +931,7 @@
   },
   "common": {
     "activity": {
-      "string": "Attività",
+      "string": "AttivitÃ ",
       "developer_comment": "This is a title shown above a section of the page."
     },
     "anybody": {
@@ -999,7 +999,7 @@
       "developer_comment": "This is shown if a search returned no results."
     },
     "noUndo": {
-      "string": "Quest'azione non può essere annullata"
+      "string": "Quest'azione non puÃ² essere annullata"
     },
     "rowNumber": {
       "string": "Riga",
@@ -1031,14 +1031,14 @@
       "string": "Invii totali"
     },
     "propertiesCount": {
-      "string": "{count, plural, one {{inform} di {count} propietà} many {{inform} di {count} proprietà} other {{inform} di {count} proprietà}}",
+      "string": "{count, plural, one {{inform} di {count} propietÃ } many {{inform} di {count} proprietÃ } other {{inform} di {count} proprietÃ }}",
       "developer_comment": "{inform} is the number of Entity Properties defined by the form. {count} is the total number of Properties. The string will be pluralized based on {count}."
     },
     "new": {
-      "string": "Novità!"
+      "string": "NovitÃ !"
     },
     "totalEntities": {
-      "string": "Entità totali"
+      "string": "EntitÃ  totali"
     },
     "versionShort": {
       "string": "v{version}",
@@ -1070,7 +1070,7 @@
     "request": {
       "alert": {
         "fileSize": {
-          "string": "Il file “{name}” che stai tentando di caricare è più grande del limite di 100 MB."
+          "string": "Il file â€œ{name}â€ che stai tentando di caricare Ã¨ piÃ¹ grande del limite di 100 MB."
         },
         "entityTooLarge": {
           "string": "I dati che stai tentando di caricare sono troppo grandi."
@@ -1081,22 +1081,22 @@
   "util": {
     "csv": {
       "readError": {
-        "string": "Si è verificato un problema durante la lettura del file:{message}",
+        "string": "Si Ã¨ verificato un problema durante la lettura del file:{message}",
         "developer_comment": "{message} is a description of the problem."
       },
       "invalidCSV": {
-        "string": "Il file “{name}” non è un file .csv valido. Non può essere letto."
+        "string": "Il file â€œ{name}â€ non Ã¨ un file .csv valido. Non puÃ² essere letto."
       },
       "rowError": {
-        "string": "C'è un problema sulla riga {row} del file:{message}",
+        "string": "C'Ã¨ un problema sulla riga {row} del file:{message}",
         "developer_comment": "{row} is a row number. {message} is a description of the problem."
       },
       "invalidQuotes": {
-        "string": "Un campo tra virgolette non è valido. Controlla la riga per vedere se sono presenti valori insoliti.",
+        "string": "Un campo tra virgolette non Ã¨ valido. Controlla la riga per vedere se sono presenti valori insoliti.",
         "developer_comment": "This is an error that is shown for a spreadsheet. The field may be any cell in the spreadsheet."
       },
       "emptyRow": {
-        "string": "La riga è vuota."
+        "string": "La riga Ã¨ vuota."
       },
       "dataWithoutHeader": {
         "string": "{count, plural, one {Attesa {expected} colonna, ma trovate {actual}.} many {Attese {expected} colonne, ma trovate {actual}.} other {Attese {expected} colonne, ma trovate {actual}.}}",
@@ -1105,13 +1105,13 @@
     },
     "request": {
       "noRequest": {
-        "string": "Qualcosa è andato storto: non c'era nessuna request."
+        "string": "Qualcosa Ã¨ andato storto: non c'era nessuna request."
       },
       "noResponse": {
-        "string": "Qualcosa è andato storto: non c'era nessuna risposta alla tua request."
+        "string": "Qualcosa Ã¨ andato storto: non c'era nessuna risposta alla tua request."
       },
       "errorNotProblem": {
-        "string": "Qualcosa è andato storto: codice error {status}.",
+        "string": "Qualcosa Ã¨ andato storto: codice error {status}.",
         "developer_comment": "{status} is an HTTP status code, for example, 404."
       },
       "problem": {
@@ -1121,7 +1121,7 @@
         },
         "409_17": {
           "message": {
-            "string": "{count, plural, one {Questo formulario tenta di creare nuove proprietà dell'entità che corrisponde a una esistente, tranne che per la capitalizzazione:} many {Questo formulario tenta di creare nuove proprietà dell'entità che corrispondano a quelle esistenti, tranne che per la capitalizzazione:} other {Questo formulario tenta di creare nuove proprietà dell'entità che corrispondano a quelle esistenti, tranne che per la capitalizzazione:}}"
+            "string": "{count, plural, one {Questo formulario tenta di creare nuove proprietÃ  dell'entitÃ  che corrisponde a una esistente, tranne che per la capitalizzazione:} many {Questo formulario tenta di creare nuove proprietÃ  dell'entitÃ  che corrispondano a quelle esistenti, tranne che per la capitalizzazione:} other {Questo formulario tenta di creare nuove proprietÃ  dell'entitÃ  che corrispondano a quelle esistenti, tranne che per la capitalizzazione:}}"
           },
           "duplicateProperty": {
             "string": "{provided} (esistente: {current})",
@@ -1136,11 +1136,11 @@
           "string": "La tua sessione sta scadendo! Verrai disconnesso tra 2 minuti."
         },
         "expired": {
-          "string": "La tua sessione è scaduta. Effettua nuovamente il login per continuare."
+          "string": "La tua sessione Ã¨ scaduta. Effettua nuovamente il login per continuare."
         },
         "logoutError": {
           "thereWasProblem": {
-            "string": "C'è stato un errore nel log out."
+            "string": "C'Ã¨ stato un errore nel log out."
           },
           "pleaseRefresh": {
             "string": "Aggiorna la pagina e riprova."
@@ -1180,7 +1180,7 @@
     "AccountLogin": {
       "alert": {
         "alreadyLoggedIn": {
-          "string": "Un utente ha già effettuato l'accesso. Aggiorna la pagina per continuare."
+          "string": "Un utente ha giÃ  effettuato l'accesso. Aggiorna la pagina per continuare."
         },
         "changePassword": {
           "string": "Per proteggere il tuo account, assicurati che la password sia lunga almeno 10 caratteri."
@@ -1192,16 +1192,16 @@
         },
         "error": {
           "auth-ok-user-not-found": {
-            "string": "Al suo indirizzo e-mail non è associato alcun account su Central. Chiedete all'amministratore di Central di creare un account per continuare."
+            "string": "Al suo indirizzo e-mail non Ã¨ associato alcun account su Central. Chiedete all'amministratore di Central di creare un account per continuare."
           },
           "email-not-verified": {
-            "string": "Il vostro indirizzo e-mail non è stato verificato dal server di accesso. Contattare l'amministratore del server."
+            "string": "Il vostro indirizzo e-mail non Ã¨ stato verificato dal server di accesso. Contattare l'amministratore del server."
           },
           "email-claim-not-provided": {
-            "string": "Central non è riuscito ad accedere all'indirizzo e-mail associato al vostro account. Ciò potrebbe essere dovuto al fatto che l'amministratore del server ha configurato qualcosa di errato o non ha impostato un indirizzo e-mail per l'account. Potrebbe anche essere il risultato delle opzioni di privacy che si possono scegliere durante il processo di login. In tal caso, riprovare e assicurarsi che il proprio indirizzo e-mail sia condiviso."
+            "string": "Central non Ã¨ riuscito ad accedere all'indirizzo e-mail associato al vostro account. CiÃ² potrebbe essere dovuto al fatto che l'amministratore del server ha configurato qualcosa di errato o non ha impostato un indirizzo e-mail per l'account. Potrebbe anche essere il risultato delle opzioni di privacy che si possono scegliere durante il processo di login. In tal caso, riprovare e assicurarsi che il proprio indirizzo e-mail sia condiviso."
           },
           "internal-server-error": {
-            "string": "Qualcosa è andato storto durante l'accesso. Contattare l'amministratore del server."
+            "string": "Qualcosa Ã¨ andato storto durante l'accesso. Contattare l'amministratore del server."
           }
         }
       },
@@ -1225,7 +1225,7 @@
       },
       "alert": {
         "success": {
-          "string": "È stata inviata un'email a {email} con ulteriori istruzioni."
+          "string": "Ãˆ stata inviata un'email a {email} con ulteriori istruzioni."
         }
       }
     },
@@ -1267,7 +1267,7 @@
             "string": "Non siamo interessati a condividere alcuna informazione."
           },
           "1": {
-            "string": "Non vedrai più un promemoria al riguardo."
+            "string": "Non vedrai piÃ¹ un promemoria al riguardo."
           }
         }
       },
@@ -1312,7 +1312,7 @@
           }
         },
         "1": {
-          "string": "Lì, puoi anche scegliere di non vedere più questo messaggio."
+          "string": "LÃ¬, puoi anche scegliere di non vedere piÃ¹ questo messaggio."
         }
       },
       "action": {
@@ -1325,7 +1325,7 @@
     "AnalyticsList": {
       "heading": {
         "0": {
-          "string": "Di seguito, puoi scegliere se questo server Central condividerà le informazioni di utilizzo anonime con il team Central. Questa impostazione interessa l'intero server."
+          "string": "Di seguito, puoi scegliere se questo server Central condividerÃ  le informazioni di utilizzo anonime con il team Central. Questa impostazione interessa l'intero server."
         }
       },
       "auditsTitle": {
@@ -1345,7 +1345,7 @@
           "string": "Numero di progetti con crittografia abilitata"
         },
         "num_questions_biggest_form": {
-          "string": "Numero di domande nel questionario più grande"
+          "string": "Numero di domande nel questionario piÃ¹ grande"
         },
         "num_audit_log_entries": {
           "string": "Numero di voci del registro di controllo"
@@ -1450,10 +1450,10 @@
           "string": "Lunghezza della descrizione del progetto"
         },
         "num_datasets_deleted": {
-          "string": "Numero di eventi di eliminazione dall'elenco delle entità"
+          "string": "Numero di eventi di eliminazione dall'elenco delle entitÃ "
         },
         "num_dataset_properties_deleted": {
-          "string": "Numero di eventi di eliminazione della proprietà dell'entità"
+          "string": "Numero di eventi di eliminazione della proprietÃ  dell'entitÃ "
         },
         "num_owner_only_datasets_per_project": {
           "string": ""
@@ -1465,43 +1465,43 @@
           "string": ""
         },
         "num_properties": {
-          "string": "Numero di proprietà"
+          "string": "Numero di proprietÃ "
         },
         "num_creation_forms": {
-          "string": "Numero di formulari che aggiornano la Lista di Entità"
+          "string": "Numero di formulari che aggiornano la Lista di EntitÃ "
         },
         "num_followup_forms": {
-          "string": "Numero di formulari che usano Lista di Entità"
+          "string": "Numero di formulari che usano Lista di EntitÃ "
         },
         "num_entities": {
-          "string": "Numero di Entità nella lista di Entità"
+          "string": "Numero di EntitÃ  nella lista di EntitÃ "
         },
         "num_failed_entities": {
-          "string": "Numero di errori nella creazione dell'entità"
+          "string": "Numero di errori nella creazione dell'entitÃ "
         },
         "num_entity_updates": {
-          "string": "Numero di aggiornamenti dell'entità"
+          "string": "Numero di aggiornamenti dell'entitÃ "
         },
         "num_entity_updates_sub": {
-          "string": "Numero di aggiornamenti dell'entità tramite invii"
+          "string": "Numero di aggiornamenti dell'entitÃ  tramite invii"
         },
         "num_entity_updates_api": {
-          "string": "Numero di aggiornamenti dell'entità tramite API"
+          "string": "Numero di aggiornamenti dell'entitÃ  tramite API"
         },
         "num_entities_updated": {
-          "string": "Numero di entità modificate"
+          "string": "Numero di entitÃ  modificate"
         },
         "num_entity_conflicts": {
-          "string": "Numero di entità mai in conflitto"
+          "string": "Numero di entitÃ  mai in conflitto"
         },
         "num_entity_conflicts_resolved": {
-          "string": "Numero di entità con conflitto ora contrassegnato come risolto"
+          "string": "Numero di entitÃ  con conflitto ora contrassegnato come risolto"
         },
         "num_bulk_create_events": {
           "string": "Numero di caricamenti collettivi"
         },
         "biggest_bulk_upload": {
-          "string": "Numero di righe nel caricamento collettivo più grande"
+          "string": "Numero di righe nel caricamento collettivo piÃ¹ grande"
         },
         "sso_enabled": {
           "string": "SSO abilitato sul server"
@@ -1534,34 +1534,34 @@
           "string": "Numero di eventi del registro di controllo completamente non riusciti"
         },
         "num_audits_unprocessed": {
-          "string": "Numero di eventi del registro di controllo la cui elaborazione è stata ritardata"
+          "string": "Numero di eventi del registro di controllo la cui elaborazione Ã¨ stata ritardata"
         },
         "num_offline_entity_branches": {
-          "string": "Numero di rami di entità offline"
+          "string": "Numero di rami di entitÃ  offline"
         },
         "num_offline_entity_interrupted_branches": {
-          "string": "Numero di rami di entità offline interrotti"
+          "string": "Numero di rami di entitÃ  offline interrotti"
         },
         "num_offline_entity_submissions_reprocessed": {
-          "string": "Numero di invii di entità offline riordinate"
+          "string": "Numero di invii di entitÃ  offline riordinate"
         },
         "max_entity_submission_delay": {
-          "string": "Ritardo massimo di elaborazione della trasmissione dell'entità"
+          "string": "Ritardo massimo di elaborazione della trasmissione dell'entitÃ "
         },
         "avg_entity_submission_delay": {
-          "string": "Ritardo medio di elaborazione della trasmissione di un'entità"
+          "string": "Ritardo medio di elaborazione della trasmissione di un'entitÃ "
         },
         "uses_external_blob_store": {
           "string": "Il server utilizza uno storage esterno compatibile con S3"
         },
         "num_offline_entity_submissions_force_processed": {
-          "string": "Numero di invii di Entità offline elaborati forzatamente"
+          "string": "Numero di invii di EntitÃ  offline elaborati forzatamente"
         },
         "max_entity_branch_delay": {
-          "string": "Tempo massimo di elaborazione della catena di aggiornamento delle Entità offline"
+          "string": "Tempo massimo di elaborazione della catena di aggiornamento delle EntitÃ  offline"
         },
         "num_owner_only_datasets": {
-          "string": "Numero di elenchi di entità riservati solo al proprietario"
+          "string": "Numero di elenchi di entitÃ  riservati solo al proprietario"
         },
         "num_xml_only_form_defs": {
           "string": "Numero di Definizioni di formulario senza un XLSForm associato"
@@ -1576,43 +1576,43 @@
           "string": "Numero di volte in cui l'utente ha ripristinato il caricamento fallito su uno storage compatibile con S3"
         },
         "num_entity_creates_sub": {
-          "string": "Numero di Entità create attraverso invii"
+          "string": "Numero di EntitÃ  create attraverso invii"
         },
         "num_entity_creates_api": {
-          "string": "Numero di Entità create tramite API"
+          "string": "Numero di EntitÃ  create tramite API"
         },
         "num_entity_creates_bulk": {
-          "string": "Numero di Entità create tramite caricamento massivo"
+          "string": "Numero di EntitÃ  create tramite caricamento massivo"
         },
         "max_geo_per_form": {
           "string": "Numero massimo di invii con dati geografici in un modulo"
         },
         "num_entity_bulk_deletes": {
-          "string": "Numero di eventi di audit log per cancellazione massiva di Entità"
+          "string": "Numero di eventi di audit log per cancellazione massiva di EntitÃ "
         },
         "num_datasets_with_geometry": {
-          "string": "Numero di elenchi di entità con proprietà geometrica"
+          "string": "Numero di elenchi di entitÃ  con proprietÃ  geometrica"
         },
         "num_entity_create_forms": {
-          "string": "Numero di formulari che creano Entità"
+          "string": "Numero di formulari che creano EntitÃ "
         },
         "num_repeat_entity_create_forms": {
-          "string": "Numero di formulari che creano Entità dentro repeats"
+          "string": "Numero di formulari che creano EntitÃ  dentro repeats"
         },
         "num_entity_update_forms": {
-          "string": "Numero di formulari che aggiornano Entità"
+          "string": "Numero di formulari che aggiornano EntitÃ "
         },
         "num_repeat_entity_update_forms": {
-          "string": "Numero di formulari che aggiornano Entità dentro repeats"
+          "string": "Numero di formulari che aggiornano EntitÃ  dentro repeats"
         },
         "num_entity_create_update_forms": {
-          "string": "Numero di formulari che contemporaneamente creano e aggiornano Entità"
+          "string": "Numero di formulari che contemporaneamente creano e aggiornano EntitÃ "
         },
         "num_entities_with_geometry": {
-          "string": "Numero di entità con proprietà geometrica"
+          "string": "Numero di entitÃ  con proprietÃ  geometrica"
         },
         "num_multi_entity_errors": {
-          "string": "Numero di errori da Entità ripetute"
+          "string": "Numero di errori da EntitÃ  ripetute"
         }
       }
     },
@@ -1623,10 +1623,10 @@
       },
       "introduction": {
         "0": {
-          "string": "Grazie per aver pensato di inviare alcune informazioni sull'utilizzo. Questi dati ci aiuteranno a dare la priorità alle tue esigenze!"
+          "string": "Grazie per aver pensato di inviare alcune informazioni sull'utilizzo. Questi dati ci aiuteranno a dare la prioritÃ  alle tue esigenze!"
         },
         "1": {
-          "string": "Qui è mostrato il rapporto che stiamo raccogliendo attualmente. Per rispondere a nuove funzionalità ed esigenze, a volte modificheremo ciò che viene segnalato, ma raccoglieremo solo medie riepilogative come vedi qui."
+          "string": "Qui Ã¨ mostrato il rapporto che stiamo raccogliendo attualmente. Per rispondere a nuove funzionalitÃ  ed esigenze, a volte modificheremo ciÃ² che viene segnalato, ma raccoglieremo solo medie riepilogative come vedi qui."
         },
         "2": {
           "string": "Puoi sempre venire qui per vedere cosa viene raccolto."
@@ -1638,7 +1638,7 @@
           "developer_comment": "This is the title shown above a series of metrics about Project usage."
         },
         "subtitle": {
-          "string": "{count, plural, one {(Visualizzazione del progetto più attivo di {count} Progetto)} many {(Visualizzazione del progetto più attivo di {count} Progetti)} other {(Visualizzazione del progetto più attivo di {count} Progetti)}}"
+          "string": "{count, plural, one {(Visualizzazione del progetto piÃ¹ attivo di {count} Progetto)} many {(Visualizzazione del progetto piÃ¹ attivo di {count} Progetti)} other {(Visualizzazione del progetto piÃ¹ attivo di {count} Progetti)}}"
         }
       },
       "submissionStates": {
@@ -1647,11 +1647,11 @@
       },
       "entities": {
         "title": {
-          "string": "Riassunti delle entità",
+          "string": "Riassunti delle entitÃ ",
           "developer_comment": "This is the title shown above a series of metrics about Entities usage."
         },
         "subtitle": {
-          "string": "{count, plural, one {(Visualizzazione della Lista Entità più attiva di {count} Lista Entità)} many {(Visualizzazione delle Liste Entità più attive di {count} Liste Entità)} other {(Visualizzazione della Lista Entità più attiva di {count} Liste Entità)}}"
+          "string": "{count, plural, one {(Visualizzazione della Lista EntitÃ  piÃ¹ attiva di {count} Lista EntitÃ )} many {(Visualizzazione delle Liste EntitÃ  piÃ¹ attive di {count} Liste EntitÃ )} other {(Visualizzazione della Lista EntitÃ  piÃ¹ attiva di {count} Liste EntitÃ )}}"
         }
       },
       "other": {
@@ -1684,11 +1684,11 @@
     },
     "AuditRow": {
       "deletedMessage": {
-        "string": "Questa risorsa è stata eliminata.",
+        "string": "Questa risorsa Ã¨ stata eliminata.",
         "developer_comment": "This shows as a tool tip in the audit log explaining that a resource has been deleted."
       },
       "purgedMessage": {
-        "string": "Questa risorsa è stata eliminata definitivamente.",
+        "string": "Questa risorsa Ã¨ stata eliminata definitivamente.",
         "developer_comment": "This shows as a tool tip in the audit log explaining that a resource has been purged (deleted forever)."
       }
     },
@@ -1720,7 +1720,7 @@
         "developer_comment": "This is the title at the top of a panel."
       },
       "body": {
-        "string": "C'è stato un errore nel caricamento di Central."
+        "string": "C'Ã¨ stato un errore nel caricamento di Central."
       }
     },
     "ConfigLogin": {
@@ -1752,7 +1752,7 @@
       },
       "hero": {
         "help": {
-          "string": "Carica un'immagine verticale; ti consigliamo un formato 4:5. Scegli un'immagine accattivante che rappresenti il tuo brand o il tuo messaggio. L'immagine verrà ritagliata in base alle diverse dimensioni dello schermo, quindi mantieni i contenuti importanti al centro."
+          "string": "Carica un'immagine verticale; ti consigliamo un formato 4:5. Scegli un'immagine accattivante che rappresenti il tuo brand o il tuo messaggio. L'immagine verrÃ  ritagliata in base alle diverse dimensioni dello schermo, quindi mantieni i contenuti importanti al centro."
         }
       }
     },
@@ -1778,10 +1778,10 @@
           "string": "Tipo di file non supportato."
         },
         "post": {
-          "string": "L'immagine è stata salvata correttamente."
+          "string": "L'immagine Ã¨ stata salvata correttamente."
         },
         "del": {
-          "string": "L'immagine è stata rimossa correttamente."
+          "string": "L'immagine Ã¨ stata rimossa correttamente."
         }
       }
     },
@@ -1792,52 +1792,52 @@
     },
     "DatasetDelete": {
       "title": {
-        "string": "Elimina l'elenco di entità",
+        "string": "Elimina l'elenco di entitÃ ",
         "developer_comment": "This is the title at the top of a pop-up."
       },
       "introduction": {
         "0": {
-          "string": "Sei sicuro di voler eliminare la Lista Entità? “{name}”? Questo è irreversibile."
+          "string": "Sei sicuro di voler eliminare la Lista EntitÃ ? â€œ{name}â€? Questo Ã¨ irreversibile."
         }
       }
     },
     "DatasetEntities": {
       "upload": {
-        "string": "Caricare Entità"
+        "string": "Caricare EntitÃ "
       },
       "newEntity": {
-        "string": "Nuova Entità",
+        "string": "Nuova EntitÃ ",
         "developer_comment": "This is shown on a button for creating new Entities"
       },
       "alert": {
         "upload": {
-          "string": "Le entità sono state caricate con successo."
+          "string": "Le entitÃ  sono state caricate con successo."
         },
         "create": {
-          "string": "L'Entità è stata creata con successo."
+          "string": "L'EntitÃ  Ã¨ stata creata con successo."
         }
       },
       "purgeDescription": {
-        "string": "Le Entità vengono eliminate dopo 30 giorni nel Cestino"
+        "string": "Le EntitÃ  vengono eliminate dopo 30 giorni nel Cestino"
       },
       "action": {
         "toggleDeletedEntities": {
-          "string": "{count, plural, one {{count} Entità cancellata} many {{count} Entità cancellate} other {{count} Entità cancellate}}",
+          "string": "{count, plural, one {{count} EntitÃ  cancellata} many {{count} EntitÃ  cancellate} other {{count} EntitÃ  cancellate}}",
           "developer_comment": "This is the text for an action, for example, the text of a button."
         }
       },
       "analyzeDisabledDeletedData": {
-        "string": "L'accesso OData non è disponibile per gli Entità cancellate"
+        "string": "L'accesso OData non Ã¨ disponibile per gli EntitÃ  cancellate"
       }
     },
     "DatasetList": {
       "heading": {
         "0": {
-          "string": "Le entità consentono di condividere le informazioni tra i formulari per raccogliere dati longitudinali, gestire i casi nel tempo e rappresentare altri flussi di lavoro con più passaggi.",
+          "string": "Le entitÃ  consentono di condividere le informazioni tra i formulari per raccogliere dati longitudinali, gestire i casi nel tempo e rappresentare altri flussi di lavoro con piÃ¹ passaggi.",
           "developer_comment": "A brief introduction to Entities shown above Entity Lists for the current Project"
         },
         "1": {
-          "string": "Le entità vengono create attraverso la progettazione dei formulari e possono essere allegate a qualsiasi formulario."
+          "string": "Le entitÃ  vengono create attraverso la progettazione dei formulari e possono essere allegate a qualsiasi formulario."
         }
       },
       "new": {
@@ -1847,34 +1847,34 @@
     },
     "DatasetNew": {
       "title": {
-        "string": "Crea la Lista Entità",
+        "string": "Crea la Lista EntitÃ ",
         "developer_comment": "This is the title at the top of a pop-up."
       },
       "encrypted": {
-        "string": "Questo progetto è criptato. I formulari e gli invii non saranno in grado di modificare le entità di questo elenco. Le entità devono essere gestite tramite Central o l'API.",
+        "string": "Questo progetto Ã¨ criptato. I formulari e gli invii non saranno in grado di modificare le entitÃ  di questo elenco. Le entitÃ  devono essere gestite tramite Central o l'API.",
         "developer_comment": "This is shown in the introduction as a usage note/warning when the project is encrypted."
       },
       "entityListName": {
-        "string": "Nome Lista Entità",
+        "string": "Nome Lista EntitÃ ",
         "developer_comment": "This appears above a text input field for the name of an Entity List"
       },
       "success": {
         "0": {
-          "string": "La Lista Entità \"{name}\" è stato creata. "
+          "string": "La Lista EntitÃ  \"{name}\" Ã¨ stato creata. "
         },
         "1": {
-          "string": "È possibile iniziare ad usarlo aggiungendo le proprietà dei dati direttamente in questa pagina o caricando i formulari che lo utilizzano. In questo caso, le proprietà richiamate dal formulario saranno create automaticamente quando si pubblica il modulo."
+          "string": "Ãˆ possibile iniziare ad usarlo aggiungendo le proprietÃ  dei dati direttamente in questa pagina o caricando i formulari che lo utilizzano. In questo caso, le proprietÃ  richiamate dal formulario saranno create automaticamente quando si pubblica il modulo."
         }
       },
       "problem": {
         "409_3": {
-          "string": "Esiste già un elenco di entità in questo progetto con il nome di “{datasetName}”."
+          "string": "Esiste giÃ  un elenco di entitÃ  in questo progetto con il nome di â€œ{datasetName}â€."
         }
       }
     },
     "DatasetOverview": {
       "entityProperties": {
-        "string": "Proprietà della Entità",
+        "string": "ProprietÃ  della EntitÃ ",
         "developer_comment": "This is a title shown above a section of the page."
       },
       "new": {
@@ -1884,7 +1884,7 @@
     },
     "DatasetOverviewDatasetProperties": {
       "emptyTable": {
-        "string": "Le entità di questo elenco di entità non hanno proprietà definite dall'utente."
+        "string": "Le entitÃ  di questo elenco di entitÃ  non hanno proprietÃ  definite dall'utente."
       },
       "none": {
         "string": "(Nessuna)",
@@ -1892,28 +1892,28 @@
       },
       "confirmation": {
         "title": {
-          "string": "Elimina proprietà"
+          "string": "Elimina proprietÃ "
         },
         "body": {
-          "string": "Sei sicuro di voler eliminare la  proprietà? “{propertyName}”? Questo è irreversibile.",
+          "string": "Sei sicuro di voler eliminare la  proprietÃ ? â€œ{propertyName}â€? Questo Ã¨ irreversibile.",
           "developer_comment": "This is shown on a confirmation dialog box. {propertyName} is the name of the property that is being deleted."
         }
       },
       "deleted": {
-        "string": "La proprietà “{name}” è stata eliminata.",
+        "string": "La proprietÃ  â€œ{name}â€ Ã¨ stata eliminata.",
         "developer_comment": "This is shown after a Property has been successfully deleted. {name} is the name of the deleted property."
       }
     },
     "DatasetOverviewDeletePropertyError": {
       "title": {
-        "string": "Elimina proprietà"
+        "string": "Elimina proprietÃ "
       },
       "intro": {
-        "string": "Prima di eliminare la proprietà “{propertyName}”, devi:",
+        "string": "Prima di eliminare la proprietÃ  â€œ{propertyName}â€, devi:",
         "developer_comment": "This text is followed by a list of actions."
       },
       "clearEntities": {
-        "string": "{count, plural, one {Cancellare il suo valore in {count} Entità} many {Cancellare il suo valore in {count} Entità} other {Cancellare il suo valore in {count} Entità}}",
+        "string": "{count, plural, one {Cancellare il suo valore in {count} EntitÃ } many {Cancellare il suo valore in {count} EntitÃ } other {Cancellare il suo valore in {count} EntitÃ }}",
         "developer_comment": "This text appears in a list of required actions. \"It\" refers to an Entity property."
       },
       "unlinkForms": {
@@ -1921,11 +1921,11 @@
         "developer_comment": "This text appears in a list of required actions. \"It\" refers to an Entity property."
       },
       "relatedToEntities": {
-        "string": "{count, plural, one {Impostato in {count} Entità...} many {Impostato in {count} Entità...} other {Impostato in {count} Entità...}}",
+        "string": "{count, plural, one {Impostato in {count} EntitÃ ...} many {Impostato in {count} EntitÃ ...} other {Impostato in {count} EntitÃ ...}}",
         "developer_comment": "This text refers to an Entity property that is set."
       },
       "moreEntities": {
-        "string": "{count, plural, one {e {count} Entità in più } many {e {count} Entità in più } other {e {count} Entità in più }}",
+        "string": "{count, plural, one {e {count} EntitÃ  in piÃ¹Â } many {e {count} EntitÃ  in piÃ¹Â } other {e {count} EntitÃ  in piÃ¹Â }}",
         "developer_comment": "This text is shown beneath a partial list of Entities. If there are more than a few Entities, then only the first few Entities are shown, followed by this text."
       },
       "relatedToForms": {
@@ -1935,23 +1935,23 @@
     },
     "DatasetOverviewNewProperty": {
       "title": {
-        "string": "Aggiungi proprietà della Entità",
+        "string": "Aggiungi proprietÃ  della EntitÃ ",
         "developer_comment": "This is the title at the top of a pop-up."
       },
       "introduction": {
         "0": {
-          "string": "Per aggiungere una proprietà dell'entità, scegliere un nome univoco per la proprietà qui sotto."
+          "string": "Per aggiungere una proprietÃ  dell'entitÃ , scegliere un nome univoco per la proprietÃ  qui sotto."
         },
         "1": {
-          "string": "È possibile aggiungere nuove proprietà anche caricando un formulario che vi fa riferimento; in questo caso, le proprietà vengono create quando il formulario viene pubblicato."
+          "string": "Ãˆ possibile aggiungere nuove proprietÃ  anche caricando un formulario che vi fa riferimento; in questo caso, le proprietÃ  vengono create quando il formulario viene pubblicato."
         }
       },
       "newPropertyName": {
-        "string": "Nuovo nome della proprietà"
+        "string": "Nuovo nome della proprietÃ "
       },
       "problem": {
         "409_3": {
-          "string": "Esiste già una proprietà in questo elenco di entità con il nome \"{propertyName}”."
+          "string": "Esiste giÃ  una proprietÃ  in questo elenco di entitÃ  con il nome \"{propertyName}â€."
         }
       }
     },
@@ -1963,20 +1963,20 @@
         }
       },
       "accessAll": {
-        "string": "Accedi a tutte le entità"
+        "string": "Accedi a tutte le entitÃ "
       },
       "accessAllDefault": {
-        "string": "Accedi a tutte le entità (predefinito)"
+        "string": "Accedi a tutte le entitÃ  (predefinito)"
       },
       "ownerOnly": {
-        "string": "Accedere solo alle proprie entità"
+        "string": "Accedere solo alle proprie entitÃ "
       },
       "radio": {
         "false": {
-          "string": "Gli utenti delle app e i raccoglitori di dati nell'ambito di questo progetto avranno accesso a tutte le entità all'interno dei moduli loro assegnati."
+          "string": "Gli utenti delle app e i raccoglitori di dati nell'ambito di questo progetto avranno accesso a tutte le entitÃ  all'interno dei moduli loro assegnati."
         },
         "true": {
-          "string": "Gli utenti dell'app e i raccoglitori di dati nell'ambito di questo progetto avranno accesso solo alle entità da loro create, promuovendo la privacy e limitando i trasferimenti di dati."
+          "string": "Gli utenti dell'app e i raccoglitori di dati nell'ambito di questo progetto avranno accesso solo alle entitÃ  da loro create, promuovendo la privacy e limitando i trasferimenti di dati."
         }
       },
       "filterByProperty": {
@@ -2020,26 +2020,26 @@
       },
       "falseModal": {
         "introduction": {
-          "string": "Gli utenti dell'app e i raccoglitori di dati avranno accesso a tutte le entità, comprese quelle che non hanno creato."
+          "string": "Gli utenti dell'app e i raccoglitori di dati avranno accesso a tutte le entitÃ , comprese quelle che non hanno creato."
         }
       },
       "trueModal": {
         "introduction": {
-          "string": "Gli utenti delle app e i raccoglitori di dati perderanno l'accesso alle entità che non hanno creato. Tutti gli altri tipi di utenti mantengono l'accesso a tutte le Entità."
+          "string": "Gli utenti delle app e i raccoglitori di dati perderanno l'accesso alle entitÃ  che non hanno creato. Tutti gli altri tipi di utenti mantengono l'accesso a tutte le EntitÃ ."
         },
         "action": {
           "confirm": {
-            "string": "Accedere alle proprie entità",
+            "string": "Accedere alle proprie entitÃ ",
             "developer_comment": "This is the text for an action, for example, the text of a button."
           }
         }
       },
       "alert": {
         "changeToFalse": {
-          "string": "Gli utenti dell'app e i raccoglitori di dati avranno ora accesso a tutte le entità."
+          "string": "Gli utenti dell'app e i raccoglitori di dati avranno ora accesso a tutte le entitÃ ."
         },
         "changeToTrue": {
-          "string": "Gli utenti delle app e i raccoglitori di dati avranno ora accesso solo alle entità da loro create."
+          "string": "Gli utenti delle app e i raccoglitori di dati avranno ora accesso solo alle entitÃ  da loro create."
         },
         "changeToProperty": {
           "string": ""
@@ -2072,11 +2072,11 @@
       },
       "explanation": {
         "userAction": {
-          "string": "Stai impostando la creazione dell'Entità in modo che avvenga quando gli invii vengono ricevuti per la prima volta da Central."
+          "string": "Stai impostando la creazione dell'EntitÃ  in modo che avvenga quando gli invii vengono ricevuti per la prima volta da Central."
         },
         "implication": {
           "full": {
-            "string": "{count, plural, one {Al momento non avete segnato {records} né Approvato né Rifiutato.} many {Al momento non avete segnato {records} né Approvati né Rifiutati.} other {Al momento non avete segnato {records} né Approvati né Rifiutati.}}",
+            "string": "{count, plural, one {Al momento non avete segnato {records} nÃ© Approvato nÃ© Rifiutato.} many {Al momento non avete segnato {records} nÃ© Approvati nÃ© Rifiutati.} other {Al momento non avete segnato {records} nÃ© Approvati nÃ© Rifiutati.}}",
             "developer_comment": "{records} is a separate string that will be translated below. Its text will be formatted within ODK Central, for example, it might be bold or a link. In its plural form, its text is:\n\n{count} pending records"
           },
           "records": {
@@ -2087,7 +2087,7 @@
       },
       "dontConvert": {
         "label": {
-          "string": "Capisco e questo non è un problema per me."
+          "string": "Capisco e questo non Ã¨ un problema per me."
         },
         "description": {
           "string": "Modificare l'impostazione e non fare nulla con gli invii in sospeso."
@@ -2095,10 +2095,10 @@
       },
       "convert": {
         "label": {
-          "string": "Converti ora tutti gli invii in sospeso che creano Entità."
+          "string": "Converti ora tutti gli invii in sospeso che creano EntitÃ ."
         },
         "description": {
-          "string": "Modificare l'impostazione e creare entità da qualsiasi invio che indichi la creazione di un'entità e che non sia stato approvato o rifiutato."
+          "string": "Modificare l'impostazione e creare entitÃ  da qualsiasi invio che indichi la creazione di un'entitÃ  e che non sia stato approvato o rifiutato."
         }
       }
     },
@@ -2115,46 +2115,46 @@
     },
     "DatasetSettings": {
       "entityWorkflow": {
-        "string": "Flusso di lavoro dell'Entità",
+        "string": "Flusso di lavoro dell'EntitÃ ",
         "developer_comment": "This is a title shown above a section of the page."
       },
       "onReceipt": {
         "label": {
-          "string": "Creare Entità non appena gli Invii vengono ricevuti da Central"
+          "string": "Creare EntitÃ  non appena gli Invii vengono ricevuti da Central"
         },
         "description": {
-          "string": "Non avrai la possibilità di esaminare o rivedere i dati prima della creazione delle Entità."
+          "string": "Non avrai la possibilitÃ  di esaminare o rivedere i dati prima della creazione delle EntitÃ ."
         },
         "successMessage": {
-          "string": "Le entità verranno create non appena gli Invii saranno ricevute da Central."
+          "string": "Le entitÃ  verranno create non appena gli Invii saranno ricevute da Central."
         }
       },
       "onApproval": {
         "label": {
-          "string": "Crea Entità quando gli invii sono contrassegnati come approvati"
+          "string": "Crea EntitÃ  quando gli invii sono contrassegnati come approvati"
         },
         "description": {
-          "string": "I dati dell'entità non verranno aggiornati fino a quando una persona non li esamina. Se necessario, possono essere apportate correzioni."
+          "string": "I dati dell'entitÃ  non verranno aggiornati fino a quando una persona non li esamina. Se necessario, possono essere apportate correzioni."
         },
         "successMessage": {
-          "string": "Le entità verranno create non appena gli Invii saranno contrassegnati come approvati."
+          "string": "Le entitÃ  verranno create non appena gli Invii saranno contrassegnati come approvati."
         }
       },
       "action": {
         "delete": {
-          "string": "Elimina l'elenco di entità",
+          "string": "Elimina l'elenco di entitÃ ",
           "developer_comment": "This is the text for an action, for example, the text of a button."
         }
       },
       "alert": {
         "delete": {
-          "string": "La Lista Entità “{name}” è stato eliminato con successo."
+          "string": "La Lista EntitÃ  â€œ{name}â€ Ã¨ stato eliminato con successo."
         }
       },
       "dependentForms": {
         "description": {
           "0": {
-            "string": "La Lista Entità “{name}” è collegata a {formsCount}.",
+            "string": "La Lista EntitÃ  â€œ{name}â€ Ã¨ collegata a {formsCount}.",
             "developer_comment": "{formsCount} is the number of Forms that are dependent on the Entity List. Example: 4 Forms"
           },
           "1": {
@@ -2162,18 +2162,18 @@
             "developer_comment": "\"It\" refers to an Entity List."
           },
           "2": {
-            "string": "Impara di più qui."
+            "string": "Impara di piÃ¹ qui."
           }
         },
         "formsCount": {
           "string": "{count, plural, one {{count} Formulario} many {{count} Formulari} other {{count} Formulari}}",
-          "developer_comment": "This text will be inserted where {formsCount} is in the following sentence:\n\nThe Entity List “{name}” is linked to {formsCount}."
+          "developer_comment": "This text will be inserted where {formsCount} is in the following sentence:\n\nThe Entity List â€œ{name}â€ is linked to {formsCount}."
         }
       }
     },
     "DatasetShow": {
       "back": {
-        "string": "Torna alle Entità del progetto",
+        "string": "Torna alle EntitÃ  del progetto",
         "developer_comment": "This is shown at the top of the page."
       },
       "infoNav": {
@@ -2199,7 +2199,7 @@
     },
     "DatasetTable": {
       "emptyTable": {
-        "string": "Non sono ancora stati create Entità per questo progetto."
+        "string": "Non sono ancora stati create EntitÃ  per questo progetto."
       }
     },
     "DatasetTrashRow": {
@@ -2212,18 +2212,18 @@
     },
     "DatasetTrashTable": {
       "message": {
-        "string": "Gli elenchi delle entità vengono eliminati dopo 30 giorni nel Cestino"
+        "string": "Gli elenchi delle entitÃ  vengono eliminati dopo 30 giorni nel Cestino"
       }
     },
     "Download": {
       "body": {
-        "string": " A breve inizierà il download di {filename}. Una volta avviato il download, puoi lasciare questa pagina. "
+        "string": " A breve inizierÃ  il download di {filename}. Una volta avviato il download, puoi lasciare questa pagina. "
       }
     },
     "EnketoFill": {
       "disabled": {
         "processing": {
-          "string": "Il formulario web non è ancora disponibile. L'elaborazione non è terminata. Per favore riaggiorna più tardi e riprova. "
+          "string": "Il formulario web non Ã¨ ancora disponibile. L'elaborazione non Ã¨ terminata. Per favore riaggiorna piÃ¹ tardi e riprova. "
         },
         "notOpen": {
           "string": "Questo formulario non accetta nuovi invii in questo momento. "
@@ -2233,24 +2233,24 @@
     "EnketoPreview": {
       "disabled": {
         "processing": {
-          "string": "L'anteprima non ha terminato l'elaborazione per questo formulario. Per favore riaggiorna più tardi e riprova. "
+          "string": "L'anteprima non ha terminato l'elaborazione per questo formulario. Per favore riaggiorna piÃ¹ tardi e riprova. "
         },
         "notOpen": {
-          "string": "In questa versione di ODK Central, l'anteprima è disponibile solo per i formulari nello stato aperto. "
+          "string": "In questa versione di ODK Central, l'anteprima Ã¨ disponibile solo per i formulari nello stato aperto. "
         }
       }
     },
     "EntityActivity": {
       "action": {
         "delete": {
-          "string": "Elimina Entità",
+          "string": "Elimina EntitÃ ",
           "developer_comment": "This is the text for an action, for example, the text of a button."
         }
       }
     },
     "EntityBasicDetails": {
       "entityDetails": {
-        "string": "Dettaglio Entità"
+        "string": "Dettaglio EntitÃ "
       },
       "creatingSubmission": {
         "string": "Creando invio",
@@ -2265,7 +2265,7 @@
         "developer_comment": "This describes an \"upload\" being a generic source of an entity"
       },
       "submissionDeleted": {
-        "string": "Questo invio è stato eliminato."
+        "string": "Questo invio Ã¨ stato eliminato."
       }
     },
     "EntityConflictSummary": {
@@ -2274,7 +2274,7 @@
       },
       "subtitle": {
         "0": {
-          "string": "Uno o più aggiornamenti sono stati effettuati in base a dati che potrebbero essere stati obsoleti."
+          "string": "Uno o piÃ¹ aggiornamenti sono stati effettuati in base a dati che potrebbero essere stati obsoleti."
         },
         "1": {
           "string": "Per favore, rivedi questo riassunto degli aggiornamenti paralleli."
@@ -2282,7 +2282,7 @@
       },
       "footer": {
         "0": {
-          "string": "Se è necessario modificare alcuni valori, è possibile modificare direttamente i dati dell'Entità."
+          "string": "Se Ã¨ necessario modificare alcuni valori, Ã¨ possibile modificare direttamente i dati dell'EntitÃ ."
         },
         "1": {
           "string": "Se tutto sembra corretto, clicca su \"Segna come risolto\" per ignorare questo avviso."
@@ -2290,7 +2290,7 @@
       },
       "confirmation": {
         "title": {
-          "string": "È questa Entità okay?"
+          "string": "Ãˆ questa EntitÃ  okay?"
         },
         "body": {
           "string": "Dopo aver esaminato gli aggiornamenti potenzialmente in conflitto e aver effettuato gli aggiornamenti necessari, puoi fare clic su Conferma in basso per eliminare l'avviso di aggiornamento parallelo."
@@ -2300,7 +2300,7 @@
         }
       },
       "conflictResolved": {
-        "string": "L'avviso di conflitto è stato eliminato."
+        "string": "L'avviso di conflitto Ã¨ stato eliminato."
       }
     },
     "EntityConflictTable": {
@@ -2314,7 +2314,7 @@
           "developer_comment": "\"Based on\" as in \"the version of the Entity that this version is based on\". That version is known as the \"base version\". It is the version of the Entity that the author saw when they made their changes."
         },
         "description": {
-          "string": "La versione di questa Entità che l'autore ha visto quando ha apportato le sue modifiche"
+          "string": "La versione di questa EntitÃ  che l'autore ha visto quando ha apportato le sue modifiche"
         }
       },
       "source": {
@@ -2327,16 +2327,16 @@
       },
       "status": {
         "historical": {
-          "string": "Questa versione storica è inclusa perché è stata effettuata un'aggiornamento parallelo recente basato su questa versione di questa Entità."
+          "string": "Questa versione storica Ã¨ inclusa perchÃ© Ã¨ stata effettuata un'aggiornamento parallelo recente basato su questa versione di questa EntitÃ ."
         },
         "lastGoodVersion": {
-          "string": "Questa è la versione più recente in buon accordo. Dopo questo aggiornamento, sono state effettuate aggiornamenti potenzialmente in contrasto in parallelo."
+          "string": "Questa Ã¨ la versione piÃ¹ recente in buon accordo. Dopo questo aggiornamento, sono state effettuate aggiornamenti potenzialmente in contrasto in parallelo."
         },
         "softConflict": {
           "string": "Questa versione potrebbe essere stata creata basandosi su dati vecchi."
         },
         "hardConflict": {
-          "string": "Questa versione è stata realizzata parallelamente ad altri aggiornamenti, alcuni dei quali cercano di scrivere sulle stesse proprietà di questo aggiornamento."
+          "string": "Questa versione Ã¨ stata realizzata parallelamente ad altri aggiornamenti, alcuni dei quali cercano di scrivere sulle stesse proprietÃ  di questo aggiornamento."
         }
       },
       "branch": {
@@ -2357,7 +2357,7 @@
       },
       "field": {
         "noConfirm": {
-          "string": "Elimina immediatamente senza conferma finché non lascio la pagina",
+          "string": "Elimina immediatamente senza conferma finchÃ© non lascio la pagina",
           "developer_comment": "This is the text of a form field."
         }
       }
@@ -2369,12 +2369,12 @@
     },
     "EntityDiffHead": {
       "introduction": {
-        "string": "Questa modifica di invio è stata applicata alla versione {version} di questa Entità, ma è stata creata sulla base della versione {baseVersion}.",
+        "string": "Questa modifica di invio Ã¨ stata applicata alla versione {version} di questa EntitÃ , ma Ã¨ stata creata sulla base della versione {baseVersion}.",
         "developer_comment": "{version} and {baseVersion} are version numbers."
       },
       "hardConflict": {
         "description": {
-          "string": "Altre aggiornamenti erano già stati scritti sulle stesse proprietà."
+          "string": "Altre aggiornamenti erano giÃ  stati scritti sulle stesse proprietÃ ."
         }
       },
       "softConflict": {
@@ -2400,7 +2400,7 @@
     },
     "EntityDiffRow": {
       "conflictingProp": {
-        "string": "Un altro aggiornamento è già stato scritto su questa proprietà.",
+        "string": "Un altro aggiornamento Ã¨ giÃ  stato scritto su questa proprietÃ .",
         "developer_comment": "This is shown for an Entity property that is part of a conflict between versions of the Entity."
       }
     },
@@ -2451,7 +2451,7 @@
         "entity": {
           "create": {
             "api": {
-              "string": "Entità {label} creata da {name}",
+              "string": "EntitÃ  {label} creata da {name}",
               "developer_comment": "This text is shown in a list of events. {name} is the name of a Web User."
             },
             "bulkSource": {
@@ -2485,11 +2485,11 @@
             "developer_comment": "This text is shown in a list of events. {name} is the name of a Web User."
           },
           "delete": {
-            "string": "Entità {label} eliminata da {name}",
+            "string": "EntitÃ  {label} eliminata da {name}",
             "developer_comment": "This text is shown in a list of events. {name} is the name of a Web User."
           },
           "restore": {
-            "string": "Entità {label} ripristinata da {name}",
+            "string": "EntitÃ  {label} ripristinata da {name}",
             "developer_comment": "This text is shown in a list of events. {name} is the name of a Web User."
           }
         }
@@ -2552,57 +2552,57 @@
         "string": "Creatore sconosciuto"
       },
       "emptyTable": {
-        "string": "Non ci sono ancora entità"
+        "string": "Non ci sono ancora entitÃ "
       }
     },
     "EntityList": {
       "noEntities": {
-        "string": "Non ci sono entità da mostrare.",
+        "string": "Non ci sono entitÃ  da mostrare.",
         "developer_comment": "This text is shown when there are no Entities to show in a table."
       },
       "noMatching": {
-        "string": "Non sono presenti Entità corrispondenti."
+        "string": "Non sono presenti EntitÃ  corrispondenti."
       },
       "emptyMap": {
-        "string": "Le entità vengono visualizzate solo se includono dati nella proprietà geometria."
+        "string": "Le entitÃ  vengono visualizzate solo se includono dati nella proprietÃ  geometria."
       },
       "allDeletedOnPage": {
-        "string": "Tutte le entità della pagina sono state eliminate."
+        "string": "Tutte le entitÃ  della pagina sono state eliminate."
       },
       "alert": {
         "delete": {
-          "string": "La Entità “{label}” è stata cancellata."
+          "string": "La EntitÃ  â€œ{label}â€ Ã¨ stata cancellata."
         },
         "bulkDelete": {
-          "string": "{count, plural, one {{count} Entità è stata eliminata con successo} many {{count} Entità sono state eliminate con successo} other {{count} Entità sono state eliminate con successo}}"
+          "string": "{count, plural, one {{count} EntitÃ  Ã¨ stata eliminata con successo} many {{count} EntitÃ  sono state eliminate con successo} other {{count} EntitÃ  sono state eliminate con successo}}"
         },
         "restored": {
-          "string": "{count, plural, one {{count} Entità è stata ripristinata con successo} many {{count} Entità sono state ripristinate con successo} other {{count} Entità sono state ripristinate con successo}}"
+          "string": "{count, plural, one {{count} EntitÃ  Ã¨ stata ripristinata con successo} many {{count} EntitÃ  sono state ripristinate con successo} other {{count} EntitÃ  sono state ripristinate con successo}}"
         }
       },
       "filterDisabledMessage": {
-        "string": "Il filtro non è disponibile per le Entità eliminate."
+        "string": "Il filtro non Ã¨ disponibile per le EntitÃ  eliminate."
       },
       "searchDisabledMessage": {
-        "string": "La ricerca non è disponibile per le entità eliminate"
+        "string": "La ricerca non Ã¨ disponibile per le entitÃ  eliminate"
       },
       "mapDisabled": {
-        "string": "La mappa non è disponibile per le entità eliminate"
+        "string": "La mappa non Ã¨ disponibile per le entitÃ  eliminate"
       },
       "downloadDisabled": {
-        "string": "Il download non è disponibile per le Entità eliminate"
+        "string": "Il download non Ã¨ disponibile per le EntitÃ  eliminate"
       },
       "deletedEntity": {
         "emptyTable": {
-          "string": "Non ci sono Entità cancellate."
+          "string": "Non ci sono EntitÃ  cancellate."
         },
         "allRestoredOnPage": {
-          "string": "Tutte le entità della pagina sono state ripristinate."
+          "string": "Tutte le entitÃ  della pagina sono state ripristinate."
         }
       },
       "actionBar": {
         "message": {
-          "string": "{count, plural, one {{count} Entità selezionata} many {{count} Entità selezionate} other {{count} Entità selezionate}}"
+          "string": "{count, plural, one {{count} EntitÃ  selezionata} many {{count} EntitÃ  selezionate} other {{count} EntitÃ  selezionate}}"
         }
       },
       "bulkOpInProgress": {
@@ -2611,16 +2611,16 @@
       "action": {
         "download": {
           "unfiltered": {
-            "string": "{count, plural, one {Scarica {count} entità} many {Scarica tutte le {count} entità} other {Scarica tutte le {count} entità}}",
+            "string": "{count, plural, one {Scarica {count} entitÃ } many {Scarica tutte le {count} entitÃ } other {Scarica tutte le {count} entitÃ }}",
             "developer_comment": "This is the text for an action, for example, the text of a button."
           },
           "filtered": {
             "withCount": {
-              "string": "{count, plural, one {Scarica {count} Entità corrispondenti} many {Scarica {count} Entità corrispondenti} other {Scarica {count} Entità corrispondenti}}",
+              "string": "{count, plural, one {Scarica {count} EntitÃ  corrispondenti} many {Scarica {count} EntitÃ  corrispondenti} other {Scarica {count} EntitÃ  corrispondenti}}",
               "developer_comment": "This is the text for an action, for example, the text of a button."
             },
             "withoutCount": {
-              "string": "Scarica tutte le Entità corrispondenti",
+              "string": "Scarica tutte le EntitÃ  corrispondenti",
               "developer_comment": "This is the text of a button. This text is shown when the number of matching Entities is unknown."
             }
           }
@@ -2632,7 +2632,7 @@
         "string": "Preparazione della mappa. L'operazione potrebbe richiedere alcuni minuti."
       },
       "overlapTitle": {
-        "string": "{count, plural, one {{count} Entità in quest'area} many {{count} Entità in quest'area} other {{count} Entità in quest'area}}"
+        "string": "{count, plural, one {{count} EntitÃ  in quest'area} many {{count} EntitÃ  in quest'area} other {{count} EntitÃ  in quest'area}}"
       }
     },
     "EntityMetadataRow": {
@@ -2643,15 +2643,15 @@
     },
     "EntityResolve": {
       "title": {
-        "string": "Aggiornamenti paralleli a “{label}”",
+        "string": "Aggiornamenti paralleli a â€œ{label}â€",
         "developer_comment": "This is the title at the top of a pop-up. {label} is the label of an Entity."
       },
       "instructions": {
         "0": {
-          "string": "Sono stati apportati aggiornamenti a  “{label}” in parallelo. Ciò significa che le modifiche potrebbero essere in conflitto tra loro, poiché sono state create rispetto a dati più vecchi di quelli a cui sono stati applicati da Central."
+          "string": "Sono stati apportati aggiornamenti a  â€œ{label}â€ in parallelo. CiÃ² significa che le modifiche potrebbero essere in conflitto tra loro, poichÃ© sono state create rispetto a dati piÃ¹ vecchi di quelli a cui sono stati applicati da Central."
         },
         "1": {
-          "string": "Rivedi gli aggiornamenti, apporta le modifiche necessarie e, se sei sicuro che i dati dell'entità siano corretti, premi \"Segna come risolto\" per cancellare questo messaggio di avviso."
+          "string": "Rivedi gli aggiornamenti, apporta le modifiche necessarie e, se sei sicuro che i dati dell'entitÃ  siano corretti, premi \"Segna come risolto\" per cancellare questo messaggio di avviso."
         }
       },
       "action": {
@@ -2670,7 +2670,7 @@
           "developer_comment": "This is the text for an action, for example, the text of a button."
         },
         "editEntity": {
-          "string": "Modifica Entità",
+          "string": "Modifica EntitÃ ",
           "developer_comment": "This is the text for an action, for example, the text of a button."
         },
         "markAsResolved": {
@@ -2679,11 +2679,11 @@
         }
       },
       "successMessage": {
-        "string": "L'avviso di conflitto è stato cancellato dall'Entità."
+        "string": "L'avviso di conflitto Ã¨ stato cancellato dall'EntitÃ ."
       },
       "problem": {
         "400_32": {
-          "string": "Un altro utente ha già segnato il conflitto come risolto. Aggiorna la pagina per vedere i dati aggiornati."
+          "string": "Un altro utente ha giÃ  segnato il conflitto come risolto. Aggiorna la pagina per vedere i dati aggiornati."
         }
       }
     },
@@ -2698,17 +2698,17 @@
           "developer_comment": "{label} is the label of an Entity."
         },
         "1": {
-          "string": "L'Entità verrà ripristinata al suo stato precedente."
+          "string": "L'EntitÃ  verrÃ  ripristinata al suo stato precedente."
         },
         "2": {
-          "string": "Se L'Entità viene nuovamente eliminata, ci vorranno altri 30 giorni prima che venga rimossa."
+          "string": "Se L'EntitÃ  viene nuovamente eliminata, ci vorranno altri 30 giorni prima che venga rimossa."
         }
       }
     },
     "EntityShow": {
       "back": {
         "title": {
-          "string": "Dettaglio Entità",
+          "string": "Dettaglio EntitÃ ",
           "developer_comment": "This is shown at the top of the page."
         },
         "back": {
@@ -2735,7 +2735,7 @@
         "developer_comment": "This is the title at the top of a pop-up. {label} is the label of an Entity."
       },
       "geometryDisabled": {
-        "string": "La geometria non può essere aggiornata dalla mappa."
+        "string": "La geometria non puÃ² essere aggiornata dalla mappa."
       },
       "problem": {
         "409_15": {
@@ -2788,7 +2788,7 @@
         },
         "downloadTemplate": {
           "string": "Scarica un modello di dati (.csv)",
-          "developer_comment": "This text will be formatted within ODK Central, for example, it might be bold or a link. It will be inserted where {downloadTemplate} is in the following text:\n\nIf you aren’t sure, you can {downloadTemplate}"
+          "developer_comment": "This text will be formatted within ODK Central, for example, it might be bold or a link. It will be inserted where {downloadTemplate} is in the following text:\n\nIf you arenâ€™t sure, you can {downloadTemplate}"
         }
       }
     },
@@ -2804,7 +2804,7 @@
         }
       },
       "parsing": {
-        "string": "Lettura dei dati…"
+        "string": "Lettura dei datiâ€¦"
       }
     },
     "EntityUploadHeaderErrors": {
@@ -2818,29 +2818,29 @@
           "developer_comment": "Suggestions to fix an error"
         },
         "invalidQuotes": {
-          "string": "Un campo tra virgolette non è valido. Controlla la riga di intestazione del tuo file per vedere se sono presenti valori insoliti."
+          "string": "Un campo tra virgolette non Ã¨ valido. Controlla la riga di intestazione del tuo file per vedere se sono presenti valori insoliti."
         },
         "missingLabel": {
-          "string": "Una {label} proprietà è richiesta. L'etichetta indica il nome da utilizzare per ciascuna Entità in tutto Central e altrove.",
+          "string": "Una {label} proprietÃ  Ã¨ richiesta. L'etichetta indica il nome da utilizzare per ciascuna EntitÃ  in tutto Central e altrove.",
           "developer_comment": "{label} will have the text \"label\" and refers to the \"label\" property. The name of the property is not translated."
         },
         "unknownProperty": {
-          "string": "Se si desidera aggiungere proprietà a questo Elenco di entità, è possibile farlo nella sezione Proprietà dell'entità nella pagina Panoramica di questo Elenco di entità, oppure si può caricare e pubblicare un formulario che faccia riferimento alla proprietà."
+          "string": "Se si desidera aggiungere proprietÃ  a questo Elenco di entitÃ , Ã¨ possibile farlo nella sezione ProprietÃ  dell'entitÃ  nella pagina Panoramica di questo Elenco di entitÃ , oppure si puÃ² caricare e pubblicare un formulario che faccia riferimento alla proprietÃ ."
         },
         "duplicateColumn": {
-          "string": "Sembra che due o più colonne abbiano la stessa intestazione. Assicurarsi che le intestazioni delle colonne siano uniche."
+          "string": "Sembra che due o piÃ¹ colonne abbiano la stessa intestazione. Assicurarsi che le intestazioni delle colonne siano uniche."
         },
         "emptyColumn": {
           "string": "Sembra che ci sia una cella vuota nell'intestazione. Eliminare le colonne vuote nel file."
         },
         "delimiterNotComma": {
-          "string": "Ciò potrebbe essere dovuto al fatto che abbiamo sbagliato il delimitatore di cella. Abbiamo usato {delimiter}."
+          "string": "CiÃ² potrebbe essere dovuto al fatto che abbiamo sbagliato il delimitatore di cella. Abbiamo usato {delimiter}."
         }
       }
     },
     "EntityUploadPopup": {
       "rowCount": {
-        "string": "{count, plural, one {{count}  riga di dati trovata} many {{count}  righe di dati trovate} other {{count} righe di dati trovate}}"
+        "string": "{count, plural, one {{count}  riga di dati trovata} many {{count}  righe di dati trovate} other {{count}Â righe di dati trovate}}"
       },
       "status": {
         "sending": {
@@ -2860,14 +2860,14 @@
           "developer_comment": "This is a warning that is followed by a list of rows."
         },
         "largeCell": {
-          "string": "Alcune celle sono eccessivamente grandi, il che può indicare difficoltà nella lettura del file:",
+          "string": "Alcune celle sono eccessivamente grandi, il che puÃ² indicare difficoltÃ  nella lettura del file:",
           "developer_comment": "This is a warning that is followed by a list of rows."
         }
       }
     },
     "EntityUpsert": {
       "titleCreate": {
-        "string": "Crea una nuova Entità"
+        "string": "Crea una nuova EntitÃ "
       },
       "header": {
         "value": {
@@ -2896,7 +2896,7 @@
           "string": "Si sta utilizzando una versione significativamente obsoleta di ODK Central"
         },
         "sentence1": {
-          "string": "Eseguite subito l'aggiornamento per proteggere i vostri dati e sfruttare le funzioni più recenti."
+          "string": "Eseguite subito l'aggiornamento per proteggere i vostri dati e sfruttare le funzioni piÃ¹ recenti."
         },
         "sentence2": {
           "string": "Se non si vuole mantenere Central, provare con {OdkCloudLink}.",
@@ -2930,17 +2930,17 @@
       "heading": {
         "0": {
           "full": {
-            "string": "Gli Utenti App raccolgono i dati tramite un'applicazione come {collect}. In genere rappresentano un ruolo condiviso come per esempio di \"Vaccinatore\", ma possono anche rappresentare individui. Gli Utenti App in questo progetto possono scaricare e utilizzare i formulari solo all'interno di questo progetto. Quando crei un nuovo Utente App, inizialmente non avrà accesso a nessun formulario. Per impostare i formulari a cui ogni Utente App può accedere, utilizza la scheda {formAccess}. ",
+            "string": "Gli Utenti App raccolgono i dati tramite un'applicazione come {collect}. In genere rappresentano un ruolo condiviso come per esempio di \"Vaccinatore\", ma possono anche rappresentare individui. Gli Utenti App in questo progetto possono scaricare e utilizzare i formulari solo all'interno di questo progetto. Quando crei un nuovo Utente App, inizialmente non avrÃ  accesso a nessun formulario. Per impostare i formulari a cui ogni Utente App puÃ² accedere, utilizza la scheda {formAccess}. ",
             "developer_comment": "{collect} is a link whose text is \"ODK Collect\".\n\n{formAccess} is a separate string that will be translated below. Its text will be formatted within ODK Central, for example, it might be bold or a link. Its text is:\n\nForm Access"
           },
           "formAccess": {
             "string": "Accesso al form",
-            "developer_comment": "This text will be formatted within ODK Central, for example, it might be bold or a link. It will be inserted where {formAccess} is in the following text:\n\nApp Users are used to collect data from an application such as {collect}. They typically represent a shared role such as “Vaccinator” but may also represent individuals. App Users in this Project can only download and use Forms within this Project. When you create a new App User, it will not have access to any Forms at first. To set the Forms each App User may access, use the {formAccess} tab."
+            "developer_comment": "This text will be formatted within ODK Central, for example, it might be bold or a link. It will be inserted where {formAccess} is in the following text:\n\nApp Users are used to collect data from an application such as {collect}. They typically represent a shared role such as â€œVaccinatorâ€ but may also represent individuals. App Users in this Project can only download and use Forms within this Project. When you create a new App User, it will not have access to any Forms at first. To set the Forms each App User may access, use the {formAccess} tab."
           }
         },
         "1": {
           "full": {
-            "string": "Gli utenti dell'app sono più appropriati quando i raccoglitori di dati devono accedere a più formulari, sono offline o hai un formulario complesso. Se hai bisogno che gli intervistati rispondano da se o dispongano di un formulario solo online, {clickHere} per altre opzioni.",
+            "string": "Gli utenti dell'app sono piÃ¹ appropriati quando i raccoglitori di dati devono accedere a piÃ¹ formulari, sono offline o hai un formulario complesso. Se hai bisogno che gli intervistati rispondano da se o dispongano di un formulario solo online, {clickHere} per altre opzioni.",
             "developer_comment": "{clickHere} is a separate string that will be translated below. Its text will be formatted within ODK Central, for example, it might be bold or a link. Its text is:\n\nclick here"
           },
           "clickHere": {
@@ -2968,13 +2968,13 @@
       },
       "alert": {
         "create": {
-          "string": "L'Utente App \"{displayName}\" è stato creato correttamente. "
+          "string": "L'Utente App \"{displayName}\" Ã¨ stato creato correttamente. "
         },
         "edit": {
           "string": ""
         },
         "revoke": {
-          "string": "L'accesso per Utente App {displayName} è stato revocato con successo."
+          "string": "L'accesso per Utente App {displayName} Ã¨ stato revocato con successo."
         }
       }
     },
@@ -2985,12 +2985,12 @@
       },
       "introduction": {
         "0": {
-          "string": "Inizialmente questo utente non avrà accesso ad alcun formulario. Potrai assegnare i formulari solo dopo la creazione dell'utente. "
+          "string": "Inizialmente questo utente non avrÃ  accesso ad alcun formulario. Potrai assegnare i formulari solo dopo la creazione dell'utente. "
         }
       },
       "success": {
         "0": {
-          "string": "L'Utente App \"{displayName}\" è stato creato. "
+          "string": "L'Utente App \"{displayName}\" Ã¨ stato creato. "
         },
         "1": {
           "string": "Puoi configurare un dispositivo mobile per \"{displayName}\" in questo momento, oppure puoi farlo in un secondo momento dalla tabella Utenti App facendo clic su \"Vedi codice\". ",
@@ -3003,7 +3003,7 @@
           },
           "formAccessSettings": {
             "string": "Configurazioni di accesso al form",
-            "developer_comment": "This text will be formatted within ODK Central, for example, it might be bold or a link. It will be inserted where {formAccessSettings} is in the following text:\n\nYou may wish to visit this Project’s {formAccessSettings} to give this user access to Forms."
+            "developer_comment": "This text will be formatted within ODK Central, for example, it might be bold or a link. It will be inserted where {formAccessSettings} is in the following text:\n\nYou may wish to visit this Projectâ€™s {formAccessSettings} to give this user access to Forms."
           }
         }
       },
@@ -3029,7 +3029,7 @@
         "0": {
           "managed": {
             "full": {
-              "string": "Questo è un {managedCode}.",
+              "string": "Questo Ã¨ un {managedCode}.",
               "developer_comment": "{managedCode} is a separate string that will be translated below. Its text will be formatted within ODK Central, for example, it might be bold or a link. Its text is:\n\nManaged QR Code"
             },
             "managedCode": {
@@ -3039,7 +3039,7 @@
           },
           "legacy": {
             "full": {
-              "string": "Questo è un {legacyCode}.",
+              "string": "Questo Ã¨ un {legacyCode}.",
               "developer_comment": "{legacyCode} is a separate string that will be translated below. Its text will be formatted within ODK Central, for example, it might be bold or a link. Its text is:\n\nLegacy QR Code"
             },
             "legacyCode": {
@@ -3050,7 +3050,7 @@
         },
         "1": {
           "managed": {
-            "string": "Collect corrisponderà esattamente ai formulari disponibili per \"{displayName}\", inclusa l'applicazione automatica degli aggiornamenti. Gli utenti non dovranno recuperare manualmente i formulari vuoti. Inoltre, i formulari finalizzati verranno inviati automaticamente non appena viene trovata una connessione.",
+            "string": "Collect corrisponderÃ  esattamente ai formulari disponibili per \"{displayName}\", inclusa l'applicazione automatica degli aggiornamenti. Gli utenti non dovranno recuperare manualmente i formulari vuoti. Inoltre, i formulari finalizzati verranno inviati automaticamente non appena viene trovata una connessione.",
             "developer_comment": "\"Get Blank Form\" is the text of a button in ODK Collect."
           },
           "legacy": {
@@ -3075,7 +3075,7 @@
           },
           "legacy": {
             "full": {
-              "string": "Per un processo più controllato e prova d'errore,{switchToManaged}.",
+              "string": "Per un processo piÃ¹ controllato e prova d'errore,{switchToManaged}.",
               "developer_comment": "The following are separate strings that will be translated below. They will be formatted within ODK Central, for example, they might be bold or a link.\n\n- {switchToManaged} has the text: switch to a {managedCode}\n- {managedCode} has the text: Managed QR Code"
             },
             "switchToManaged": {
@@ -3104,7 +3104,7 @@
           "developer_comment": "{displayName} is formatted in bold."
         },
         "1": {
-          "string": "Gli invii esistenti di questo utente rimarranno, ma chiunque faccia affidamento su questo utente dovrà crearne uno nuovo per continuare a scaricare i formulari o caricare invii."
+          "string": "Gli invii esistenti di questo utente rimarranno, ma chiunque faccia affidamento su questo utente dovrÃ  crearne uno nuovo per continuare a scaricare i formulari o caricare invii."
         }
       }
     },
@@ -3130,15 +3130,15 @@
     },
     "FormAttachmentLinkDataset": {
       "title": {
-        "string": "Collega la Lista Entità",
+        "string": "Collega la Lista EntitÃ ",
         "developer_comment": "This is the title at the top of a pop-up."
       },
       "introduction": {
         "0": {
-          "string": "Sei sicuro di voler collegare la Lista Entità?"
+          "string": "Sei sicuro di voler collegare la Lista EntitÃ ?"
         },
         "1": {
-          "string": "Il file che hai caricato verrà eliminato. Puoi sempre caricarlo di nuovo in un secondo momento."
+          "string": "Il file che hai caricato verrÃ  eliminato. Puoi sempre caricarlo di nuovo in un secondo momento."
         }
       },
       "action": {
@@ -3161,20 +3161,20 @@
       },
       "problem": {
         "noneUploaded": {
-          "string": "{message} Nessun file è stato caricato correttamente.",
+          "string": "{message} Nessun file Ã¨ stato caricato correttamente.",
           "developer_comment": "{message} is an error message from the server."
         },
         "someUploaded": {
-          "string": "{count, plural, one {{message} Solamente {uploaded} su {total} files è stato caricato con successo} many {{message} Solamente {uploaded} su {total} files sono stati caricati con successo} other {{message} Solamente {uploaded} su {total} files sono stati caricati con successo}}",
+          "string": "{count, plural, one {{message} Solamente {uploaded} su {total} files Ã¨ stato caricato con successo} many {{message} Solamente {uploaded} su {total} files sono stati caricati con successo} other {{message} Solamente {uploaded} su {total} files sono stati caricati con successo}}",
           "developer_comment": "This string is an error message. It is shown only if the user tried to upload multiple files. {message} is an error message from the server. {uploaded} and {total} are numbers. {uploaded} is at least 1, and {total} is at least 2. The string will be pluralized based on {uploaded}."
         }
       },
       "alert": {
         "success": {
-          "string": "{count, plural, one {{count} file è stato caricato con successo} many {{count} files sono stati caricati con successo} other {{count} files sono stati caricati con successo}}"
+          "string": "{count, plural, one {{count} file Ã¨ stato caricato con successo} many {{count} files sono stati caricati con successo} other {{count} files sono stati caricati con successo}}"
         },
         "link": {
-          "string": "Lista Entità correttamente collegata."
+          "string": "Lista EntitÃ  correttamente collegata."
         }
       },
       "header": {
@@ -3201,7 +3201,7 @@
           "developer_comment": "{filename} and {attachmentName} are formatted in bold."
         },
         "1": {
-          "string": "Stiamo ricontrollando perché i nomi dei file non corrispondono. "
+          "string": "Stiamo ricontrollando perchÃ© i nomi dei file non corrispondono. "
         }
       }
     },
@@ -3247,7 +3247,7 @@
           },
           "countOfFiles": {
             "string": "{count, plural, one {{count} file} many {{count} files} other {{count} files}}",
-            "developer_comment": "This text will be formatted within ODK Central, for example, it might be bold or a link. It will be inserted where {countOfFiles} is in the following text. (The plural form of the text is shown.)\n\n{countOfFiles} have a name we don’t recognize and will be ignored. To upload them, rename them or drag them individually onto their targets."
+            "developer_comment": "This text will be formatted within ODK Central, for example, it might be bold or a link. It will be inserted where {countOfFiles} is in the following text. (The plural form of the text is shown.)\n\n{countOfFiles} have a name we donâ€™t recognize and will be ignored. To upload them, rename them or drag them individually onto their targets."
           }
         },
         "noneMatched": {
@@ -3267,7 +3267,7 @@
             "string": "{count, plural, one {{count} file rimasto.} many {{count} files rimanenti.} other {{count} files rimanenti.}}"
           },
           "last": {
-            "string": "Questo è l'ultimo file"
+            "string": "Questo Ã¨ l'ultimo file"
           }
         }
       }
@@ -3301,11 +3301,11 @@
           "developer_comment": "This is shown for a Form Attachment that has not been uploaded."
         },
         "title": {
-          "string": "Per caricare file, trascina e rilascia uno o più file su questa pagina"
+          "string": "Per caricare file, trascina e rilascia uno o piÃ¹ file su questa pagina"
         }
       },
       "linkedToDataset": {
-        "string": "Collegato a Lista Entità {datasetName}",
+        "string": "Collegato a Lista EntitÃ  {datasetName}",
         "developer_comment": "This is shown for a Form Attachment that is linked to an Entity List"
       },
       "uploadToOverride": {
@@ -3313,7 +3313,7 @@
       },
       "action": {
         "linkDataset": {
-          "string": "Collega Lista Entità {datasetName}",
+          "string": "Collega Lista EntitÃ  {datasetName}",
           "developer_comment": "This is the text for an action, for example, the text of a button."
         }
       },
@@ -3330,7 +3330,7 @@
       "introduction": {
         "0": {
           "full": {
-            "string": "Per caricare file, puoi {dragAndDrop}  uno o più file su questa pagina",
+            "string": "Per caricare file, puoi {dragAndDrop}  uno o piÃ¹ file su questa pagina",
             "developer_comment": "{dragAndDrop} is a separate string that will be translated below. Its text will be formatted within ODK Central, for example, it might be bold or a link. Its text is:\n\ndrag and drop"
           },
           "dragAndDrop": {
@@ -3360,11 +3360,11 @@
           "string": "Sei sicuro di voler eliminare il formulario {name} e tutti i suoi invii?"
         },
         "1": {
-          "string": "Questa azione sposterà il formulario nel Cestino. Dopo 30 giorni nel Cestino, verrà eliminato definitivamente, ma prima di allora può essere ripristinato."
+          "string": "Questa azione sposterÃ  il formulario nel Cestino. Dopo 30 giorni nel Cestino, verrÃ  eliminato definitivamente, ma prima di allora puÃ² essere ripristinato."
         }
       },
       "noDeleteEntities": {
-        "string": "Qualsiasi entità creata dagli invii di questo formulario non verrà eliminata. In una versione futura di Central, sarà possibile eliminare Entità."
+        "string": "Qualsiasi entitÃ  creata dagli invii di questo formulario non verrÃ  eliminata. In una versione futura di Central, sarÃ  possibile eliminare EntitÃ ."
       }
     },
     "FormDraftAbandon": {
@@ -3377,15 +3377,15 @@
       "introduction": {
         "abandon": {
           "0": {
-            "string": "Stai per eliminare definitivamente la versione bozza di questo formulario. Ciò significa che la bozza di definizione del formulario, qualsiasi bozza di allegati che hai caricato e tutti gli invii di prova verranno rimossi."
+            "string": "Stai per eliminare definitivamente la versione bozza di questo formulario. CiÃ² significa che la bozza di definizione del formulario, qualsiasi bozza di allegati che hai caricato e tutti gli invii di prova verranno rimossi."
           },
           "1": {
-            "string": "La definizione del formulario è stata pubblicata, i suoi allegati al formulario e gli invii non saranno interessati."
+            "string": "La definizione del formulario Ã¨ stata pubblicata, i suoi allegati al formulario e gli invii non saranno interessati."
           }
         },
         "deleteForm": {
           "0": {
-            "string": "Stai per eliminare questa bozza di definizione del formulario, insieme a qualsiasi bozza di allegati che hai caricato e tutti gli invii di prova. Poiché non l'hai ancora pubblicato, l'intero formualrio verrà eliminato e spostato nel Cestino."
+            "string": "Stai per eliminare questa bozza di definizione del formulario, insieme a qualsiasi bozza di allegati che hai caricato e tutti gli invii di prova. PoichÃ© non l'hai ancora pubblicato, l'intero formualrio verrÃ  eliminato e spostato nel Cestino."
           }
         }
       },
@@ -3414,7 +3414,7 @@
         },
         "testing": {
           "full": {
-            "string": "Non hai ancora {tested} caricando un invio di prova. Non devi farlo, ma è altamente raccomandato.",
+            "string": "Non hai ancora {tested} caricando un invio di prova. Non devi farlo, ma Ã¨ altamente raccomandato.",
             "developer_comment": "This is a warning shown to the user.\n\n{tested} is a separate string that will be translated below. Its text will be formatted within ODK Central, for example, it might be bold or a link. Its text is:\n\ntested this Form"
           },
           "tested": {
@@ -3425,24 +3425,24 @@
       },
       "introduction": {
         "0": {
-          "string": "Stai per rendere questa bozza la versione pubblicata del tuo formulario. Ciò finalizzerà tutte le modifiche apportate alla definizione del formulario e ai suoi allegati."
+          "string": "Stai per rendere questa bozza la versione pubblicata del tuo formulario. CiÃ² finalizzerÃ  tutte le modifiche apportate alla definizione del formulario e ai suoi allegati."
         },
         "1": {
           "string": "Gli invii di Formulari esistenti non saranno interessati, ma tutti gli invii di test in bozza verranno rimossi."
         },
         "2": {
-          "string": "Ogni versione di un formulario richiede un nome di versione univoco. In questo momento, la tua bozza di formulario ha lo stesso nome della versione pubblicata in precedenza. Puoi impostarne uno nuovo caricando una definizione del formulario con il nome desiderato, oppure puoi digitarne uno nuovo di seguito e il server lo cambierà per te."
+          "string": "Ogni versione di un formulario richiede un nome di versione univoco. In questo momento, la tua bozza di formulario ha lo stesso nome della versione pubblicata in precedenza. Puoi impostarne uno nuovo caricando una definizione del formulario con il nome desiderato, oppure puoi digitarne uno nuovo di seguito e il server lo cambierÃ  per te."
         },
         "3": {
           "string": "Vuoi procedere?"
         }
       },
       "newProperties": {
-        "string": "{count, plural, one {La pubblicazione di questa bozza creerà {count} proprietà. } many {La pubblicazione di questa bozza creerà {count} proprietà. } other {La pubblicazione di questa bozza creerà {count} proprietà. }}"
+        "string": "{count, plural, one {La pubblicazione di questa bozza creerÃ  {count} proprietÃ . } many {La pubblicazione di questa bozza creerÃ  {count} proprietÃ . } other {La pubblicazione di questa bozza creerÃ  {count} proprietÃ . }}"
       },
       "problem": {
         "409_6": {
-          "string": "Il nome della versione di questa bozza è in conflitto con una versione precedente di questo formulario o con un formulario eliminato. Utilizza il campo sottostante per cambiarlo in qualcosa di nuovo o caricare una nuova definizione del formulario."
+          "string": "Il nome della versione di questa bozza Ã¨ in conflitto con una versione precedente di questo formulario o con un formulario eliminato. Utilizza il campo sottostante per cambiarlo in qualcosa di nuovo o caricare una nuova definizione del formulario."
         }
       },
       "field": {
@@ -3464,7 +3464,7 @@
       },
       "introduction": {
         "full": {
-          "string": "Questo è un {temporaryCode}.",
+          "string": "Questo Ã¨ un {temporaryCode}.",
           "developer_comment": "This is shown next to a QR code.\n\n{temporaryCode} is a separate string that will be translated below. Its text will be formatted within ODK Central, for example, it might be bold or a link. Its text is:\n\nTemporary Testing Code"
         },
         "temporaryCode": {
@@ -3473,7 +3473,7 @@
         }
       },
       "stopsWorking": {
-        "string": "Smetterà di funzionare quando pubblicherete questa bozza.",
+        "string": "SmetterÃ  di funzionare quando pubblicherete questa bozza.",
         "developer_comment": "\"It\" refers to a temporary testing code."
       },
       "instructions": {
@@ -3506,13 +3506,13 @@
       },
       "alert": {
         "upload": {
-          "string": "La nuova definizione del formulario è stata salvata come bozza. "
+          "string": "La nuova definizione del formulario Ã¨ stata salvata come bozza. "
         },
         "publish": {
-          "string": "La tua bozza è ora pubblicata. Tutti i dispositivi che utilizzano i formulari per questo progetto riceveranno ora la nuova definizione del formulario e i suoi allegati. "
+          "string": "La tua bozza Ã¨ ora pubblicata. Tutti i dispositivi che utilizzano i formulari per questo progetto riceveranno ora la nuova definizione del formulario e i suoi allegati. "
         },
         "abandon": {
-          "string": "La versione bozza di questo formulario è stata eliminata con successo. "
+          "string": "La versione bozza di questo formulario Ã¨ stata eliminata con successo. "
         }
       }
     },
@@ -3522,7 +3522,7 @@
         "developer_comment": "This is a title shown above a section of the page."
       },
       "entitiesTesting": {
-        "string": "Questa Definizione di formulario crea o aggiorna le Entità. Per il momento, le entità non vengono create o aggiornate dalle bozze di formulario, quindi è necessario pubblicare il formulario per verificare la funzionalità dell'entità."
+        "string": "Questa Definizione di formulario crea o aggiorna le EntitÃ . Per il momento, le entitÃ  non vengono create o aggiornate dalle bozze di formulario, quindi Ã¨ necessario pubblicare il formulario per verificare la funzionalitÃ  dell'entitÃ ."
       },
       "subtitle": {
         "full": {
@@ -3530,7 +3530,7 @@
           "developer_comment": "{willBeDeleted} is a separate string that will be translated below. Its text will be formatted within ODK Central, for example, it might be bold or a link. Its text is:\n\nwill be deleted"
         },
         "willBeDeleted": {
-          "string": "verrà cancellato",
+          "string": "verrÃ  cancellato",
           "developer_comment": "This text will be formatted within ODK Central, for example, it might be bold or a link. It will be inserted where {willBeDeleted} is in the following text:\n\nSubmissions made here {willBeDeleted} when you publish this Draft!"
         }
       },
@@ -3541,7 +3541,7 @@
     },
     "FormEditAttachments": {
       "noAttachments": {
-        "string": "Questa definizione non richiede allegati, quindi non c'è nulla da caricare.",
+        "string": "Questa definizione non richiede allegati, quindi non c'Ã¨ nulla da caricare.",
         "developer_comment": "\"Definition\" refers to a Form Definition, and \"attachments\" refers to Form Attachments."
       },
       "missingCount": {
@@ -3573,7 +3573,7 @@
         "developer_comment": "This text is shown below a button with the text \"Create a new Draft\"."
       },
       "noEffectUntilPublish": {
-        "string": "La versione pubblicata non verrà modificata fino alla pubblicazione della bozza."
+        "string": "La versione pubblicata non verrÃ  modificata fino alla pubblicazione della bozza."
       }
     },
     "FormEditDef": {
@@ -3604,33 +3604,33 @@
     },
     "FormEditEntities": {
       "datasetCount": {
-        "string": "{count, plural, one {Gli invii a questa definizione di formulario aggiornerà {count} Elenco di entità} many {Gli invii a questa definizione di formulario aggiorneranno {count} Elenco delle entità} other {Gli invii a questa definizione di formulario aggiorneranno {count} Elenco delle entità}}"
+        "string": "{count, plural, one {Gli invii a questa definizione di formulario aggiornerÃ  {count} Elenco di entitÃ } many {Gli invii a questa definizione di formulario aggiorneranno {count} Elenco delle entitÃ } other {Gli invii a questa definizione di formulario aggiorneranno {count} Elenco delle entitÃ }}"
       },
       "diffCounts": {
         "datasetsOnly": {
-          "string": "{count, plural, one {La pubblicazione di questa bozza aggiornerà {count} Elenco delle entità} many {La pubblicazione di questa bozza aggiornerà {count} Elenco delle entità} other {La pubblicazione di questa bozza aggiornerà {count} Elenco delle entità}}"
+          "string": "{count, plural, one {La pubblicazione di questa bozza aggiornerÃ  {count} Elenco delle entitÃ } many {La pubblicazione di questa bozza aggiornerÃ  {count} Elenco delle entitÃ } other {La pubblicazione di questa bozza aggiornerÃ  {count} Elenco delle entitÃ }}"
         },
         "newProperties": {
           "full": {
-            "string": "La pubblicazione di questa bozza aggiornerà {entityLists} e creerà {properties}",
+            "string": "La pubblicazione di questa bozza aggiornerÃ  {entityLists} e creerÃ  {properties}",
             "developer_comment": "The following are separate strings that will be translated below. They will be formatted within ODK Central, for example, they might be bold or a link.\n\n- {entityLists} has the plural form: {count} Entity Lists\n- {properties} has the plural form: {count} properties"
           },
           "entityLists": {
-            "string": "{count, plural, one {{count} Elenco di entità} many {{count} Elenchi di entità} other {{count} Elenchi di entità}}",
+            "string": "{count, plural, one {{count} Elenco di entitÃ } many {{count} Elenchi di entitÃ } other {{count} Elenchi di entitÃ }}",
             "developer_comment": "This text will be formatted within ODK Central, for example, it might be bold or a link. It will be inserted where {entityLists} is in the following text:\n\nPublishing this draft will update {entityLists} and create {properties}."
           },
           "properties": {
-            "string": "{count, plural, one {{count} proprietà} many {{count} proprietà} other {{count} proprietà}}",
+            "string": "{count, plural, one {{count} proprietÃ } many {{count} proprietÃ } other {{count} proprietÃ }}",
             "developer_comment": "This text will be formatted within ODK Central, for example, it might be bold or a link. It will be inserted where {properties} is in the following text:\n\nPublishing this draft will update {entityLists} and create {properties}."
           }
         }
       },
       "notEntityRelated": {
-        "string": "Questa definizione non aggiorna alcuna entità.",
+        "string": "Questa definizione non aggiorna alcuna entitÃ .",
         "developer_comment": "\"Definition\" refers to a Form Definition."
       },
       "whatAreEntities": {
-        "string": "Cosa sono le entità?"
+        "string": "Cosa sono le entitÃ ?"
       }
     },
     "FormEditPublishedVersion": {
@@ -3682,7 +3682,7 @@
       },
       "infoNav": {
         "entityLists": {
-          "string": "{count, plural, one {{count} Elenco di entità collegata} many {{count} Elenchi di entità collegate} other {{count} Elenchi di entità collegate}}"
+          "string": "{count, plural, one {{count} Elenco di entitÃ  collegata} many {{count} Elenchi di entitÃ  collegate} other {{count} Elenchi di entitÃ  collegate}}"
         },
         "updatedDatasets": {
           "string": "Aggiornamenti",
@@ -3693,7 +3693,7 @@
           "developer_comment": "This text is shown as a header in a dropdown about related entity lists that are used as attachments by this form."
         },
         "appUsers": {
-          "string": "{count, plural, one {{count}  Utente App assegnato} many {{count}  Utenti App assegnati} other {{count} Utenti App assegnati}}"
+          "string": "{count, plural, one {{count}  Utente App assegnato} many {{count}  Utenti App assegnati} other {{count}Â Utenti App assegnati}}"
         }
       },
       "draftNav": {
@@ -3725,7 +3725,7 @@
       },
       "alert": {
         "create": {
-          "string": "“{name}” è stato creato come bozza di formulario."
+          "string": "â€œ{name}â€ Ã¨ stato creato come bozza di formulario."
         }
       }
     },
@@ -3743,16 +3743,16 @@
         },
         "1": {
           "full": {
-            "string": "Se non ne hai già uno, ci sono {tools} per aiutarti a progettare il tuo formulario. ",
+            "string": "Se non ne hai giÃ  uno, ci sono {tools} per aiutarti a progettare il tuo formulario. ",
             "developer_comment": "{tools} is a separate string that will be translated below. Its text will be formatted within ODK Central, for example, it might be bold or a link. Its text is:\n\ntools available"
           },
           "tools": {
             "string": "strumenti a disposizione",
-            "developer_comment": "This text will be formatted within ODK Central, for example, it might be bold or a link. It will be inserted where {tools} is in the following text:\n\nIf you don’t already have one, there are {tools} to help you design your Form."
+            "developer_comment": "This text will be formatted within ODK Central, for example, it might be bold or a link. It will be inserted where {tools} is in the following text:\n\nIf you donâ€™t already have one, there are {tools} to help you design your Form."
           }
         },
         "2": {
-          "string": "Se disponi di allegati, potrai caricarli nella pagina successiva, dopo che il formulario è stato creato. "
+          "string": "Se disponi di allegati, potrai caricarli nella pagina successiva, dopo che il formulario Ã¨ stato creato. "
         }
       },
       "dropZone": {
@@ -3785,11 +3785,11 @@
           "string": "La definizione del formulario che hai caricato non sembra essere per questo formulario. Ha il formId sbagliato (previsto \"{expected}\", ottenuto \"{actual}\"). "
         },
         "400_15": {
-          "string": "Non è stato possibile convertire l'XLSForm : {error}",
+          "string": "Non Ã¨ stato possibile convertire l'XLSForm : {error}",
           "developer_comment": "The word \"XLSForm\" should not be translated."
         },
         "409_3": {
-          "string": "Esiste già un Formulario in questo progetto con il Form ID “{xmlFormId}”."
+          "string": "Esiste giÃ  un Formulario in questo progetto con il Form ID â€œ{xmlFormId}â€."
         }
       },
       "fields": {
@@ -3798,7 +3798,7 @@
       },
       "warningsText": {
         "0": {
-          "string": "Questo file può essere utilizzato, ma presenta i seguenti possibili problemi:"
+          "string": "Questo file puÃ² essere utilizzato, ma presenta i seguenti possibili problemi:"
         },
         "1": {
           "string": "Avvertenze sulla progettazione del formulario:"
@@ -3808,13 +3808,13 @@
         },
         "3": {
           "deletedFormExists": {
-            "string": "C'è un formulario con ID \"{value}\" nel Cestino. Se carichi questo formulario, non sarai in grado di ripristinare l'altro con l'ID corrispondente."
+            "string": "C'Ã¨ un formulario con ID \"{value}\" nel Cestino. Se carichi questo formulario, non sarai in grado di ripristinare l'altro con l'ID corrispondente."
           },
           "structureChanged": {
             "string": "I seguenti campi sono stati cancellati, rinominati o sono ora in diversi gruppi o ripetizioni. Questi campi non saranno visibili nella tabella d'invio o inclusi negli export predefiniti."
           },
           "oldEntityVersion": {
-            "string": "Versione delle specifiche delle entità “{version}” non è compatibile con le Entità offline. Si consiglia di utilizzare la versione 2024.1.0 o successiva."
+            "string": "Versione delle specifiche delle entitÃ  â€œ{version}â€ non Ã¨ compatibile con le EntitÃ  offline. Si consiglia di utilizzare la versione 2024.1.0 o successiva."
           }
         },
         "4": {
@@ -3839,13 +3839,13 @@
     "FormOverviewRightNow": {
       "stateCaption": {
         "open": {
-          "string": "Questo Formulario è scaricabile e accetta Invii."
+          "string": "Questo Formulario Ã¨ scaricabile e accetta Invii."
         },
         "closing": {
-          "string": "Questo Formulario non è scaricabile e ma tuttavia accetta Invii."
+          "string": "Questo Formulario non Ã¨ scaricabile e ma tuttavia accetta Invii."
         },
         "closed": {
-          "string": "Questo Formulario non è scaricabile e non accetta Invii."
+          "string": "Questo Formulario non Ã¨ scaricabile e non accetta Invii."
         }
       }
     },
@@ -3859,7 +3859,7 @@
           "string": "Sei sicuro di voler ripristinare il formulario {name} ?"
         },
         "1": {
-          "string": "Il Formulario verrà ripristinato allo stato precedente, inclusi tutti i dati, le impostazioni e le autorizzazioni."
+          "string": "Il Formulario verrÃ  ripristinato allo stato precedente, inclusi tutti i dati, le impostazioni e le autorizzazioni."
         },
         "2": {
           "string": "Se il Formulario viene nuovamente eliminato, ci vorranno altri 30 giorni prima che venga rimosso."
@@ -3874,7 +3874,7 @@
         }
       },
       "formClosingTip": {
-        "string": "Questo Formulario è in fase di chiusura e accetta i suoi ultimi Invii. Non è scaricabile ma tuttavia accetta Invii."
+        "string": "Questo Formulario Ã¨ in fase di chiusura e accetta i suoi ultimi Invii. Non Ã¨ scaricabile ma tuttavia accetta Invii."
       }
     },
     "FormSettings": {
@@ -3890,7 +3890,7 @@
           },
           "formAccessSettings": {
             "string": "Configurazioni di accesso al form",
-            "developer_comment": "This text will be formatted within ODK Central, for example, it might be bold or a link. It will be inserted where {formAccessSettings} is in the following text:\n\nTo set this Form’s state, please visit the Project {formAccessSettings}."
+            "developer_comment": "This text will be formatted within ODK Central, for example, it might be bold or a link. It will be inserted where {formAccessSettings} is in the following text:\n\nTo set this Formâ€™s state, please visit the Project {formAccessSettings}."
           }
         }
       },
@@ -3902,7 +3902,7 @@
       },
       "alert": {
         "delete": {
-          "string": "Il formulario “{name}” è stato eliminato con successo."
+          "string": "Il formulario â€œ{name}â€ Ã¨ stato eliminato con successo."
         }
       },
       "webFormsSetting": {
@@ -3911,7 +3911,7 @@
           "developer_comment": "Title of a section on Forms settings page, that allows users to choose which form experience they want to use"
         },
         "description": {
-          "string": "Compilate, visualizzate in anteprima e modificate il vostro “{formName}” Formulario usando",
+          "string": "Compilate, visualizzate in anteprima e modificate il vostro â€œ{formName}â€ Formulario usando",
           "developer_comment": "Description of a section. {formName} is replaced with the name of the Form"
         },
         "enketoDescription": {
@@ -3929,11 +3929,11 @@
           }
         },
         "enketoSelected": {
-          "string": "Ora stai utilizzando Enketo per compilare, visualizzare in anteprima e modificare il tuo formulario “{formName}\".",
+          "string": "Ora stai utilizzando Enketo per compilare, visualizzare in anteprima e modificare il tuo formulario â€œ{formName}\".",
           "developer_comment": "Success message when Enketo is selected as web form technology. {formName} is replaced with the name of the Form"
         },
         "owfSelected": {
-          "string": "Ora stai utilizzando ODK Web Forms per compilare, visualizzare in anteprima e modificare il tuo formulario “{formName}\".",
+          "string": "Ora stai utilizzando ODK Web Forms per compilare, visualizzare in anteprima e modificare il tuo formulario â€œ{formName}\".",
           "developer_comment": "Success message when ODK Web Forms is selected as web form technology. {formName} is replaced with the name of the Form"
         }
       }
@@ -3945,17 +3945,17 @@
           "developer_comment": "This text is shown as one option in a dropdown menu for choosing how to sort a list of Forms."
         },
         "newest": {
-          "string": "Il più nuovo",
+          "string": "Il piÃ¹ nuovo",
           "developer_comment": "This text is shown as one option in a dropdown menu for choosing how to sort a list of Forms."
         }
       }
     },
     "FormSubmissions": {
       "analyzeDisabled": {
-        "string": "L'accesso OData non è disponibile a causa della crittografia del formulario "
+        "string": "L'accesso OData non Ã¨ disponibile a causa della crittografia del formulario "
       },
       "analyzeDisabledDeletedData": {
-        "string": "L'accesso OData non è disponibile per gli Invii cancellati"
+        "string": "L'accesso OData non Ã¨ disponibile per gli Invii cancellati"
       },
       "purgeDescription": {
         "string": "Gli invii e i dati relativi agli invii vengono eliminati dopo 30 giorni nel Cestino."
@@ -3997,7 +3997,7 @@
       },
       "alert": {
         "restore": {
-          "string": "Il formulario “{name}” è stato ripristinato con successo."
+          "string": "Il formulario â€œ{name}â€ Ã¨ stato ripristinato con successo."
         }
       },
       "message": {
@@ -4011,7 +4011,7 @@
       },
       "disabled": {
         "conflict": {
-          "string": "Questo formulario non può essere ripristinato perché esiste un formulario attivo con lo stesso ID."
+          "string": "Questo formulario non puÃ² essere ripristinato perchÃ© esiste un formulario attivo con lo stesso ID."
         }
       },
       "action": {
@@ -4111,7 +4111,7 @@
           "string": "Problema grafico rilevato."
         },
         "message": {
-          "string": "Il tuo browser non è in grado di visualizzare la mappa al momento. Abilita le impostazioni di accelerazione grafica."
+          "string": "Il tuo browser non Ã¨ in grado di visualizzare la mappa al momento. Abilita le impostazioni di accelerazione grafica."
         }
       }
     },
@@ -4124,14 +4124,14 @@
     },
     "HomeNews": {
       "title": {
-        "string": "Novità",
+        "string": "NovitÃ ",
         "developer_comment": "This is a title shown above a section of the page."
       }
     },
     "HomeSummary": {
       "projects": {
         "body": {
-          "string": "Central è organizzato in Progetti, ognuno dei quali contiene i propri Formulari e i relativi dati."
+          "string": "Central Ã¨ organizzato in Progetti, ognuno dei quali contiene i propri Formulari e i relativi dati."
         }
       },
       "users": {
@@ -4228,7 +4228,7 @@
     },
     "NotFound": {
       "body": {
-        "string": "La pagina richiesta non è stata trovata."
+        "string": "La pagina richiesta non Ã¨ stata trovata."
       }
     },
     "OdataDataAccess": {
@@ -4242,15 +4242,15 @@
     "OdataLoadingMessage": {
       "entity": {
         "withoutCount": {
-          "string": "Caricando le Entità...",
+          "string": "Caricando le EntitÃ ...",
           "developer_comment": "This text is shown when the number of Entities loading is unknown."
         },
         "all": {
-          "string": "{count, plural, one {Cricando {count} Entità...} many {Cricando {count} Entità...} other {Caricando {count} Entità...}}"
+          "string": "{count, plural, one {Cricando {count} EntitÃ ...} many {Cricando {count} EntitÃ ...} other {Caricando {count} EntitÃ ...}}"
         },
         "filtered": {
           "withoutCount": {
-            "string": "Caricando Entità corrispondenti...",
+            "string": "Caricando EntitÃ  corrispondenti...",
             "developer_comment": "This text is shown when the number of Entities loading is unknown."
           }
         }
@@ -4315,15 +4315,15 @@
       },
       "introduction": {
         "0": {
-          "string": "Stai per archiviare il Progetto “{name}”. Continuerà a funzionare, ma verrà ordinato in fondo all'elenco dei progetti nella home page di Central.  "
+          "string": "Stai per archiviare il Progetto â€œ{name}â€. ContinuerÃ  a funzionare, ma verrÃ  ordinato in fondo all'elenco dei progetti nella home page di Central.  "
         },
         "1": {
           "full": {
-            "string": "{noUndo}, ma la possibilità di annullare l'archiviazione di un progetto è prevista per una versione futura.",
+            "string": "{noUndo}, ma la possibilitÃ  di annullare l'archiviazione di un progetto Ã¨ prevista per una versione futura.",
             "developer_comment": "{noUndo} is a separate string that will be translated below. Its text will be formatted within ODK Central, for example, it might be bold or a link. Its text is:\n\nThis action cannot be undone"
           },
           "noUndo": {
-            "string": "Quest'azione non può essere annullata",
+            "string": "Quest'azione non puÃ² essere annullata",
             "developer_comment": "This text will be formatted within ODK Central, for example, it might be bold or a link. It will be inserted where {noUndo} is in the following text:\n\n{noUndo}, but the ability to unarchive a Project is planned for a future release."
           }
         }
@@ -4421,21 +4421,21 @@
                 }
               },
               "4": {
-                "string": "Non sarai più in grado di modificare i dati di invio online."
+                "string": "Non sarai piÃ¹ in grado di modificare i dati di invio online."
               },
               "5": {
-                "string": "Non sarai più in grado di analizzare dati tramite OData. "
+                "string": "Non sarai piÃ¹ in grado di analizzare dati tramite OData. "
               },
               "6": {
-                "string": "Non sarai più in grado di modificare gli Invii nel tuo browser web."
+                "string": "Non sarai piÃ¹ in grado di modificare gli Invii nel tuo browser web."
               },
               "7": {
-                "string": "I nuovi invii non verranno più elaborati in Entità."
+                "string": "I nuovi invii non verranno piÃ¹ elaborati in EntitÃ ."
               }
             },
             "1": {
               "0": {
-                "string": "Inoltre, quanto segue è reale in questa versione di ODK Central:",
+                "string": "Inoltre, quanto segue Ã¨ reale in questa versione di ODK Central:",
                 "developer_comment": "don't translate this sentence, it is not used anywhere"
               },
               "1": {
@@ -4445,7 +4445,7 @@
               },
               "2": {
                 "0": {
-                  "string": "La crittografia non può essere disattivata una volta abilitata."
+                  "string": "La crittografia non puÃ² essere disattivata una volta abilitata."
                 }
               },
               "3": {
@@ -4454,7 +4454,7 @@
             },
             "2": {
               "full": {
-                "string": "Puoi imparare di più sulla crittografia {here}. Se questo è quello che desideri, premi Avanti per procedere. ",
+                "string": "Puoi imparare di piÃ¹ sulla crittografia {here}. Se questo Ã¨ quello che desideri, premi Avanti per procedere. ",
                 "developer_comment": "{here} is a separate string that will be translated below. Its text will be formatted within ODK Central, for example, it might be bold or a link. Its text is:\n\nhere"
               },
               "here": {
@@ -4484,7 +4484,7 @@
       },
       "success": {
         "0": {
-          "string": "La crittografia è stata configurata per questo progetto. Tutti i dispositivi mobili dovranno prendere o recuperare i formulari più recenti affinché la crittografia possa avvenire. "
+          "string": "La crittografia Ã¨ stata configurata per questo progetto. Tutti i dispositivi mobili dovranno prendere o recuperare i formulari piÃ¹ recenti affinchÃ© la crittografia possa avvenire. "
         }
       },
       "field": {
@@ -4516,7 +4516,7 @@
     },
     "ProjectFormAccessRow": {
       "draftTitle": {
-        "string": "Questo formulario non ha ancora una versione pubblicata. Non apparirà sui dispositivi finché non viene pubblicata una bozza. Una volta pubblicato il formulario, verranno utilizzate le impostazioni mostrate qui. "
+        "string": "Questo formulario non ha ancora una versione pubblicata. Non apparirÃ  sui dispositivi finchÃ© non viene pubblicata una bozza. Una volta pubblicato il formulario, verranno utilizzate le impostazioni mostrate qui. "
       },
       "field": {
         "state": {
@@ -4536,7 +4536,7 @@
       },
       "introduction": {
         "0": {
-          "string": "Gli stati del formulario controllano lo stato del ciclo di vita di ogni formulario. Di solito, ma non sempre, un formulario inizia nello stato \"aperto\" e procede negli stati da \"in chiusura\" a \"chiuso\" quando non è più necessario."
+          "string": "Gli stati del formulario controllano lo stato del ciclo di vita di ogni formulario. Di solito, ma non sempre, un formulario inizia nello stato \"aperto\" e procede negli stati da \"in chiusura\" a \"chiuso\" quando non Ã¨ piÃ¹ necessario."
         },
         "1": {
           "full": {
@@ -4607,7 +4607,7 @@
         "developer_comment": "This clickable text is shown below a table of forms where only a few out of the total number (\"count\") of forms is shown."
       },
       "showMoreDatasets": {
-        "string": "{count, plural, one {Mostra {count} del totale Lista Entità} many {Mostra {count} del totale Lista Entità} other {Mostra {count} del totale Lista Entità}}",
+        "string": "{count, plural, one {Mostra {count} del totale Lista EntitÃ } many {Mostra {count} del totale Lista EntitÃ } other {Mostra {count} del totale Lista EntitÃ }}",
         "developer_comment": "This clickable text is shown below a table of entity lists where only a few out of the total number (\"count\") of entity lists is shown."
       },
       "showFewer": {
@@ -4615,7 +4615,7 @@
         "developer_comment": "This clickable text is shown below an expanded table of forms that can be collapsed to hide some forms. \"Count\" refers to the number of forms."
       },
       "showFewerDatasets": {
-        "string": "{count, plural, one {Mostra meno del {count} totale Lista Entità} many {Mostra meno del {count} totale Lista Entità} other {Mostra meno del {count} totale Lista Entità}}",
+        "string": "{count, plural, one {Mostra meno del {count} totale Lista EntitÃ } many {Mostra meno del {count} totale Lista EntitÃ } other {Mostra meno del {count} totale Lista EntitÃ }}",
         "developer_comment": "This clickable text is shown below an expanded table of entity lists that can be collapsed to hide some entity list. \"Count\" refers to the number of entity lists."
       },
       "hidden": {
@@ -4644,7 +4644,7 @@
       },
       "alert": {
         "create": {
-          "string": "Il tuo nuovo progetto è stato creato con successo."
+          "string": "Il tuo nuovo progetto Ã¨ stato creato con successo."
         }
       }
     },
@@ -4684,13 +4684,13 @@
         "body": {
           "unencrypted": {
             "0": {
-              "string": "La crittografia dei dati di invio non è abilitata per questo progetto."
+              "string": "La crittografia dei dati di invio non Ã¨ abilitata per questo progetto."
             }
           },
           "encrypted": {
             "0": {
               "full": {
-                "string": "La crittografia dei dati di invio è {enabled} per questo progetto.",
+                "string": "La crittografia dei dati di invio Ã¨ {enabled} per questo progetto.",
                 "developer_comment": "{enabled} is a separate string that will be translated below. Its text will be formatted within ODK Central, for example, it might be bold or a link. Its text is:\n\nenabled"
               },
               "enabled": {
@@ -4719,16 +4719,16 @@
         },
         "archived": {
           "0": {
-            "string": "Il Progetto è stato archiviato"
+            "string": "Il Progetto Ã¨ stato archiviato"
           },
           "1": {
-            "string": "In questa versione di ODK Central, non puoi annullare l'archiviazione di un progetto. Tuttavia, la possibilità di annullare l'archiviazione di un progetto è prevista per una versione futura."
+            "string": "In questa versione di ODK Central, non puoi annullare l'archiviazione di un progetto. Tuttavia, la possibilitÃ  di annullare l'archiviazione di un progetto Ã¨ prevista per una versione futura."
           }
         }
       },
       "alert": {
         "archive": {
-          "string": "Il Progetto \"{name}\" è stato archiviato"
+          "string": "Il Progetto \"{name}\" Ã¨ stato archiviato"
         }
       }
     },
@@ -4739,7 +4739,7 @@
           "developer_comment": "This text is shown as one option in a dropdown menu for choosing how to sort a list of Projects."
         },
         "newest": {
-          "string": "Il più nuovo",
+          "string": "Il piÃ¹ nuovo",
           "developer_comment": "This text is shown as one option in a dropdown menu for choosing how to sort a list of Projects."
         }
       }
@@ -4756,7 +4756,7 @@
         },
         "1": {
           "full": {
-            "string": "Creare {appUsers} e utilizzare l'applicazione Android {collect}. Questo è più appropriato quando i raccoglitori di dati devono accedere a più formulari, sono offline o nel caso tu abbia un formulario complesso. ",
+            "string": "Creare {appUsers} e utilizzare l'applicazione Android {collect}. Questo Ã¨ piÃ¹ appropriato quando i raccoglitori di dati devono accedere a piÃ¹ formulari, sono offline o nel caso tu abbia un formulario complesso. ",
             "developer_comment": "This text is shown in a list of options for submitting data. {collect} is a link whose text is \"ODK Collect\".\n\n{appUsers} is a separate string that will be translated below. Its text will be formatted within ODK Central, for example, it might be bold or a link. Its text is:\n\nApp Users"
           },
           "appUsers": {
@@ -4766,7 +4766,7 @@
         },
         "2": {
           "full": {
-            "string": "Creane uno o più {publicLinks} da condividere con gli intervistati che si auto-intervisteranno.",
+            "string": "Creane uno o piÃ¹ {publicLinks} da condividere con gli intervistati che si auto-intervisteranno.",
             "developer_comment": "This text is shown in a list of options for submitting data.\n\n{publicLinks} is a separate string that will be translated below. Its text will be formatted within ODK Central, for example, it might be bold or a link. Its text is:\n\nPublic Access Links"
           },
           "publicLinks": {
@@ -4776,7 +4776,7 @@
         },
         "3": {
           "full": {
-            "string": "Crea un {webUser} con il ruolo di {dataCollector} per ogni individuo che raccoglierà dati. Questi utenti accederanno a Central per compilare questo formulario in un browser web. I project manager possono anche creare invii da un browser web.",
+            "string": "Crea un {webUser} con il ruolo di {dataCollector} per ogni individuo che raccoglierÃ  dati. Questi utenti accederanno a Central per compilare questo formulario in un browser web. I project manager possono anche creare invii da un browser web.",
             "developer_comment": "This text is shown in a list of options for submitting data.\n\nThe following are separate strings that will be translated below. They will be formatted within ODK Central, for example, they might be bold or a link.\n\n- {webUser} has the text: Web User\n- {dataCollector} has the text: Data Collector"
           },
           "webUser": {
@@ -4798,7 +4798,7 @@
         },
         "1": {
           "full": {
-            "string": "{projectManagers} possono eseguire qualsiasi attività amministrativa relativa a questo progetto e possono compilare formulari in un browser web",
+            "string": "{projectManagers} possono eseguire qualsiasi attivitÃ  amministrativa relativa a questo progetto e possono compilare formulari in un browser web",
             "developer_comment": "This text is shown in a list of Roles.\n\n{projectManagers} is a separate string that will be translated below. Its text will be formatted within ODK Central, for example, it might be bold or a link. Its text is:\n\nProject Managers"
           },
           "projectManagers": {
@@ -4808,7 +4808,7 @@
         },
         "2": {
           "full": {
-            "string": "{projectViewers} possono accedere e scaricare tutti i dati del formulario e delle Entità di questo progetto, ma non possono apportare modifiche alle impostazioni o ai dati ",
+            "string": "{projectViewers} possono accedere e scaricare tutti i dati del formulario e delle EntitÃ  di questo progetto, ma non possono apportare modifiche alle impostazioni o ai dati ",
             "developer_comment": "This text is shown in a list of Roles.\n\n{projectViewers} is a separate string that will be translated below. Its text will be formatted within ODK Central, for example, it might be bold or a link. Its text is:\n\nProject Viewers"
           },
           "projectViewers": {
@@ -4854,13 +4854,13 @@
       },
       "alert": {
         "unassignWithoutReassign": {
-          "string": "Qualcosa è andato storto. “{displayName}” è stato rimosso dal progetto."
+          "string": "Qualcosa Ã¨ andato storto. â€œ{displayName}â€ Ã¨ stato rimosso dal progetto."
         },
         "assignRole": {
-          "string": "Successo! A \"{displayName}\" è stato assegnato un ruolo di \"{roleName}\" in questo progetto."
+          "string": "Successo! A \"{displayName}\" Ã¨ stato assegnato un ruolo di \"{roleName}\" in questo progetto."
         },
         "unassignRole": {
-          "string": "\"{displayName}\" è stato rimosso da questo progetto."
+          "string": "\"{displayName}\" Ã¨ stato rimosso da questo progetto."
         }
       },
       "action": {
@@ -4888,7 +4888,7 @@
       },
       "introduction": {
         "0": {
-          "string": "Chiunque disponga di questo collegamento potrà compilare questo formulario in un browser web. Usa il nome visualizzato per ricordarti dove lo hai pubblicato, con chi lo hai condiviso, quando è previsto che sia attivo e così via. "
+          "string": "Chiunque disponga di questo collegamento potrÃ  compilare questo formulario in un browser web. Usa il nome visualizzato per ricordarti dove lo hai pubblicato, con chi lo hai condiviso, quando Ã¨ previsto che sia attivo e cosÃ¬ via. "
         }
       },
       "field": {
@@ -4922,7 +4922,7 @@
       "heading": {
         "0": {
           "full": {
-            "string": "Chiunque disponga di un collegamento di accesso pubblico può compilare questo formulario in un browser web. Puoi creare più collegamenti per tenere traccia delle diverse distribuzioni del formulario, per limitare la durata dell'accesso al formulario da parte di un gruppo specifico di persone e altro ancora. Questi collegamenti funzioneranno solo se il formulario è nello {state} \"aperto\".",
+            "string": "Chiunque disponga di un collegamento di accesso pubblico puÃ² compilare questo formulario in un browser web. Puoi creare piÃ¹ collegamenti per tenere traccia delle diverse distribuzioni del formulario, per limitare la durata dell'accesso al formulario da parte di un gruppo specifico di persone e altro ancora. Questi collegamenti funzioneranno solo se il formulario Ã¨ nello {state} \"aperto\".",
             "developer_comment": "{state} is a separate string that will be translated below. Its text will be formatted within ODK Central, for example, it might be bold or a link. Its text is:\n\nstate"
           },
           "state": {
@@ -4932,7 +4932,7 @@
         },
         "1": {
           "full": {
-            "string": "I link pubblici sono intesi per l'auto-riempimento. Se stai lavorando con raccoglitori di dati che devono inviare lo stesso formulario più volte, {clickHere} per altre opzioni. ",
+            "string": "I link pubblici sono intesi per l'auto-riempimento. Se stai lavorando con raccoglitori di dati che devono inviare lo stesso formulario piÃ¹ volte, {clickHere} per altre opzioni. ",
             "developer_comment": "{clickHere} is a separate string that will be translated below. Its text will be formatted within ODK Central, for example, it might be bold or a link. Its text is:\n\nclick here"
           },
           "clickHere": {
@@ -4946,13 +4946,13 @@
       },
       "alert": {
         "create": {
-          "string": "Il tuo link di accesso pubblico è stato creato ed è ora attivo. Copialo qui sotto per distribuirlo. "
+          "string": "Il tuo link di accesso pubblico Ã¨ stato creato ed Ã¨ ora attivo. Copialo qui sotto per distribuirlo. "
         },
         "edit": {
           "string": ""
         },
         "revoke": {
-          "string": "Il link di accesso pubblico \"{displayName}\" è stato revocato con successo. Non saranno accettati ulteriori Invii utilizzando questo Link. "
+          "string": "Il link di accesso pubblico \"{displayName}\" Ã¨ stato revocato con successo. Non saranno accettati ulteriori Invii utilizzando questo Link. "
         }
       }
     },
@@ -4963,7 +4963,7 @@
       },
       "introduction": {
         "0": {
-          "string": "Stai per revocare questo link di accesso pubblico. Ciò significa che tutti i tentativi di inviare dati utilizzando il collegamento verranno negati, inclusi i dati che sono già stati avviati. "
+          "string": "Stai per revocare questo link di accesso pubblico. CiÃ² significa che tutti i tentativi di inviare dati utilizzando il collegamento verranno negati, inclusi i dati che sono giÃ  stati avviati. "
         }
       }
     },
@@ -4988,7 +4988,7 @@
           "developer_comment": "This text is shown for a Public Access Link that is not available yet."
         },
         "title": {
-          "string": "Il link di accesso pubblico non è ancora disponibile. L'elaborazione non è terminata. Riaggiorna più tardi e riprova. "
+          "string": "Il link di accesso pubblico non Ã¨ ancora disponibile. L'elaborazione non Ã¨ terminata. Riaggiorna piÃ¹ tardi e riprova. "
         }
       }
     },
@@ -5015,7 +5015,7 @@
       },
       "introduction": {
         "0": {
-          "string": "OData è uno standard per il trasferimento di dati tra strumenti e servizi. Strumenti di analisi potenti come {powerBi}, {excel}, {python}, e {r} possono recuperare i dati su OData per l'analisi. ",
+          "string": "OData Ã¨ uno standard per il trasferimento di dati tra strumenti e servizi. Strumenti di analisi potenti come {powerBi}, {excel}, {python}, e {r} possono recuperare i dati su OData per l'analisi. ",
           "developer_comment": "The text of {powerBi} is \"Microsoft Power BI\". The text of {r} is \"R\". The text of {python} is \"Python\". The text of {excel} is \"Excel\". {powerBi}, {r}, {excel} and {python} are all links."
         },
         "1": {
@@ -5048,11 +5048,11 @@
           }
         },
         "python": {
-          "string": "Per connettersi a Central da Python, consigliamo {pyODK}. pyODK è il client Python ufficiale per Central. Semplifica l'analisi dei dati e l'automazione del flusso di lavoro.",
+          "string": "Per connettersi a Central da Python, consigliamo {pyODK}. pyODK Ã¨ il client Python ufficiale per Central. Semplifica l'analisi dei dati e l'automazione del flusso di lavoro.",
           "developer_comment": "{pyODK} is a link. Its text is \"pyODK\"."
         },
         "r": {
-          "string": "Per connetterti a Central da R, ti consigliamo {ruODK}. ruODK è sviluppato e supportato dai membri della comunità ODK.",
+          "string": "Per connetterti a Central da R, ti consigliamo {ruODK}. ruODK Ã¨ sviluppato e supportato dai membri della comunitÃ  ODK.",
           "developer_comment": "{ruODK} is a link. Its text is \"ruODK\"."
         },
         "other": {
@@ -5125,7 +5125,7 @@
         }
       },
       "deletedFieldsHelp": {
-        "string": "Utilizzare questa opzione se è necessario visualizzare i campi a cui si fa riferimento nelle versioni precedenti del formulario."
+        "string": "Utilizzare questa opzione se Ã¨ necessario visualizzare i campi a cui si fa riferimento nelle versioni precedenti del formulario."
       },
       "noSelectMultiple": {
         "string": "Questo formulario non ha campi a scelta multipla selezionati."
@@ -5167,13 +5167,13 @@
       },
       "alert": {
         "unavailable": {
-          "string": "Il download dei dati non è ancora disponibile. Si prega di riprovare in un altro momento."
+          "string": "Il download dei dati non Ã¨ ancora disponibile. Si prega di riprovare in un altro momento."
         },
         "submit": {
-          "string": "Il download dei dati dovrebbe iniziare a breve. Una volta iniziato, puoi chiudere questo messaggio. Se non è iniziato in 20 secondi, riprova."
+          "string": "Il download dei dati dovrebbe iniziare a breve. Una volta iniziato, puoi chiudere questo messaggio. Se non Ã¨ iniziato in 20 secondi, riprova."
         },
         "parseError": {
-          "string": "Qualcosa è andato storto durante la richiesta dei tuoi dati"
+          "string": "Qualcosa Ã¨ andato storto durante la richiesta dei tuoi dati"
         }
       }
     },
@@ -5187,7 +5187,7 @@
           "string": "Sei sicuro di voler cancellare questo invio?"
         },
         "1": {
-          "string": "Questa azione sposterà il formulario nel Cestino. Dopo 30 giorni nel Cestino, verrà eliminato definitivamente, ma prima di allora può essere ripristinato."
+          "string": "Questa azione sposterÃ  il formulario nel Cestino. Dopo 30 giorni nel Cestino, verrÃ  eliminato definitivamente, ma prima di allora puÃ² essere ripristinato."
         }
       }
     },
@@ -5231,24 +5231,24 @@
       "title": {
         "create": {
           "string": "Inviato da {name}",
-          "developer_comment": "This text is shown in the list of actions performed on a Submission. There is an icon before the text that corresponds to the word \"Submitted\", so it is essential for \"Submitted\" to also come first in the translation. If that is unnatural in your language, you can also split the text into two parts. For example, instead of:\n\nSubmitted by {name}\n\nyou could split it into:\n\nSubmitted • {name}"
+          "developer_comment": "This text is shown in the list of actions performed on a Submission. There is an icon before the text that corresponds to the word \"Submitted\", so it is essential for \"Submitted\" to also come first in the translation. If that is unnatural in your language, you can also split the text into two parts. For example, instead of:\n\nSubmitted by {name}\n\nyou could split it into:\n\nSubmitted â€¢ {name}"
         },
         "entity": {
           "create": {
-            "string": "Entità creata {label} in {dataset} Lista Entità"
+            "string": "EntitÃ  creata {label} in {dataset} Lista EntitÃ "
           },
           "update": {
-            "string": "Entità aggiornata {label} in {dataset} Lista Entità"
+            "string": "EntitÃ  aggiornata {label} in {dataset} Lista EntitÃ "
           },
           "error": {
-            "string": "Problema durante la elaborazione dell'Entità"
+            "string": "Problema durante la elaborazione dell'EntitÃ "
           }
         },
         "updateReviewState": {
           "null": {
             "full": {
               "string": "{reviewState} per {name}",
-              "developer_comment": "This text is shown in the list of actions performed on a Submission. There is an icon before the text that corresponds to the Review State, so it is essential for the Review State to also come first in the translation. If that is unnatural in your language, you can also split the text into two parts. For example, instead of:\n\n{reviewState} per {name}\n\nyou could split it into:\n\n{reviewState} • {name}\n\n{reviewState} is a separate string that will be translated below. Its text will be formatted within ODK Central, for example, it might be bold or a link. Its text is:\n\nReceived"
+              "developer_comment": "This text is shown in the list of actions performed on a Submission. There is an icon before the text that corresponds to the Review State, so it is essential for the Review State to also come first in the translation. If that is unnatural in your language, you can also split the text into two parts. For example, instead of:\n\n{reviewState} per {name}\n\nyou could split it into:\n\n{reviewState} â€¢ {name}\n\n{reviewState} is a separate string that will be translated below. Its text will be formatted within ODK Central, for example, it might be bold or a link. Its text is:\n\nReceived"
             },
             "reviewState": {
               "string": "Ricevuto",
@@ -5258,7 +5258,7 @@
           "hasIssues": {
             "full": {
               "string": "{reviewState} per {name}",
-              "developer_comment": "This text is shown in the list of actions performed on a Submission. There is an icon before the text that corresponds to the Review State, so it is essential for the Review State to also come first in the translation. If that is unnatural in your language, you can also split the text into two parts. For example, instead of:\n\n{reviewState} per {name}\n\nyou could split it into:\n\n{reviewState} • {name}\n\n{reviewState} is a separate string that will be translated below. Its text will be formatted within ODK Central, for example, it might be bold or a link. Its text is:\n\nHas Issues"
+              "developer_comment": "This text is shown in the list of actions performed on a Submission. There is an icon before the text that corresponds to the Review State, so it is essential for the Review State to also come first in the translation. If that is unnatural in your language, you can also split the text into two parts. For example, instead of:\n\n{reviewState} per {name}\n\nyou could split it into:\n\n{reviewState} â€¢ {name}\n\n{reviewState} is a separate string that will be translated below. Its text will be formatted within ODK Central, for example, it might be bold or a link. Its text is:\n\nHas Issues"
             },
             "reviewState": {
               "string": "Ha problemi",
@@ -5268,7 +5268,7 @@
           "edited": {
             "full": {
               "string": "{reviewState} per {name}",
-              "developer_comment": "This text is shown in the list of actions performed on a Submission. There is an icon before the text that corresponds to the Review State, so it is essential for the Review State to also come first in the translation. If that is unnatural in your language, you can also split the text into two parts. For example, instead of:\n\n{reviewState} by {name}\n\nyou could split it into:\n\n{reviewState} • {name}\n\n{reviewState} is a separate string that will be translated below. Its text will be formatted within ODK Central, for example, it might be bold or a link. Its text is:\n\nEdited"
+              "developer_comment": "This text is shown in the list of actions performed on a Submission. There is an icon before the text that corresponds to the Review State, so it is essential for the Review State to also come first in the translation. If that is unnatural in your language, you can also split the text into two parts. For example, instead of:\n\n{reviewState} by {name}\n\nyou could split it into:\n\n{reviewState} â€¢ {name}\n\n{reviewState} is a separate string that will be translated below. Its text will be formatted within ODK Central, for example, it might be bold or a link. Its text is:\n\nEdited"
             },
             "reviewState": {
               "string": "Modificato",
@@ -5278,7 +5278,7 @@
           "approved": {
             "full": {
               "string": "{reviewState} per {name}",
-              "developer_comment": "This text is shown in the list of actions performed on a Submission. There is an icon before the text that corresponds to the Review State, so it is essential for the Review State to also come first in the translation. If that is unnatural in your language, you can also split the text into two parts. For example, instead of:\n\n{reviewState} by {name}\n\nyou could split it into:\n\n{reviewState} • {name}\n\n{reviewState} is a separate string that will be translated below. Its text will be formatted within ODK Central, for example, it might be bold or a link. Its text is:\n\nApproved"
+              "developer_comment": "This text is shown in the list of actions performed on a Submission. There is an icon before the text that corresponds to the Review State, so it is essential for the Review State to also come first in the translation. If that is unnatural in your language, you can also split the text into two parts. For example, instead of:\n\n{reviewState} by {name}\n\nyou could split it into:\n\n{reviewState} â€¢ {name}\n\n{reviewState} is a separate string that will be translated below. Its text will be formatted within ODK Central, for example, it might be bold or a link. Its text is:\n\nApproved"
             },
             "reviewState": {
               "string": "Approvato",
@@ -5288,7 +5288,7 @@
           "rejected": {
             "full": {
               "string": "{reviewState} per {name}",
-              "developer_comment": "This text is shown in the list of actions performed on a Submission. There is an icon before the text that corresponds to the Review State, so it is essential for the Review State to also come first in the translation. If that is unnatural in your language, you can also split the text into two parts. For example, instead of:\n\n{reviewState} by {name}\n\nyou could split it into:\n\n{reviewState} • {name}\n\n{reviewState} is a separate string that will be translated below. Its text will be formatted within ODK Central, for example, it might be bold or a link. Its text is:\n\nRejected"
+              "developer_comment": "This text is shown in the list of actions performed on a Submission. There is an icon before the text that corresponds to the Review State, so it is essential for the Review State to also come first in the translation. If that is unnatural in your language, you can also split the text into two parts. For example, instead of:\n\n{reviewState} by {name}\n\nyou could split it into:\n\n{reviewState} â€¢ {name}\n\n{reviewState} is a separate string that will be translated below. Its text will be formatted within ODK Central, for example, it might be bold or a link. Its text is:\n\nRejected"
             },
             "reviewState": {
               "string": "Respinto",
@@ -5298,19 +5298,19 @@
         },
         "comment": {
           "string": "Commenti di {name}",
-          "developer_comment": "This text is shown in the list of actions performed on a Submission. There is an icon before the text that corresponds to the word \"Comment\", so it is essential for \"Comment\" to also come first in the translation. If that is unnatural in your language, you can also split the text into two parts. For example, instead of:\n\nComment by {name}\n\nyou could split it into:\n\nComment • {name}"
+          "developer_comment": "This text is shown in the list of actions performed on a Submission. There is an icon before the text that corresponds to the word \"Comment\", so it is essential for \"Comment\" to also come first in the translation. If that is unnatural in your language, you can also split the text into two parts. For example, instead of:\n\nComment by {name}\n\nyou could split it into:\n\nComment â€¢ {name}"
         },
         "delete": {
           "string": "Eliminato da {name}",
-          "developer_comment": "This text is shown in the list of actions performed on a Submission. There is an icon before the text that corresponds to the word \"Deleted\", so it is essential for \"Deleted\" to also come first in the translation. If that is unnatural in your language, you can also split the text into two parts. For example, instead of:\n\nDeleted by {name}\n\nyou could split it into:\n\nDeleted • {name}"
+          "developer_comment": "This text is shown in the list of actions performed on a Submission. There is an icon before the text that corresponds to the word \"Deleted\", so it is essential for \"Deleted\" to also come first in the translation. If that is unnatural in your language, you can also split the text into two parts. For example, instead of:\n\nDeleted by {name}\n\nyou could split it into:\n\nDeleted â€¢ {name}"
         },
         "undelete": {
           "string": "Ripristinato da {name}",
-          "developer_comment": "This text is shown in the list of actions performed on a Submission. There is an icon before the text that corresponds to the word \"Restored\", so it is essential for \"Restored\" to also come first in the translation. If that is unnatural in your language, you can also split the text into two parts. For example, instead of:\n\nRestored by {name}\n\nyou could split it into:\n\nRestored • {name}"
+          "developer_comment": "This text is shown in the list of actions performed on a Submission. There is an icon before the text that corresponds to the word \"Restored\", so it is essential for \"Restored\" to also come first in the translation. If that is unnatural in your language, you can also split the text into two parts. For example, instead of:\n\nRestored by {name}\n\nyou could split it into:\n\nRestored â€¢ {name}"
         },
         "submissionBacklog": {
           "hold": {
-            "string": "Attesa di un invio precedente nella catena di aggiornamento offline prima di aggiornare l'entità",
+            "string": "Attesa di un invio precedente nella catena di aggiornamento offline prima di aggiornare l'entitÃ ",
             "developer_comment": "This text is shown in the list of actions performed on a Submission."
           },
           "force": {
@@ -5318,7 +5318,7 @@
             "developer_comment": "This text is shown in the list of actions performed on a Submission."
           },
           "reprocess": {
-            "string": "È stato ricevuto l'invio precedente nella catena di aggiornamento offline",
+            "string": "Ãˆ stato ricevuto l'invio precedente nella catena di aggiornamento offline",
             "developer_comment": "This text is shown in the list of actions performed on a Submission."
           }
         }
@@ -5423,19 +5423,19 @@
         "string": "Gli invii vengono visualizzati solo se includono dati nel primo campo geo."
       },
       "learnMoreMap": {
-        "string": "Scopri di più sulla mappatura degli invii"
+        "string": "Scopri di piÃ¹ sulla mappatura degli invii"
       },
       "allDeletedOnPage": {
         "string": "Tutti gli invii presenti nella pagina sono stati cancellati."
       },
       "downloadDisabled": {
-        "string": "Il download non è disponibile per gli invii cancellati"
+        "string": "Il download non Ã¨ disponibile per gli invii cancellati"
       },
       "filterDisabledMessage": {
-        "string": "Il filtro non è disponibile per gli invii cancellati."
+        "string": "Il filtro non Ã¨ disponibile per gli invii cancellati."
       },
       "noMapEncryption": {
-        "string": "Mappa non è disponibile a causa della crittografia del formulario "
+        "string": "Mappa non Ã¨ disponibile a causa della crittografia del formulario "
       },
       "deletedSubmission": {
         "emptyTable": {
@@ -5446,7 +5446,7 @@
         }
       },
       "noMapDeleted": {
-        "string": "La Mappa non è disponibile per gli invii cancellati"
+        "string": "La Mappa non Ã¨ disponibile per gli invii cancellati"
       },
       "loading": {
         "withoutCount": {
@@ -5466,7 +5466,7 @@
     },
     "SubmissionMapPopup": {
       "missingField": {
-        "string": "Questo invio è stato mappato utilizzando {field}, che non è presente nella versione pubblicata del formulario.",
+        "string": "Questo invio Ã¨ stato mappato utilizzando {field}, che non Ã¨ presente nella versione pubblicata del formulario.",
         "developer_comment": "{field} is the name of a Form field."
       },
       "mappedField": {
@@ -5492,7 +5492,7 @@
           "string": "Sei sicuro di voler ripristinare questo invio?"
         },
         "1": {
-          "string": "L'invio verrà ripristinato allo stato precedente, compresi i dati associati come i commenti."
+          "string": "L'invio verrÃ  ripristinato allo stato precedente, compresi i dati associati come i commenti."
         },
         "2": {
           "string": "Se l'invio viene nuovamente cancellato, passeranno altri 30 giorni prima che venga rimosso."
@@ -5559,7 +5559,7 @@
         "developer_comment": "This is a title shown above a section of the page."
       },
       "emailDisabled": {
-        "string": "L'indirizzo e-mail non può essere modificato. Viene utilizzato tra Central e il server di login per garantire l'identità dell'utente."
+        "string": "L'indirizzo e-mail non puÃ² essere modificato. Viene utilizzato tra Central e il server di login per garantire l'identitÃ  dell'utente."
       },
       "action": {
         "update": {
@@ -5569,7 +5569,7 @@
       },
       "problem": {
         "409_3": {
-          "string": "Non puoi cambiare la tua email in {email} perché questo account esiste già. Per favore, prova un altro indirizzo email."
+          "string": "Non puoi cambiare la tua email in {email} perchÃ© questo account esiste giÃ . Per favore, prova un altro indirizzo email."
         }
       },
       "alert": {
@@ -5593,14 +5593,14 @@
         }
       },
       "cannotChange": {
-        "string": "Solo il titolare dell'account può impostare direttamente la propria password. "
+        "string": "Solo il titolare dell'account puÃ² impostare direttamente la propria password. "
       },
       "alert": {
         "mismatch": {
           "string": "Per favore verifica che le tue nuove password corrispondano. "
         },
         "success": {
-          "string": "L'operazione è riuscita con successo! La tua password è stata aggiornata. "
+          "string": "L'operazione Ã¨ riuscita con successo! La tua password Ã¨ stata aggiornata. "
         }
       }
     },
@@ -5619,7 +5619,7 @@
       },
       "heading": {
         "0": {
-          "string": "Gli Utenti Web hanno degli account su questo sito per supervisionare e amministrare i Progetti sul server. Gli amministratori possono gestire qualsiasi cosa sul sito. Agli utenti senza ruolo di supervisione e amministrazione può essere assegnato un ruolo su qualsiasi progetto, attraverso le impostazioni del progetto stesso. Gli amministratori del sito e alcuni ruoli del progetto possono utilizzare un browser Web per compilare i formulari. Per inviare dati tramite un'applicazione come {collect}, create degli Utenti app per ciascun progetto. ",
+          "string": "Gli Utenti Web hanno degli account su questo sito per supervisionare e amministrare i Progetti sul server. Gli amministratori possono gestire qualsiasi cosa sul sito. Agli utenti senza ruolo di supervisione e amministrazione puÃ² essere assegnato un ruolo su qualsiasi progetto, attraverso le impostazioni del progetto stesso. Gli amministratori del sito e alcuni ruoli del progetto possono utilizzare un browser Web per compilare i formulari. Per inviare dati tramite un'applicazione come {collect}, create degli Utenti app per ciascun progetto. ",
           "developer_comment": "{collect} is a link whose text is \"ODK Collect\"."
         }
       },
@@ -5629,22 +5629,22 @@
           "developer_comment": "This is the text of a table column header."
         },
         "lastActive": {
-          "string": "Ultima attività",
+          "string": "Ultima attivitÃ ",
           "developer_comment": "Heading for a column that shows last login time of the users"
         }
       },
       "alert": {
         "create": {
-          "string": "Un utente è stato creato con successo per \"{displayName}\""
+          "string": "Un utente Ã¨ stato creato con successo per \"{displayName}\""
         },
         "assignRole": {
-          "string": "Successo! A \"{displayName}\" è stato assegnato un ruolo di \"{roleName}\" in tutto il sito."
+          "string": "Successo! A \"{displayName}\" Ã¨ stato assegnato un ruolo di \"{roleName}\" in tutto il sito."
         },
         "resetPassword": {
-          "string": "La password per \"{displayName}\" è stata invalidata. È stata inviata un'e-mail a {email} con le istruzioni su come procedere. "
+          "string": "La password per \"{displayName}\" Ã¨ stata invalidata. Ãˆ stata inviata un'e-mail a {email} con le istruzioni su come procedere. "
         },
         "retire": {
-          "string": "L'utente \"{displayName}\" è stato ritirato. "
+          "string": "L'utente \"{displayName}\" Ã¨ stato ritirato. "
         }
       }
     },
@@ -5660,12 +5660,12 @@
       },
       "oidcIntroduction": {
         "0": {
-          "string": "Gli utenti del server di accesso devono avere un account Central per accedere a Central. Una volta creato questo account, l'utente del server di accesso con l'indirizzo e-mail fornito potrà accedere a Central."
+          "string": "Gli utenti del server di accesso devono avere un account Central per accedere a Central. Una volta creato questo account, l'utente del server di accesso con l'indirizzo e-mail fornito potrÃ  accedere a Central."
         }
       },
       "problem": {
         "409_3": {
-          "string": "Sembra che {email} abbia già un account. Per favore, prova un altro indirizzo email."
+          "string": "Sembra che {email} abbia giÃ  un account. Per favore, prova un altro indirizzo email."
         }
       }
     },
@@ -5676,12 +5676,12 @@
       },
       "introduction": {
         "full": {
-          "string": "Una volta cliccato {resetPassword} qui sotto, la password per l'utente “{displayName}” <{email}> verrà immediatamente invalidata. Verrà inviata un'e-mail a {email} con le istruzioni su come procedere. ",
+          "string": "Una volta cliccato {resetPassword} qui sotto, la password per l'utente â€œ{displayName}â€ <{email}> verrÃ  immediatamente invalidata. VerrÃ  inviata un'e-mail a {email} con le istruzioni su come procedere. ",
           "developer_comment": "{resetPassword} is a separate string that will be translated below. Its text will be formatted within ODK Central, for example, it might be bold or a link. Its text is:\n\nReset password"
         },
         "resetPassword": {
           "string": "Reimposta la password",
-          "developer_comment": "This text will be formatted within ODK Central, for example, it might be bold or a link. It will be inserted where {resetPassword} is in the following text:\n\nOnce you click {resetPassword} below, the password for the user “{displayName}” <{email}> will be immediately invalidated. An email will be sent to {email} with instructions on how to proceed."
+          "developer_comment": "This text will be formatted within ODK Central, for example, it might be bold or a link. It will be inserted where {resetPassword} is in the following text:\n\nOnce you click {resetPassword} below, the password for the user â€œ{displayName}â€ <{email}> will be immediately invalidated. An email will be sent to {email} with instructions on how to proceed."
         }
       }
     },
@@ -5692,15 +5692,15 @@
       },
       "introduction": {
         "0": {
-          "string": "Stai per ritirare l'account per l'utente “{displayName}” <{email}>. A tale utente verrà immediatamente impedito di eseguire qualsiasi azione e verrà disconnesso. "
+          "string": "Stai per ritirare l'account per l'utente â€œ{displayName}â€ <{email}>. A tale utente verrÃ  immediatamente impedito di eseguire qualsiasi azione e verrÃ  disconnesso. "
         },
         "1": {
           "full": {
-            "string": "{noUndo}, ma è sempre possibile creare un nuovo account per quella persona con lo stesso indirizzo email. ",
+            "string": "{noUndo}, ma Ã¨ sempre possibile creare un nuovo account per quella persona con lo stesso indirizzo email. ",
             "developer_comment": "{noUndo} is a separate string that will be translated below. Its text will be formatted within ODK Central, for example, it might be bold or a link. Its text is:\n\nThis action cannot be undone"
           },
           "noUndo": {
-            "string": "Quest'azione non può essere annullata",
+            "string": "Quest'azione non puÃ² essere annullata",
             "developer_comment": "This text will be formatted within ODK Central, for example, it might be bold or a link. It will be inserted where {noUndo} is in the following text:\n\n{noUndo}, but a new account can always be created for that person with the same email address."
           }
         }
@@ -5721,7 +5721,7 @@
         "developer_comment": "An Administrator may reset the password for another Web User, but not for their own account."
       },
       "cannotRetire": {
-        "string": "Non è possibile ritirare se stessi",
+        "string": "Non Ã¨ possibile ritirare se stessi",
         "developer_comment": "An Administrator may retire other Web Users, but not their own account."
       },
       "action": {
