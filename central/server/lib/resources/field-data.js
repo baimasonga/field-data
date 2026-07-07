@@ -195,7 +195,10 @@ module.exports = (service, endpoint, rootContainer) => {
 
   ////////////////////////////////////////////////////////////////////////////////
   // MEDIA LIBRARY
-  service.get('/field-data/media', endpoint(async (container) => container.db.any(sql`select * from field_data_media order by "createdAt" desc`)));
+  service.get('/field-data/media', endpoint(async (container, { auth }) => {
+    await auth.canOrReject('project.create', Project.species);
+    return container.db.any(sql`select * from field_data_media order by "createdAt" desc`);
+  }));
 
   service.post('/field-data/media', upload.single('file'), endpoint(async (container, { auth }, request) => {
     await auth.canOrReject('project.create', Project.species); // restrict to admin/managers
@@ -244,7 +247,8 @@ module.exports = (service, endpoint, rootContainer) => {
     return success();
   }));
 
-  service.get('/field-data/media/download/:id', endpoint(async (container, { params }, _, response) => {
+  service.get('/field-data/media/download/:id', endpoint(async (container, { params, auth }, _, response) => {
+    await auth.canOrReject('project.create', Project.species);
     const record = await container.maybeOne(sql`
       select * from field_data_media where id = ${params.id}
     `).then(getOrNotFound);
@@ -319,7 +323,10 @@ module.exports = (service, endpoint, rootContainer) => {
 
   ////////////////////////////////////////////////////////////////////////////////
   // BACKUPS
-  service.get('/field-data/backups', endpoint(async (container) => container.db.any(sql`select * from field_data_backups order by date desc`)));
+  service.get('/field-data/backups', endpoint(async (container, { auth }) => {
+    await auth.canOrReject('project.create', Project.species);
+    return container.db.any(sql`select * from field_data_backups order by date desc`);
+  }));
 
   service.post('/field-data/backups', endpoint(async (container, { auth, body }) => {
     await auth.canOrReject('project.create', Project.species);
