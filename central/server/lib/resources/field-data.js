@@ -140,7 +140,7 @@ module.exports = (service, endpoint, rootContainer) => {
     try {
       await dbPool.oneFirst(sql`select 1`);
       dbStatus = true;
-    } catch (e) {}
+    } catch (e) { /* status probe is best-effort */ }
 
     let fileStorageStatus = false;
     try {
@@ -148,7 +148,7 @@ module.exports = (service, endpoint, rootContainer) => {
       fs.writeFileSync(testFile, 'test');
       fs.unlinkSync(testFile);
       fileStorageStatus = true;
-    } catch (e) {}
+    } catch (e) { /* status probe is best-effort */ }
 
     let enketoStatus = false;
     const enketoUrl = config.has('default.enketo.url') ? config.get('default.enketo.url') : null;
@@ -194,13 +194,11 @@ module.exports = (service, endpoint, rootContainer) => {
 
   ////////////////////////////////////////////////////////////////////////////////
   // MEDIA LIBRARY
-  service.get('/field-data/media', endpoint(async (container) => {
-    return container.db.any(sql`select * from field_data_media order by "createdAt" desc`);
-  }));
+  service.get('/field-data/media', endpoint(async (container) => container.db.any(sql`select * from field_data_media order by "createdAt" desc`)));
 
   service.post('/field-data/media', upload.single('file'), endpoint(async (container, { auth }, request) => {
     await auth.canOrReject('project.create', Project.species); // restrict to admin/managers
-    const file = request.file; // populated by multer's upload.single middleware
+    const { file } = request; // populated by multer's upload.single middleware
     if (!file) throw new Error('No file uploaded.');
 
     const fileExt = path.extname(file.originalname).toLowerCase();
@@ -264,9 +262,7 @@ module.exports = (service, endpoint, rootContainer) => {
 
   ////////////////////////////////////////////////////////////////////////////////
   // WEBHOOKS
-  service.get('/field-data/webhooks', endpoint(async (container) => {
-    return container.db.any(sql`select * from field_data_webhooks order by "createdAt" desc`);
-  }));
+  service.get('/field-data/webhooks', endpoint(async (container) => container.db.any(sql`select * from field_data_webhooks order by "createdAt" desc`)));
 
   service.post('/field-data/webhooks', endpoint(async (container, { body, auth }) => {
     await auth.canOrReject('project.create', Project.species);
@@ -306,9 +302,7 @@ module.exports = (service, endpoint, rootContainer) => {
 
   ////////////////////////////////////////////////////////////////////////////////
   // BACKUPS
-  service.get('/field-data/backups', endpoint(async (container) => {
-    return container.db.any(sql`select * from field_data_backups order by date desc`);
-  }));
+  service.get('/field-data/backups', endpoint(async (container) => container.db.any(sql`select * from field_data_backups order by date desc`)));
 
   service.post('/field-data/backups', endpoint(async (container, { auth, body }) => {
     await auth.canOrReject('project.create', Project.species);
@@ -349,7 +343,7 @@ module.exports = (service, endpoint, rootContainer) => {
           where id=${record.id}
         `);
       } catch (err) {
-        console.error('Backup failed:', err);
+        process.stderr.write(`Field Data manual backup ${record.id} failed: ${err.message}\n`);
         await rootContainer.db.query(sql`
           update field_data_backups
           set size='0 KB', status='Failed', "statusColor"='danger'

@@ -34,5 +34,15 @@ const jobs = {
   'dataset.update': [ require('./dataset').createEntitiesFromPendingSubmissions ]
 };
 
+// Field Data: deliver outbound webhooks for a curated set of events. Appending
+// dispatchWebhooks here (creating the job array when an action has no other
+// jobs) also marks these actions as "actionable" so the worker picks up their
+// events — a prerequisite for webhook delivery (see Audit.actionableEvents).
+const { dispatchWebhooks, webhookEvents } = require('./webhooks');
+for (const action of webhookEvents) {
+  if (jobs[action] == null) jobs[action] = [];
+  jobs[action].push(dispatchWebhooks);
+}
+
 module.exports = { jobs };
 
