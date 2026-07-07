@@ -263,7 +263,10 @@ module.exports = (service, endpoint, rootContainer) => {
 
   ////////////////////////////////////////////////////////////////////////////////
   // WEBHOOKS
-  service.get('/field-data/webhooks', endpoint(async (container) => container.db.any(sql`select * from field_data_webhooks order by "createdAt" desc`)));
+  service.get('/field-data/webhooks', endpoint(async (container, { auth }) => {
+    await auth.canOrReject('project.create', Project.species);
+    return container.db.any(sql`select * from field_data_webhooks order by "createdAt" desc`);
+  }));
 
   service.post('/field-data/webhooks', endpoint(async (container, { body, auth }) => {
     await auth.canOrReject('project.create', Project.species);
