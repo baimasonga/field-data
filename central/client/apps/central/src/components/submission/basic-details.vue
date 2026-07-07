@@ -1,0 +1,263 @@
+<!--
+Copyright 2021 ODK Central Developers
+See the NOTICE file at the top-level directory of this distribution and at
+https://github.com/getodk/central-frontend/blob/master/NOTICE.
+
+This file is part of ODK Central. It is subject to the license terms in
+the LICENSE file found in the top-level directory of this distribution and at
+https://www.apache.org/licenses/LICENSE-2.0. No part of ODK Central,
+including this file, may be copied, modified, propagated, or distributed
+except according to the terms contained in the LICENSE file.
+-->
+<template>
+  <page-section id="submission-basic-details">
+    <template #heading><span><span class="icon-file"></span>{{ $t('submissionDetails') }}</span></template>
+    <template #body>
+      <loading :state="initiallyLoading"/>
+      <dl v-if="dataExists">
+        <div>
+          <dt>{{ $t('header.instanceId') }}</dt>
+          <dd><span v-tooltip.text>{{ submission.__id }}</span></dd>
+        </div>
+        <div>
+          <dt>{{ $t('header.submitterName') }}</dt>
+          <dd>
+            <span v-tooltip.text>{{ submission.__system.submitterName }}</span>
+          </dd>
+        </div>
+        <div>
+          <dt>{{ $t('header.submissionDate') }}</dt>
+          <dd><date-time :iso="submission.__system.submissionDate"/></dd>
+        </div>
+        <div>
+          <dt>{{ $t('common.reviewState') }}</dt>
+          <dd>
+            <submission-review-state :value="submission.__system.reviewState"/>
+          </dd>
+        </div>
+        <div>
+          <dt>{{ $t('formVersion') }}</dt>
+          <dd>
+            <form-version-string :version="submission.__system.formVersion"/>
+          </dd>
+        </div>
+        <div v-if="submission.__system.deviceId != null">
+          <dt>{{ $t('deviceId') }}</dt>
+          <dd>
+            <span v-tooltip.text>{{ submission.__system.deviceId }}</span>
+          </dd>
+        </div>
+        <div v-if="submissionVersion.userAgent != null">
+          <dt>{{ $t('userAgent') }}</dt>
+          <dd id="submission-basic-details-user-agent">
+            {{ submissionVersion.userAgent }}
+          </dd>
+        </div>
+        <div v-if="submission.__system.attachmentsExpected !== 0">
+          <dt>{{ $t('attachments') }}</dt>
+          <dd>
+            <span>{{ attachments }}</span>
+            <template v-if="missingAttachment">
+              <span class="icon-exclamation-triangle"></span>
+              <span>{{ $t('submission.missingAttachment') }}</span>
+            </template>
+          </dd>
+        </div>
+      </dl>
+    </template>
+  </page-section>
+</template>
+
+<script>
+import DateTime from '../date-time.vue';
+import FormVersionString from '../form-version/string.vue';
+import Loading from '../loading.vue';
+import PageSection from '../page/section.vue';
+import SubmissionReviewState from './review-state.vue';
+
+import { useRequestData } from '../../request-data';
+
+export default {
+  name: 'SubmissionBasicDetails',
+  components: {
+    DateTime,
+    FormVersionString,
+    Loading,
+    PageSection,
+    SubmissionReviewState
+  },
+  setup() {
+    const { submission, submissionVersion, resourceStates } = useRequestData();
+    return {
+      submission, submissionVersion,
+      ...resourceStates([submission, submissionVersion])
+    };
+  },
+  computed: {
+    attachments() {
+      const { attachmentsPresent, attachmentsExpected } = this.submission.__system;
+      return this.$t('attachmentSummary', {
+        present: this.$tcn('present', attachmentsPresent),
+        expected: this.$tcn('expected', attachmentsExpected)
+      });
+    },
+    missingAttachment() {
+      const { attachmentsPresent, attachmentsExpected } = this.submission.__system;
+      return attachmentsPresent !== attachmentsExpected;
+    }
+  }
+};
+</script>
+
+<style lang="scss">
+@import '../../assets/scss/mixins';
+
+#submission-basic-details {
+  .icon-file {
+    @include icon-box;
+    font-size: 20px;
+    margin-right: $margin-right-icon;
+  }
+
+  margin-bottom: 35px;
+
+  dd { @include text-overflow-ellipsis; }
+  #submission-basic-details-user-agent { white-space: normal; }
+
+  .icon-exclamation-triangle {
+    color: $color-warning;
+    margin-left: 12px;
+    margin-right: $margin-right-icon;
+  }
+}
+</style>
+
+<i18n lang="json5">
+{
+  "en": {
+    "submissionDetails": "Submission Details",
+    "formVersion": "Form version",
+    "deviceId": "Device ID",
+    "userAgent": "User agent",
+    // This refers specifically to Submission Attachments.
+    "attachments": "Attachments",
+    "present": "{count} file | {count} files",
+    // This shows the number of files that were expected to be submitted.
+    "expected": "{count} expected | {count} expected",
+    // {present} shows the number of files that were submitted, and {expected}
+    // shows the number of files that were expected to be submitted. For
+    // example: "2 files / 3 expected"
+    "attachmentSummary": "{present} / {expected}"
+  }
+}
+</i18n>
+
+<!-- Autogenerated by destructure.js -->
+<i18n>
+{
+  "cs": {
+    "formVersion": "Verze formuláře",
+    "deviceId": "ID zařízení",
+    "userAgent": "Uživatelský agent",
+    "attachments": "Přílohy",
+    "present": "{count} soubor | {count} soubory | {count} souborů | {count} soubory",
+    "expected": "{count} očekáván | {count} očekávány | {count} očekáváno | {count} očekávány",
+    "attachmentSummary": "{present} / {expected}"
+  },
+  "de": {
+    "submissionDetails": "Übermittlungsdetails",
+    "formVersion": "Formular Version",
+    "deviceId": "Geräte-ID",
+    "userAgent": "User-Agent",
+    "attachments": "Anhänge",
+    "present": "{count} Datei | {count} Dateien",
+    "expected": "{count} erwartet | {count} erwartet",
+    "attachmentSummary": "{present} / {expected}"
+  },
+  "es": {
+    "submissionDetails": "Detalles de envío",
+    "formVersion": "Versión formulario",
+    "deviceId": "ID del dispositivo",
+    "userAgent": "Agente de usuario",
+    "attachments": "Adjuntos",
+    "present": "{count} file | {count} files | {count} files",
+    "expected": "{count} expected | {count} esperado | {count} esperado",
+    "attachmentSummary": "{present} / {expected}"
+  },
+  "fr": {
+    "submissionDetails": "Détail de la soumission",
+    "formVersion": "Version de formulaire",
+    "deviceId": "ID d'appareil",
+    "userAgent": "\"User agent\"",
+    "attachments": "Fichiers joints",
+    "present": "{count} fichier | {count} fichiers | {count} fichiers",
+    "expected": "{count} attendu | {count} attendus | {count} attendus",
+    "attachmentSummary": "{present} / {expected}"
+  },
+  "id": {
+    "formVersion": "Versi formulir",
+    "deviceId": "ID Perangkat",
+    "attachments": "Lampiran",
+    "present": "{count} berkas",
+    "expected": "{count} diharapkan",
+    "attachmentSummary": "{present} / {expected}"
+  },
+  "it": {
+    "submissionDetails": "Dettagli invio",
+    "formVersion": "Versione formulario",
+    "deviceId": "ID del dispositivo",
+    "userAgent": "Agente utente",
+    "attachments": "Allegati",
+    "present": "{count} file | {count} files | {count} files",
+    "expected": "{count} atteso | {count} attesi | {count} attesi",
+    "attachmentSummary": "{present} / {expected}"
+  },
+  "ja": {
+    "formVersion": "フォームのバージョン",
+    "deviceId": "デバイスID",
+    "userAgent": "ユーザーエージェント",
+    "present": "{count}件の提出済メディアファイル",
+    "expected": "{count}件の期待されるメディアファイル数",
+    "attachmentSummary": "{present} / {expected}"
+  },
+  "pt": {
+    "submissionDetails": "Detalhes da resposta",
+    "formVersion": "Versão do formulário",
+    "deviceId": "ID do dispositivo",
+    "userAgent": "Agente de usuário",
+    "attachments": "Anexos",
+    "present": "{count} arquivo | {count} arquivos | {count} arquivos",
+    "expected": "{count} esperado | {count} esperados | {count} esperados",
+    "attachmentSummary": "{present} / {expected}"
+  },
+  "sw": {
+    "formVersion": "Toleo la fomu",
+    "deviceId": "Kitambulisho cha Kifaa",
+    "userAgent": "Wakala wa mtumiaji",
+    "attachments": "Viambatisho",
+    "present": "faili {count} | faili {count}",
+    "expected": "{count} inatarajiwa | {count} inatarajiwa",
+    "attachmentSummary": "{present} / {expected}"
+  },
+  "zh": {
+    "submissionDetails": "提交详情",
+    "formVersion": "表单版本",
+    "deviceId": "设备ID",
+    "userAgent": "用户代理",
+    "attachments": "附件",
+    "present": "{count}个文件",
+    "expected": "预期数量：{count}个",
+    "attachmentSummary": "实际{present}个/预期{expected}个"
+  },
+  "zh-Hant": {
+    "submissionDetails": "提交詳情",
+    "formVersion": "表單版本",
+    "deviceId": "裝置ID",
+    "userAgent": "使用者代理",
+    "attachments": "附件",
+    "present": "{count} 個檔案",
+    "expected": "{count} 預期的",
+    "attachmentSummary": "{present} / {expected}"
+  }
+}
+</i18n>

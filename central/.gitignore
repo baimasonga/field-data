@@ -2,7 +2,13 @@
 *.swp
 *.swo
 /.env
-/client/
+# Vendored central-frontend source now lives in /client/ and is tracked (like
+# server/). Its build and dependency artifacts stay ignored — the nested
+# /client/.gitignore covers node_modules, dist, .turbo, etc.
+/client/node_modules/
+/client/**/node_modules/
+/client/**/dist/
+/client/.turbo/
 /docker-compose.override.yml
 /version.txt
 

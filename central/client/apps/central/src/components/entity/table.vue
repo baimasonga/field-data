@@ -1,0 +1,219 @@
+<!--
+Copyright 2023 ODK Central Developers
+See the NOTICE file at the top-level directory of this distribution and at
+https://github.com/getodk/central-frontend/blob/master/NOTICE.
+
+This file is part of ODK Central. It is subject to the license terms in
+the LICENSE file found in the top-level directory of this distribution and at
+https://www.apache.org/licenses/LICENSE-2.0. No part of ODK Central,
+including this file, may be copied, modified, propagated, or distributed
+except according to the terms contained in the LICENSE file.
+-->
+<template>
+  <table-freeze v-if="project.dataExists" id="entity-table" ref="table"
+    :data="odataEntities.value" key-prop="__id"
+    :frozen-only="properties == null" divider @action="afterAction">
+    <template #head-frozen>
+      <th><span class="sr-only">{{ $t('common.rowNumber') }}</span></th>
+      <th v-if="!deleted && project.verbs.has('entity.delete')">
+        <input type="checkbox" :aria-label="$t('action.selectRow')" :checked="allSelected" @change="changeAllSelection($event.target.checked)">
+      </th>
+      <th>{{ $t('header.createdBy') }}</th>
+      <th>{{ $t('header.createdAt') }}</th>
+      <th v-if="!deleted">{{ $t('header.updatedAtAndActions') }}</th>
+      <th v-else class="col-deleted-at">{{ $t('header.deletedAt') }}</th>
+    </template>
+    <template #head-scrolling>
+      <template v-if="properties != null">
+        <th v-for="property of properties" :key="property.name">
+          <span v-tooltip.text>{{ property.name }}</span>
+        </th>
+      </template>
+      <th>{{ $t('entity.label') }}</th>
+      <th>{{ $t('entity.entityId') }}</th>
+    </template>
+
+    <template #data-frozen="{ data, index }">
+      <entity-metadata-row :entity="data"
+        :row-number="data.__system.rowNumber"
+        :verbs="project.verbs" :deleted="deleted"
+        :awaiting-response="awaitingDeletedResponses.has(data.__id)"
+        @selection-changed="handleSelectionChanged($event, index)"/>
+    </template>
+    <template #data-scrolling="{ data }">
+      <entity-data-row :entity="data" :properties="properties"/>
+    </template>
+  </table-freeze>
+</template>
+
+<script setup>
+import { ref } from 'vue';
+
+import EntityDataRow from './data-row.vue';
+import EntityMetadataRow from './metadata-row.vue';
+import TableFreeze from '../table/freeze.vue';
+
+import { markRowsChanged, markRowsDeleted } from '../../util/dom';
+import { useRequestData } from '../../request-data';
+
+defineOptions({
+  name: 'EntityTable'
+});
+defineProps({
+  properties: Array,
+  deleted: {
+    type: Boolean,
+    default: false
+  },
+  awaitingDeletedResponses: {
+    type: Set,
+    required: true
+  },
+  allSelected: Boolean
+});
+const emit = defineEmits(['update', 'resolve', 'delete', 'restore', 'selectionChanged', 'update:allSelected']);
+
+
+// The component does not assume that this data will exist when the component is
+// created.
+const { project, odataEntities } = useRequestData();
+
+const afterAction = ({ target, data }) => {
+  const { classList } = target;
+  if (classList.contains('delete-button'))
+    emit('delete', data);
+  else if (classList.contains('update-button'))
+    emit('update', data);
+  else if (classList.contains('resolve-button'))
+    emit('resolve', data);
+  else if (target.classList.contains('restore-button'))
+    emit('restore', data);
+};
+const table = ref(null);
+const findIndex = (uuid) =>
+  odataEntities.value.findIndex(entity => entity.__id === uuid);
+const afterUpdate = (uuid) => {
+  markRowsChanged(table.value.getRowPair(findIndex(uuid)));
+};
+const afterDelete = (uuid) => {
+  const index = findIndex(uuid);
+  markRowsDeleted(table.value.getRowPair(index));
+  odataEntities.value.splice(index, 1);
+};
+
+const handleSelectionChanged = (checked, index) => {
+  const data = odataEntities.value[index];
+  data.__system.selected = checked;
+
+  // If unchecking any item, uncheck the header
+  if (!checked) {
+    emit('update:allSelected', false);
+  }
+  emit('selectionChanged', data, checked);
+};
+
+const changeAllSelection = (checked) => {
+  emit('update:allSelected', checked);
+  odataEntities.value.forEach(e => {
+    e.__system.selected = checked;
+  });
+  emit('selectionChanged', 'all', checked);
+};
+
+defineExpose({ afterUpdate, afterDelete });
+</script>
+
+<style lang="scss">
+@import '../../assets/scss/mixins';
+
+#entity-table {
+  table:has(tbody:empty) { display: none; }
+
+  .table-freeze-scrolling {
+    th, td {
+      @include text-overflow-ellipsis;
+      max-width: 250px;
+      &:last-child { max-width: 325px; }
+    }
+  }
+
+  input[type="checkbox"] {
+    margin-top: 0;
+  }
+
+th.col-deleted-at { color: $color-danger; }
+}
+</style>
+
+<i18n lang="json5">
+{
+  "en": {
+    "header": {
+      // This is the text of a column header of a table of Entities. The column
+      // shows when each Entity was last updated, as well as actions that can be
+      // taken on the Entity.
+      "updatedAtAndActions": "Last Updated / Actions",
+      // Heading of the column that shows Entity deletion timestamp
+      "deletedAt": "Deleted at"
+    }
+  }
+}
+</i18n>
+
+<!-- Autogenerated by destructure.js -->
+<i18n>
+{
+  "cs": {
+    "header": {
+      "updatedAtAndActions": "Poslední aktualizace / Akce"
+    }
+  },
+  "de": {
+    "header": {
+      "updatedAtAndActions": "Letzte Aktualisierung / Aktionen",
+      "deletedAt": "Gelöscht am"
+    }
+  },
+  "es": {
+    "header": {
+      "updatedAtAndActions": "Última actualización / Acciones",
+      "deletedAt": "Suprimida el"
+    }
+  },
+  "fr": {
+    "header": {
+      "updatedAtAndActions": "Dernières mises à jour / Actions",
+      "deletedAt": "Supprimée le"
+    }
+  },
+  "it": {
+    "header": {
+      "updatedAtAndActions": "Ultimo aggiornamento/ azioni",
+      "deletedAt": "Eliminato il"
+    }
+  },
+  "pt": {
+    "header": {
+      "updatedAtAndActions": "Última Atualização / Ações",
+      "deletedAt": "Excluída em"
+    }
+  },
+  "sw": {
+    "header": {
+      "updatedAtAndActions": "Ilisasishwa Mwisho / Vitendo"
+    }
+  },
+  "zh": {
+    "header": {
+      "updatedAtAndActions": "最后更新/操作",
+      "deletedAt": "删除于"
+    }
+  },
+  "zh-Hant": {
+    "header": {
+      "updatedAtAndActions": "最後更新/操作",
+      "deletedAt": "刪除於"
+    }
+  }
+}
+</i18n>

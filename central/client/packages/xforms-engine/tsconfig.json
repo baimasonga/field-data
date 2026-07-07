@@ -1,0 +1,20 @@
+{
+  "extends": "../tsconfig.json",
+  "include": ["src", "test", "vite-env.d.ts"],
+  "compilerOptions": {
+    "allowSyntheticDefaultImports": false,
+    "declarationDir": "./dist",
+    "jsx": "preserve",
+    "jsxImportSource": "solid-js",
+    "lib": ["DOM", "DOM.Iterable", "ES2022"],
+    "skipLibCheck": true,
+    "rootDir": "../../",
+    "outDir": "./dist",
+    "paths": {
+      "@getodk/common/test-utils/*": ["../common/test-utils/*"],
+      "@getodk/common/types/*": ["../common/types/*"],
+      "@getodk/common/*": ["../common/src/*"]
+    },
+    "types": ["vite/client"]
+  }
+}

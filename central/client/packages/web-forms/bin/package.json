@@ -1,0 +1,20 @@
+{
+  "name": "odk-scripts",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": "^24.16.0",
+    "npm": "11"
+  },
+  "volta": {
+    "node": "24.16.0"
+  },
+  "packageManager": "npm@11.6.1",
+  "scripts": {
+    "test": "true"
+  },
+  "devDependencies": {
+    "mustache": "4.2.0"
+  }
+}
