@@ -4,6 +4,7 @@
 // media library uploads, webhooks, and backup history tracking.
 
 const { sql } = require('slonik');
+const config = require('config');
 const multer = require('multer');
 const fs = require('fs');
 const path = require('path');
@@ -11,7 +12,7 @@ const http = require('http');
 const https = require('https');
 const { User, Project } = require('../model/frames');
 const { getOrNotFound } = require('../util/promise');
-const { success } = require('../util/http');
+const { success, contentDisposition } = require('../util/http');
 const { getEncryptedPgDumpStream } = require('../util/backup');
 
 const pingUrl = (urlStr) => new Promise((resolve) => {
@@ -42,37 +43,9 @@ const backupsDir = path.join(storageBaseDir, 'field-data-backups');
 if (!fs.existsSync(mediaDir)) fs.mkdirSync(mediaDir, { recursive: true });
 if (!fs.existsSync(backupsDir)) fs.mkdirSync(backupsDir, { recursive: true });
 
-module.exports = (service, endpoint) => {
-  // Initialize Database tables on startup
-  const db = service.get('container') ? service.get('container').db : null;
-  if (db) {
-    db.query(sql`
-      CREATE TABLE IF NOT EXISTS field_data_media (
-        id SERIAL PRIMARY KEY,
-        name VARCHAR(255) NOT NULL,
-        type VARCHAR(50) NOT NULL,
-        size VARCHAR(50) NOT NULL,
-        "createdAt" TIMESTAMP DEFAULT clock_timestamp()
-      );
-      CREATE TABLE IF NOT EXISTS field_data_webhooks (
-        id SERIAL PRIMARY KEY,
-        name VARCHAR(255) NOT NULL,
-        url VARCHAR(255) NOT NULL,
-        events JSONB NOT NULL,
-        active BOOLEAN DEFAULT TRUE,
-        "lastStatus" VARCHAR(50) DEFAULT 'Pending',
-        "createdAt" TIMESTAMP DEFAULT clock_timestamp()
-      );
-      CREATE TABLE IF NOT EXISTS field_data_backups (
-        id SERIAL PRIMARY KEY,
-        date TIMESTAMP DEFAULT clock_timestamp(),
-        type VARCHAR(50) NOT NULL,
-        size VARCHAR(50) NOT NULL,
-        status VARCHAR(50) NOT NULL,
-        "statusColor" VARCHAR(50) NOT NULL
-      );
-    `).catch(err => console.error('Error creating Field Data tables:', err));
-  }
+module.exports = (service, endpoint, rootContainer) => {
+  // The field_data_* tables backing these resources are created by the
+  // 20260707-01-add-field-data-tables migration.
 
   ////////////////////////////////////////////////////////////////////////////////
   // DASHBOARD STATS
@@ -121,7 +94,7 @@ module.exports = (service, endpoint) => {
       : await dbPool.oneFirst(sql`select count(distinct "actorId")::integer from assignments where "acteeId" = ANY(${sql.array(projects.map(p => p.acteeId), 'text')})`);
 
     // 2. Recent Submissions
-    const recentSubmissions = await dbPool.all(sql`
+    const recentSubmissions = await dbPool.any(sql`
       select submissions.id, submissions."instanceId", submissions."createdAt",
              forms."xmlFormId" as form, forms.name as "formName",
              projects.name as project, actors."displayName" as submitter
@@ -137,7 +110,7 @@ module.exports = (service, endpoint) => {
     `);
 
     // 3. Submissions Trend (grouped by day)
-    const trend = await dbPool.all(sql`
+    const trend = await dbPool.any(sql`
       select date_trunc('day', submissions."createdAt")::date as day, count(*)::integer as count
       from submissions
       join forms on submissions."formId" = forms.id
@@ -150,7 +123,7 @@ module.exports = (service, endpoint) => {
     `);
 
     // 4. Top Forms
-    const topForms = await dbPool.all(sql`
+    const topForms = await dbPool.any(sql`
       select forms."xmlFormId" as form, forms.name as name, count(submissions.id)::integer as count
       from submissions
       join forms on submissions."formId" = forms.id
@@ -178,22 +151,20 @@ module.exports = (service, endpoint) => {
     } catch (e) {}
 
     let enketoStatus = false;
-    const enketoUrl = container.config.default.enketo.url;
+    const enketoUrl = config.has('default.enketo.url') ? config.get('default.enketo.url') : null;
     if (enketoUrl) {
       enketoStatus = await pingUrl(enketoUrl);
     }
 
     let pyxformStatus = false;
-    const xlsConfig = container.config.default.xlsform;
+    const xlsConfig = config.has('default.xlsform') ? config.get('default.xlsform') : null;
     if (xlsConfig) {
       pyxformStatus = await pingUrl(`http://${xlsConfig.host}:${xlsConfig.port}/`);
     }
 
     let emailServiceStatus = false;
-    try {
-      const emailConfig = container.config.default.email;
-      if (emailConfig && emailConfig.transport) emailServiceStatus = true;
-    } catch (e) {}
+    const emailConfig = config.has('default.email') ? config.get('default.email') : null;
+    if (emailConfig && emailConfig.transport) emailServiceStatus = true;
 
     return {
       kpi: {
@@ -224,11 +195,12 @@ module.exports = (service, endpoint) => {
   ////////////////////////////////////////////////////////////////////////////////
   // MEDIA LIBRARY
   service.get('/field-data/media', endpoint(async (container) => {
-    return container.db.all(sql`select * from field_data_media order by "createdAt" desc`);
+    return container.db.any(sql`select * from field_data_media order by "createdAt" desc`);
   }));
 
-  service.post('/field-data/media', upload.single('file'), endpoint(async (container, { file, auth }) => {
+  service.post('/field-data/media', upload.single('file'), endpoint(async (container, { auth }, request) => {
     await auth.canOrReject('project.create', Project.species); // restrict to admin/managers
+    const file = request.file; // populated by multer's upload.single middleware
     if (!file) throw new Error('No file uploaded.');
 
     const fileExt = path.extname(file.originalname).toLowerCase();
@@ -257,7 +229,7 @@ module.exports = (service, endpoint) => {
 
   service.delete('/field-data/media/:id', endpoint(async (container, { params, auth }) => {
     await auth.canOrReject('project.create', Project.species);
-    const record = await container.db.maybeOne(sql`
+    const record = await container.maybeOne(sql`
       select * from field_data_media where id = ${params.id}
     `).then(getOrNotFound);
 
@@ -274,7 +246,7 @@ module.exports = (service, endpoint) => {
   }));
 
   service.get('/field-data/media/download/:id', endpoint(async (container, { params }, _, response) => {
-    const record = await container.db.maybeOne(sql`
+    const record = await container.maybeOne(sql`
       select * from field_data_media where id = ${params.id}
     `).then(getOrNotFound);
 
@@ -282,13 +254,18 @@ module.exports = (service, endpoint) => {
     const targetFile = files.find(f => f.startsWith(`${record.id}.`));
     if (!targetFile) throw new Error('File not found on disk.');
 
-    response.download(path.join(mediaDir, targetFile), record.name);
+    // Set download headers and return a stream; the endpoint pipeline writes it
+    // to the response. (Calling response.download directly and returning nothing
+    // trips the endpoint's empty-response guard.)
+    response.set('Content-Disposition', contentDisposition(record.name));
+    response.set('Content-Type', 'application/octet-stream');
+    return fs.createReadStream(path.join(mediaDir, targetFile));
   }));
 
   ////////////////////////////////////////////////////////////////////////////////
   // WEBHOOKS
   service.get('/field-data/webhooks', endpoint(async (container) => {
-    return container.db.all(sql`select * from field_data_webhooks order by "createdAt" desc`);
+    return container.db.any(sql`select * from field_data_webhooks order by "createdAt" desc`);
   }));
 
   service.post('/field-data/webhooks', endpoint(async (container, { body, auth }) => {
@@ -302,7 +279,7 @@ module.exports = (service, endpoint) => {
 
   service.patch('/field-data/webhooks/:id', endpoint(async (container, { params, body, auth }) => {
     await auth.canOrReject('project.create', Project.species);
-    const webhook = await container.db.maybeOne(sql`
+    const webhook = await container.maybeOne(sql`
       select * from field_data_webhooks where id = ${params.id}
     `).then(getOrNotFound);
 
@@ -330,7 +307,7 @@ module.exports = (service, endpoint) => {
   ////////////////////////////////////////////////////////////////////////////////
   // BACKUPS
   service.get('/field-data/backups', endpoint(async (container) => {
-    return container.db.all(sql`select * from field_data_backups order by date desc`);
+    return container.db.any(sql`select * from field_data_backups order by date desc`);
   }));
 
   service.post('/field-data/backups', endpoint(async (container, { auth, body }) => {
@@ -360,17 +337,20 @@ module.exports = (service, endpoint) => {
 
         const stats = fs.statSync(backupFilePath);
         const sizeStr = stats.size > 1024 * 1024
-          ? `${(stats.size / (1024 * 1024)).toFixed(1)} GB`
+          ? `${(stats.size / (1024 * 1024)).toFixed(1)} MB`
           : `${(stats.size / 1024).toFixed(0)} KB`;
 
-        await container.db.query(sql`
+        // Use the long-lived root container here: this runs after the request's
+        // write transaction has already committed, so `container.db` (the request
+        // transaction connection) is no longer usable.
+        await rootContainer.db.query(sql`
           update field_data_backups
           set size=${sizeStr}, status='Success', "statusColor"='success'
           where id=${record.id}
         `);
       } catch (err) {
         console.error('Backup failed:', err);
-        await container.db.query(sql`
+        await rootContainer.db.query(sql`
           update field_data_backups
           set size='0 KB', status='Failed', "statusColor"='danger'
           where id=${record.id}

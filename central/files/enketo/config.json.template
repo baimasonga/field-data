@@ -10,7 +10,7 @@
             "type": "cookie",
             "url": "${BASE_URL}/login?next={RETURNURL}"
         },
-        "name": "ODK Central",
+        "name": "Field Data",
         "server url": "${DOMAIN}"
     },
     "logo": {

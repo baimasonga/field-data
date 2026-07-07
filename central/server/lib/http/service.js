@@ -120,7 +120,7 @@ module.exports = (container) => {
   require('../resources/oidc')(service, endpoint, anonymousEndpoint);
   require('../resources/user-preferences')(service, endpoint);
   require('../resources/actor-properties')(service, endpoint);
-  require('../resources/field-data')(service, endpoint);
+  require('../resources/field-data')(service, endpoint, container);
 
   ////////////////////////////////////////////////////////////////////////////////
   // POSTRESOURCE HANDLERS
