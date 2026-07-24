@@ -20,6 +20,14 @@ distribution and at https://www.apache.org/licenses/LICENSE-2.0.
       </button>
     </form>
 
+    <div v-if="latestSecret" class="alert alert-warning webhook-new-secret" role="alert">
+      <strong>{{ $t('detail.saveSecret') }}</strong>
+      <code>{{ latestSecret }}</code>
+      <button type="button" class="btn btn-default btn-xs" @click="latestSecret = ''">
+        {{ $t('action.dismiss') }}
+      </button>
+    </div>
+
     <loading :state="webhooks.initiallyLoading"/>
     <table v-show="webhooks.dataExists" class="table">
       <thead>
@@ -59,8 +67,11 @@ distribution and at https://www.apache.org/licenses/LICENSE-2.0.
             <td colspan="6">
               <div class="webhook-secret">
                 <span class="detail-label">{{ $t('detail.secret') }}</span>
-                <code v-if="hook.secret">{{ hook.secret }}</code>
-                <span v-else class="text-muted">{{ $t('detail.noSecret') }}</span>
+                <span>{{ hook.hasSecret ? $t('detail.configured') : $t('detail.noSecret') }}</span>
+                <button type="button" class="btn btn-default btn-xs"
+                  :aria-disabled="awaitingResponse" @click="rotateSecret(hook)">
+                  {{ $t('action.rotateSecret') }}
+                </button>
                 <p class="help-block">{{ $t('detail.secretHelp') }}</p>
               </div>
 
@@ -133,6 +144,7 @@ const parseEvents = (str) => str.split(',').map(s => s.trim()).filter(s => s !==
 const expandedId = ref(null);
 const deliveries = ref([]);
 const loadingDeliveries = ref(false);
+const latestSecret = ref('');
 
 const create = () => {
   request({
@@ -140,11 +152,26 @@ const create = () => {
     url: apiPaths.fieldDataWebhooks(),
     data: { name: newHook.name, url: newHook.url, events: parseEvents(newHook.events) }
   })
-    .then(() => {
+    .then(({ data }) => {
+      latestSecret.value = data.secret;
       alert.success(t('alert.created', { name: newHook.name }));
       newHook.name = '';
       newHook.url = '';
       newHook.events = '';
+      fetchData();
+    })
+    .catch(noop);
+};
+
+const rotateSecret = (hook) => {
+  request({
+    method: 'POST',
+    url: apiPaths.fieldDataWebhookRotateSecret(hook.id),
+    data: {}
+  })
+    .then(({ data }) => {
+      latestSecret.value = data.secret;
+      alert.success(t('alert.rotated', { name: hook.name }));
       fetchData();
     })
     .catch(noop);
@@ -202,7 +229,9 @@ const toggleDetails = (hook) => {
       "add": "Add webhook",
       "delete": "Delete",
       "details": "Details",
-      "hide": "Hide"
+      "hide": "Hide",
+      "rotateSecret": "Rotate secret",
+      "dismiss": "I saved it"
     },
     "header": {
       "name": "Name",
@@ -218,12 +247,15 @@ const toggleDetails = (hook) => {
     "confirmDelete": "Are you sure you want to delete the webhook “{name}”?",
     "alert": {
       "created": "Webhook “{name}” has been created.",
-      "deleted": "Webhook “{name}” has been deleted."
+      "deleted": "Webhook “{name}” has been deleted.",
+      "rotated": "The signing secret for “{name}” has been rotated."
     },
     "detail": {
       "secret": "Signing secret",
       "noSecret": "None (deliveries are not signed)",
-      "secretHelp": "Deliveries are signed with HMAC-SHA256 of the request body in the X-FieldData-Signature header. Use this secret to verify them.",
+      "configured": "Configured and hidden",
+      "saveSecret": "Copy this signing secret now. It will not be shown again:",
+      "secretHelp": "Deliveries are signed with HMAC-SHA256 in the X-FieldData-Signature header. Rotate the secret if it is lost or exposed.",
       "deliveries": "Recent deliveries",
       "event": "Event",
       "result": "Result",
@@ -251,6 +283,13 @@ const toggleDetails = (hook) => {
   .detail-label { font-weight: bold; margin: 5px 0; }
   .webhook-secret {
     margin-bottom: 15px;
+    .btn { margin-left: 8px; }
+    code { word-break: break-all; }
+  }
+  .webhook-new-secret {
+    align-items: center;
+    display: flex;
+    gap: 10px;
     code { word-break: break-all; }
   }
   .deliveries-table { margin-bottom: 5px; background-color: transparent; }

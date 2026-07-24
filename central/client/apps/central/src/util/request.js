@@ -217,7 +217,9 @@ export const apiPaths = {
   fieldDataWebhooks: () => '/v1/field-data/webhooks',
   fieldDataWebhook: (id) => `/v1/field-data/webhooks/${id}`,
   fieldDataWebhookDeliveries: (id) => `/v1/field-data/webhooks/${id}/deliveries`,
-  fieldDataBackups: () => '/v1/field-data/backups'
+  fieldDataWebhookRotateSecret: (id) => `/v1/field-data/webhooks/${id}/rotate-secret`,
+  fieldDataBackups: () => '/v1/field-data/backups',
+  fieldDataBackupDownload: (id) => `/v1/field-data/backups/${id}/download`
 };
 
 

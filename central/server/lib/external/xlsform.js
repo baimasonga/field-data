@@ -11,7 +11,8 @@
 // abstract away xlsform communication, mostly for the purpose of being able to
 // put it in the container as a provider rather than directly use config somewhere.
 
-const { request } = require('http');
+const http = require('http');
+const https = require('https');
 const { pipeline } = require('stream');
 const { rejectIfError } = require('../util/promise');
 const { isBlank } = require('../util/util');
@@ -19,8 +20,9 @@ const Problem = require('../util/problem');
 
 const mock = () => Promise.reject(Problem.internal.xlsformNotConfigured());
 
-const convert = (host, port) => (stream, formIdFallback = '') => new Promise((resolve, reject) => {
+const convert = (protocol, host, port) => (stream, formIdFallback = '') => new Promise((resolve, reject) => {
   const headers = { 'X-XlsForm-FormId-Fallback': formIdFallback };
+  const { request } = protocol === 'https' ? https : http;
   const req = request({ host, port, headers, method: 'POST', path: '/api/v1/convert' }, (res) => {
     const resData = [];
     res.on('data', (d) => { resData.push(d); });
@@ -44,8 +46,8 @@ const init = (config) => {
   if (config == null) return mock;
   const port = parseInt(config.port, 10);
   if (isBlank(config.host) || Number.isNaN(port)) return mock;
-  return convert(config.host, port);
+  const protocol = config.protocol === 'https' ? 'https' : 'http';
+  return convert(protocol, config.host, port);
 };
 
 module.exports = { init };
-

@@ -7,14 +7,17 @@ const { sql } = require('slonik');
 const config = require('config');
 const crypto = require('crypto');
 const multer = require('multer');
-const fs = require('fs');
 const path = require('path');
 const http = require('http');
 const https = require('https');
 const { User, Project } = require('../model/frames');
-const { getOrNotFound } = require('../util/promise');
+const Problem = require('../util/problem');
+const { getOrNotFound, reject } = require('../util/promise');
 const { success, contentDisposition } = require('../util/http');
 const { getEncryptedPgDumpStream } = require('../util/backup');
+const { storage, formatBytes } = require('../external/field-data-storage');
+const { resolveWebhookUrl } = require('../util/safe-webhook-url');
+const { encryptSecret } = require('../util/field-data-secret');
 
 const pingUrl = (urlStr) => new Promise((resolve) => {
   try {
@@ -33,18 +36,49 @@ const pingUrl = (urlStr) => new Promise((resolve) => {
   }
 });
 
-const upload = multer({ storage: multer.memoryStorage() });
+const uploadLimit = Number.parseInt(process.env.FIELD_DATA_UPLOAD_MAX_BYTES || '', 10) || 25 * 1024 * 1024;
+const allowedMediaTypes = new Map([
+  ['image/png', 'image'],
+  ['image/jpeg', 'image'],
+  ['image/gif', 'image'],
+  ['image/svg+xml', 'image'],
+  ['video/mp4', 'video'],
+  ['video/quicktime', 'video'],
+  ['audio/mpeg', 'audio'],
+  ['audio/wav', 'audio'],
+  ['audio/ogg', 'audio'],
+  ['audio/mp4', 'audio'],
+  ['application/pdf', 'document']
+]);
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: uploadLimit, files: 1, fields: 5 }
+});
+const uploadErrorHandler = (error, request, response, next) => {
+  if (error instanceof multer.MulterError && error.code === 'LIMIT_FILE_SIZE') {
+    next(Problem.user.requestTooLarge());
+  } else if (error instanceof multer.MulterError) {
+    next(Problem.user.multipartParsingFailed(error.message));
+  } else {
+    next(error);
+  }
+};
 
-// Resolve persistence directory for media library and manual backups
-const storageBaseDir = fs.existsSync('/data') ? '/data' : path.join(__dirname, '../../..');
-const mediaDir = path.join(storageBaseDir, 'field-data-media');
-const backupsDir = path.join(storageBaseDir, 'field-data-backups');
+const publicWebhook = ({ secret, ...webhook }) => ({ ...webhook, hasSecret: Boolean(secret) });
+const validWebhookUrl = async (url) => {
+  try {
+    await resolveWebhookUrl(url);
+    return url;
+  } catch (error) {
+    return reject(Problem.user.unexpectedValue({
+      field: 'url',
+      value: url,
+      reason: error.message
+    }));
+  }
+};
 
-// Ensure directories exist
-if (!fs.existsSync(mediaDir)) fs.mkdirSync(mediaDir, { recursive: true });
-if (!fs.existsSync(backupsDir)) fs.mkdirSync(backupsDir, { recursive: true });
-
-module.exports = (service, endpoint, rootContainer) => {
+module.exports = (service, endpoint) => {
   // The field_data_* tables backing these resources are created by the
   // 20260707-01-add-field-data-tables migration.
 
@@ -145,9 +179,9 @@ module.exports = (service, endpoint, rootContainer) => {
 
     let fileStorageStatus = false;
     try {
-      const testFile = path.join(storageBaseDir, '.write-test');
-      fs.writeFileSync(testFile, 'test');
-      fs.unlinkSync(testFile);
+      const testKey = `health/${crypto.randomUUID()}`;
+      await storage.putBuffer(testKey, Buffer.from('ok'));
+      await storage.delete(testKey);
       fileStorageStatus = true;
     } catch (e) { /* status probe is best-effort */ }
 
@@ -160,7 +194,7 @@ module.exports = (service, endpoint, rootContainer) => {
     let pyxformStatus = false;
     const xlsConfig = config.has('default.xlsform') ? config.get('default.xlsform') : null;
     if (xlsConfig) {
-      pyxformStatus = await pingUrl(`http://${xlsConfig.host}:${xlsConfig.port}/`);
+      pyxformStatus = await pingUrl(`${xlsConfig.protocol || 'http'}://${xlsConfig.host}:${xlsConfig.port}/`);
     }
 
     let emailServiceStatus = false;
@@ -195,36 +229,40 @@ module.exports = (service, endpoint, rootContainer) => {
 
   ////////////////////////////////////////////////////////////////////////////////
   // MEDIA LIBRARY
-  service.get('/field-data/media', endpoint(async (container) => container.db.any(sql`select * from field_data_media order by "createdAt" desc`)));
-
-  service.post('/field-data/media', upload.single('file'), endpoint(async (container, { auth }, request) => {
-    await auth.canOrReject('project.create', Project.species); // restrict to admin/managers
-    const { file } = request; // populated by multer's upload.single middleware
-    if (!file) throw new Error('No file uploaded.');
-
-    const fileExt = path.extname(file.originalname).toLowerCase();
-    let type = 'other';
-    if (['.png', '.jpg', '.jpeg', '.gif', '.svg'].includes(fileExt)) type = 'image';
-    else if (['.mp4', '.mov', '.avi', '.mkv'].includes(fileExt)) type = 'video';
-    else if (['.mp3', '.wav', '.ogg', '.m4a'].includes(fileExt)) type = 'audio';
-
-    const sizeStr = file.size > 1024 * 1024
-      ? `${(file.size / (1024 * 1024)).toFixed(1)} MB`
-      : `${(file.size / 1024).toFixed(0)} KB`;
-
-    // Save metadata
-    const record = await container.db.one(sql`
-      insert into field_data_media (name, type, size)
-      values (${file.originalname}, ${type}, ${sizeStr})
-      returning *
-    `);
-
-    // Save to disk
-    const targetPath = path.join(mediaDir, `${record.id}${fileExt}`);
-    fs.writeFileSync(targetPath, file.buffer);
-
-    return record;
+  service.get('/field-data/media', endpoint(async (container, { auth }) => {
+    await auth.canOrReject('project.create', Project.species);
+    return container.db.any(sql`select * from field_data_media order by "createdAt" desc`);
   }));
+
+  service.post('/field-data/media', upload.single('file'), uploadErrorHandler,
+    endpoint(async (container, { auth }, request) => {
+      await auth.canOrReject('project.create', Project.species); // restrict to admin/managers
+      const { file } = request; // populated by multer's upload.single middleware
+      if (!file) return reject(Problem.user.missingMultipartField({ field: 'file' }));
+      const type = allowedMediaTypes.get(file.mimetype);
+      if (type == null) {
+        return reject(Problem.user.unexpectedValue({
+          field: 'file',
+          value: file.mimetype,
+          reason: 'unsupported media type'
+        }));
+      }
+
+      const fileExt = path.extname(file.originalname).toLowerCase().replace(/[^a-z0-9.]/g, '');
+      const storageKey = `media/${crypto.randomUUID()}${fileExt}`;
+      await storage.putBuffer(storageKey, file.buffer, { 'Content-Type': file.mimetype });
+      try {
+        return await container.db.one(sql`
+        insert into field_data_media (name, type, size, "sizeBytes", "mimeType", "storageKey")
+        values (${path.basename(file.originalname)}, ${type}, ${formatBytes(file.size)},
+          ${file.size}, ${file.mimetype}, ${storageKey})
+        returning *
+      `);
+      } catch (error) {
+        await storage.delete(storageKey);
+        throw error;
+      }
+    }));
 
   service.delete('/field-data/media/:id', endpoint(async (container, { params, auth }) => {
     await auth.canOrReject('project.create', Project.species);
@@ -232,52 +270,48 @@ module.exports = (service, endpoint, rootContainer) => {
       select * from field_data_media where id = ${params.id}
     `).then(getOrNotFound);
 
-    // Delete file from disk
-    const files = fs.readdirSync(mediaDir);
-    const targetFile = files.find(f => f.startsWith(`${record.id}.`));
-    if (targetFile) {
-      fs.unlinkSync(path.join(mediaDir, targetFile));
-    }
-
-    // Delete record from DB
+    if (record.storageKey) await storage.delete(record.storageKey);
     await container.db.query(sql`delete from field_data_media where id = ${params.id}`);
     return success();
   }));
 
-  service.get('/field-data/media/download/:id', endpoint(async (container, { params }, _, response) => {
+  service.get('/field-data/media/download/:id', endpoint(async (container, { params, auth }, _, response) => {
+    await auth.canOrReject('project.create', Project.species);
     const record = await container.maybeOne(sql`
       select * from field_data_media where id = ${params.id}
     `).then(getOrNotFound);
+    if (!record.storageKey) return reject(Problem.user.notFound());
 
-    const files = fs.readdirSync(mediaDir);
-    const targetFile = files.find(f => f.startsWith(`${record.id}.`));
-    if (!targetFile) throw new Error('File not found on disk.');
-
-    // Set download headers and return a stream; the endpoint pipeline writes it
-    // to the response. (Calling response.download directly and returning nothing
-    // trips the endpoint's empty-response guard.)
     response.set('Content-Disposition', contentDisposition(record.name));
-    response.set('Content-Type', 'application/octet-stream');
-    return fs.createReadStream(path.join(mediaDir, targetFile));
+    response.set('Content-Type', record.mimeType || 'application/octet-stream');
+    return storage.getStream(record.storageKey);
   }));
 
   ////////////////////////////////////////////////////////////////////////////////
   // WEBHOOKS
   service.get('/field-data/webhooks', endpoint(async (container, { auth }) => {
     await auth.canOrReject('project.create', Project.species);
-    return container.db.any(sql`select * from field_data_webhooks order by "createdAt" desc`);
+    const webhooks = await container.db.any(sql`
+      select id, name, url, events, active, "lastStatus", "createdAt",
+        (secret is not null and secret <> '') as "hasSecret"
+      from field_data_webhooks order by "createdAt" desc`);
+    return webhooks;
   }));
 
   service.post('/field-data/webhooks', endpoint(async (container, { body, auth }) => {
     await auth.canOrReject('project.create', Project.species);
+    if (!body.name) return reject(Problem.user.missingParameter({ field: 'name' }));
+    if (!body.url) return reject(Problem.user.missingParameter({ field: 'url' }));
+    await validWebhookUrl(body.url);
     // Generate a signing secret so receivers can verify the HMAC-SHA256
     // signature sent with each delivery (X-FieldData-Signature header).
     const secret = crypto.randomBytes(24).toString('hex');
-    return container.db.one(sql`
+    const created = await container.db.one(sql`
       insert into field_data_webhooks (name, url, events, secret)
-      values (${body.name}, ${body.url}, ${JSON.stringify(body.events || [])}, ${secret})
+      values (${body.name}, ${body.url}, ${JSON.stringify(body.events || [])}, ${encryptSecret(secret)})
       returning *
     `);
+    return { ...publicWebhook(created), secret };
   }));
 
   service.get('/field-data/webhooks/:id/deliveries', endpoint(async (container, { params, auth }) => {
@@ -302,13 +336,25 @@ module.exports = (service, endpoint, rootContainer) => {
       events: body.events !== undefined ? JSON.stringify(body.events) : JSON.stringify(webhook.events),
       active: body.active !== undefined ? body.active : webhook.active
     };
+    await validWebhookUrl(updated.url);
 
-    return container.db.one(sql`
+    const result = await container.db.one(sql`
       update field_data_webhooks
       set name=${updated.name}, url=${updated.url}, events=${updated.events}, active=${updated.active}
       where id=${params.id}
       returning *
     `);
+    return publicWebhook(result);
+  }));
+
+  service.post('/field-data/webhooks/:id/rotate-secret', endpoint(async (container, { params, auth }) => {
+    await auth.canOrReject('project.create', Project.species);
+    const secret = crypto.randomBytes(24).toString('hex');
+    const result = await container.maybeOne(sql`
+      update field_data_webhooks set secret=${encryptSecret(secret)}
+      where id=${params.id} returning *
+    `).then(getOrNotFound);
+    return { ...publicWebhook(result), secret };
   }));
 
   service.delete('/field-data/webhooks/:id', endpoint(async (container, { params, auth }) => {
@@ -319,7 +365,13 @@ module.exports = (service, endpoint, rootContainer) => {
 
   ////////////////////////////////////////////////////////////////////////////////
   // BACKUPS
-  service.get('/field-data/backups', endpoint(async (container) => container.db.any(sql`select * from field_data_backups order by date desc`)));
+  service.get('/field-data/backups', endpoint(async (container, { auth }) => {
+    await auth.canOrReject('project.create', Project.species);
+    return container.db.any(sql`
+      select id, date, type, size, status, "statusColor", "sizeBytes", error, "completedAt",
+        ("storageKey" is not null) as downloadable
+      from field_data_backups order by date desc`);
+  }));
 
   service.post('/field-data/backups', endpoint(async (container, { auth, body }) => {
     await auth.canOrReject('project.create', Project.species);
@@ -330,45 +382,50 @@ module.exports = (service, endpoint, rootContainer) => {
       returning *
     `);
 
-    // Run actual backup asynchronously
-    (async () => {
-      try {
-        const passphrase = body.passphrase || 'field-data-default';
-        const backupStream = await getEncryptedPgDumpStream(passphrase);
-        const fileName = `manual-backup-${record.id}-${Date.now()}.pgdump.enc.bin`;
-        const backupFilePath = path.join(backupsDir, fileName);
+    const passphrase = process.env.FIELD_DATA_BACKUP_PASSPHRASE || body.passphrase;
+    if (typeof passphrase !== 'string' || passphrase.length < 16) {
+      await container.db.query(sql`delete from field_data_backups where id=${record.id}`);
+      return reject(Problem.user.unexpectedValue({
+        field: 'passphrase',
+        value: '[redacted]',
+        reason: 'set FIELD_DATA_BACKUP_PASSPHRASE to at least 16 characters'
+      }));
+    }
 
-        const writeStream = fs.createWriteStream(backupFilePath);
-        backupStream.pipe(writeStream);
+    const storageKey = `backups/manual-backup-${record.id}-${Date.now()}.pgdump.enc.bin`;
+    try {
+      const backupStream = await getEncryptedPgDumpStream(passphrase);
+      const sizeBytes = await storage.putStream(storageKey, backupStream, {
+        'Content-Type': 'application/octet-stream'
+      });
+      return await container.db.one(sql`
+        update field_data_backups
+        set size=${formatBytes(sizeBytes)}, "sizeBytes"=${sizeBytes}, "storageKey"=${storageKey},
+          status='Success', "statusColor"='success', "completedAt"=clock_timestamp()
+        where id=${record.id}
+        returning id, date, type, size, status, "statusColor", "sizeBytes", error, "completedAt",
+          true as downloadable
+      `);
+    } catch (err) {
+      process.stderr.write(`Field Data manual backup ${record.id} failed: ${err.message}\n`);
+      await container.db.query(sql`
+        update field_data_backups
+        set size='0 KB', status='Failed', "statusColor"='danger',
+          error=${String(err.message).slice(0, 1000)}, "completedAt"=clock_timestamp()
+        where id=${record.id}
+      `);
+      throw err;
+    }
+  }));
 
-        await new Promise((resolve, reject) => {
-          writeStream.on('finish', resolve);
-          writeStream.on('error', reject);
-        });
-
-        const stats = fs.statSync(backupFilePath);
-        const sizeStr = stats.size > 1024 * 1024
-          ? `${(stats.size / (1024 * 1024)).toFixed(1)} MB`
-          : `${(stats.size / 1024).toFixed(0)} KB`;
-
-        // Use the long-lived root container here: this runs after the request's
-        // write transaction has already committed, so `container.db` (the request
-        // transaction connection) is no longer usable.
-        await rootContainer.db.query(sql`
-          update field_data_backups
-          set size=${sizeStr}, status='Success', "statusColor"='success'
-          where id=${record.id}
-        `);
-      } catch (err) {
-        process.stderr.write(`Field Data manual backup ${record.id} failed: ${err.message}\n`);
-        await rootContainer.db.query(sql`
-          update field_data_backups
-          set size='0 KB', status='Failed', "statusColor"='danger'
-          where id=${record.id}
-        `);
-      }
-    })();
-
-    return record;
+  service.get('/field-data/backups/:id/download', endpoint(async (container, { params, auth }, _, response) => {
+    await auth.canOrReject('project.create', Project.species);
+    const record = await container.maybeOne(sql`
+      select * from field_data_backups where id=${params.id}
+    `).then(getOrNotFound);
+    if (!record.storageKey || record.status !== 'Success') return reject(Problem.user.notFound());
+    response.set('Content-Disposition', contentDisposition(`field-data-backup-${record.id}.pgdump.enc.bin`));
+    response.set('Content-Type', 'application/octet-stream');
+    return storage.getStream(record.storageKey);
   }));
 };
