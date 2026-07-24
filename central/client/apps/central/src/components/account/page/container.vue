@@ -9,8 +9,11 @@ content in a slot, which the component will style. -->
           <!-- This will load the default logo eagerly, even before the response
           for serverConfig has been received. The goal is to show the default
           logo more quickly if a custom logo isn't configured. -->
-          <img v-if="logoUrl == null" src="../../../assets/images/odk-logo.png"
-            :alt="$t('login.odkLogo')" v-on="imgHandlers">
+          <div v-if="logoUrl == null" class="field-data-wordmark" role="img"
+            :aria-label="$t('login.fieldDataLogo')">
+            <span class="field-data-wordmark-icon" aria-hidden="true">FD</span>
+            <span class="field-data-wordmark-text">Field Data</span>
+          </div>
           <img v-else :src="logoUrl"
             :alt="$t('login.customLogoAlt')" v-on="imgHandlers">
           <spinner/>
@@ -117,6 +120,34 @@ Notes about the layout:
   }
 }
 
+.field-data-wordmark {
+  align-items: center;
+  color: $color-accent-primary;
+  display: inline-flex;
+  font-size: 32px;
+  font-weight: 700;
+  gap: 14px;
+  line-height: 1;
+}
+
+.field-data-wordmark-icon {
+  align-items: center;
+  background: linear-gradient(135deg, $color-accent-primary, $color-action-foreground);
+  border-radius: 14px;
+  color: #fff;
+  display: inline-flex;
+  font-size: 22px;
+  height: 64px;
+  justify-content: center;
+  letter-spacing: -0.08em;
+  padding-right: 0.08em;
+  width: 64px;
+}
+
+.field-data-wordmark-text {
+  letter-spacing: -0.03em;
+}
+
 #account-page-container-logo {
   img {
     max-height: 130px;
@@ -126,7 +157,7 @@ Notes about the layout:
     max-width: 100%;
   }
 
-  &:not(:has(img[data-loaded])):not(:has(img[data-error])) {
+  &:not(:has(img[data-loaded])):not(:has(img[data-error])):not(:has(.field-data-wordmark)) {
     // We show a placeholder while the logo is loading so that the page content
     // below it doesn't jump.
     background-color: color.scale(#f5f9ff, $lightness: -4%);
