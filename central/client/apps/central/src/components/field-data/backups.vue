@@ -28,6 +28,7 @@ distribution and at https://www.apache.org/licenses/LICENSE-2.0.
           <th>{{ $t('header.type') }}</th>
           <th>{{ $t('header.size') }}</th>
           <th>{{ $t('header.status') }}</th>
+          <th class="actions-col">{{ $t('header.actions') }}</th>
         </tr>
       </thead>
       <tbody>
@@ -36,6 +37,10 @@ distribution and at https://www.apache.org/licenses/LICENSE-2.0.
           <td>{{ backup.type }}</td>
           <td>{{ backup.size }}</td>
           <td><span class="label" :class="`label-${backup.statusColor}`">{{ backup.status }}</span></td>
+          <td class="actions-col">
+            <a v-if="backup.downloadable" :href="downloadUrl(backup.id)"
+              class="btn btn-default btn-xs">{{ $t('action.download') }}</a>
+          </td>
         </tr>
       </tbody>
     </table>
@@ -70,11 +75,12 @@ const backups = createResource('fieldDataBackups');
 
 const fetchData = () => backups.request({ url: apiPaths.fieldDataBackups() }).catch(noop);
 fetchData();
+const downloadUrl = (id) => apiPaths.fieldDataBackupDownload(id);
 
 const create = () => {
   request({ method: 'POST', url: apiPaths.fieldDataBackups(), data: {} })
     .then(() => {
-      alert.success(t('alert.started'));
+      alert.success(t('alert.completed'));
       fetchData();
     })
     .catch(noop);
@@ -86,18 +92,19 @@ const create = () => {
   "en": {
     "action": {
       "backupNow": "Back up now",
-      "refresh": "Refresh"
+      "refresh": "Refresh",
+      "download": "Download"
     },
     "header": {
       "date": "Date",
       "type": "Type",
       "size": "Size",
-      "status": "Status"
+      "status": "Status",
+      "actions": "Actions"
     },
     "emptyTable": "No backups have been created yet.",
     "alert": {
-      // Shown after a manual backup is triggered; it runs in the background.
-      "started": "Backup started. It will run in the background — refresh to see the result."
+      "completed": "The encrypted backup was completed and stored successfully."
     }
   }
 }
@@ -106,5 +113,6 @@ const create = () => {
 <style lang="scss">
 #field-data-backups {
   .icon-database { margin-right: 6px; }
+  .actions-col { text-align: right; white-space: nowrap; }
 }
 </style>

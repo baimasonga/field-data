@@ -1,0 +1,55 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "field-data",
+  "main": "cloudflare/worker.js",
+  "compatibility_date": "2026-07-24",
+  "compatibility_flags": ["nodejs_compat"],
+  "observability": {
+    "enabled": true
+  },
+  "vars": {
+    "DOMAIN": "field-data.example.com",
+    "SYSADMIN_EMAIL": "admin@example.com",
+    "R2_ACCOUNT_ID": "replace-with-cloudflare-account-id",
+    "S3_BUCKET_NAME": "field-data-production",
+    "S3_OBJECT_PREFIX": "odk/",
+    "PYXFORM_HOST": "replace-with-pyxform-host",
+    "PYXFORM_PORT": "443",
+    "PYXFORM_PROTOCOL": "https",
+    "ENKETO_URL": "https://replace-with-enketo-host/-",
+    "EMAIL_HOST": "replace-with-smtp-host",
+    "EMAIL_PORT": "587",
+    "EMAIL_SECURE": "false",
+    "EMAIL_IGNORE_TLS": "false",
+    "EMAIL_USER": "",
+    "OIDC_ENABLED": "false",
+    "OIDC_ISSUER_URL": "",
+    "OIDC_CLIENT_ID": "",
+    "SENTRY_DSN_FRONTEND": ""
+  },
+  "containers": [
+    {
+      "class_name": "FieldDataContainer",
+      "image": "./cloudflare/Dockerfile",
+      "instance_type": "standard-2",
+      "max_instances": 1
+    }
+  ],
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "FIELD_DATA_CONTAINER",
+        "class_name": "FieldDataContainer"
+      }
+    ]
+  },
+  "migrations": [
+    {
+      "tag": "v1",
+      "new_sqlite_classes": ["FieldDataContainer"]
+    }
+  ],
+  "triggers": {
+    "crons": ["*/5 * * * *"]
+  }
+}

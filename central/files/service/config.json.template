@@ -23,11 +23,12 @@
     },
     "sessionLifetime": ${SESSION_LIFETIME},
     "xlsform": {
-      "host": "pyxform",
-      "port": 80
+      "protocol": "${PYXFORM_PROTOCOL}",
+      "host": "${PYXFORM_HOST}",
+      "port": ${PYXFORM_PORT}
     },
     "enketo": {
-      "url": "http://enketo:8005/-",
+      "url": "${ENKETO_URL}",
       "apiKey": "${ENKETO_API_KEY}"
     },
     "env": {
@@ -52,6 +53,7 @@
         "accessKey": "${S3_ACCESS_KEY}",
         "secretKey": "${S3_SECRET_KEY}",
         "bucketName": "${S3_BUCKET_NAME}",
+        "objectPrefix": "${S3_OBJECT_PREFIX}",
         "requestTimeout": 60000
       }
     }
