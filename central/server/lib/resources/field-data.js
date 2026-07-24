@@ -17,6 +17,7 @@ const { success, contentDisposition } = require('../util/http');
 const { getEncryptedPgDumpStream } = require('../util/backup');
 const { storage, formatBytes } = require('../external/field-data-storage');
 const { resolveWebhookUrl } = require('../util/safe-webhook-url');
+const { encryptSecret } = require('../util/field-data-secret');
 
 const pingUrl = (urlStr) => new Promise((resolve) => {
   try {
@@ -307,7 +308,7 @@ module.exports = (service, endpoint) => {
     const secret = crypto.randomBytes(24).toString('hex');
     const created = await container.db.one(sql`
       insert into field_data_webhooks (name, url, events, secret)
-      values (${body.name}, ${body.url}, ${JSON.stringify(body.events || [])}, ${secret})
+      values (${body.name}, ${body.url}, ${JSON.stringify(body.events || [])}, ${encryptSecret(secret)})
       returning *
     `);
     return { ...publicWebhook(created), secret };
@@ -350,7 +351,7 @@ module.exports = (service, endpoint) => {
     await auth.canOrReject('project.create', Project.species);
     const secret = crypto.randomBytes(24).toString('hex');
     const result = await container.maybeOne(sql`
-      update field_data_webhooks set secret=${secret}
+      update field_data_webhooks set secret=${encryptSecret(secret)}
       where id=${params.id} returning *
     `).then(getOrNotFound);
     return { ...publicWebhook(result), secret };

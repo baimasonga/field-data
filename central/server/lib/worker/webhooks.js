@@ -17,6 +17,7 @@ const http = require('http');
 const https = require('https');
 const { sql } = require('slonik');
 const { resolveWebhookUrl } = require('../util/safe-webhook-url');
+const { decryptSecret } = require('../util/field-data-secret');
 
 // The set of audit actions for which webhooks may be delivered. Listing an
 // action here also makes it "actionable" (see Audit.actionableEvents), which is
@@ -144,12 +145,22 @@ const dispatchWebhooks = async (container, event) => {
       'User-Agent': 'FieldData-Webhook/1.0',
       'X-FieldData-Event': event.action
     };
-    if (hook.secret != null && hook.secret !== '') {
-      const signature = crypto.createHmac('sha256', hook.secret).update(rawBody).digest('hex');
-      headers['X-FieldData-Signature'] = `sha256=${signature}`;
+    let outcome;
+    try {
+      if (hook.secret != null && hook.secret !== '') {
+        const secret = decryptSecret(hook.secret);
+        const signature = crypto.createHmac('sha256', secret).update(rawBody).digest('hex');
+        headers['X-FieldData-Signature'] = `sha256=${signature}`;
+      }
+      outcome = await deliver(hook.url, rawBody, headers);
+    } catch (error) {
+      outcome = {
+        statusCode: null,
+        success: false,
+        error: `Configuration error: ${error.message}`,
+        attempts: 0
+      };
     }
-
-    const outcome = await deliver(hook.url, rawBody, headers);
 
     await run(sql`
       update field_data_webhooks set "lastStatus" = ${statusLabel(outcome)} where id = ${hook.id}`);

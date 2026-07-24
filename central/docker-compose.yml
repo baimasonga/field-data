@@ -7,9 +7,9 @@ services:
     volumes:
       - postgres14:/var/lib/odk/postgresql/14
     environment:
-      POSTGRES_USER: odk
-      POSTGRES_PASSWORD: odk
-      POSTGRES_DB: odk
+      POSTGRES_USER: ${PGUSER:?Set PGUSER in .env}
+      POSTGRES_PASSWORD: ${PGPASSWORD:?Set PGPASSWORD in .env}
+      POSTGRES_DB: ${PGDATABASE:-odk}
     restart: always
   postgres:
     # This service upgrades from postgres 9.6 to 14.
@@ -23,10 +23,10 @@ services:
       - postgres14:/var/lib/postgresql/14
       - ./files/postgres14/upgrade:/postgres14-upgrade
     environment:
-      PGUSER: odk
-      POSTGRES_INITDB_ARGS: -U odk
-      POSTGRES_PASSWORD: odk
-      POSTGRES_DB: odk
+      PGUSER: ${PGUSER:?Set PGUSER in .env}
+      POSTGRES_INITDB_ARGS: -U ${PGUSER:?Set PGUSER in .env}
+      POSTGRES_PASSWORD: ${PGPASSWORD:?Set PGPASSWORD in .env}
+      POSTGRES_DB: ${PGDATABASE:-odk}
   mail:
     image: "registry.gitlab.com/egos-tech/smtp:1.2.8"
     volumes:
@@ -55,15 +55,12 @@ services:
       - SYSADMIN_EMAIL=${SYSADMIN_EMAIL}
       - HTTPS_PORT=${HTTPS_PORT:-443}
       - NODE_OPTIONS=${SERVICE_NODE_OPTIONS:-}
-      # Prepare libpq connection env vars, while handling legacy DB_* vars.
-      # Resolution order:
-      # 1. PGVAR specified in .env. This includes declarations with empty values, for instance, to use an empty password (PGPASSWORD=).
-      # 2. Corresponding legacy DB_VAR in .env. These are legacy overrides for custom database connections.
-      # 3. ODK default value.
+      # Prepare libpq connection env vars. Database credentials are required
+      # explicitly so production never falls back to a repository-known value.
       - PGHOST=${PGHOST-${DB_HOST:-postgres14}}
       - PGDATABASE=${PGDATABASE-${DB_NAME:-odk}}
-      - PGUSER=${PGUSER-${DB_USER:-odk}}
-      - PGPASSWORD=${PGPASSWORD-${DB_PASSWORD:-odk}}
+      - PGUSER=${PGUSER:?Set PGUSER in .env}
+      - PGPASSWORD=${PGPASSWORD:?Set PGPASSWORD in .env}
       - PGAPPNAME=${PGAPPNAME-odkcentral}
       # End of libpq connection env var preparation.
       - DB_SSL=${DB_SSL:-null}
@@ -98,6 +95,7 @@ services:
       - FIELD_DATA_OBJECT_PREFIX=${FIELD_DATA_OBJECT_PREFIX:-field-data/}
       - FIELD_DATA_UPLOAD_MAX_BYTES=${FIELD_DATA_UPLOAD_MAX_BYTES:-26214400}
       - FIELD_DATA_BACKUP_PASSPHRASE=${FIELD_DATA_BACKUP_PASSPHRASE:-}
+      - FIELD_DATA_WEBHOOK_ENCRYPTION_KEY=${FIELD_DATA_WEBHOOK_ENCRYPTION_KEY:-}
       - SESSION_LIFETIME=${SESSION_LIFETIME:-86400}
     command: [ "./start-odk.sh" ]
     restart: always
