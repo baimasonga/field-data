@@ -302,7 +302,7 @@ module.exports = (service, endpoint) => {
   ////////////////////////////////////////////////////////////////////////////////
   // WEBHOOKS
   service.get('/field-data/webhooks', endpoint(async (container, { auth }) => {
-    await auth.canOrReject('project.create', Project.species);
+    await auth.canOrReject('config.set', Config.species);
     const webhooks = await container.db.any(sql`
       select id, name, url, events, active, "lastStatus", "createdAt",
         (secret is not null and secret <> '') as "hasSecret"
@@ -311,7 +311,7 @@ module.exports = (service, endpoint) => {
   }));
 
   service.post('/field-data/webhooks', endpoint(async (container, { body, auth }) => {
-    await auth.canOrReject('project.create', Project.species);
+    await auth.canOrReject('config.set', Config.species);
     if (!body.name) return reject(Problem.user.missingParameter({ field: 'name' }));
     if (!body.url) return reject(Problem.user.missingParameter({ field: 'url' }));
     await validWebhookUrl(body.url);
@@ -328,7 +328,7 @@ module.exports = (service, endpoint) => {
   }));
 
   service.get('/field-data/webhooks/:id/deliveries', endpoint(async (container, { params, auth }) => {
-    await auth.canOrReject('project.create', Project.species);
+    await auth.canOrReject('config.set', Config.species);
     return container.db.any(sql`
       select * from field_data_webhook_deliveries
       where "webhookId" = ${params.id}
@@ -338,7 +338,7 @@ module.exports = (service, endpoint) => {
   }));
 
   service.patch('/field-data/webhooks/:id', endpoint(async (container, { params, body, auth }) => {
-    await auth.canOrReject('project.create', Project.species);
+    await auth.canOrReject('config.set', Config.species);
     const webhook = await container.maybeOne(sql`
       select * from field_data_webhooks where id = ${params.id}
     `).then(getOrNotFound);
@@ -361,7 +361,7 @@ module.exports = (service, endpoint) => {
   }));
 
   service.post('/field-data/webhooks/:id/rotate-secret', endpoint(async (container, { params, auth }) => {
-    await auth.canOrReject('project.create', Project.species);
+    await auth.canOrReject('config.set', Config.species);
     const secret = crypto.randomBytes(24).toString('hex');
     const result = await container.maybeOne(sql`
       update field_data_webhooks set secret=${encryptSecret(secret)}
@@ -371,7 +371,7 @@ module.exports = (service, endpoint) => {
   }));
 
   service.delete('/field-data/webhooks/:id', endpoint(async (container, { params, auth }) => {
-    await auth.canOrReject('project.create', Project.species);
+    await auth.canOrReject('config.set', Config.species);
     await container.db.query(sql`delete from field_data_webhooks where id = ${params.id}`);
     return success();
   }));
