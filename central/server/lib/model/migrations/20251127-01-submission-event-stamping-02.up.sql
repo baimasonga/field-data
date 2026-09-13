@@ -9,7 +9,7 @@
 
 
 --- create: blank_submissions_event_triggerfunction ---
-CREATE FUNCTION "public"."blank_submissions_event_triggerfunction"()
+CREATE FUNCTION "blank_submissions_event_triggerfunction"()
 RETURNS trigger
 AS
     $BODY$
@@ -22,10 +22,10 @@ LANGUAGE plpgsql
 ;
 
 --- sign: blank_submissions_event_triggerfunction ---
-COMMENT ON FUNCTION "public"."blank_submissions_event_triggerfunction"() IS '{"dbsamizdat": {"version": 1, "definition_hash": "0982b1119302eb5c8afe455903c5ec8a"}}';
+COMMENT ON FUNCTION "blank_submissions_event_triggerfunction"() IS '{"dbsamizdat": {"version": 1, "definition_hash": "0982b1119302eb5c8afe455903c5ec8a"}}';
 
 --- create: get_event ---
-CREATE FUNCTION "public"."get_event"()
+CREATE FUNCTION "get_event"()
 RETURNS bigint
 AS
     $BODY$
@@ -76,10 +76,10 @@ LANGUAGE sql
 ;
 
 --- sign: get_event ---
-COMMENT ON FUNCTION "public"."get_event"() IS '{"dbsamizdat": {"version": 1, "definition_hash": "dd6ab7bb6eef6087a892360fd85f4151"}}';
+COMMENT ON FUNCTION "get_event"() IS '{"dbsamizdat": {"version": 1, "definition_hash": "dd6ab7bb6eef6087a892360fd85f4151"}}';
 
 --- create: eventstamp_submissions_triggerfunction ---
-CREATE FUNCTION "public"."eventstamp_submissions_triggerfunction"()
+CREATE FUNCTION "eventstamp_submissions_triggerfunction"()
 RETURNS trigger
 AS
     $BODY$
@@ -93,10 +93,10 @@ LANGUAGE plpgsql
 ;
 
 --- sign: eventstamp_submissions_triggerfunction ---
-COMMENT ON FUNCTION "public"."eventstamp_submissions_triggerfunction"() IS '{"dbsamizdat": {"version": 1, "definition_hash": "9af0a3a329872908cdf8ad0e7fc34efd"}}';
+COMMENT ON FUNCTION "eventstamp_submissions_triggerfunction"() IS '{"dbsamizdat": {"version": 1, "definition_hash": "9af0a3a329872908cdf8ad0e7fc34efd"}}';
 
 --- create: public.submissions.blank_submissions_event_on_update ---
-CREATE TRIGGER "blank_submissions_event_on_update" BEFORE UPDATE ON "public"."submissions"
+CREATE TRIGGER "blank_submissions_event_on_update" BEFORE UPDATE ON "submissions"
 -- Application transparency:
 -- New rows are already created with a NULL event stamp by default.
 -- Updates to rows need to have their event stamp reset to NULL as well.
@@ -110,10 +110,10 @@ EXECUTE PROCEDURE blank_submissions_event_triggerfunction()
 ;
 
 --- sign: public.submissions.blank_submissions_event_on_update ---
-COMMENT ON TRIGGER "blank_submissions_event_on_update" ON "public"."submissions" IS '{"dbsamizdat": {"version": 1, "definition_hash": "c6d9c9e5191fa009a63a4155620f8eb2"}}';
+COMMENT ON TRIGGER "blank_submissions_event_on_update" ON "submissions" IS '{"dbsamizdat": {"version": 1, "definition_hash": "c6d9c9e5191fa009a63a4155620f8eb2"}}';
 
 --- create: public.submissions.set_eventstamp_submissions_at_commit ---
-CREATE CONSTRAINT TRIGGER "set_eventstamp_submissions_at_commit" AFTER INSERT OR UPDATE ON "public"."submissions"
+CREATE CONSTRAINT TRIGGER "set_eventstamp_submissions_at_commit" AFTER INSERT OR UPDATE ON "submissions"
 -- Runs at the end of a transaction.
 -- The `NEW.event IS NULL` filter prevents recursion.
 DEFERRABLE INITIALLY DEFERRED
@@ -123,4 +123,4 @@ EXECUTE PROCEDURE eventstamp_submissions_triggerfunction();
 ;
 
 --- sign: public.submissions.set_eventstamp_submissions_at_commit ---
-COMMENT ON TRIGGER "set_eventstamp_submissions_at_commit" ON "public"."submissions" IS '{"dbsamizdat": {"version": 1, "definition_hash": "9bc8ef789e6e8cd458dccc98b88b0db9"}}';
+COMMENT ON TRIGGER "set_eventstamp_submissions_at_commit" ON "submissions" IS '{"dbsamizdat": {"version": 1, "definition_hash": "9bc8ef789e6e8cd458dccc98b88b0db9"}}';

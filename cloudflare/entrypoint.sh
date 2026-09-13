@@ -19,7 +19,8 @@ export DB_SSL=null
 export NODE_OPTIONS="${NODE_OPTIONS:-}"
 export PGAPPNAME="${PGAPPNAME:-field-data}"
 export PGSSLMODE=require
-export PGOPTIONS="${PGOPTIONS:--c search_path=field_data,public}"
+export FIELD_DATA_DB_SCHEMA=field_data
+export PGOPTIONS="-c search_path=field_data,extensions,public"
 export EMAIL_FROM="${EMAIL_FROM:-no-reply@$DOMAIN}"
 export EMAIL_PORT="${EMAIL_PORT:-587}"
 export EMAIL_SECURE="${EMAIL_SECURE:-false}"

@@ -8,13 +8,13 @@
 // except according to the terms contained in the LICENSE file.
 
 const up = (db) => db.raw(`
-ALTER TABLE public.entity_defs DROP CONSTRAINT entity_defs_entityid_foreign;
-ALTER TABLE public.entity_defs ADD CONSTRAINT entity_defs_entityid_foreign FOREIGN KEY ("entityId") REFERENCES public.entities(id) ON DELETE CASCADE;
+ALTER TABLE entity_defs DROP CONSTRAINT entity_defs_entityid_foreign;
+ALTER TABLE entity_defs ADD CONSTRAINT entity_defs_entityid_foreign FOREIGN KEY ("entityId") REFERENCES entities(id) ON DELETE CASCADE;
 `);
 
 const down = ((db) => db.raw(`
-ALTER TABLE public.entity_defs DROP CONSTRAINT entity_defs_entityid_foreign;
-ALTER TABLE public.entity_defs ADD CONSTRAINT entity_defs_entityid_foreign FOREIGN KEY ("entityId") REFERENCES public.entities(id);
+ALTER TABLE entity_defs DROP CONSTRAINT entity_defs_entityid_foreign;
+ALTER TABLE entity_defs ADD CONSTRAINT entity_defs_entityid_foreign FOREIGN KEY ("entityId") REFERENCES entities(id);
 `));
 
 module.exports = { up, down };

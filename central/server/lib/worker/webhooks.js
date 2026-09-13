@@ -52,11 +52,20 @@ const deliverOnce = async (urlStr, rawBody, headers) => {
 
   return new Promise((resolve) => {
     let settled = false;
-    const settle = (value) => { if (!settled) { settled = true; resolve(value); } };
+    let deadline;
+    const settle = (value) => {
+      if (!settled) {
+        settled = true;
+        clearTimeout(deadline);
+        resolve(value);
+      }
+    };
     try {
       const client = resolved.url.protocol === 'https:' ? https : http;
       const lookup = (hostname, options, callback) =>
-        callback(null, resolved.address, resolved.family);
+        (options.all
+          ? callback(null, [{ address: resolved.address, family: resolved.family }])
+          : callback(null, resolved.address, resolved.family));
       const req = client.request(resolved.url, {
         method: 'POST',
         timeout: 10000,
@@ -65,6 +74,8 @@ const deliverOnce = async (urlStr, rawBody, headers) => {
       }, (res) => {
         // Drain the response so the socket can be freed.
         res.on('data', () => {});
+        res.on('error', (error) => settle({ statusCode: null, success: false, error: error.message }));
+        res.on('aborted', () => settle({ statusCode: null, success: false, error: 'response aborted' }));
         res.on('end', () => {
           const success = res.statusCode >= 200 && res.statusCode < 300;
           settle({ statusCode: res.statusCode, success, error: success ? null : `HTTP ${res.statusCode}` });
@@ -72,6 +83,10 @@ const deliverOnce = async (urlStr, rawBody, headers) => {
       });
       req.on('error', (err) => settle({ statusCode: null, success: false, error: err.message || 'request error' }));
       req.on('timeout', () => { req.destroy(); settle({ statusCode: null, success: false, error: 'timeout' }); });
+      deadline = setTimeout(() => {
+        req.destroy();
+        settle({ statusCode: null, success: false, error: 'delivery deadline exceeded' });
+      }, 10000);
       req.write(rawBody);
       req.end();
     } catch (err) {
@@ -122,9 +137,9 @@ const dispatchWebhooks = async (container, event) => {
 
   const webhooks = await all(sql`
     select id, url, secret from field_data_webhooks
-    where active = true
+    where active = true and jsonb_typeof(events) = 'array'
       and (
-        jsonb_array_length(events) = 0
+        (case when jsonb_typeof(events) = 'array' then jsonb_array_length(events) else null end) = 0
         or events @> ${JSON.stringify([event.action])}::jsonb
       )`);
   if (webhooks.length === 0) return;

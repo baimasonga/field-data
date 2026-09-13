@@ -10,11 +10,11 @@ const multer = require('multer');
 const path = require('path');
 const http = require('http');
 const https = require('https');
-const { User, Project } = require('../model/frames');
+const { User, Project, Config } = require('../model/frames');
 const Problem = require('../util/problem');
 const { getOrNotFound, reject } = require('../util/promise');
 const { success, contentDisposition } = require('../util/http');
-const { getEncryptedPgDumpStream } = require('../util/backup');
+const { webhookEvents } = require('../worker/webhooks');
 const { storage, formatBytes } = require('../external/field-data-storage');
 const { resolveWebhookUrl } = require('../util/safe-webhook-url');
 const { encryptSecret } = require('../util/field-data-secret');
@@ -78,6 +78,14 @@ const validWebhookUrl = async (url) => {
   }
 };
 
+const validateEvents = (events) => {
+  if (!Array.isArray(events) || events.some(event => !webhookEvents.includes(event))) {
+    throw Problem.user.unexpectedValue({ field: 'events', value: events,
+      reason: 'must be an array of supported webhook event names' });
+  }
+  return [...new Set(events)];
+};
+
 module.exports = (service, endpoint) => {
   // The field_data_* tables backing these resources are created by the
   // 20260707-01-add-field-data-tables migration.
@@ -91,6 +99,10 @@ module.exports = (service, endpoint) => {
     // Get projects the user has access to
     const projects = await Projects.getAllByAuth(auth);
     const projectIds = projects.map(p => p.id);
+    const readable = await Promise.all(projects.map(async project =>
+      (((await auth.can('submission.list', project)) && (await auth.can('submission.read', project)))
+        ? project.id : null)));
+    const submissionProjectIds = readable.filter(id => id != null);
 
     if (projectIds.length === 0) {
       return {
@@ -120,8 +132,8 @@ module.exports = (service, endpoint) => {
     const submissionsCount = await dbPool.oneFirst(sql`
       select count(*)::integer from submissions 
       join forms on submissions."formId" = forms.id 
-      where submissions."deletedAt" is null and submissions.draft = false 
-        and forms."projectId" = ANY(${sql.array(projectIds, 'int4')})
+      where forms."deletedAt" is null and submissions."deletedAt" is null and submissions.draft = false
+        and forms."projectId" = ANY(${sql.array(submissionProjectIds, 'int4')})
     `);
 
     const usersCount = isAdmin
@@ -137,9 +149,9 @@ module.exports = (service, endpoint) => {
       join forms on submissions."formId" = forms.id
       join projects on forms."projectId" = projects.id
       left join actors on submissions."submitterId" = actors.id
-      where submissions."deletedAt" is null
+      where forms."deletedAt" is null and submissions."deletedAt" is null
         and submissions.draft = false
-        and forms."projectId" = ANY(${sql.array(projectIds, 'int4')})
+        and forms."projectId" = ANY(${sql.array(submissionProjectIds, 'int4')})
       order by submissions."createdAt" desc
       limit 5
     `);
@@ -149,9 +161,9 @@ module.exports = (service, endpoint) => {
       select date_trunc('day', submissions."createdAt")::date as day, count(*)::integer as count
       from submissions
       join forms on submissions."formId" = forms.id
-      where submissions."deletedAt" is null
+      where forms."deletedAt" is null and submissions."deletedAt" is null
         and submissions.draft = false
-        and forms."projectId" = ANY(${sql.array(projectIds, 'int4')})
+        and forms."projectId" = ANY(${sql.array(submissionProjectIds, 'int4')})
         and submissions."createdAt" >= now() - interval '7 days'
       group by day
       order by day asc
@@ -162,9 +174,9 @@ module.exports = (service, endpoint) => {
       select forms."xmlFormId" as form, forms.name as name, count(submissions.id)::integer as count
       from submissions
       join forms on submissions."formId" = forms.id
-      where submissions."deletedAt" is null
+      where forms."deletedAt" is null and submissions."deletedAt" is null
         and submissions.draft = false
-        and forms."projectId" = ANY(${sql.array(projectIds, 'int4')})
+        and forms."projectId" = ANY(${sql.array(submissionProjectIds, 'int4')})
       group by forms.id, forms."xmlFormId", forms.name
       order by count desc
       limit 5
@@ -305,10 +317,11 @@ module.exports = (service, endpoint) => {
     await validWebhookUrl(body.url);
     // Generate a signing secret so receivers can verify the HMAC-SHA256
     // signature sent with each delivery (X-FieldData-Signature header).
+    const events = validateEvents(body.events === undefined ? [] : body.events);
     const secret = crypto.randomBytes(24).toString('hex');
     const created = await container.db.one(sql`
       insert into field_data_webhooks (name, url, events, secret)
-      values (${body.name}, ${body.url}, ${JSON.stringify(body.events || [])}, ${encryptSecret(secret)})
+      values (${body.name}, ${body.url}, ${JSON.stringify(events)}, ${encryptSecret(secret)})
       returning *
     `);
     return { ...publicWebhook(created), secret };
@@ -333,7 +346,7 @@ module.exports = (service, endpoint) => {
     const updated = {
       name: body.name !== undefined ? body.name : webhook.name,
       url: body.url !== undefined ? body.url : webhook.url,
-      events: body.events !== undefined ? JSON.stringify(body.events) : JSON.stringify(webhook.events),
+      events: body.events !== undefined ? JSON.stringify(validateEvents(body.events)) : JSON.stringify(validateEvents(webhook.events)),
       active: body.active !== undefined ? body.active : webhook.active
     };
     await validWebhookUrl(updated.url);
@@ -366,60 +379,35 @@ module.exports = (service, endpoint) => {
   ////////////////////////////////////////////////////////////////////////////////
   // BACKUPS
   service.get('/field-data/backups', endpoint(async (container, { auth }) => {
-    await auth.canOrReject('project.create', Project.species);
+    await auth.canOrReject('backup.run', Config.species);
     return container.db.any(sql`
       select id, date, type, size, status, "statusColor", "sizeBytes", error, "completedAt",
-        ("storageKey" is not null) as downloadable
+        ("storageKey" is not null and status='Success') as downloadable
       from field_data_backups order by date desc`);
   }));
 
-  service.post('/field-data/backups', endpoint(async (container, { auth, body }) => {
-    await auth.canOrReject('project.create', Project.species);
-
-    const record = await container.db.one(sql`
-      insert into field_data_backups (type, size, status, "statusColor")
-      values ('Manual', 'Pending', 'Running', 'info')
-      returning *
-    `);
-
-    const passphrase = process.env.FIELD_DATA_BACKUP_PASSPHRASE || body.passphrase;
+  service.post('/field-data/backups', endpoint(async (container, { auth }, _, response) => {
+    await auth.canOrReject('backup.run', Config.species);
+    const passphrase = process.env.FIELD_DATA_BACKUP_PASSPHRASE;
     if (typeof passphrase !== 'string' || passphrase.length < 16) {
-      await container.db.query(sql`delete from field_data_backups where id=${record.id}`);
-      return reject(Problem.user.unexpectedValue({
-        field: 'passphrase',
-        value: '[redacted]',
-        reason: 'set FIELD_DATA_BACKUP_PASSPHRASE to at least 16 characters'
-      }));
+      throw Problem.user.unexpectedValue({ field: 'passphrase', value: '[redacted]',
+        reason: 'set FIELD_DATA_BACKUP_PASSPHRASE to at least 16 characters' });
     }
-
-    const storageKey = `backups/manual-backup-${record.id}-${Date.now()}.pgdump.enc.bin`;
-    try {
-      const backupStream = await getEncryptedPgDumpStream(passphrase);
-      const sizeBytes = await storage.putStream(storageKey, backupStream, {
-        'Content-Type': 'application/octet-stream'
-      });
-      return await container.db.one(sql`
-        update field_data_backups
-        set size=${formatBytes(sizeBytes)}, "sizeBytes"=${sizeBytes}, "storageKey"=${storageKey},
-          status='Success', "statusColor"='success', "completedAt"=clock_timestamp()
-        where id=${record.id}
-        returning id, date, type, size, status, "statusColor", "sizeBytes", error, "completedAt",
-          true as downloadable
-      `);
-    } catch (err) {
-      process.stderr.write(`Field Data manual backup ${record.id} failed: ${err.message}\n`);
-      await container.db.query(sql`
-        update field_data_backups
-        set size='0 KB', status='Failed', "statusColor"='danger',
-          error=${String(err.message).slice(0, 1000)}, "completedAt"=clock_timestamp()
-        where id=${record.id}
-      `);
-      throw err;
-    }
+    // Serialize enqueue operations within the request transaction. Repeated clicks
+    // reuse the outstanding job rather than launching concurrent database dumps.
+    await container.db.query(sql`select pg_advisory_xact_lock(74120, hashtext(current_schema()))`);
+    const existing = await container.db.maybeOne(sql`
+      select * from field_data_backups where status in ('Pending', 'Running') order by id limit 1`);
+    response.status(202);
+    if (existing != null) return { ...existing, downloadable: false };
+    return container.db.one(sql`
+      insert into field_data_backups (type, size, status, "statusColor")
+      values ('Manual', 'Pending', 'Pending', 'info')
+      returning *, false as downloadable`);
   }));
 
   service.get('/field-data/backups/:id/download', endpoint(async (container, { params, auth }, _, response) => {
-    await auth.canOrReject('project.create', Project.species);
+    await auth.canOrReject('backup.run', Config.species);
     const record = await container.maybeOne(sql`
       select * from field_data_backups where id=${params.id}
     `).then(getOrNotFound);

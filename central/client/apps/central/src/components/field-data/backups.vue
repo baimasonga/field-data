@@ -80,7 +80,7 @@ const downloadUrl = (id) => apiPaths.fieldDataBackupDownload(id);
 const create = () => {
   request({ method: 'POST', url: apiPaths.fieldDataBackups(), data: {} })
     .then(() => {
-      alert.success(t('alert.completed'));
+      alert.success(t('alert.queued'));
       fetchData();
     })
     .catch(noop);
@@ -104,7 +104,7 @@ const create = () => {
     },
     "emptyTable": "No backups have been created yet.",
     "alert": {
-      "completed": "The encrypted backup was completed and stored successfully."
+      "queued": "Backup queued. Refresh to see its progress; you can safely leave this page."
     }
   }
 }

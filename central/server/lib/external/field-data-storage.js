@@ -42,7 +42,7 @@ const initSupabaseStore = () => {
     return url;
   };
 
-  const signedRequest = async (method, key, body, metadata = {}) => {
+  const signedRequest = async (method, key, body, metadata = {}, signal) => {
     const url = objectUrl(key);
     const now = new Date();
     const amzDate = now.toISOString().replace(/[:-]|\.\d{3}/g, '');
@@ -81,7 +81,7 @@ const initSupabaseStore = () => {
     };
     if (metadata['Content-Type']) headers['Content-Type'] = metadata['Content-Type'];
 
-    const options = { method, headers };
+    const options = { method, headers, signal };
     if (body != null) {
       options.body = body;
       if (!(Buffer.isBuffer(body) || typeof body === 'string')) options.duplex = 'half';
@@ -97,7 +97,7 @@ const initSupabaseStore = () => {
   return {
     mode: 'supabase',
     putBuffer: (key, buffer, metadata = {}) => signedRequest('PUT', key, buffer, metadata),
-    putStream: async (key, input, metadata = {}) => {
+    putStream: async (key, input, metadata = {}, { signal } = {}) => {
       let bytes = 0;
       const counter = new Transform({
         transform(chunk, encoding, callback) {
@@ -105,9 +105,19 @@ const initSupabaseStore = () => {
           callback(null, chunk);
         }
       });
-      input.pipe(counter);
-      await signedRequest('PUT', key, counter, metadata);
-      return bytes;
+      const abort = new AbortController();
+      const combined = signal == null ? abort.signal : AbortSignal.any([signal, abort.signal]);
+      try {
+        await Promise.all([
+          pipeline(input, counter, { signal: combined }),
+          signedRequest('PUT', key, counter, metadata, combined)
+        ]);
+        return bytes;
+      } finally {
+        abort.abort();
+        input.destroy();
+        counter.destroy();
+      }
     },
     getStream: async (key) => {
       const response = await signedRequest('GET', key);
@@ -141,7 +151,7 @@ const initObjectStore = () => {
     mode: 'object',
     putBuffer: (key, buffer, metadata = {}) =>
       client.putObject(bucketName, objectName(key), buffer, buffer.length, metadata),
-    putStream: async (key, input, metadata = {}) => {
+    putStream: async (key, input, metadata = {}, { signal } = {}) => {
       let bytes = 0;
       const counter = new Transform({
         transform(chunk, encoding, callback) {
@@ -149,9 +159,16 @@ const initObjectStore = () => {
           callback(null, chunk);
         }
       });
-      input.pipe(counter);
-      await client.putObject(bucketName, objectName(key), counter, undefined, metadata);
-      return bytes;
+      try {
+        await Promise.all([
+          pipeline(input, counter, { signal }),
+          client.putObject(bucketName, objectName(key), counter, undefined, metadata)
+        ]);
+        return bytes;
+      } finally {
+        input.destroy();
+        counter.destroy();
+      }
     },
     getStream: (key) => client.getObject(bucketName, objectName(key)),
     delete: (key) => client.removeObject(bucketName, objectName(key))
@@ -176,7 +193,7 @@ const initFileStore = () => {
       await fs.promises.writeFile(temporary, buffer, { flag: 'wx' });
       await fs.promises.rename(temporary, filename);
     },
-    putStream: async (key, input) => {
+    putStream: async (key, input, _metadata = {}, { signal } = {}) => {
       const filename = target(key);
       await fs.promises.mkdir(path.dirname(filename), { recursive: true });
       const temporary = `${filename}.${process.pid}.${Date.now()}.tmp`;
@@ -188,7 +205,7 @@ const initFileStore = () => {
         }
       });
       try {
-        await pipeline(input, counter, fs.createWriteStream(temporary, { flags: 'wx' }));
+        await pipeline(input, counter, fs.createWriteStream(temporary, { flags: 'wx' }), { signal });
         await fs.promises.rename(temporary, filename);
         return bytes;
       } catch (error) {
