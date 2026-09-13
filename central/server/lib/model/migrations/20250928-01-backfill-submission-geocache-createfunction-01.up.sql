@@ -8,10 +8,10 @@
 -- except according to the terms contained in the LICENSE file.
 
 --- drop: cache_all_submission_geo(only_default_path boolean, batchsize integer) ---
-DROP FUNCTION IF EXISTS "public"."cache_all_submission_geo"() CASCADE;
+DROP FUNCTION IF EXISTS "cache_all_submission_geo"() CASCADE;
 
 --- create: cache_all_submission_geo(only_default_path boolean, batchsize integer) ---
-CREATE FUNCTION "public"."cache_all_submission_geo"(only_default_path boolean = false, batchsize integer = NULL)
+CREATE FUNCTION "cache_all_submission_geo"(only_default_path boolean = false, batchsize integer = NULL)
 RETURNS integer[]
 AS
     $BODY$
@@ -90,4 +90,4 @@ PARALLEL UNSAFE
 ;
 
 --- sign: cache_all_submission_geo(only_default_path boolean, batchsize integer) ---
-COMMENT ON FUNCTION "public"."cache_all_submission_geo"(only_default_path boolean, batchsize integer) IS '{"dbsamizdat": {"version": 1, "definition_hash": "406edd1dbf8a7a2e1bd0e4ea45542978"}}';
+COMMENT ON FUNCTION "cache_all_submission_geo"(only_default_path boolean, batchsize integer) IS '{"dbsamizdat": {"version": 1, "definition_hash": "406edd1dbf8a7a2e1bd0e4ea45542978"}}';

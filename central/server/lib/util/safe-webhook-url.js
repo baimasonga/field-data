@@ -15,13 +15,16 @@ const blockedIpv4 = (address) => {
 };
 
 const blockedIpv6 = (address) => {
-  const normalized = address.toLowerCase().split('%')[0];
+  const normalized = new URL(`http://[${address}]/`).hostname.slice(1, -1).toLowerCase();
   if (normalized === '::' || normalized === '::1') return true;
   if (normalized.startsWith('fc') || normalized.startsWith('fd')
       || /^fe[89ab]/.test(normalized) || normalized.startsWith('ff')
       || normalized.startsWith('2001:db8:')) return true;
-  const mapped = normalized.match(/::ffff:(\d+\.\d+\.\d+\.\d+)$/);
-  return mapped != null && blockedIpv4(mapped[1]);
+  const mapped = normalized.match(/^::ffff:([0-9a-f]+):([0-9a-f]+)$/);
+  if (mapped == null) return false;
+  const high = Number.parseInt(mapped[1], 16);
+  const low = Number.parseInt(mapped[2], 16);
+  return blockedIpv4([Math.floor(high / 256), high % 256, Math.floor(low / 256), low % 256].join('.'));
 };
 
 const isBlockedAddress = (address) => {
@@ -37,9 +40,10 @@ const resolveWebhookUrl = async (urlString, { allowPrivate = false } = {}) => {
     throw new Error('Webhook URL must not target localhost.');
   }
 
-  const addresses = net.isIP(url.hostname)
-    ? [{ address: url.hostname, family: net.isIP(url.hostname) }]
-    : await dns.lookup(url.hostname, { all: true, verbatim: true });
+  const hostname = url.hostname.replace(/^\[|\]$/g, '');
+  const addresses = net.isIP(hostname)
+    ? [{ address: hostname, family: net.isIP(hostname) }]
+    : await dns.lookup(hostname, { all: true, verbatim: true });
   if (addresses.length === 0) throw new Error('Webhook hostname did not resolve.');
   if (!allowPrivate && addresses.some(({ address }) => isBlockedAddress(address))) {
     throw new Error('Webhook URL resolves to a private, local, or reserved network.');
