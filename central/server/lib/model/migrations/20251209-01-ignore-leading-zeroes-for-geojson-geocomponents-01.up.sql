@@ -9,10 +9,10 @@
 
 
 --- drop: odk2geojson_helper_point(odkgeopoint text) ---
-DROP FUNCTION IF EXISTS "public"."odk2geojson_helper_point"(odkgeopoint text) CASCADE;
+DROP FUNCTION IF EXISTS "odk2geojson_helper_point"(odkgeopoint text) CASCADE;
 
 --- create: odk2geojson_helper_point(odkgeopoint text) ---
-CREATE FUNCTION "public"."odk2geojson_helper_point"(odkgeopoint text)
+CREATE FUNCTION "odk2geojson_helper_point"(odkgeopoint text)
 RETURNS json
 AS
     $BODY$
@@ -59,4 +59,4 @@ PARALLEL SAFE
 ;
 
 --- sign: odk2geojson_helper_point(odkgeopoint text) ---
-COMMENT ON FUNCTION "public"."odk2geojson_helper_point"(odkgeopoint text) IS '{"dbsamizdat": {"version": 1, "definition_hash": "0981da86dd07632b9f3907b21ba50938"}}';
+COMMENT ON FUNCTION "odk2geojson_helper_point"(odkgeopoint text) IS '{"dbsamizdat": {"version": 1, "definition_hash": "0981da86dd07632b9f3907b21ba50938"}}';

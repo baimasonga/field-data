@@ -8,7 +8,7 @@
 -- except according to the terms contained in the LICENSE file.
 
 --- create: hash_aggregate_state_transition_func(state text, additional_value anyelement) ---
-CREATE FUNCTION "public"."hash_aggregate_state_transition_func"(state text, additional_value anyelement)
+CREATE FUNCTION "hash_aggregate_state_transition_func"(state text, additional_value anyelement)
 RETURNS text
 AS
     $BODY$
@@ -38,4 +38,4 @@ CREATE AGGREGATE md5_hash_agg(anyelement) (
 );
 
 --- sign: hash_aggregate_state_transition_func(state text, additional_value anyelement) ---
-COMMENT ON FUNCTION "public"."hash_aggregate_state_transition_func"(state text, additional_value anyelement) IS '{"dbsamizdat": {"version": 1, "definition_hash": "e96d80adec172b164c977ffa51e46342"}}';
+COMMENT ON FUNCTION "hash_aggregate_state_transition_func"(state text, additional_value anyelement) IS '{"dbsamizdat": {"version": 1, "definition_hash": "e96d80adec172b164c977ffa51e46342"}}';
