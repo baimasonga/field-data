@@ -7,7 +7,8 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends ca-certificates curl git \
     && rm -rf /var/lib/apt/lists/*
 COPY central/ ./
-RUN APP_VERSION="${APP_VERSION:-$(cat VERSION)}" \
+RUN chmod 0755 files/prebuild/write-version.sh files/prebuild/build-frontend.sh \
+    && APP_VERSION="${APP_VERSION:-$(cat VERSION)}" \
     FRONTEND_BUILD_MODE=source FRONTEND_VERSION=v2026.2.0 \
     files/prebuild/write-version.sh \
     && FRONTEND_BUILD_MODE=source FRONTEND_VERSION=v2026.2.0 \
@@ -59,7 +60,9 @@ RUN VERSION="${APP_VERSION:-$(cat /usr/share/odk/VERSION)}" \
       /usr/odk/sentry-versions/central \
       /usr/odk/sentry-versions/server \
       /usr/odk/sentry-versions/client >/dev/null \
+    && printf '%s\n' 'field-data-native-web-forms' > /etc/secrets/enketo-api-key \
     && chmod 0755 /usr/local/bin/field-data-entrypoint /usr/odk/*.sh \
+    && chmod 0600 /etc/secrets/enketo-api-key \
     && chmod 0644 /etc/cron.d/odk
 
 EXPOSE 8080 8383
