@@ -9,7 +9,7 @@
   },
   "vars": {
     "DOMAIN": "field-data.mohamedbangura.workers.dev",
-    "SYSADMIN_EMAIL": "mohamedbangura@avdp.org.sl",
+    "SYSADMIN_EMAIL": "admin@fielddata.quantixsl.com",
     "PGDATABASE": "postgres",
     "PGSSLMODE": "require",
     "PGOPTIONS": "-c search_path=field_data,extensions,public",
@@ -18,7 +18,7 @@
     "SUPABASE_STORAGE_BUCKET": "field-data",
     "SUPABASE_REGION": "eu-west-2",
     "FORM_COMPILER_MAX_BYTES": "26214400",
-    "EMAIL_FROM": "mohamedbangura@avdp.org.sl",
+    "EMAIL_FROM": "admin@fielddata.quantixsl.com",
     "EMAIL_HOST": "smtp.office365.com",
     "EMAIL_PORT": "587",
     "EMAIL_SECURE": "false",
