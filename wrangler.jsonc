@@ -28,6 +28,12 @@
     "OIDC_CLIENT_ID": "",
     "SENTRY_DSN_FRONTEND": ""
   },
+  "routes": [
+    {
+      "pattern": "fielddata.quantixsl.com",
+      "custom_domain": true
+    }
+  ],
   "containers": [
     {
       "class_name": "FieldDataContainer",
