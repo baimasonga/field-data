@@ -8,8 +8,8 @@
     "enabled": true
   },
   "vars": {
-    "DOMAIN": "field-data.example.com",
-    "SYSADMIN_EMAIL": "admin@example.com",
+    "DOMAIN": "fielddata.quantixsl.com",
+    "SYSADMIN_EMAIL": "admin@fielddata.quantixsl.com",
     "PGDATABASE": "postgres",
     "PGSSLMODE": "require",
     "PGOPTIONS": "-c search_path=field_data,public",
