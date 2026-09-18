@@ -7,6 +7,7 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends ca-certificates curl git \
     && rm -rf /var/lib/apt/lists/*
 COPY central/ ./
+RUN chmod 0755 files/prebuild/write-version.sh files/prebuild/build-frontend.sh
 RUN APP_VERSION="${APP_VERSION:-$(cat VERSION)}" \
     FRONTEND_BUILD_MODE=source FRONTEND_VERSION=v2026.2.0 \
     files/prebuild/write-version.sh \
