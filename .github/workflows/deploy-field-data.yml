@@ -1,0 +1,70 @@
+name: Deploy Field Data
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: field-data-production
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    name: Deploy Cloudflare Worker and Container
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    environment: production
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install deployment dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Validate Cloudflare configuration
+        run: npm run check
+
+      - name: Deploy Field Data
+        id: deploy
+        uses: cloudflare/wrangler-action@v4
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          wranglerVersion: "4.114.0"
+          command: deploy
+          secrets: |
+            PGHOST
+            PGPORT
+            PGUSER
+            PGPASSWORD
+            SUPABASE_S3_ACCESS_KEY_ID
+            SUPABASE_S3_SECRET_ACCESS_KEY
+            FIELD_DATA_BACKUP_PASSPHRASE
+            FIELD_DATA_WEBHOOK_ENCRYPTION_KEY
+            EMAIL_USER
+            EMAIL_PASSWORD
+        env:
+          PGHOST: ${{ secrets.PGHOST }}
+          PGPORT: ${{ secrets.PGPORT }}
+          PGUSER: ${{ secrets.PGUSER }}
+          PGPASSWORD: ${{ secrets.PGPASSWORD }}
+          SUPABASE_S3_ACCESS_KEY_ID: ${{ secrets.SUPABASE_S3_ACCESS_KEY_ID }}
+          SUPABASE_S3_SECRET_ACCESS_KEY: ${{ secrets.SUPABASE_S3_SECRET_ACCESS_KEY }}
+          FIELD_DATA_BACKUP_PASSPHRASE: ${{ secrets.FIELD_DATA_BACKUP_PASSPHRASE }}
+          FIELD_DATA_WEBHOOK_ENCRYPTION_KEY: ${{ secrets.FIELD_DATA_WEBHOOK_ENCRYPTION_KEY }}
+          EMAIL_USER: ${{ secrets.EMAIL_USER }}
+          EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
+
+      - name: Verify live health endpoint
+        run: |
+          curl --fail --silent --show-error \
+            --retry 30 --retry-delay 20 --retry-all-errors \
+            https://fielddata.quantixsl.com/healthz
