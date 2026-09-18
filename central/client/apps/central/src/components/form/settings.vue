@@ -43,7 +43,7 @@ except according to the terms contained in the LICENSE file.
                   <input v-model="webformsEnabled" name="webformsEnabled" type="radio" :value="true"
                     @change="confirmationModal.show({ webformsEnabled: true })">
                   <span class="label-title">
-                    ODK Web Forms
+                    Field Data Web Forms
                   </span>
                   <span class="badge recommended">
                     {{ $t('common.recommended') }}
@@ -53,17 +53,6 @@ except according to the terms contained in the LICENSE file.
                       <router-link :to="formPreviewPathWebForms()" target="_blank">{{ $t('webFormsSetting.odkWebFormsDescription.preview') }}</router-link>
                     </template>
                   </i18n-t>
-                </label>
-              </div>
-              <div class="radio">
-                <label>
-                  <input v-model="webformsEnabled" name="webformsEnabled" type="radio" :value="false"
-                    @change="confirmationModal.show({ webformsEnabled: false })">
-                  <span class="label-title">
-                    {{ $t('common.useEnketo') }}
-                  </span>
-                  <br>
-                  {{ $t('webFormsSetting.enketoDescription') }}
                 </label>
               </div>
             </form>

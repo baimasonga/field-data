@@ -7,7 +7,7 @@ The container disk is ephemeral. Durable state is external:
 - Media and encrypted manual backups: a private Supabase Storage bucket through
   the server-side S3 endpoint.
 - XLSForm conversion: the internal Field Data Form Compiler, powered by the maintained `pyxform` engine.
-- Enketo: an external Enketo service.
+- Browser forms: the bundled Field Data Web Forms application and XForms engine.
 - Email: an external SMTP service.
 
 Supabase Auth does not replace ODK Central authentication in this deployment.
@@ -64,7 +64,6 @@ Replace the public placeholders in `wrangler.jsonc`, including:
 - `SUPABASE_S3_ENDPOINT`
 - `SUPABASE_STORAGE_BUCKET`
 - `SUPABASE_REGION`
-- `ENKETO_URL`
 - SMTP settings
 
 Add secrets:
@@ -78,9 +77,10 @@ npx wrangler secret put SUPABASE_S3_ACCESS_KEY_ID
 npx wrangler secret put SUPABASE_S3_SECRET_ACCESS_KEY
 npx wrangler secret put FIELD_DATA_BACKUP_PASSPHRASE
 npx wrangler secret put FIELD_DATA_WEBHOOK_ENCRYPTION_KEY
-npx wrangler secret put ENKETO_API_KEY
 npx wrangler secret put EMAIL_PASSWORD
 ```
+
+No public PyXForm or Enketo host is required. Existing Enketo-style URLs are redirected to the bundled Web Forms application, and all forms are migrated to that renderer.
 
 No public PyXForm host is required. The compiler is built into the container, listens only on `127.0.0.1:5001`, and is supervised with the Central and nginx processes. `FORM_COMPILER_MAX_BYTES` defaults to 25 MiB and can be adjusted in `wrangler.jsonc`.
 

@@ -62,6 +62,13 @@ const offline = computed(() => route.params.offline === 'offline');
 const webFormsEnabled = ref(true);
 
 const form = ref<Form>();
+const singleSubmissionId = computed(() =>
+  props.actionType === 'public-link' &&
+  enketoId.value != null &&
+  enketoId.value === form.value?.enketoOnceId
+    ? enketoId.value
+    : null
+);
 const xform = ref<string>();
 const submissionAttachments = ref<string[] | null>(null);
 
@@ -257,6 +264,7 @@ load();
         :action-type="props.actionType ?? 'new'"
         :submission-attachments="submissionAttachments"
         :st="st"
+        :single-submission-id="singleSubmissionId"
       />
     </template>
     <template v-else>

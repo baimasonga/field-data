@@ -27,10 +27,7 @@
       "host": "${PYXFORM_HOST}",
       "port": ${PYXFORM_PORT}
     },
-    "enketo": {
-      "url": "${ENKETO_URL}",
-      "apiKey": "${ENKETO_API_KEY}"
-    },
+    "enketo": {},
     "env": {
       "domain": "${BASE_URL}",
       "sysadminAccount": "${SYSADMIN_EMAIL}"

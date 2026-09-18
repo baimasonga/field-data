@@ -49,8 +49,23 @@ jobs:
           cache: npm
           cache-dependency-path: central/server/package-lock.json
       - run: npm ci --no-audit --no-fund
-      - run: node --test test/field-data-hardening.test.js test/field-data/hardening.cjs
+      - run: node --test test/field-data-hardening.test.js test/field-data/hardening.cjs test/field-data/native-webforms.cjs
       - run: node test/field-data-migration-check.js
+
+  frontend-build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: central/client
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24.16.0'
+          cache: npm
+          cache-dependency-path: central/client/package-lock.json
+      - run: npm ci --no-audit --no-fund
+      - run: npm run build
 
   form-compiler:
     runs-on: ubuntu-latest

@@ -61,7 +61,7 @@ class Form extends Frame.define(
   'enketoOnceId', readable,             'acteeId',
   'createdAt',    readable,             'updatedAt',    readable,
   'deletedAt',
-  'webformsEnabled', readable, writable,
+  'webformsEnabled', readable,
   embedded('createdBy'), embedded('publishedBy')
 ) {
   get def() { return this.aux.def; }

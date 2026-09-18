@@ -6,7 +6,6 @@ required=(
   SUPABASE_S3_ENDPOINT SUPABASE_S3_ACCESS_KEY_ID
   SUPABASE_S3_SECRET_ACCESS_KEY SUPABASE_STORAGE_BUCKET SUPABASE_REGION
   FIELD_DATA_BACKUP_PASSPHRASE FIELD_DATA_WEBHOOK_ENCRYPTION_KEY
-  ENKETO_URL ENKETO_API_KEY
 )
 for variable in "${required[@]}"; do
   if [[ -z "${!variable:-}" || "${!variable}" == replace-with-* ]]; then
@@ -44,9 +43,6 @@ export SESSION_LIFETIME="${SESSION_LIFETIME:-86400}"
 export DB_POOL_SIZE="${DB_POOL_SIZE:-5}"
 export HTTPS_PORT=443
 
-printf '%s' "$ENKETO_API_KEY" > /etc/secrets/enketo-api-key
-
-export ENKETO_ORIGIN="${ENKETO_URL%/-}"
 /scripts/envsub.awk \
   < /usr/share/odk/cloudflare-nginx.conf.template \
   > /etc/nginx/conf.d/field-data.conf

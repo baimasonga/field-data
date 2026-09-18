@@ -7,15 +7,16 @@
 // including this file, may be copied, modified, propagated, or distributed
 // except according to the terms contained in the LICENSE file.
 
+const { randomBytes } = require('crypto');
 const { sql } = require('slonik');
 const { map } = require('ramda');
 const { Frame, into } = require('../frame');
-const { Actor, Blob, Form } = require('../frames');
+const { Blob, Form } = require('../frames');
 const { getFormFields, merge, compare } = require('../../data/schema');
 const { getDatasets, matchFieldsWithDatasets, validateEntityRepeatVersion } = require('../../data/dataset');
 const { generateToken } = require('../../util/crypto');
 const { unjoiner, extender, updater, sqlEquals, insert, insertMany, markDeleted, markUndeleted, QueryOptions } = require('../../util/db');
-const { resolve, reject, timebound } = require('../../util/promise');
+const { resolve, reject } = require('../../util/promise');
 const { splitStream } = require('../../util/stream');
 const { construct } = require('../../util/util');
 const Option = require('../../util/option');
@@ -43,46 +44,20 @@ const fromXls = (stream, contentType, formIdFallback, ignoreWarnings) => ({ Blob
 
 
 ////////////////////////////////////////////////////////////////////////////////
-// PUSHING TO ENKETO
+// NATIVE WEB FORM LINKS
+//
+// Database field names retain "enketo" for backward-compatible API and URL
+// contracts. Field Data provisions opaque local link identifiers and renders
+// every form with the bundled Web Forms engine; no Enketo service is contacted.
 
-// Time-bounds a request from enketo.create(). If the request times out or
-// results in an error, then an empty object is returned.
-const timeboundEnketo = (request, bound) =>
-  (bound != null ? timebound(request, bound).catch(() => ({})) : request);
+const nativeWebFormId = (prefix) => prefix + randomBytes(16).toString('hex');
 
-// Accepts either a Form or an object with a top-level draftToken property. Also
-// accepts an optional bound on the amount of time for the request to Enketo to
-// complete (in seconds). If a bound is specified, and the request to Enketo
-// times out or results in an error, then `null` is returned.
-const pushDraftToEnketo = ({ projectId, xmlFormId, def, draftToken = def?.draftToken }, bound = undefined) => async ({ enketo, env }) => {
-  const encodedFormId = encodeURIComponent(xmlFormId);
-  const path = `${env.domain}/v1/test/${draftToken}/projects/${projectId}/forms/${encodedFormId}/draft`;
-  const { enketoId } = await timeboundEnketo(enketo.create(path, xmlFormId), bound);
-  // Return `null` if enketoId is `undefined`.
-  return enketoId ?? null;
-};
+const pushDraftToEnketo = () => async () => nativeWebFormId('wd');
 
-// Pushes a form that is published or about to be published to Enketo. Accepts
-// either a Form or a Form-like object. Also accepts an optional bound on the
-// amount of time for the request to Enketo to complete (in seconds). If a bound
-// is specified, and the request to Enketo times out or results in an error,
-// then an empty object is returned.
-const pushFormToEnketo = ({ projectId, xmlFormId, acteeId }, bound = undefined) => async ({ Actors, Assignments, Sessions, enketo, env }) => {
-  // Generate a single use actor that grants Enketo access just to this form for
-  // just long enough for it to pull the information it needs.
-  const expiresAt = new Date();
-  expiresAt.setMinutes(expiresAt.getMinutes() + 15);
-  const actor = await Actors.create(new Actor({
-    type: 'singleUse',
-    expiresAt,
-    displayName: `Enketo sync token for ${acteeId}`
-  }));
-  await Assignments.grantSystem(actor, 'formview', acteeId);
-  const { token } = await Sessions.create(actor, expiresAt);
-
-  const path = `${env.domain}/v1/projects/${projectId}`;
-  return timeboundEnketo(enketo.create(path, xmlFormId, token), bound);
-};
+const pushFormToEnketo = () => async () => ({
+  enketoId: nativeWebFormId('wf'),
+  enketoOnceId: nativeWebFormId('wo')
+});
 
 ////////////////////////////////////////////////////////////////////////////////
 // COMMON FORM UTILITY FUNCTIONS

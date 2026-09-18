@@ -18,7 +18,6 @@
     "SUPABASE_STORAGE_BUCKET": "field-data",
     "SUPABASE_REGION": "replace-with-supabase-region",
     "FORM_COMPILER_MAX_BYTES": "26214400",
-    "ENKETO_URL": "https://replace-with-enketo-host/-",
     "EMAIL_HOST": "smtp.hostinger.com",
     "EMAIL_PORT": "465",
     "EMAIL_SECURE": "false",
