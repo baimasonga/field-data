@@ -56,6 +56,8 @@ COPY cloudflare/entrypoint.sh /usr/local/bin/field-data-entrypoint
 
 RUN VERSION="${APP_VERSION:-$(cat /usr/share/odk/VERSION)}" \
     && mkdir -p /usr/odk/sentry-versions /etc/secrets \
+    && printf '%s\n' 'field-data-native-web-forms' > /etc/secrets/enketo-api-key \
+    && chmod 0600 /etc/secrets/enketo-api-key \
     && printf '%s\n' "$VERSION" | tee \
       /usr/odk/sentry-versions/central \
       /usr/odk/sentry-versions/server \
