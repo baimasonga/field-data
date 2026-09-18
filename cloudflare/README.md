@@ -6,7 +6,7 @@ The container disk is ephemeral. Durable state is external:
 - Database: Supabase PostgreSQL through the Supavisor session pooler with TLS.
 - Media and encrypted manual backups: a private Supabase Storage bucket through
   the server-side S3 endpoint.
-- XLSForm conversion: an external `pyxform-http` service.
+- XLSForm conversion: the internal Field Data Form Compiler, powered by the maintained `pyxform` engine.
 - Enketo: an external Enketo service.
 - Email: an external SMTP service.
 
@@ -64,7 +64,6 @@ Replace the public placeholders in `wrangler.jsonc`, including:
 - `SUPABASE_S3_ENDPOINT`
 - `SUPABASE_STORAGE_BUCKET`
 - `SUPABASE_REGION`
-- `PYXFORM_HOST`
 - `ENKETO_URL`
 - SMTP settings
 
@@ -82,6 +81,8 @@ npx wrangler secret put FIELD_DATA_WEBHOOK_ENCRYPTION_KEY
 npx wrangler secret put ENKETO_API_KEY
 npx wrangler secret put EMAIL_PASSWORD
 ```
+
+No public PyXForm host is required. The compiler is built into the container, listens only on `127.0.0.1:5001`, and is supervised with the Central and nginx processes. `FORM_COMPILER_MAX_BYTES` defaults to 25 MiB and can be adjusted in `wrangler.jsonc`.
 
 The backup passphrase must contain at least 16 characters. Keep it in a
 separate password manager; encrypted backups cannot be restored without it.
@@ -151,7 +152,14 @@ projects, submissions and media access before any production cutover. Do not
 use the legacy whole-database restore helper against Supabase: it is disabled
 for schema-scoped deployments because it can drop unrelated objects.
 
-Run focused regression checks from `central/server`:
+Run the compiler contract checks from `cloudflare/form-compiler`:
+
+```bash
+python -m pip install -r requirements.txt
+python -m unittest -v test_app.py
+```
+
+Run focused server regression checks from `central/server`:
 
 ```bash
 node --test test/field-data/hardening.cjs

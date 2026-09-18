@@ -19,6 +19,14 @@ COPY central/server/package*.json ./
 RUN npm clean-install --omit=dev --no-audit --fund=false --update-notifier=false
 COPY central/server/ ./
 
+FROM python:3.12-slim AS form-compiler
+ENV VIRTUAL_ENV=/opt/field-data-form-compiler/venv
+RUN python -m venv "$VIRTUAL_ENV"
+ENV PATH="$VIRTUAL_ENV/bin:$PATH"
+COPY cloudflare/form-compiler/requirements.txt /tmp/form-compiler-requirements.txt
+RUN pip install --no-cache-dir --disable-pip-version-check \
+      -r /tmp/form-compiler-requirements.txt
+
 FROM node:${NODE_VERSION}-slim
 ARG APP_VERSION
 WORKDIR /usr/odk
@@ -30,6 +38,9 @@ RUN apt-get update \
     && rm -f /etc/nginx/sites-enabled/default
 
 COPY --from=backend /usr/odk /usr/odk
+COPY --from=form-compiler /usr/local /usr/local
+COPY --from=form-compiler /opt/field-data-form-compiler/venv /opt/field-data-form-compiler/venv
+COPY cloudflare/form-compiler/app.py /opt/field-data-form-compiler/app.py
 COPY central/files/shared/envsub.awk /scripts/envsub.awk
 COPY central/files/service/scripts/ /usr/odk/
 COPY central/files/service/config.json.template /usr/share/odk/config.json.template
