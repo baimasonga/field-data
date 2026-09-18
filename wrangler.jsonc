@@ -12,7 +12,7 @@
     "SYSADMIN_EMAIL": "admin@fielddata.quantixsl.com",
     "PGDATABASE": "postgres",
     "PGSSLMODE": "require",
-    "PGOPTIONS": "-c search_path=field_data,public",
+    "PGOPTIONS": "-c search_path=field_data,extensions,public",
     "DB_POOL_SIZE": "5",
     "SUPABASE_S3_ENDPOINT": "https://zzhppomwnjlwkbmythqw.storage.supabase.co/storage/v1/s3",
     "SUPABASE_STORAGE_BUCKET": "field-data",
