@@ -67,4 +67,4 @@ jobs:
         run: |
           curl --fail --silent --show-error \
             --retry 30 --retry-delay 20 --retry-all-errors \
-            https://fielddata.quantixsl.com/healthz
+            https://field-data.mohamedbangura.workers.dev/healthz
