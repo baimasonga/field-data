@@ -14,11 +14,10 @@ describe('AccountPageContainer', () => {
   describe('logo', () => {
     it('shows the default logo if a custom one has not been configured', () => {
       const component = mountComponent();
-      const img = component.findAll('#account-page-container-logo img');
-      img.length.should.equal(1);
-      // Asserting on `alt` rather than `src` because `src` ends up being a data
-      // URL. Probably from Vite, maybe because the logo is small.
-      img[0].attributes().alt.should.equal('ODK logo');
+      const wordmark = component.find('#account-page-container-logo .field-data-wordmark');
+      wordmark.exists().should.be.true;
+      wordmark.attributes('aria-label').should.equal('Field Data logo');
+      wordmark.text().should.equal('FDField Data');
     });
 
     it('shows a custom logo', () => {

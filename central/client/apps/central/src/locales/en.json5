@@ -386,7 +386,7 @@
     "learnMore": "Learn more."
   },
   "login": {
-    "odkLogo": "ODK logo",
+    "fieldDataLogo": "Field Data logo",
     // @transifexKey component.AccountPageContainer.customLogoAlt
     "customLogoAlt": "Organization logo",
     "defaultTitle": "Welcome to Field Data",

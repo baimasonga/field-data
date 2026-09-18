@@ -46,7 +46,7 @@ except according to the terms contained in the LICENSE file.
     </form>
 
     <div id="account-login-footer">
-      <img src="../../assets/images/odk-logo.png" :alt="$t('login.odkLogo')">
+      <span class="field-data-footer-mark" aria-hidden="true">FD</span>
       <span>{{ hostname }}</span>
     </div>
   </div>
@@ -234,6 +234,26 @@ export default {
   }
 };
 </script>
+
+<style lang="scss" scoped>
+@import '../../assets/scss/variables';
+
+.field-data-footer-mark {
+  align-items: center;
+  background: $color-accent-primary;
+  border-radius: 4px;
+  color: #fff;
+  display: inline-flex;
+  font-size: 11px;
+  font-weight: 700;
+  height: 22px;
+  justify-content: center;
+  letter-spacing: -0.08em;
+  margin-right: 8px;
+  padding-right: 0.08em;
+  width: 22px;
+}
+</style>
 
 <style lang="scss">
 @import '../../assets/scss/variables';
