@@ -8,7 +8,7 @@ on:
 
 concurrency:
   group: field-data-production
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 permissions:
   contents: read
@@ -34,6 +34,17 @@ jobs:
 
       - name: Validate Cloudflare configuration
         run: npm run check
+
+      - name: Verify Supabase database connection
+        env:
+          PGHOST: ${{ secrets.PGHOST }}
+          PGPORT: ${{ secrets.PGPORT }}
+          PGUSER: ${{ secrets.PGUSER }}
+          PGPASSWORD: ${{ secrets.PGPASSWORD }}
+          PGDATABASE: postgres
+          PGSSLMODE: require
+          PGCONNECT_TIMEOUT: "15"
+        run: psql --no-password --quiet --command "select 1"
 
       - name: Deploy Field Data
         id: deploy
