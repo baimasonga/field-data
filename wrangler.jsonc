@@ -8,8 +8,8 @@
     "enabled": true
   },
   "vars": {
-    "DOMAIN": "fielddata.quantixsl.com",
-    "SYSADMIN_EMAIL": "admin@fielddata.quantixsl.com",
+    "DOMAIN": "field-data.mohamedbangura.workers.dev",
+    "SYSADMIN_EMAIL": "mohamedbangura@avdp.org.sl",
     "PGDATABASE": "postgres",
     "PGSSLMODE": "require",
     "PGOPTIONS": "-c search_path=field_data,extensions,public",
@@ -27,12 +27,7 @@
     "OIDC_CLIENT_ID": "",
     "SENTRY_DSN_FRONTEND": ""
   },
-  "routes": [
-    {
-      "pattern": "fielddata.quantixsl.com",
-      "custom_domain": true
-    }
-  ],
+  "workers_dev": true,
   "containers": [
     {
       "class_name": "FieldDataContainer",
