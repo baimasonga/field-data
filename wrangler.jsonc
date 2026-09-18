@@ -22,7 +22,6 @@
     "EMAIL_PORT": "465",
     "EMAIL_SECURE": "false",
     "EMAIL_IGNORE_TLS": "false",
-    "EMAIL_USER": "",
     "OIDC_ENABLED": "false",
     "OIDC_ISSUER_URL": "",
     "OIDC_CLIENT_ID": "",
