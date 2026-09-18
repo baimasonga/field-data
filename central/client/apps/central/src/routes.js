@@ -655,7 +655,7 @@ const routes = [
         loading: 'tab',
         meta: {
           validateData: {
-            currentUser: () => currentUser.can('project.create')
+            currentUser: () => currentUser.can('config.set')
           },
           title: () => [i18n.t('fieldDataHome.tab.webhooks'), i18n.t('fieldDataHome.title')],
           fullWidth: true
@@ -667,7 +667,7 @@ const routes = [
         loading: 'tab',
         meta: {
           validateData: {
-            currentUser: () => currentUser.can('project.create')
+            currentUser: () => currentUser.can('backup.run')
           },
           title: () => [i18n.t('fieldDataHome.tab.backups'), i18n.t('fieldDataHome.title')],
           fullWidth: true

@@ -20,7 +20,7 @@ distribution and at https://www.apache.org/licenses/LICENSE-2.0.
         <li v-if="canConfigure" :class="tabClass('webhooks')" role="presentation">
           <router-link :to="tabPath('webhooks')">{{ $t('tab.webhooks') }}</router-link>
         </li>
-        <li v-if="canManage" :class="tabClass('backups')" role="presentation">
+        <li v-if="canBackup" :class="tabClass('backups')" role="presentation">
           <router-link :to="tabPath('backups')">{{ $t('tab.backups') }}</router-link>
         </li>
       </template>
@@ -47,6 +47,7 @@ defineOptions({
 const { tabPath, tabClass } = useTabs('/field-data');
 const { currentUser } = useRequestData();
 const canConfigure = computed(() => currentUser.can('config.set'));
+const canBackup = computed(() => currentUser.can('backup.run'));
 const canManage = computed(() => currentUser.can('project.create'));
 </script>
 

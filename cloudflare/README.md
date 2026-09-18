@@ -101,10 +101,20 @@ npx wrangler containers list
 npx wrangler tail
 ```
 
-After first deployment, wait for provisioning and verify `/healthz`. Then sign
-in and confirm the dashboard reports both database and file storage as healthy.
-Upload and download a test media file, create an encrypted manual backup, and
-delete the test file.
+After first deployment, wait for provisioning and verify `/healthz`.
+
+For a repeatable live test, create a dedicated ODK system-administrator account
+with a strong unique password. Add its credentials as the GitHub environment
+secrets `LIVE_SMOKE_EMAIL` and `LIVE_SMOKE_PASSWORD` in a protected
+`production` environment. Run the **Field Data validation** workflow manually,
+supply the deployed HTTPS URL, and leave the backup option off for the routine
+test. The workflow signs in, verifies the database and Supabase Storage health
+probes, uploads/downloads/deletes a small media fixture, and signs out.
+
+Enable the backup option for a supervised release check. It queues an encrypted
+backup, waits for the cron worker, and verifies that the completed artifact can
+be downloaded. The backup remains in the backup history. Restore tests remain a
+separate operator task and must always target an isolated database.
 
 ## 5. Production protection
 

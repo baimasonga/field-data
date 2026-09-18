@@ -101,3 +101,15 @@ test('managed-schema mode rejects whole-database restore', () => {
     assert.throws(() => require('../lib/util/backup').restoreBackupFromRestoreStream(Readable.from([])), /whole-database restore is disabled/i);
   } finally { delete process.env.FIELD_DATA_DB_SCHEMA; }
 });
+
+test('client navigation uses the same permissions as protected Field Data APIs', () => {
+  const routes = fs.readFileSync(path.join(__dirname,
+    '../../client/apps/central/src/routes.js'), 'utf8');
+  const home = fs.readFileSync(path.join(__dirname,
+    '../../client/apps/central/src/components/field-data/home.vue'), 'utf8');
+
+  assert.match(routes, /path: 'webhooks'[\s\S]*?currentUser\.can\('config\.set'\)/);
+  assert.match(routes, /path: 'backups'[\s\S]*?currentUser\.can\('backup\.run'\)/);
+  assert.match(home, /v-if="canConfigure"[\s\S]*?tabClass\('webhooks'\)/);
+  assert.match(home, /v-if="canBackup"[\s\S]*?tabClass\('backups'\)/);
+});

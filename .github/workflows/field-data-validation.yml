@@ -3,6 +3,17 @@ on:
   pull_request:
   push:
     branches: [main, agent/use-supabase-backend]
+  workflow_dispatch:
+    inputs:
+      base_url:
+        description: HTTPS URL of the deployed Field Data system
+        required: true
+        type: string
+      test_backup:
+        description: Queue and download an encrypted backup
+        required: true
+        default: false
+        type: boolean
 permissions:
   contents: read
 jobs:
@@ -40,3 +51,21 @@ jobs:
       - run: npm ci --no-audit --no-fund
       - run: node --test test/field-data-hardening.test.js test/field-data/hardening.cjs
       - run: node test/field-data-migration-check.js
+
+  live-smoke:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    environment: production
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24.16.0'
+      - name: Test live Cloudflare and Supabase services
+        env:
+          LIVE_BASE_URL: ${{ inputs.base_url }}
+          LIVE_SMOKE_EMAIL: ${{ secrets.LIVE_SMOKE_EMAIL }}
+          LIVE_SMOKE_PASSWORD: ${{ secrets.LIVE_SMOKE_PASSWORD }}
+          LIVE_TEST_BACKUP: ${{ inputs.test_backup }}
+        run: node cloudflare/live-smoke-test.mjs
