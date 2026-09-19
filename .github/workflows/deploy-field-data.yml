@@ -134,6 +134,95 @@ jobs:
           echo "The pooler never freed a session slot." >&2
           exit 1
 
+      # The container is supposed to do this on boot, and does not: after four
+      # deploys the users table is still empty and the table the bootstrap
+      # writes its own outcome to has never been created, so it is not failing
+      # partway, it is not running. Rather than debug a log nobody here can
+      # read, create the account from the deploy, where every step is visible.
+      #
+      # This writes the same four rows the server writes: an actee to be named
+      # by, an actor to hold permissions, the user itself, and an administrator
+      # assignment over '*'. The hash comes from the server's own bcrypt at the
+      # server's own cost factor, so it is a hash the server will verify.
+      #
+      # An account that already exists is left exactly as it is. Somebody may
+      # have changed that password deliberately, and a deploy is not the place
+      # to change it back.
+      - name: Make sure the administrator account exists
+        env:
+          PGHOST: ${{ secrets.PGHOST_DIRECT || secrets.PGHOST }}
+          PGPORT: ${{ secrets.PGPORT_DIRECT || secrets.PGPORT }}
+          PGUSER: ${{ secrets.PGUSER }}
+          PGPASSWORD: ${{ secrets.PGPASSWORD }}
+          PGDATABASE: postgres
+          PGSSLMODE: require
+          PGOPTIONS: "-c search_path=field_data,extensions,public"
+          PGCONNECT_TIMEOUT: "15"
+          SYSADMIN_EMAIL: ${{ vars.SYSADMIN_EMAIL || 'admin@fielddata.quantixsl.com' }}
+          FIELD_DATA_ADMIN_PASSWORD: ${{ secrets.FIELD_DATA_ADMIN_PASSWORD }}
+        run: |
+          docker run --rm --entrypoint node \
+            -e PGHOST -e PGPORT -e PGUSER -e PGPASSWORD -e PGDATABASE -e PGSSLMODE \
+            -e PGOPTIONS -e SYSADMIN_EMAIL -e FIELD_DATA_ADMIN_PASSWORD \
+            field-data-db-check -e '
+              const { Client } = require("pg");
+              const bcrypt = require("bcrypt");
+              const { randomUUID } = require("crypto");
+
+              const email = process.env.SYSADMIN_EMAIL;
+              const password = process.env.FIELD_DATA_ADMIN_PASSWORD;
+
+              (async () => {
+                const client = new Client({ connectionTimeoutMillis: 15000 });
+                await client.connect();
+                try {
+                  const found = await client.query(
+                    `select 1 from field_data.users where email = $1`, [email]);
+                  if (found.rowCount > 0) {
+                    console.log(`${email} already exists; leaving it alone.`);
+                    return;
+                  }
+
+                  const role = await client.query(
+                    `select id from field_data.roles where system = $1`, ["admin"]);
+                  if (role.rowCount === 0)
+                    throw new Error("No administrator role exists. Have the migrations run?");
+
+                  // Cost 12 is what lib/util/crypto.js uses.
+                  const hash = await bcrypt.hash(password, 12);
+                  const actee = randomUUID();
+
+                  await client.query("begin");
+                  await client.query(
+                    `insert into field_data.actees (id, species) values ($1, $2)`,
+                    [actee, "user"]);
+                  const actor = await client.query(
+                    `insert into field_data.actors (type, "acteeId", "displayName", "createdAt")
+                     values ($1, $2, $3, clock_timestamp()) returning id`,
+                    ["user", actee, email]);
+                  const actorId = actor.rows[0].id;
+                  await client.query(
+                    `insert into field_data.users ("actorId", password, email)
+                     values ($1, $2, $3)`,
+                    [actorId, hash, email]);
+                  await client.query(
+                    `insert into field_data.assignments ("actorId", "roleId", "acteeId")
+                     values ($1, $2, $3)`,
+                    [actorId, role.rows[0].id, "*"]);
+                  await client.query("commit");
+                  console.log(`Created ${email} as an administrator.`);
+                } catch (error) {
+                  await client.query("rollback").catch(() => {});
+                  throw error;
+                } finally {
+                  await client.end().catch(() => {});
+                }
+              })().catch((error) => {
+                console.error(String(error.message || error));
+                process.exitCode = 1;
+              });
+            '
+
       - name: Deploy Field Data
         id: deploy
         uses: cloudflare/wrangler-action@v4
