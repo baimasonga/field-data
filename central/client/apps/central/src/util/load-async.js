@@ -172,6 +172,10 @@ const loaders = new Map()
     /* webpackChunkName: "component-hover-cards" */
     '../components/hover-cards.vue'
   )))
+  .set('SubmissionSummary', loader(() => import(
+    /* webpackChunkName: "component-submission-summary" */
+    '../components/submission/summary.vue'
+  )))
   .set('NotFound', loader(() => import(
     /* webpackChunkName: "component-not-found" */
     '../components/not-found.vue'

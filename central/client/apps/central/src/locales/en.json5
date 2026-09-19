@@ -23,7 +23,9 @@
     "tab": {
       "publicAccess": "Public Access",
       "versions": "Versions",
-      "editForm": "Edit Form"
+      "editForm": "Edit Form",
+      // A tab of charts totalling up a Form's Submissions.
+      "summary": "Summary"
     }
   },
   "systemHome": {
