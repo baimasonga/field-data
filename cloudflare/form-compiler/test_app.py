@@ -1,7 +1,7 @@
 import unittest
 from unittest.mock import patch
 
-from app import create_app
+from app import _merge_duplicate_meta, create_app
 
 
 class FormCompilerContractTest(unittest.TestCase):
@@ -43,3 +43,60 @@ class FormCompilerContractTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class DuplicateMetaTest(unittest.TestCase):
+    """A form with two <meta> blocks is accepted by the server and then cannot
+    be opened, so the compiler folds them together before that can happen."""
+
+    MODEL = (
+        '<h:html><h:head><model>'
+        '<instance><data id="x">{body}</data></instance>'
+        '<instance id="choices"><root><meta><a/></meta><meta><b/></meta></root></instance>'
+        '<bind nodeset="/data/name"/>'
+        '</model></h:head></h:html>'
+    )
+
+    def merge(self, body):
+        return _merge_duplicate_meta(self.MODEL.format(body=body))
+
+    def test_two_meta_blocks_become_one_keeping_every_child(self):
+        xform, warning = self.merge(
+            '<meta><instanceID/></meta><name/><meta><audit/></meta>')
+        self.assertIn('<meta><instanceID/><audit/></meta>', xform)
+        self.assertIn('<name/>', xform)
+        self.assertEqual(xform.count('<meta>'), 3)  # one here, two left alone below
+        self.assertIsNotNone(warning)
+        self.assertIn('merged into one', warning)
+
+    def test_a_single_meta_block_is_left_exactly_as_it_was(self):
+        original = self.MODEL.format(body='<meta><instanceID/></meta><name/>')
+        xform, warning = _merge_duplicate_meta(original)
+        self.assertEqual(xform, original)
+        self.assertIsNone(warning)
+
+    def test_meta_and_orx_meta_are_different_elements_and_stay_apart(self):
+        # The engine keys children by node name, so these never collide and
+        # merging them would change what the form means.
+        xform, warning = self.merge(
+            '<meta><instanceID/></meta><orx:meta><audit/></orx:meta>')
+        self.assertIn('<meta><instanceID/></meta>', xform)
+        self.assertIn('<orx:meta><audit/></orx:meta>', xform)
+        self.assertIsNone(warning)
+
+    def test_a_prefixed_duplicate_is_merged_under_its_own_name(self):
+        xform, warning = self.merge(
+            '<orx:meta><instanceID/></orx:meta><orx:meta><audit/></orx:meta>')
+        self.assertIn('<orx:meta><instanceID/><audit/></orx:meta>', xform)
+        self.assertIsNotNone(warning)
+
+    def test_attributes_on_the_surviving_block_are_kept(self):
+        xform, _ = self.merge(
+            '<meta xmlns:o="u"><instanceID/></meta><meta><audit/></meta>')
+        self.assertIn('<meta xmlns:o="u"><instanceID/><audit/></meta>', xform)
+
+    def test_a_secondary_instance_is_none_of_our_business(self):
+        # The choices instance in MODEL has two <meta> children on purpose.
+        xform, warning = self.merge('<meta><instanceID/></meta>')
+        self.assertIn('<root><meta><a/></meta><meta><b/></meta></root>', xform)
+        self.assertIsNone(warning)
