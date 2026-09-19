@@ -43,19 +43,25 @@ jobs:
           PGPASSWORD: ${{ secrets.PGPASSWORD }}
           PGDATABASE: postgres
           PGSSLMODE: require
+          PGOPTIONS: "-c search_path=field_data,extensions,public"
           PGCONNECT_TIMEOUT: "15"
         run: |
           psql --no-password --quiet --command "select 1"
           docker build -q -t field-data-db-check .
           docker run --rm --entrypoint node \
-            -e PGHOST -e PGPORT -e PGUSER -e PGPASSWORD -e PGDATABASE -e PGSSLMODE \
+            -e PGHOST -e PGPORT -e PGUSER -e PGPASSWORD -e PGDATABASE -e PGSSLMODE -e PGOPTIONS \
             field-data-db-check -e '
               const { Client } = require("pg");
               const client = new Client({ connectionTimeoutMillis: 15000 });
               (async () => {
                 try {
                   await client.connect();
-                  await client.query("SELECT 1");
+                  const result = await client.query("SELECT current_schema() AS schema");
+                  if (result.rows[0].schema !== "field_data") {
+                    console.error("NODE_DATABASE_SCHEMA_MISMATCH");
+                    process.exitCode = 1;
+                    return;
+                  }
                   console.log("NODE_DATABASE_OK");
                 } catch (error) {
                   const code = error.code;
