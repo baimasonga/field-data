@@ -15,6 +15,9 @@
   },
   "projectShow": {
     "tab": {
+      // A tab of charts totalling up a Project's Submissions.
+      "summary": "Summary",
+
       "formAccess": "Form Access",
       "customProperties": "Custom Properties",
     }

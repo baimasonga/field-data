@@ -393,6 +393,19 @@ const routes = [
         }
       }),
       asyncRoute({
+        path: 'summary',
+        component: 'ProjectSummary',
+        props: true,
+        loading: 'tab',
+        meta: {
+          validateData: {
+            project: () => project.permits(['submission.list', 'submission.read'])
+          },
+          title: () => [i18n.t('projectShow.tab.summary'), project.name],
+          fullWidth: true
+        }
+      }),
+      asyncRoute({
         path: 'custom-properties',
         component: 'CustomPropertyList',
         props: true,

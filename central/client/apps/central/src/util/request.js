@@ -210,6 +210,7 @@ export const apiPaths = {
     return `/v1/config/public/${encodedKey}${qs}`;
   },
   // Field Data platform endpoints (see server/lib/resources/field-data.js)
+  projectSummary: (projectId) => `/v1/projects/${projectId}/summary`,
   formSummary: (projectId, xmlFormId) =>
     `/v1/projects/${projectId}/forms/${encodeURIComponent(xmlFormId)}/summary`,
   formDashboards: (projectId, xmlFormId) =>

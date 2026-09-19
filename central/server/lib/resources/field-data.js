@@ -208,6 +208,64 @@ module.exports = (service, endpoint) => {
   }));
 
   ////////////////////////////////////////////////////////////////////////////////
+  // PROJECT SUMMARY
+  //
+  // The same questions the form summary answers, asked of a whole project.
+  // A project manager wants to know how the round is going, and reading it
+  // form by form makes them do the adding up themselves.
+  service.get('/projects/:projectId/summary', endpoint(async (container, { params, auth }) => {
+    const { Projects } = container;
+    const db = container.db;
+
+    const project = await Projects.getById(params.projectId).then(getOrNotFound);
+    await auth.canOrReject('submission.list', project);
+    await auth.canOrReject('submission.read', project);
+
+    const live = sql`
+      from submissions s
+      join forms f on f.id = s."formId"
+      where f."projectId" = ${project.id} and f."deletedAt" is null
+        and s."deletedAt" is null and s.draft = false`;
+
+    const totals = await db.one(sql`
+      select count(*)::integer as submissions,
+             count(distinct s."submitterId")::integer as submitters,
+             count(distinct s."formId")::integer as "formsWithSubmissions",
+             min(s."createdAt") as "firstSubmission",
+             max(s."createdAt") as "lastSubmission"
+      ${live}`);
+
+    const forms = await db.oneFirst(sql`
+      select count(*)::integer from forms
+      where "projectId" = ${project.id} and "deletedAt" is null`);
+
+    if (totals.submissions === 0)
+      return { ...totals, forms, overTime: [], reviewStates: [], byForm: [] };
+
+    const overTime = await db.any(sql`
+      select (s."createdAt" at time zone 'UTC')::date as date, count(*)::integer as count
+      ${live}
+      group by 1 order by 1`);
+
+    const reviewStates = await db.any(sql`
+      select coalesce(s."reviewState", 'received') as state, count(*)::integer as count
+      ${live}
+      group by 1 order by 2 desc`);
+
+    // Which forms the submissions came from. A form nobody has used does not
+    // appear: a row of zero tells a reader nothing they cannot see from the
+    // forms list, and it would push the forms that are working off the chart.
+    const byForm = await db.any(sql`
+      select f."xmlFormId" as "xmlFormId", coalesce(f.name, f."xmlFormId") as name,
+             count(*)::integer as count
+      ${live}
+      group by f."xmlFormId", f.name
+      order by count(*) desc`);
+
+    return { ...totals, forms, overTime, reviewStates, byForm };
+  }));
+
+  ////////////////////////////////////////////////////////////////////////////////
   // SHARED DASHBOARDS
   //
   // A read-only link to one form's summary that works without an account, for
