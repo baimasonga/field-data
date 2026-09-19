@@ -64,10 +64,11 @@ jobs:
       - name: Exercise startup without /dev/shm
         run: |
           # Cloudflare's container runtime does not mount /dev/shm, which the
-          # step above cannot catch because Docker always mounts it. `--ipc=none`
-          # reproduces that: a private IPC namespace with no /dev/shm.
+          # step above cannot catch because Docker always mounts it. Unmount it
+          # before the entrypoint runs, and refuse to start unless it is really
+          # gone, so this step cannot pass without exercising the condition.
           docker run -d --name app-no-shm --network field-data-smoke \
-            --ipc=none -p 8081:8080 \
+            --cap-add SYS_ADMIN -p 8081:8080 --entrypoint bash \
             -v /tmp/smoke-tls/server.crt:/tmp/smoke-ca.crt:ro \
             -e NODE_EXTRA_CA_CERTS=/tmp/smoke-ca.crt \
             -e DOMAIN=localhost -e SYSADMIN_EMAIL=admin@example.test \
@@ -80,7 +81,14 @@ jobs:
             -e FIELD_DATA_STORAGE_MODE=object \
             -e FIELD_DATA_BACKUP_PASSPHRASE=smoke-only-backup-passphrase \
             -e FIELD_DATA_WEBHOOK_ENCRYPTION_KEY=0000000000000000000000000000000000000000000000000000000000000000 \
-            -e EMAIL_HOST=localhost field-data-smoke
+            -e EMAIL_HOST=localhost field-data-smoke -c '
+              set -e
+              umount /dev/shm
+              rmdir /dev/shm
+              test ! -e /dev/shm
+              echo "confirmed: /dev/shm is absent before startup"
+              exec /usr/local/bin/field-data-entrypoint
+            '
           for attempt in $(seq 1 60); do
             if curl --fail --silent http://localhost:8081/healthz; then break; fi
             if [ "$(docker inspect -f '{{.State.Running}}' app-no-shm)" != true ]; then
@@ -90,13 +98,20 @@ jobs:
             sleep 3
             if [ "$attempt" = 60 ]; then exit 1; fi
           done
-          # The backend must also reach a listening state, and the cron
-          # environment block must exist wherever the entrypoint placed it.
+          # Prove the absence was real rather than silently restored.
+          docker logs app-no-shm 2>&1 | grep -q 'confirmed: /dev/shm is absent before startup'
+          # nginx answers /healthz on its own, so assert the backend too: any
+          # status other than 502/000 means Node replied through the proxy.
           for attempt in $(seq 1 60); do
-            if docker exec app-no-shm nc -z 127.0.0.1 8383; then break; fi
+            code=$(curl --silent --output /dev/null --write-out '%{http_code}' \
+              http://localhost:8081/v1/projects || true)
+            if [ "$code" != 502 ] && [ "$code" != 000 ] && [ "$code" != 504 ]; then
+              echo "backend answered /v1/projects with HTTP $code"
+              break
+            fi
             sleep 5
             if [ "$attempt" = 60 ]; then
-              echo "Backend never listened on 8383."
+              echo "Backend never answered through nginx (last status $code)."
               exit 1
             fi
           done
