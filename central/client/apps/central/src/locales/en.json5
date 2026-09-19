@@ -25,7 +25,9 @@
       "versions": "Versions",
       "editForm": "Edit Form",
       // A tab of charts totalling up a Form's Submissions.
-      "summary": "Summary"
+      "summary": "Summary",
+      // A tab showing every photograph a Form has collected.
+      "photos": "Photos"
     }
   },
   "systemHome": {

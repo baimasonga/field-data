@@ -471,6 +471,24 @@ const routes = [
         }
       }),
       asyncRoute({
+        path: 'photos',
+        component: 'SubmissionPhotos',
+        props: true,
+        loading: 'tab',
+        meta: {
+          validateData: {
+            project: () => project.permits([
+              'form.read',
+              'submission.list',
+              'submission.read'
+            ]),
+            form: () => form.publishedAt != null
+          },
+          title: () => [i18n.t('formHead.tab.photos'), form.nameOrId],
+          fullWidth: true
+        }
+      }),
+      asyncRoute({
         path: 'public-links',
         component: 'PublicLinkList',
         props: true,

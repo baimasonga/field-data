@@ -172,6 +172,10 @@ const loaders = new Map()
     /* webpackChunkName: "component-hover-cards" */
     '../components/hover-cards.vue'
   )))
+  .set('SubmissionPhotos', loader(() => import(
+    /* webpackChunkName: "component-submission-photos" */
+    '../components/submission/photos.vue'
+  )))
   .set('SubmissionSummary', loader(() => import(
     /* webpackChunkName: "component-submission-summary" */
     '../components/submission/summary.vue'

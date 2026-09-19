@@ -204,6 +204,51 @@ module.exports = (service, endpoint) => {
   }));
 
   ////////////////////////////////////////////////////////////////////////////////
+  // FORM PHOTOS
+  //
+  // The image attachments of a form's submissions, newest first, with enough
+  // about each one to say where it came from. The images themselves are served
+  // by the existing attachment route; this only says which ones exist, so a
+  // gallery never has to walk every submission to find out.
+  service.get('/projects/:projectId/forms/:xmlFormId/photos', endpoint(async (container, { params, query, auth }) => {
+    const { Forms } = container;
+    const db = container.db;
+
+    const form = await Forms.getByProjectAndXmlFormId(params.projectId, params.xmlFormId, Form.PublishedVersion)
+      .then(getOrNotFound);
+    await auth.canOrReject('submission.list', form);
+    await auth.canOrReject('submission.read', form);
+
+    // A page the browser can actually hold. Asking for more is treated as
+    // asking for the maximum rather than refused.
+    const limit = Math.min(Math.max(Number.parseInt(query.limit, 10) || 60, 1), 120);
+    const offset = Math.max(Number.parseInt(query.offset, 10) || 0, 0);
+
+    const images = sql`
+      from submissions s
+      join submission_defs sd on sd.id = s."currentDefId"
+      join submission_attachments sa on sa."submissionDefId" = sd.id
+      join blobs b on b.id = sa."blobId"
+      left join actors on actors.id = s."submitterId"
+      where s."formId" = ${form.id} and s."deletedAt" is null and s.draft = false
+        and coalesce(sa."isClientAudit", false) = false
+        and b."contentType" like 'image/%'`;
+
+    const total = await db.oneFirst(sql`select count(*)::integer ${images}`);
+
+    const photos = total === 0 ? [] : await db.any(sql`
+      select s."instanceId" as "instanceId", sa.name as name,
+             b."contentType" as "contentType", s."createdAt" as "createdAt",
+             s."reviewState" as "reviewState",
+             actors."displayName" as submitter
+      ${images}
+      order by s."createdAt" desc, sa.name
+      limit ${limit} offset ${offset}`);
+
+    return { total, limit, offset, photos };
+  }));
+
+  ////////////////////////////////////////////////////////////////////////////////
   // DASHBOARD STATS
   service.get('/field-data/stats', endpoint(async (container, { auth }) => {
     const { Projects } = container;

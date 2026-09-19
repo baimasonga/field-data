@@ -212,6 +212,8 @@ export const apiPaths = {
   // Field Data platform endpoints (see server/lib/resources/field-data.js)
   formSummary: (projectId, xmlFormId) =>
     `/v1/projects/${projectId}/forms/${encodeURIComponent(xmlFormId)}/summary`,
+  formPhotos: (projectId, xmlFormId, offset, limit) =>
+    `/v1/projects/${projectId}/forms/${encodeURIComponent(xmlFormId)}/photos?offset=${offset}&limit=${limit}`,
   fieldDataStats: () => '/v1/field-data/stats',
   fieldDataMedia: () => '/v1/field-data/media',
   fieldDataMediaItem: (id) => `/v1/field-data/media/${id}`,
