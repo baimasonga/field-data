@@ -44,7 +44,32 @@ jobs:
           PGDATABASE: postgres
           PGSSLMODE: require
           PGCONNECT_TIMEOUT: "15"
-        run: psql --no-password --quiet --command "select 1"
+        run: |
+          psql --no-password --quiet --command "select 1"
+          docker build -q -t field-data-db-check .
+          docker run --rm --entrypoint node \
+            -e PGHOST -e PGPORT -e PGUSER -e PGPASSWORD -e PGDATABASE -e PGSSLMODE \
+            field-data-db-check -e '
+              const { Client } = require("pg");
+              const client = new Client({ connectionTimeoutMillis: 15000 });
+              (async () => {
+                try {
+                  await client.connect();
+                  await client.query("SELECT 1");
+                  console.log("NODE_DATABASE_OK");
+                } catch (error) {
+                  const code = error.code;
+                  const tls = ["SELF_SIGNED_CERT_IN_CHAIN", "DEPTH_ZERO_SELF_SIGNED_CERT", "UNABLE_TO_VERIFY_LEAF_SIGNATURE", "UNABLE_TO_GET_ISSUER_CERT_LOCALLY", "CERT_HAS_EXPIRED", "ERR_TLS_CERT_ALTNAME_INVALID"];
+                  const network = ["ENOTFOUND", "EAI_AGAIN", "ECONNREFUSED", "ETIMEDOUT", "ENETUNREACH"];
+                  console.error(tls.includes(code) ? "NODE_DATABASE_TLS_ERROR" :
+                    code === "28P01" ? "NODE_DATABASE_AUTH_ERROR" :
+                    network.includes(code) ? "NODE_DATABASE_NETWORK_ERROR" : "NODE_DATABASE_OTHER_ERROR");
+                  process.exitCode = 1;
+                } finally {
+                  await client.end().catch(() => {});
+                }
+              })();
+            '
 
       - name: Deploy Field Data
         id: deploy
