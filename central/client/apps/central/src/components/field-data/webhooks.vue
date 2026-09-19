@@ -46,7 +46,9 @@ distribution and at https://www.apache.org/licenses/LICENSE-2.0.
             <td>{{ hook.name }}</td>
             <td class="url-cell">{{ hook.url }}</td>
             <td>{{ (hook.events || []).join(', ') || $t('allEvents') }}</td>
-            <td>{{ hook.lastStatus }}</td>
+            <td :class="{ 'status-failed': failing(hook.lastStatus) }">
+              {{ hook.lastStatus }}
+            </td>
             <td>
               <input type="checkbox" :checked="hook.active"
                 :aria-label="$t('header.active')"
@@ -137,6 +139,14 @@ const webhooks = createResource('fieldDataWebhooks');
 
 const fetchData = () => webhooks.request({ url: apiPaths.fieldDataWebhooks() }).catch(noop);
 fetchData();
+
+// A webhook whose last delivery failed looked exactly like one that succeeded:
+// the status code was there, in the same colour, for anyone who happened to
+// know which numbers are bad news.
+const failing = (status) => {
+  const code = Number(status);
+  return Number.isFinite(code) && (code < 200 || code >= 300);
+};
 
 const newHook = reactive({ name: '', url: '', events: '' });
 const parseEvents = (str) => str.split(',').map(s => s.trim()).filter(s => s !== '');
@@ -278,6 +288,10 @@ const toggleDetails = (hook) => {
   .url-cell { max-width: 320px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .actions-col { text-align: right; white-space: nowrap; }
   .actions-col .btn + .btn { margin-left: 5px; }
+
+  // 4.97 to 1 on the row behind it, so the code is readable as text and not
+  // only as a colour.
+  .status-failed { color: #b42a2f; font-weight: 600; } // gradient --danger-text
 
   .details-row > td { background-color: #f8f8fb; }
   .detail-label { font-weight: bold; margin: 5px 0; }

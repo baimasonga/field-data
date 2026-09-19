@@ -187,7 +187,9 @@ const statusItems = computed(() => {
     display: inline-block; width: 10px; height: 10px; border-radius: 50%;
     margin-right: 8px; vertical-align: middle;
     &.up { background-color: #2fa96b; }
-    &.down { background-color: #cfcfdc; }
+    // A service that is down read as pale grey, which is what this palette uses
+    // for "not applicable". Offline is a failure and is coloured as one.
+    &.down { background-color: #e5484d; }
   }
 }
 </style>
