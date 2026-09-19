@@ -135,6 +135,14 @@ export class FieldDataContainer extends Container {
 
   async fetch(request) {
     await this.#retireStaleContainer();
+
+    // A boot that has already resolved says the container started once, not
+    // that it is running now. It stops on its own: after `sleepAfter`, when a
+    // deploy retires it, when it crashes. Reusing a stale resolved promise
+    // means never starting it again, and every request after that is proxied
+    // at nothing. Forget the boot whenever the container is not up.
+    if (!this.container.running) this.#boot = null;
+
     // `containerFetch()` starts the container with the default port timeout, so
     // do the start here instead with a budget that matches a real cold boot.
     this.#boot ??= this.startAndWaitForPorts({
@@ -155,7 +163,19 @@ export class FieldDataContainer extends Container {
     ]);
     if (waited === late) return startingUp(request);
 
-    const response = await super.fetch(request);
+    // The container can still stop between the boot resolving and this proxy
+    // being attempted, and the library reports that by throwing. Tell the
+    // caller to come back rather than handing them a stack trace; the next
+    // request finds it stopped and starts it.
+    let response;
+    try {
+      response = await super.fetch(request);
+    } catch (error) {
+      console.log('Proxying failed, reporting as starting up:', String(error));
+      this.#boot = null;
+      return startingUp(request);
+    }
+
     // nginx is up but the backend behind it is not yet, which it reports as a
     // bad gateway. That is the same "not ready" and deserves the same answer.
     if (response.status === 502 || response.status === 504) return startingUp(request);
@@ -168,6 +188,8 @@ export class FieldDataContainer extends Container {
 
   onStop({ exitCode, reason }) {
     console.log('Field Data container stopped', { exitCode, reason });
+    // Whatever stopped it, the next request has to start it again.
+    this.#boot = null;
   }
 
   onError(error) {
