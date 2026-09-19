@@ -11,6 +11,12 @@ const BOOT_TIMEOUT_MS = 10 * 60 * 1000;
 // on in the background and the next request picks it up.
 const PATIENCE_MS = 20 * 1000;
 
+// How the container runtime says "the container is not there right now". These
+// are its words, not the application's: the application never talks about
+// containers, so matching on them cannot swallow a real server error.
+const CONTAINER_UNAVAILABLE =
+  /Container suddenly disconnected|container is not running|no container instance/i;
+
 const STARTING_UP_HTML = `<!doctype html>
 <html lang="en">
 <head>
@@ -179,6 +185,28 @@ export class FieldDataContainer extends Container {
     // nginx is up but the backend behind it is not yet, which it reports as a
     // bad gateway. That is the same "not ready" and deserves the same answer.
     if (response.status === 502 || response.status === 504) return startingUp(request);
+
+    // The container runtime reports a container that went away mid-request as
+    // a 500 whose body says "Container suddenly disconnected, try again". That
+    // is the platform telling the caller to retry, and it is not something a
+    // person should ever read. It means the same as every other not-ready
+    // state here, so it gets the same answer.
+    if (response.status === 500) {
+      const body = await response.text();
+      if (CONTAINER_UNAVAILABLE.test(body)) {
+        console.log('Container was unavailable mid-request, reporting as starting up.');
+        this.#boot = null;
+        return startingUp(request);
+      }
+      // Any other 500 is the application's own and is passed through as it
+      // came, headers and all.
+      return new Response(body, {
+        status: response.status,
+        statusText: response.statusText,
+        headers: response.headers
+      });
+    }
+
     return response;
   }
 

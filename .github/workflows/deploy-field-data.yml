@@ -367,6 +367,18 @@ jobs:
               https://field-data.mohamedbangura.workers.dev/v1/sessions) || true
             status=${response##*$'\n'}
             payload=${response%$'\n'*}
+
+            # The container runtime answers a request that arrives while the
+            # container is being replaced with a 500 reading "Container
+            # suddenly disconnected, try again" -- its own words, telling the
+            # caller to retry. Deploy 42 called that a login failure. It is the
+            # same "not ready" as the rest and waits like the rest; every other
+            # 500 is still fatal on the first one.
+            if [[ "$status" == 500 ]] &&
+               printf '%s' "$payload" | grep -qiE 'Container suddenly disconnected|container is not running'; then
+              status=503
+            fi
+
             case "$status" in
               502|503|504|000)
                 echo "The backend answered $status (attempt $attempt of 10); waiting 20s."
