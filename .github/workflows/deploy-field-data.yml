@@ -37,8 +37,12 @@ jobs:
 
       - name: Verify Supabase database connection
         env:
-          PGHOST: ${{ secrets.PGHOST }}
-          PGPORT: ${{ secrets.PGPORT }}
+          # The pooler caps how many session-mode clients may be connected at
+          # once and the running application holds several of them, so prefer a
+          # direct connection when one is configured: a deploy-time check has no
+          # business competing for the slots live traffic needs.
+          PGHOST: ${{ secrets.PGHOST_DIRECT || secrets.PGHOST }}
+          PGPORT: ${{ secrets.PGPORT_DIRECT || secrets.PGPORT }}
           PGUSER: ${{ secrets.PGUSER }}
           PGPASSWORD: ${{ secrets.PGPASSWORD }}
           PGDATABASE: postgres
@@ -46,36 +50,61 @@ jobs:
           PGOPTIONS: "-c search_path=field_data,extensions,public"
           PGCONNECT_TIMEOUT: "15"
         run: |
-          psql --no-password --quiet --command "select 1"
           docker build -q -t field-data-db-check .
-          docker run --rm --entrypoint node \
-            -e PGHOST -e PGPORT -e PGUSER -e PGPASSWORD -e PGDATABASE -e PGSSLMODE -e PGOPTIONS \
-            field-data-db-check -e '
-              const { Client } = require("pg");
-              const client = new Client({ connectionTimeoutMillis: 15000 });
-              (async () => {
-                try {
-                  await client.connect();
-                  const result = await client.query("SELECT current_schema() AS schema");
-                  if (result.rows[0].schema !== "field_data") {
-                    console.error("NODE_DATABASE_SCHEMA_MISMATCH");
+
+          # One connection, not two: the raw psql probe this replaced told us
+          # nothing the application runtime does not already establish.
+          check() {
+            docker run --rm --entrypoint node \
+              -e PGHOST -e PGPORT -e PGUSER -e PGPASSWORD -e PGDATABASE -e PGSSLMODE -e PGOPTIONS \
+              field-data-db-check -e '
+                const { Client } = require("pg");
+                const client = new Client({ connectionTimeoutMillis: 15000 });
+                (async () => {
+                  try {
+                    await client.connect();
+                    const result = await client.query("SELECT current_schema() AS schema");
+                    if (result.rows[0].schema !== "field_data") {
+                      console.error("NODE_DATABASE_SCHEMA_MISMATCH");
+                      process.exitCode = 1;
+                      return;
+                    }
+                    console.log("NODE_DATABASE_OK");
+                  } catch (error) {
+                    const code = error.code;
+                    const message = String((error && error.message) || error);
+                    const tls = ["SELF_SIGNED_CERT_IN_CHAIN", "DEPTH_ZERO_SELF_SIGNED_CERT", "UNABLE_TO_VERIFY_LEAF_SIGNATURE", "UNABLE_TO_GET_ISSUER_CERT_LOCALLY", "CERT_HAS_EXPIRED", "ERR_TLS_CERT_ALTNAME_INVALID"];
+                    const network = ["ENOTFOUND", "EAI_AGAIN", "ECONNREFUSED", "ETIMEDOUT", "ENETUNREACH"];
+                    console.error(/max clients reached/i.test(message) ? "NODE_DATABASE_POOL_EXHAUSTED" :
+                      tls.includes(code) ? "NODE_DATABASE_TLS_ERROR" :
+                      code === "28P01" ? "NODE_DATABASE_AUTH_ERROR" :
+                      network.includes(code) ? "NODE_DATABASE_NETWORK_ERROR" : "NODE_DATABASE_OTHER_ERROR");
+                    console.error(message);
                     process.exitCode = 1;
-                    return;
+                  } finally {
+                    await client.end().catch(() => {});
                   }
-                  console.log("NODE_DATABASE_OK");
-                } catch (error) {
-                  const code = error.code;
-                  const tls = ["SELF_SIGNED_CERT_IN_CHAIN", "DEPTH_ZERO_SELF_SIGNED_CERT", "UNABLE_TO_VERIFY_LEAF_SIGNATURE", "UNABLE_TO_GET_ISSUER_CERT_LOCALLY", "CERT_HAS_EXPIRED", "ERR_TLS_CERT_ALTNAME_INVALID"];
-                  const network = ["ENOTFOUND", "EAI_AGAIN", "ECONNREFUSED", "ETIMEDOUT", "ENETUNREACH"];
-                  console.error(tls.includes(code) ? "NODE_DATABASE_TLS_ERROR" :
-                    code === "28P01" ? "NODE_DATABASE_AUTH_ERROR" :
-                    network.includes(code) ? "NODE_DATABASE_NETWORK_ERROR" : "NODE_DATABASE_OTHER_ERROR");
-                  process.exitCode = 1;
-                } finally {
-                  await client.end().catch(() => {});
-                }
-              })();
-            '
+                })();
+              '
+          }
+
+          # A full pooler is a queue, not a broken database, so wait for a slot
+          # rather than failing the deploy. Every other failure is still fatal
+          # on the first attempt.
+          for attempt in 1 2 3 4 5; do
+            if output=$(check 2>&1); then
+              echo "$output"
+              exit 0
+            fi
+            echo "$output"
+            if ! printf '%s' "$output" | grep -q NODE_DATABASE_POOL_EXHAUSTED; then
+              exit 1
+            fi
+            echo "No free session slot on the pooler (attempt $attempt of 5); waiting 30s."
+            sleep 30
+          done
+          echo "The pooler never freed a session slot." >&2
+          exit 1
 
       - name: Deploy Field Data
         id: deploy

@@ -40,7 +40,7 @@ export PYXFORM_PORT=5001
 export PYXFORM_PROTOCOL=http
 export FORM_COMPILER_MAX_BYTES="${FORM_COMPILER_MAX_BYTES:-26214400}"
 export SESSION_LIFETIME="${SESSION_LIFETIME:-86400}"
-export DB_POOL_SIZE="${DB_POOL_SIZE:-5}"
+export DB_POOL_SIZE="${DB_POOL_SIZE:-3}"
 export HTTPS_PORT=443
 export BASE_URL="https://$DOMAIN"
 # The native Supabase adapter reads SUPABASE_* directly. These optional

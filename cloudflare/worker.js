@@ -23,7 +23,7 @@ export class FieldDataContainer extends Container {
     PGPASSWORD: env.PGPASSWORD,
     PGSSLMODE: 'require',
     PGOPTIONS: env.PGOPTIONS || '-c search_path=field_data,public',
-    DB_POOL_SIZE: env.DB_POOL_SIZE || '5',
+    DB_POOL_SIZE: env.DB_POOL_SIZE || '3',
     EMAIL_FROM: env.EMAIL_FROM || `no-reply@${env.DOMAIN}`,
     EMAIL_HOST: env.EMAIL_HOST,
     EMAIL_PORT: env.EMAIL_PORT || '587',
