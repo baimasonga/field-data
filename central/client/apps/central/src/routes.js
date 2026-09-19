@@ -12,6 +12,7 @@ except according to the terms contained in the LICENSE file.
 import { always, equals } from 'ramda';
 
 import AccountLogin from './components/account/login.vue';
+import Landing from './components/landing.vue';
 import AccountPage from './components/account/page.vue';
 import AsyncRoute from './components/async-route.vue';
 import { routeProps } from './util/router';
@@ -271,6 +272,17 @@ const routes = [
     ]
   },
 
+  {
+    path: '/welcome',
+    name: 'Landing',
+    component: Landing,
+    meta: {
+      requireLogin: false,
+      requireAnonymity: true,
+      title: () => [],
+      fullWidth: true
+    }
+  },
   asyncRoute({
     path: '/',
     component: 'Home',

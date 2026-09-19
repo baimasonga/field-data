@@ -151,8 +151,14 @@ router.afterEach(unlessFailure(to => {
 
   // Implements the requireLogin and requireAnonymity meta fields.
   router.beforeEach(to => {
-    if (to.meta.requireLogin && !session.dataExists)
-      return { path: '/login', query: { next: to.fullPath } };
+    if (to.meta.requireLogin && !session.dataExists) {
+      // Someone arriving at the root has not asked for anything in particular,
+      // so they get the landing page. A deep link is a request for a specific
+      // page, so it still goes to login and returns there afterwards.
+      return to.path === '/'
+        ? '/welcome'
+        : { path: '/login', query: { next: to.fullPath } };
+    }
     if (to.meta.requireAnonymity && session.dataExists)
       return '/';
     return true;
