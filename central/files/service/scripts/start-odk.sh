@@ -24,7 +24,11 @@ unset DB_SSL
 # availability to processes running with a reset environment (such as cronjobs).
 # See https://github.com/getodk/central/issues/1747 .
 # See `man 5 proc_pid_environ` .
-cp --preserve=mode,ownership /proc/self/environ /dev/shm/docker-envblock
+# The location is overridable because not every container runtime mounts
+# /dev/shm; the crontab is rendered with the same path.
+envblock="${ODK_ENVBLOCK:-/dev/shm/docker-envblock}"
+mkdir -p "$(dirname "$envblock")"
+cp --preserve=mode,ownership /proc/self/environ "$envblock"
 
 
 echo "generating local service configuration.."

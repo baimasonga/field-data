@@ -1,7 +1,14 @@
 import { env } from 'cloudflare:workers';
 import { Container } from '@cloudflare/containers';
 
+// A cold start runs database migrations and boots the ODK service before port
+// 8383 listens, which takes far longer than the 20s the container library
+// allows by default when it waits for ports.
+const BOOT_TIMEOUT_MS = 10 * 60 * 1000;
+
 export class FieldDataContainer extends Container {
+  #boot = null;
+
   defaultPort = 8080;
   requiredPorts = [8080, 8383];
   sleepAfter = '10m';
@@ -44,6 +51,19 @@ export class FieldDataContainer extends Container {
     SSL_TYPE: 'upstream',
     SESSION_LIFETIME: env.SESSION_LIFETIME || '86400'
   };
+
+  async fetch(request) {
+    // `containerFetch()` starts the container with the default port timeout, so
+    // do the start here instead with a budget that matches a real cold boot.
+    this.#boot ??= this.startAndWaitForPorts({
+      cancellationOptions: { portReadyTimeoutMS: BOOT_TIMEOUT_MS }
+    }).catch((error) => {
+      this.#boot = null;
+      throw error;
+    });
+    await this.#boot;
+    return super.fetch(request);
+  }
 
   onStart() {
     console.log('Field Data container started');

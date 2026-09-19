@@ -57,6 +57,8 @@ COPY central/files/shared/envsub.awk /scripts/envsub.awk
 COPY central/files/service/scripts/ /usr/odk/
 COPY central/files/service/config.json.template /usr/share/odk/config.json.template
 COPY central/files/service/crontab /etc/cron.d/odk
+# Re-rendered at startup with the environment-block path the runtime allows.
+COPY central/files/service/crontab /usr/share/odk/crontab.template
 COPY central/files/service/odk-cmd /usr/bin/odk-cmd
 COPY central/files/service/with-pgenvblock.pl /usr/bin/with-pgenvblock.pl
 COPY --from=frontend /build/dist/ /usr/share/nginx/html/

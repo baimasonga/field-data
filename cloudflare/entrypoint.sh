@@ -51,6 +51,28 @@ export S3_SECRET_KEY="${S3_SECRET_KEY:-}"
 export S3_BUCKET_NAME="${S3_BUCKET_NAME:-}"
 export S3_OBJECT_PREFIX="${S3_OBJECT_PREFIX:-}"
 
+# `start-odk.sh` serializes the container environment for cron jobs and aborts
+# the whole boot if it cannot write the block. Cloudflare's container runtime
+# does not mount /dev/shm, so resolve a writable location before starting
+# anything and point both the script and the crontab at it.
+envblock_dir=""
+for candidate in /dev/shm /run/field-data /tmp; do
+  if mkdir -p "$candidate" 2>/dev/null && [[ -w "$candidate" ]]; then
+    envblock_dir="$candidate"
+    break
+  fi
+done
+if [[ -z "$envblock_dir" ]]; then
+  echo "No writable directory available for the cron environment block." >&2
+  exit 1
+fi
+export ODK_ENVBLOCK="$envblock_dir/docker-envblock"
+
+sed "s#/dev/shm/docker-envblock#$ODK_ENVBLOCK#g" \
+  < /usr/share/odk/crontab.template \
+  > /etc/cron.d/odk
+chmod 0644 /etc/cron.d/odk
+
 /scripts/envsub.awk \
   < /usr/share/odk/cloudflare-nginx.conf.template \
   > /etc/nginx/conf.d/field-data.conf
@@ -71,6 +93,12 @@ shutdown() {
   wait "${compiler_pid:-}" "${service_pid:-}" "${nginx_pid:-}" 2>/dev/null || true
 }
 trap shutdown TERM INT
+
+# Bind the public port first. The backend needs minutes to run migrations and
+# boot, and Cloudflare gives up on a container that has not opened its port,
+# so /healthz has to answer while the rest of the stack is still coming up.
+nginx -g 'daemon off;' &
+nginx_pid=$!
 
 cd /opt/field-data-form-compiler
 ./venv/bin/gunicorn \
@@ -99,8 +127,6 @@ until nc -z 127.0.0.1 8383; do
   sleep 1
 done
 
-nginx -g 'daemon off;' &
-nginx_pid=$!
 wait -n "$compiler_pid" "$service_pid" "$nginx_pid"
 status=$?
 shutdown
