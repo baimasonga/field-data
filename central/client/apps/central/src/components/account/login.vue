@@ -46,7 +46,7 @@ except according to the terms contained in the LICENSE file.
     </form>
 
     <div id="account-login-footer">
-      <img src="../../assets/images/odk-logo.png" :alt="$t('login.odkLogo')">
+      <img src="../../assets/brand/field-data-mark.svg" :alt="$t('login.brandLogo')">
       <span>{{ hostname }}</span>
     </div>
   </div>

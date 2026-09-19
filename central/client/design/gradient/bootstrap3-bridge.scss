@@ -1,0 +1,149 @@
+// ============================================================
+// Gradient × ODK Central — Bootstrap 3 variable bridge
+// ============================================================
+// Central Frontend styles Bootstrap 3 through Sass. Import this file
+// BEFORE bootstrap's own _variables.scss (or set these as your
+// overrides file) so Bootstrap compiles in Gradient's palette.
+//
+// Literal values are used here, not var(--*): Sass colour functions
+// (darken/lighten) can't operate on CSS custom properties. Keep this
+// file in sync with gradient-tokens.css — it is the single source of
+// truth; these are its mirrored literals.
+// ============================================================
+
+// ---- Palette (mirror of gradient-tokens.css) ----
+$g-gray-0:    #ffffff;
+$g-gray-25:   #fcfcfe;
+$g-gray-50:   #f8f8fb;
+$g-gray-100:  #f1f1f6;
+$g-gray-150:  #e9e9f1;
+$g-gray-200:  #e0e0ea;
+$g-gray-300:  #cfcfdc;
+$g-gray-400:  #adadbf;
+$g-gray-500:  #8a8a9c;
+$g-gray-600:  #68687a;
+$g-gray-700:  #4d4d5c;
+$g-gray-800:  #333340;
+$g-gray-900:  #20202b;
+$g-gray-950:  #14141b;
+
+$g-iris-50:   #eeedfe;
+$g-iris-100:  #e1defc;
+$g-iris-300:  #aba3f4;
+$g-iris-500:  #7263e9;
+$g-iris-600:  #5d4ee0;   // --accent
+$g-iris-700:  #4b3ccb;
+$g-iris-800:  #3e33a6;
+
+$g-green-500: #2fa96b;
+$g-amber-500: #e29a2b;
+$g-red-500:   #e5484d;
+$g-blue-500:  #4a8cea;
+
+// ---- Bootstrap 3 brand variables ----
+$brand-primary: $g-iris-600;
+$brand-success: $g-green-500;
+$brand-info:    $g-blue-500;
+$brand-warning: $g-amber-500;
+$brand-danger:  $g-red-500;
+
+$gray-base:     $g-gray-950;
+$gray-darker:   $g-gray-900;
+$gray-dark:     $g-gray-800;
+$gray:          $g-gray-700;
+$gray-light:    $g-gray-500;
+$gray-lighter:  $g-gray-150;
+
+// ---- Typography ----
+$font-family-sans-serif: 'Hanken Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, Roboto, sans-serif;
+$font-family-monospace:  'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+$font-family-base:       $font-family-sans-serif;
+
+$font-size-base:   16px;
+$font-size-large:  18px;
+$font-size-small:  14px;
+$font-size-h1:     44px;
+$font-size-h2:     34px;
+$font-size-h3:     26px;
+$font-size-h4:     20px;
+$font-size-h5:     18px;
+$font-size-h6:     16px;
+
+$line-height-base:      1.6;
+$headings-font-weight:  600;
+$headings-color:        $g-gray-900;
+
+// ---- Surfaces & text ----
+$body-bg:              $g-gray-25;
+$text-color:           $g-gray-900;
+$link-color:           $g-iris-700;
+$link-hover-color:     $g-iris-800;
+$link-hover-decoration: none;
+
+// ---- Components ----
+$border-radius-base:   10px;   // --radius-md
+$border-radius-large:  14px;   // --radius-lg
+$border-radius-small:  8px;    // --radius-sm
+
+$padding-base-vertical:    9px;
+$padding-base-horizontal:  16px;
+$padding-large-vertical:   12px;
+$padding-large-horizontal: 20px;
+$padding-small-vertical:   6px;
+$padding-small-horizontal: 12px;
+
+$btn-font-weight:        500;
+$btn-primary-bg:         $g-iris-600;
+$btn-primary-border:     $g-iris-600;
+$btn-default-color:      $g-gray-800;
+$btn-default-bg:         $g-gray-0;
+$btn-default-border:     $g-gray-200;
+
+$input-bg:               $g-gray-0;
+$input-color:            $g-gray-900;
+$input-border:           $g-gray-200;
+$input-border-focus:     $g-iris-600;
+$input-color-placeholder: $g-gray-400;
+$input-height-base:      42px;
+$input-border-radius:    10px;
+
+$table-bg-accent:        $g-gray-50;
+$table-bg-hover:         $g-gray-50;
+$table-border-color:     $g-gray-150;
+
+$panel-bg:               $g-gray-0;
+$panel-inner-border:     $g-gray-150;
+$panel-default-border:   $g-gray-150;
+
+$modal-content-bg:            $g-gray-0;
+$modal-backdrop-bg:           $g-gray-950;
+$modal-backdrop-opacity:      0.44;
+$modal-header-border-color:   $g-gray-150;
+$modal-footer-border-color:   $g-gray-150;
+$modal-inner-padding:         24px;
+
+$navbar-default-bg:           $g-gray-0;
+$navbar-default-border:       $g-gray-150;
+$navbar-default-link-color:   $g-gray-700;
+$navbar-default-link-hover-color:  $g-gray-900;
+$navbar-default-link-active-color: $g-iris-700;
+$navbar-height:               60px;
+
+$nav-tabs-border-color:              $g-gray-150;
+$nav-tabs-active-link-hover-color:   $g-iris-700;
+$nav-tabs-active-link-hover-border-color: $g-iris-600;
+
+$alert-success-bg: #e6f6ee;  $alert-success-text: #1f7a4c;  $alert-success-border: #e6f6ee;
+$alert-info-bg:    #e9f1fd;  $alert-info-text:    #2c66bf;  $alert-info-border:    #e9f1fd;
+$alert-warning-bg: #fcf3e0;  $alert-warning-text: #a86f14;  $alert-warning-border: #fcf3e0;
+$alert-danger-bg:  #fdeaea;  $alert-danger-text:  #b42a2f;  $alert-danger-border:  #fdeaea;
+
+$state-success-text: #1f7a4c; $state-success-bg: #e6f6ee; $state-success-border: #e6f6ee;
+$state-info-text:    #2c66bf; $state-info-bg:    #e9f1fd; $state-info-border:    #e9f1fd;
+$state-warning-text: #a86f14; $state-warning-bg: #fcf3e0; $state-warning-border: #fcf3e0;
+$state-danger-text:  #b42a2f; $state-danger-bg:  #fdeaea; $state-danger-border:  #fdeaea;
+
+$badge-bg:       $g-gray-150;
+$badge-color:    $g-gray-800;
+
+$border-radius-pill: 9999px;

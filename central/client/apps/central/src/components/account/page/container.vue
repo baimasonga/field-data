@@ -9,8 +9,8 @@ content in a slot, which the component will style. -->
           <!-- This will load the default logo eagerly, even before the response
           for serverConfig has been received. The goal is to show the default
           logo more quickly if a custom logo isn't configured. -->
-          <img v-if="logoUrl == null" src="../../../assets/images/odk-logo.png"
-            :alt="$t('login.odkLogo')" v-on="imgHandlers">
+          <img v-if="logoUrl == null" src="../../../assets/brand/field-data-logo.svg"
+            :alt="$t('login.brandLogo')" v-on="imgHandlers">
           <img v-else :src="logoUrl"
             :alt="$t('login.customLogoAlt')" v-on="imgHandlers">
           <spinner/>

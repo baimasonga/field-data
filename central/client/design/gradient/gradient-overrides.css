@@ -1,0 +1,116 @@
+/* ============================================================
+   Gradient × ODK Central — override layer (plain CSS)
+   ============================================================
+   Load order, always:
+     1. bootstrap.css            (Central's existing vendor CSS)
+     2. Central's own app styles
+     3. gradient-tokens.css      (defines every var(--*))
+     4. gradient-overrides.css   (THIS FILE — restyles the shipped markup)
+
+   This layer exists so the rebrand can land without recompiling
+   Bootstrap. If you DO control the Sass build, prefer
+   bootstrap3-bridge.scss and keep this file for the Central-specific
+   class names only (the blocks marked "Central").
+
+   No !important unless a vendor rule genuinely wins. No new hues:
+   every value here is a token.
+   ============================================================ */
+
+/* ---- Global ---- */
+body { background: var(--color-canvas); color: var(--text-primary); font-family: var(--font-sans); font-size: var(--text-body); line-height: var(--leading-body); -webkit-font-smoothing: antialiased; }
+h1, h2, h3, h4, h5, h6, .h1, .h2, .h3, .h4 { font-family: var(--font-display); font-weight: var(--weight-semibold); color: var(--text-primary); letter-spacing: -.018em; }
+h1, .h1 { font-size: var(--text-display-lg); line-height: var(--leading-display-lg); letter-spacing: var(--tracking-display-lg); }
+h2, .h2 { font-size: var(--text-display-md); line-height: var(--leading-display-md); letter-spacing: var(--tracking-display-md); }
+h3, .h3 { font-size: var(--text-headline); line-height: var(--leading-headline); letter-spacing: var(--tracking-headline); }
+h4, .h4 { font-size: var(--text-title); line-height: var(--leading-title); letter-spacing: var(--tracking-title); }
+code, pre, kbd, samp, .monospace { font-family: var(--font-mono); font-size: var(--text-mono); }
+a { color: var(--text-link); text-decoration: none; }
+a:hover, a:focus { color: var(--text-link-hover); text-decoration: none; }
+hr { border-color: var(--border-subtle); }
+::selection { background: var(--accent-subtle-bg); }
+:focus-visible { outline: none; box-shadow: var(--ring-focus); border-radius: var(--radius-xs); }
+
+/* ---- Buttons ---- */
+.btn { font-family: var(--font-sans); font-size: var(--text-body-sm); font-weight: var(--weight-medium); line-height: 1; border-radius: var(--radius-sm); border-width: var(--border-thin); padding: 11px 16px; transition: background-color .15s ease, border-color .15s ease, box-shadow .15s ease, color .15s ease; }
+.btn:focus-visible { box-shadow: var(--ring-focus); }
+.btn-primary { background: var(--accent); border-color: var(--accent); color: var(--accent-on); }
+.btn-primary:hover, .btn-primary:focus { background: var(--accent-hover); border-color: var(--accent-hover); color: var(--accent-on); }
+.btn-primary:active, .btn-primary.active { background: var(--accent-active); border-color: var(--accent-active); }
+.btn-default, .btn-secondary { background: var(--color-surface); border-color: var(--border-default); color: var(--text-secondary); }
+.btn-default:hover, .btn-default:focus { background: var(--color-surface-hover); border-color: var(--border-strong); color: var(--text-primary); }
+.btn-link { color: var(--text-link); border-color: transparent; background: transparent; }
+.btn-danger { background: var(--danger); border-color: var(--danger); color: #fff; }
+.btn-danger:hover { background: var(--red-700); border-color: var(--red-700); }
+.btn-sm, .btn-xs { padding: 7px 12px; font-size: var(--text-caption); border-radius: var(--radius-xs); }
+.btn-lg { padding: 13px 22px; font-size: var(--text-body); border-radius: var(--radius-md); }
+.btn[disabled], .btn.disabled { opacity: 1; background: var(--color-surface-sunken); border-color: var(--border-subtle); color: var(--text-disabled); box-shadow: none; }
+/* The ONE brand moment per view — opt in deliberately, never on two buttons at once. */
+.btn-gradient { background: var(--gradient-iris); border-color: transparent; color: #fff; }
+.btn-gradient:hover { box-shadow: var(--glow-iris); color: #fff; }
+
+/* ---- Forms ---- */
+label, .control-label { font-size: var(--text-body-sm); font-weight: var(--weight-medium); color: var(--text-primary); margin-bottom: 7px; }
+.form-control { height: 42px; padding: 0 12px; font-size: var(--text-body-sm); color: var(--text-primary); background: var(--color-surface); border: var(--border-thin) solid var(--border-default); border-radius: var(--radius-sm); box-shadow: none; transition: border-color .15s ease, box-shadow .15s ease; }
+textarea.form-control { height: auto; padding: 10px 12px; line-height: var(--leading-body-sm); }
+.form-control::placeholder { color: var(--text-disabled); }
+.form-control:focus { border-color: var(--border-focus); box-shadow: var(--ring-focus); }
+.form-control[disabled], .form-control[readonly] { background: var(--color-surface-sunken); color: var(--text-disabled); }
+.help-block { font-size: var(--text-caption); color: var(--text-muted); }
+.has-error .form-control { border-color: var(--danger); }
+.has-error .form-control:focus { box-shadow: var(--ring-focus-danger); }
+.has-error .help-block, .has-error .control-label { color: var(--danger-text); }
+.form-group { margin-bottom: var(--space-5); }
+select.form-control { appearance: none; padding-right: 34px; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2368687a' stroke-width='2' stroke-linecap='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 12px center; }
+
+/* ---- Tables ---- */
+.table { font-size: var(--text-body-sm); }
+.table > thead > tr > th { font-size: var(--text-overline); font-weight: var(--weight-semibold); letter-spacing: var(--tracking-overline); text-transform: uppercase; color: var(--text-subtle); border-bottom: var(--border-thin) solid var(--border-default); padding: 0 var(--space-4) var(--space-2-5) 0; }
+.table > tbody > tr > td { padding: var(--space-3-5, 14px) var(--space-4) var(--space-3-5, 14px) 0; border-top: var(--border-thin) solid var(--border-subtle); color: var(--text-secondary); vertical-align: middle; }
+.table-hover > tbody > tr:hover { background: var(--color-surface-hover); }
+
+/* ---- Panels / cards ---- */
+.panel { background: var(--color-surface); border: var(--border-thin) solid var(--border-subtle); border-radius: var(--radius-lg); box-shadow: var(--shadow-xs); }
+.panel-heading { background: transparent; border-bottom: var(--border-thin) solid var(--border-subtle); padding: var(--space-5) var(--space-6); font-weight: var(--weight-semibold); }
+.panel-body { padding: var(--space-6); }
+.panel-footer { background: var(--color-surface-subtle); border-top: var(--border-thin) solid var(--border-subtle); }
+
+/* ---- Alerts ---- */
+.alert { border-radius: var(--radius-md); border-width: var(--border-thin); padding: var(--space-4); font-size: var(--text-body-sm); }
+.alert-success { background: var(--success-bg); border-color: var(--success-bg); color: var(--success-text); }
+.alert-info    { background: var(--info-bg);    border-color: var(--info-bg);    color: var(--info-text); }
+.alert-warning { background: var(--warning-bg); border-color: var(--warning-bg); color: var(--warning-text); }
+.alert-danger  { background: var(--danger-bg);  border-color: var(--danger-bg);  color: var(--danger-text); }
+
+/* ---- Badges / labels ---- */
+.badge, .label { font-size: var(--text-caption); font-weight: var(--weight-medium); border-radius: var(--radius-pill); padding: 3px 9px; background: var(--color-surface-sunken); color: var(--text-secondary); }
+.label-primary { background: var(--accent-subtle-bg); color: var(--accent-subtle-text); }
+.label-success { background: var(--success-bg); color: var(--success-text); }
+.label-warning { background: var(--warning-bg); color: var(--warning-text); }
+.label-danger  { background: var(--danger-bg);  color: var(--danger-text); }
+.label-info    { background: var(--info-bg);    color: var(--info-text); }
+
+/* ---- Modals ---- */
+.modal-content { background: var(--color-elevated); border: none; border-radius: var(--radius-xl); box-shadow: var(--shadow-2xl); }
+.modal-backdrop.in { background: var(--color-scrim); opacity: 1; }
+.modal-header { border-bottom: var(--border-thin) solid var(--border-subtle); padding: var(--space-6); }
+.modal-title { font-size: var(--text-title); font-weight: var(--weight-semibold); letter-spacing: var(--tracking-title); }
+.modal-body { padding: var(--space-6); }
+.modal-footer { border-top: var(--border-thin) solid var(--border-subtle); padding: var(--space-5) var(--space-6); }
+
+/* ---- Tabs / nav ---- */
+.nav-tabs { border-bottom: var(--border-thin) solid var(--border-subtle); }
+.nav-tabs > li > a { border: none; color: var(--text-muted); font-size: var(--text-body-sm); font-weight: var(--weight-medium); padding: var(--space-3) var(--space-1); margin-right: var(--space-6); border-bottom: var(--border-thick) solid transparent; border-radius: 0; }
+.nav-tabs > li > a:hover { background: transparent; color: var(--text-primary); }
+.nav-tabs > li.active > a, .nav-tabs > li.active > a:hover, .nav-tabs > li.active > a:focus { background: transparent; border: none; border-bottom: var(--border-thick) solid var(--accent); color: var(--text-primary); }
+.navbar-default { background: var(--color-surface); border-color: var(--border-subtle); box-shadow: var(--shadow-xs); }
+
+/* ---- Central: app chrome ----
+   Class names below belong to Central Frontend's own components. Verify
+   each selector against the current source before relying on it; drop any
+   that no longer exist rather than leaving dead rules. */
+#navbar, .navbar-brand { font-family: var(--font-sans); }
+.navbar-brand { font-weight: var(--weight-semibold); letter-spacing: -.01em; }
+.page-body, #page-body { background: var(--color-canvas); }
+.page-head { background: var(--color-surface); border-bottom: var(--border-thin) solid var(--border-subtle); }
+.page-head-title { font-size: var(--text-display-md); font-weight: var(--weight-semibold); letter-spacing: var(--tracking-display-md); }
+.loading, .spinner { color: var(--accent); }
