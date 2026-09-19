@@ -172,3 +172,100 @@ jobs:
           curl --fail --silent --show-error \
             --retry 30 --retry-delay 20 --retry-all-errors \
             https://field-data.mohamedbangura.workers.dev/healthz
+
+      # Health means nginx is answering, which it does before the backend has
+      # finished booting. The only test of "can somebody log in" is logging in,
+      # so do that here, where the server's own answer is readable.
+      #
+      # The password is never echoed. Only the status code and the message the
+      # server returns are printed, and the server's messages never quote the
+      # credential back.
+      - name: Check that the administrator can log in
+        env:
+          SYSADMIN_EMAIL: ${{ vars.SYSADMIN_EMAIL || 'admin@fielddata.quantixsl.com' }}
+          FIELD_DATA_ADMIN_PASSWORD: ${{ secrets.FIELD_DATA_ADMIN_PASSWORD }}
+        run: |
+          body=$(jq -nc --arg e "$SYSADMIN_EMAIL" --arg p "$FIELD_DATA_ADMIN_PASSWORD" \
+            '{email: $e, password: $p}')
+
+          # The backend may still be running migrations behind a healthy nginx,
+          # which answers 502. That is "not up yet", not "wrong password".
+          for attempt in 1 2 3 4 5 6 7 8 9 10; do
+            response=$(curl --silent --show-error --max-time 30 \
+              --write-out '\n%{http_code}' \
+              --header 'Content-Type: application/json' \
+              --data "$body" \
+              https://field-data.mohamedbangura.workers.dev/v1/sessions) || true
+            status=${response##*$'\n'}
+            payload=${response%$'\n'*}
+            case "$status" in
+              502|503|504|000)
+                echo "The backend answered $status (attempt $attempt of 10); waiting 20s."
+                sleep 20
+                ;;
+              *) break ;;
+            esac
+          done
+
+          echo "POST /v1/sessions answered $status."
+          if [[ "$status" == 200 ]]; then
+            echo "The administrator can log in."
+            exit 0
+          fi
+          echo "The server said:"
+          printf '%s\n' "$payload" | jq . 2>/dev/null || printf '%s\n' "$payload"
+          echo "Nobody can log in with $SYSADMIN_EMAIL." >&2
+          exit 1
+
+      # Runs whether the login worked or not, because the interesting case is
+      # the one where it did not. Says who exists and what the container's
+      # bootstrap recorded about trying to create them. No password or hash is
+      # selected here, only whether one is set.
+      - name: Report the accounts the database holds
+        if: always()
+        env:
+          PGHOST: ${{ secrets.PGHOST_DIRECT || secrets.PGHOST }}
+          PGPORT: ${{ secrets.PGPORT_DIRECT || secrets.PGPORT }}
+          PGUSER: ${{ secrets.PGUSER }}
+          PGPASSWORD: ${{ secrets.PGPASSWORD }}
+          PGDATABASE: postgres
+          PGSSLMODE: require
+          PGOPTIONS: "-c search_path=field_data,extensions,public"
+          PGCONNECT_TIMEOUT: "15"
+        run: |
+          docker run --rm --entrypoint node \
+            -e PGHOST -e PGPORT -e PGUSER -e PGPASSWORD -e PGDATABASE -e PGSSLMODE -e PGOPTIONS \
+            field-data-db-check -e '
+              const { Client } = require("pg");
+              const client = new Client({ connectionTimeoutMillis: 15000 });
+              const show = async (label, sql) => {
+                try {
+                  const { rows } = await client.query(sql);
+                  console.log(`\n${label}:`);
+                  console.log(rows.length ? JSON.stringify(rows, null, 2) : "  (no rows)");
+                } catch (error) {
+                  console.log(`\n${label}: ${String(error.message || error)}`);
+                }
+              };
+              (async () => {
+                await client.connect();
+                await show("accounts", `
+                  select u.email,
+                         a."displayName",
+                         u.password is not null as "hasPassword",
+                         r.name as role
+                  from field_data.users u
+                    join field_data.actors a on a.id = u."actorId"
+                    left join field_data.assignments s on s."actorId" = u."actorId"
+                    left join field_data.roles r on r.id = s."roleId"
+                  order by u.email`);
+                await show("what the container recorded at boot", `
+                  select at, outcome, detail
+                  from field_data.bootstrap_log
+                  order by at desc limit 10`);
+                await client.end();
+              })().catch((error) => {
+                console.error(String(error.message || error));
+                process.exitCode = 1;
+              });
+            '
