@@ -42,6 +42,11 @@ COPY --from=backend /usr/odk /usr/odk
 COPY --from=form-compiler /usr/local /usr/local
 COPY --from=form-compiler /opt/field-data-form-compiler/venv /opt/field-data-form-compiler/venv
 COPY cloudflare/form-compiler/app.py /opt/field-data-form-compiler/app.py
+# Python was copied from another stage; register its shared library and
+# fail the build if the compiler cannot load in the final runtime image.
+RUN ldconfig \
+    && cd /opt/field-data-form-compiler \
+    && ./venv/bin/python -c "from app import application; assert application.test_client().get('/healthz').status_code == 200"
 COPY central/files/shared/envsub.awk /scripts/envsub.awk
 COPY central/files/service/scripts/ /usr/odk/
 COPY central/files/service/config.json.template /usr/share/odk/config.json.template
