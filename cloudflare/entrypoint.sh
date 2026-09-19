@@ -132,6 +132,24 @@ done
 # account that already exists is never touched, so a password set or a role
 # granted later survives the next boot. A failure here must not take down a
 # server that is otherwise working.
+# The container log is not readable from every place this is deployed from, so
+# the outcome of the bootstrap is also written to a table anyone with database
+# access can read. Failing to record it must never fail the boot.
+note() {
+  local outcome=$1 detail=$2
+  echo "bootstrap: $detail"
+  psql --no-password --quiet \
+    --set=schema="$FIELD_DATA_DB_SCHEMA" --set=outcome="$outcome" \
+    --set=detail="$detail" --command '
+      create table if not exists :"schema".bootstrap_log (
+        id bigserial primary key,
+        at timestamptz not null default clock_timestamp(),
+        outcome text not null,
+        detail text not null);
+      insert into :"schema".bootstrap_log (outcome, detail)
+      values (:'"'"'outcome'"'"', :'"'"'detail'"'"');' >/dev/null 2>&1 || true
+}
+
 bootstrap_admin() {
   local existing probe
 
@@ -151,19 +169,32 @@ bootstrap_admin() {
   probe=$(psql --no-password --quiet --tuples-only --no-align \
     --set=email="$SYSADMIN_EMAIL" --set=schema="$FIELD_DATA_DB_SCHEMA" \
     --command 'select 1 from :"schema".users where email = :'"'"'email'"'"' limit 1' 2>&1) \
-    || { echo "bootstrap: could not query for an existing administrator:" >&2
-         echo "$probe" >&2; return 1; }
+    || { note failed "could not query for an existing administrator: $probe"
+         return 1; }
   existing=$probe
 
   if [[ -n "$existing" ]]; then
-    echo "bootstrap: $SYSADMIN_EMAIL already exists; leaving it untouched."
+    note exists "$SYSADMIN_EMAIL already exists; leaving it untouched."
     return 0
   fi
 
   if [[ -z "${FIELD_DATA_ADMIN_PASSWORD:-}" ]]; then
-    echo "No account exists for $SYSADMIN_EMAIL and FIELD_DATA_ADMIN_PASSWORD" >&2
-    echo "is not set, so no administrator was created and nobody can log in." >&2
+    note failed "no account exists for $SYSADMIN_EMAIL and FIELD_DATA_ADMIN_PASSWORD is not set, so nobody can log in."
     return 0
+  fi
+
+  # The server refuses a password under ten characters, or over the seventy-two
+  # bytes bcrypt reads, and it refuses it inside the same transaction that
+  # creates the account. So a password that is a character too short leaves no
+  # user, no half-made record and nothing in the database to explain itself.
+  # Say it here instead, where the reason is still to hand.
+  if (( ${#FIELD_DATA_ADMIN_PASSWORD} < 10 )); then
+    note failed "FIELD_DATA_ADMIN_PASSWORD is ${#FIELD_DATA_ADMIN_PASSWORD} characters; the server requires at least 10, so no administrator was created."
+    return 1
+  fi
+  if (( $(printf %s "$FIELD_DATA_ADMIN_PASSWORD" | wc -c) > 72 )); then
+    note failed "FIELD_DATA_ADMIN_PASSWORD is longer than the 72 bytes bcrypt reads, so no administrator was created."
+    return 1
   fi
 
   # odk-cmd reads the password through an interactive prompt library, which
@@ -172,14 +203,14 @@ bootstrap_admin() {
   node -e 'const { run } = require("/usr/odk/lib/task/task");
     const { createUser } = require("/usr/odk/lib/task/account");
     run(createUser(process.env.SYSADMIN_EMAIL, process.env.FIELD_DATA_ADMIN_PASSWORD));' \
-    || { echo "bootstrap: creating $SYSADMIN_EMAIL failed, see the error above." >&2
+    || { note failed "creating $SYSADMIN_EMAIL failed; the reason is on the line above this one."
          return 1; }
   node -e 'const { run } = require("/usr/odk/lib/task/task");
     const { promoteUser } = require("/usr/odk/lib/task/account");
     run(promoteUser(process.env.SYSADMIN_EMAIL));' \
-    || { echo "bootstrap: promoting $SYSADMIN_EMAIL failed, see the error above." >&2
+    || { note failed "promoting $SYSADMIN_EMAIL failed; the reason is on the line above this one."
          return 1; }
-  echo "bootstrap: created administrator $SYSADMIN_EMAIL."
+  note created "created administrator $SYSADMIN_EMAIL."
 }
 
 bootstrap_admin || echo "Administrator bootstrap failed; the server keeps running." >&2

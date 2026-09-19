@@ -35,6 +35,34 @@ jobs:
       - name: Validate Cloudflare configuration
         run: npm run check
 
+      # The container creates the first administrator on boot, and the server
+      # rejects a password under ten characters inside the same transaction
+      # that would create the account: a short secret leaves no user, no error
+      # anywhere a browser can see, and a login page that simply never works.
+      # That is worth failing a deploy over, here where the reason is readable.
+      - name: Check the administrator password meets the server's rules
+        env:
+          FIELD_DATA_ADMIN_PASSWORD: ${{ secrets.FIELD_DATA_ADMIN_PASSWORD }}
+        run: |
+          if [[ -z "${FIELD_DATA_ADMIN_PASSWORD:-}" ]]; then
+            echo "FIELD_DATA_ADMIN_PASSWORD is not set, so no administrator can" >&2
+            echo "be created and nobody will be able to log in." >&2
+            exit 1
+          fi
+          length=${#FIELD_DATA_ADMIN_PASSWORD}
+          bytes=$(printf %s "$FIELD_DATA_ADMIN_PASSWORD" | wc -c)
+          if (( length < 10 )); then
+            echo "FIELD_DATA_ADMIN_PASSWORD is $length characters. The server" >&2
+            echo "requires at least 10, so the administrator would not be created." >&2
+            exit 1
+          fi
+          if (( bytes > 72 )); then
+            echo "FIELD_DATA_ADMIN_PASSWORD is $bytes bytes. bcrypt reads only the" >&2
+            echo "first 72, and the server rejects anything longer." >&2
+            exit 1
+          fi
+          echo "FIELD_DATA_ADMIN_PASSWORD is $length characters, which the server accepts."
+
       - name: Verify Supabase database connection
         env:
           # The pooler caps how many session-mode clients may be connected at
