@@ -127,6 +127,39 @@ until nc -z 127.0.0.1 8383; do
   sleep 1
 done
 
+# Cloudflare containers offer no shell, so the first administrator cannot be
+# created by hand the way a Docker deployment would. Create it here, once: an
+# account that already exists is never touched, so a password set or a role
+# granted later survives the next boot. A failure here must not take down a
+# server that is otherwise working.
+bootstrap_admin() {
+  local existing
+  existing=$(psql --no-password --quiet --tuples-only --no-align \
+    --set=email="$SYSADMIN_EMAIL" \
+    --command "select 1 from users where email = :'email' limit 1") \
+    || { echo "could not query for an existing administrator." >&2; return 1; }
+
+  if [[ -n "$existing" ]]; then
+    echo "administrator $SYSADMIN_EMAIL already exists; leaving it untouched."
+    return 0
+  fi
+
+  if [[ -z "${FIELD_DATA_ADMIN_PASSWORD:-}" ]]; then
+    echo "No account exists for $SYSADMIN_EMAIL and FIELD_DATA_ADMIN_PASSWORD" >&2
+    echo "is not set, so no administrator was created and nobody can log in." >&2
+    return 0
+  fi
+
+  printf '%s\n' "$FIELD_DATA_ADMIN_PASSWORD" \
+    | odk-cmd --email "$SYSADMIN_EMAIL" user-create \
+    || { echo "creating $SYSADMIN_EMAIL failed." >&2; return 1; }
+  odk-cmd --email "$SYSADMIN_EMAIL" user-promote \
+    || { echo "promoting $SYSADMIN_EMAIL to administrator failed." >&2; return 1; }
+  echo "created administrator $SYSADMIN_EMAIL."
+}
+
+bootstrap_admin || echo "Administrator bootstrap failed; the server keeps running." >&2
+
 wait -n "$compiler_pid" "$service_pid" "$nginx_pid"
 status=$?
 shutdown
