@@ -1,0 +1,64 @@
+name: Container startup smoke test
+on:
+  push:
+    branches: [main]
+    paths:
+      - Dockerfile
+      - cloudflare/entrypoint.sh
+      - .github/workflows/container-startup.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  startup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build runtime image
+        run: docker build -t field-data-smoke .
+      - name: Start disposable TLS database
+        run: |
+          mkdir -p /tmp/smoke-tls
+          openssl req -x509 -newkey rsa:2048 -nodes -days 1 \
+            -keyout /tmp/smoke-tls/server.key -out /tmp/smoke-tls/server.crt \
+            -subj /CN=database >/dev/null 2>&1
+          docker network create field-data-smoke
+          docker run -d --name database --network field-data-smoke \
+            -e POSTGRES_PASSWORD=smoke-only-password \
+            -v /tmp/smoke-tls:/tls:ro --entrypoint bash postgres:15-bookworm -c '
+              cp /tls/server.* /tmp/
+              chown postgres:postgres /tmp/server.*
+              chmod 600 /tmp/server.key
+              exec docker-entrypoint.sh postgres -c ssl=on -c ssl_cert_file=/tmp/server.crt -c ssl_key_file=/tmp/server.key
+            '
+          for attempt in $(seq 1 30); do
+            if docker exec database pg_isready -U postgres; then break; fi
+            sleep 2
+          done
+          docker exec database psql -U postgres -c 'CREATE SCHEMA field_data'
+      - name: Exercise complete application startup
+        run: |
+          docker run -d --name app --network field-data-smoke -p 8080:8080 \
+            -e DOMAIN=localhost -e SYSADMIN_EMAIL=admin@example.test \
+            -e PGHOST=database -e PGPORT=5432 -e PGDATABASE=postgres \
+            -e PGUSER=postgres -e PGPASSWORD=smoke-only-password \
+            -e SUPABASE_S3_ENDPOINT=https://example.test/storage/v1/s3 \
+            -e SUPABASE_S3_ACCESS_KEY_ID=smoke-only-access \
+            -e SUPABASE_S3_SECRET_ACCESS_KEY=smoke-only-secret \
+            -e SUPABASE_STORAGE_BUCKET=smoke -e SUPABASE_REGION=eu-west-2 \
+            -e FIELD_DATA_STORAGE_MODE=object \
+            -e FIELD_DATA_BACKUP_PASSPHRASE=smoke-only-backup-passphrase \
+            -e FIELD_DATA_WEBHOOK_ENCRYPTION_KEY=0000000000000000000000000000000000000000000000000000000000000000 \
+            -e EMAIL_HOST=localhost field-data-smoke
+          for attempt in $(seq 1 60); do
+            if curl --fail --silent http://localhost:8080/healthz; then exit 0; fi
+            if [ "$(docker inspect -f '{{.State.Running}}' app)" != true ]; then break; fi
+            sleep 3
+          done
+          exit 1
+      - name: Show isolated test logs
+        if: failure()
+        run: |
+          docker logs app 2>&1 || true
+          docker logs database 2>&1 || true
