@@ -105,7 +105,11 @@ export default {
       return `/v1/oidc/login${qs}`;
     },
     showMailingListOptIn() {
-      return this.$route.query.source === 'claim' && !this.preview;
+      // There is no mailing list to join. Upstream this checkbox sent a new
+      // user's email address to the vendor's server, defaulted to checked;
+      // this deployment has no such list and no such endpoint, so offering
+      // the choice would be offering something that cannot happen.
+      return false;
     },
     hostname() {
       return window.location.hostname;

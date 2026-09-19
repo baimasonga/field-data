@@ -350,12 +350,18 @@ const closeWindow = () => {
           <pre>{{ $t(visibleModal.errorMessage) }}</pre>
         </template>
         <template #supportEmail>
-          <a href="mailto:support@getodk.org">support@getodk.org</a>
+          <!-- Whoever runs this server, not whoever wrote it. A form filler
+          who emails the upstream project gets no help and discloses that
+          they were asked to fill this form. -->
+          <span>{{ $t('supportContact') }}</span>
         </template>
       </Translation>
       <Translation v-else-if="visibleModal.type === 'retryModal'" tag="p" keypath="retryModal.body">
         <template #supportEmail>
-          <a href="mailto:support@getodk.org">support@getodk.org</a>
+          <!-- Whoever runs this server, not whoever wrote it. A form filler
+          who emails the upstream project gets no help and discloses that
+          they were asked to fill this form. -->
+          <span>{{ $t('supportContact') }}</span>
         </template>
       </Translation>
       <Translation v-else-if="visibleModal.type === 'sessionTimeoutModal'" tag="p" keypath="sessionTimeoutModal.body.full">
@@ -395,6 +401,10 @@ const closeWindow = () => {
         "close": "Close",
         "tryAgain": "Try again",
       },
+      // Fills the {supportEmail} slot in the two error messages below. Other
+      // locales fall back to this line until it is translated, which is still
+      // better than sending a form filler to a vendor who cannot help them.
+      "supportContact": "whoever runs this server",
       "previewModal": {
         "title": "Data is valid",
         "body": "The data you entered is valid, but it was not submitted because this is a Form preview."

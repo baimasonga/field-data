@@ -500,7 +500,9 @@ const included = strings('included.items');
       ]
     },
     "close": { "title": "Already have an account?" },
-    "footer": { "docs": "Documentation" }
+    // Names the destination: this links to ODK's manual, which documents the
+    // collection features this is built on, not to a Field Data manual.
+    "footer": { "docs": "ODK documentation" }
   }
 }
 </i18n>
