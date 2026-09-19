@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Field Data">
+  <title>Field Data</title>
+  <!-- Single colour variant: inherits currentColor, bars knocked out. -->
+  <path fill="currentColor" fill-rule="evenodd" d="M32 3C18.75 3 8 13.75 8 27c0 15.5 24 34 24 34s24-18.5 24-34C56 13.75 45.25 3 32 3zM24 28a2.5 2.5 0 0 1 5 0v10a2.5 2.5 0 0 1-5 0V28zm8-6a2.5 2.5 0 0 1 5 0v16a2.5 2.5 0 0 1-5 0V22zm8-6a2.5 2.5 0 0 1 5 0v22a2.5 2.5 0 0 1-5 0V16z"/>
+</svg>
