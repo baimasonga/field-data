@@ -6,11 +6,73 @@ import { Container } from '@cloudflare/containers';
 // allows by default when it waits for ports.
 const BOOT_TIMEOUT_MS = 10 * 60 * 1000;
 
+// How long a request will wait for that boot before answering anyway. A person
+// who has just opened the page is owed an answer in seconds; the boot carries
+// on in the background and the next request picks it up.
+const PATIENCE_MS = 20 * 1000;
+
+const STARTING_UP_HTML = `<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="refresh" content="10">
+<title>Starting up</title>
+<style>
+  :root { color-scheme: dark; }
+  body {
+    margin: 0; min-height: 100vh; display: grid; place-items: center;
+    background: #0c0c11; color: #e0e0ea; padding: 24px;
+    font-family: 'Hanken Grotesk', system-ui, -apple-system, sans-serif;
+  }
+  main { max-width: 32rem; text-align: center; }
+  h1 { font-size: 1.5rem; font-weight: 600; margin: 0 0 0.75rem; color: #f8f8fb; }
+  p { margin: 0 0 0.5rem; line-height: 1.6; color: #adadbf; }
+  .dot {
+    display: inline-block; width: 0.5rem; height: 0.5rem; margin-right: 0.5rem;
+    border-radius: 50%; background: #5d4ee0;
+    animation: pulse 1.4s ease-in-out infinite;
+  }
+  @keyframes pulse { 0%, 100% { opacity: 0.3; } 50% { opacity: 1; } }
+  @media (prefers-reduced-motion: reduce) { .dot { animation: none; } }
+</style>
+</head>
+<body>
+  <main>
+    <h1><span class="dot"></span>Field Data is starting up</h1>
+    <p>The server runs on demand and is waking now. This takes a minute or two
+       after it has been idle or has just been updated.</p>
+    <p>This page reloads by itself.</p>
+  </main>
+</body>
+</html>`;
+
+// An API caller wants a problem it can parse, not a page it would have to read.
+const startingUp = (request) => {
+  const wantsHtml = (request.headers.get('accept') || '').includes('text/html');
+  return wantsHtml
+    ? new Response(STARTING_UP_HTML, {
+      status: 503,
+      headers: { 'content-type': 'text/html; charset=utf-8', 'retry-after': '15' }
+    })
+    : new Response(JSON.stringify({
+      message: 'The server is starting up. Try again in a moment.',
+      code: 503.1
+    }), {
+      status: 503,
+      headers: { 'content-type': 'application/json', 'retry-after': '15' }
+    });
+};
+
 export class FieldDataContainer extends Container {
   #boot = null;
 
   defaultPort = 8080;
-  requiredPorts = [8080, 8383];
+  // Only the port this proxies to. nginx binds 8080 first precisely so the site
+  // can answer while the backend is still running migrations behind it; waiting
+  // on 8383 here would throw that away and block every request for the whole
+  // cold boot.
+  requiredPorts = [8080];
   sleepAfter = '10m';
   pingEndpoint = '/healthz';
   envVars = {
@@ -81,8 +143,23 @@ export class FieldDataContainer extends Container {
       this.#boot = null;
       throw error;
     });
-    await this.#boot;
-    return super.fetch(request);
+
+    // Waiting on the boot with no bound is how a cold start became a browser
+    // hanging on a blank tab until Cloudflare gave up on it. Wait a little, then
+    // say what is happening. The boot is memoised, so it is still running when
+    // the page reloads.
+    const late = Symbol('late');
+    const waited = await Promise.race([
+      this.#boot.then(() => null),
+      scheduler.wait(PATIENCE_MS).then(() => late)
+    ]);
+    if (waited === late) return startingUp(request);
+
+    const response = await super.fetch(request);
+    // nginx is up but the backend behind it is not yet, which it reports as a
+    // bad gateway. That is the same "not ready" and deserves the same answer.
+    if (response.status === 502 || response.status === 504) return startingUp(request);
+    return response;
   }
 
   onStart() {
