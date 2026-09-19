@@ -46,8 +46,13 @@ $color-warning: #e29a2b;                    // gradient --warning
 $color-warning-light: #fcf3e0;              // gradient --warning-bg
 $color-warning-dark: #a86f14;               // gradient --warning-text
 $color-danger: #e5484d;                     // gradient --danger
-$color-danger-lighter: #dd5454; // Between $color-danger and $color-danger-light
+$color-danger-lighter: #e5484d; // Between $color-danger and $color-danger-light
 $color-danger-light: #fdeaea;               // gradient --danger-bg
+// Text pairs. The 500s above are fill colours, too light to sit on a light
+// surface as text; Gradient ships a darker pair for that use.
+$color-success-text: #1f7a4c;               // gradient --success-text
+$color-warning-text: #a86f14;               // gradient --warning-text
+$color-danger-text: #b42a2f;                // gradient --danger-text
 $color-danger-dark: darken($color-danger, 10%);
 $color-highlight: #fcf3e0;                  // gradient --warning-bg
 
@@ -142,4 +147,4 @@ $box-shadow-popover: 0 5px 10px rgba(0, 0, 0, 0.2);
 
 // Figma Variables
 $m3-elevation-light-3: 0px 4px 8px 3px rgba(0, 0, 0, 0.15), 0px 1px 3px 0px rgba(0, 0, 0, 0.30);
-$central-grey-2: #E3E4E4;
+$central-grey-2: #e0e0ea;

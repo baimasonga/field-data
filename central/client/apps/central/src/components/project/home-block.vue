@@ -167,9 +167,9 @@ export default {
 
   .encrypted {
     margin-left: 9px;
-    color: #333;
-    background-color: #ddd;
-    border: 1px solid #ccc;
+    color: #333340;
+    background-color: #e0e0ea;
+    border: 1px solid #cfcfdc;
     font-weight: 400;
   }
 
@@ -183,7 +183,7 @@ export default {
   .expand-button-container {
     padding-left: 6px;
     font-size: 14px;
-    color: #888;
+    color: #8a8a9c;
   }
   .expand-button {
     @include text-link;
@@ -210,16 +210,16 @@ export default {
     }
 
     tr:nth-child(3n + 2 of .project-form-row) {
-      background: #eee;
+      background: #f1f1f6;
     }
 
     tr:nth-child(3n + 2 of .project-dataset-row) {
-      background: #eee;
+      background: #f1f1f6;
     }
 
     .col-icon {
       width: 35px;
-      background: #e3e4e4;
+      background: #e0e0ea;
       border-right-width: 2px;
       border-right-style: solid;
       padding: 5px 0px;
@@ -231,10 +231,10 @@ export default {
     }
 
     .project-form-row .col-icon {
-      border-right-color: #009ccc;
+      border-right-color: #5d4ee0;
 
       span {
-        color: #009ccc;
+        color: #5d4ee0;
       }
     }
 
@@ -260,16 +260,16 @@ export default {
       }
 
       .col-icon{
-        border-right-color: #b9005c;
+        border-right-color: #5d4ee0;
 
         span {
-          color: #b9005c;
+          color: #5d4ee0;
         }
       }
 
       .conflict-caption {
         font-size: 14px;
-        color: #888;
+        color: #8a8a9c;
         padding: 6px 10px;
       }
     }

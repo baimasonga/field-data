@@ -19,7 +19,7 @@ html {
 
 body {
   background-color: $color-page-background;
-  box-shadow: 0 #{$box-shadow-offset-y-body} 0 #777 inset;
+  box-shadow: 0 #{$box-shadow-offset-y-body} 0 #68687a inset;
   color: $color-text;
   min-height: 100vh;
 
@@ -62,7 +62,7 @@ dl:not(.dl-horizontal) {
   }
 
   dt {
-    color: #666;
+    color: #68687a;
     font-size: 12px;
     font-weight: normal;
   }
@@ -91,7 +91,7 @@ dl:not(.dl-horizontal) {
   dd { padding-left: $padding-between; }
 }
 
-.dfn { border-bottom: 2px dotted #999; }
+.dfn { border-bottom: 2px dotted #8a8a9c; }
 
 pre {
   background-color: $color-subpanel-background;
@@ -172,13 +172,13 @@ class. */
 }
 
 .navbar-default .navbar-toggle .navbar-icon-bar {
-  background-color: #888;
+  background-color: #8a8a9c;
 }
 
 .title-icon {
   padding-left: 6px;
   font-size: 24px;
-  color: #666;
+  color: #68687a;
 }
 
 
@@ -225,11 +225,11 @@ $btn-focus-box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.18);
 }
 
 .btn-default {
-  background-color: #ddd;
+  background-color: #e0e0ea;
 
   &:hover, &:focus, &:active:focus {
-    background-color: #ccc;
-    &[aria-disabled="true"], &.disabled, fieldset[disabled] & { background-color: #ddd; }
+    background-color: #cfcfdc;
+    &[aria-disabled="true"], &.disabled, fieldset[disabled] & { background-color: #e0e0ea; }
   }
 
   > [class^="icon-"]:first-child { color: $color-action-background; }
@@ -295,12 +295,12 @@ a:not(.btn), .btn-link {
   &, &:hover { color: $color-action-foreground; }
 
   &:focus {
-    background-color: transparentize(#000, 0.94);
-    color: #23527c;
+    background-color: transparentize(#0c0c11, 0.94);
+    color: #4b3ccb;
     text-decoration: underline;
   }
 
-  &.disabled, &[aria-disabled="true"], fieldset[disabled] & { color: #888; }
+  &.disabled, &[aria-disabled="true"], fieldset[disabled] & { color: #8a8a9c; }
 }
 
 a {
@@ -365,7 +365,7 @@ a {
     border-top-left-radius: 0;
   }
 
-  > .btn-default + .btn-default { border-left: 1px solid #ccc; }
+  > .btn-default + .btn-default { border-left: 1px solid #cfcfdc; }
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -409,7 +409,7 @@ input[type="radio"], input[type="checkbox"], input[type="file"] {
 select[multiple] { height: auto; }
 
 .help-block {
-  color: #737373;
+  color: #68687a;
   margin-bottom: 10px;
   margin-top: 5px;
 }
@@ -565,7 +565,7 @@ select {
   }
 
   .icon-filter {
-    color: #999;
+    color: #8a8a9c;
     margin-right: $margin-right-icon;
     font-size: 20px;
   }
@@ -605,9 +605,9 @@ select.uncommitted-change,
 // styles on .form-group .form-control.
 .form-control.uncommitted-change,
 .btn.uncommitted-change {
-  &, &:focus { box-shadow: 0 0 0 3px #ffef67; }
+  &, &:focus { box-shadow: 0 0 0 3px #fcf3e0; }
 }
-tr.uncommitted-change { background-color: #ffef67; }
+tr.uncommitted-change { background-color: #fcf3e0; }
 
 
 
@@ -663,7 +663,7 @@ tr.uncommitted-change { background-color: #ffef67; }
 }
 
 .row-number {
-  color: #999;
+  color: #8a8a9c;
   font-size: 11px;
   padding-top: 11px;
   text-align: right;
@@ -671,7 +671,7 @@ tr.uncommitted-change { background-color: #ffef67; }
 }
 
 .empty-table-message {
-  color: #555;
+  color: #4d4d5c;
   font-size: 15px;
 }
 
@@ -680,7 +680,7 @@ tr.uncommitted-change { background-color: #ffef67; }
 ////////////////////////////////////////////////////////////////////////////////
 // LABELS
 
-.label-default { background-color: #777; }
+.label-default { background-color: #68687a; }
 .label-primary { background-color: $color-action-background; }
 .label-warning { background-color: $color-warning; }
 
@@ -829,7 +829,7 @@ becomes more complicated.
 
     &> .panel-footer {
       margin: 0 -15px -15px -15px;
-      background-color: #585858;
+      background-color: #4d4d5c;
       color: white;
     }
   }
@@ -911,7 +911,7 @@ becomes more complicated.
 
       > a {
         &, &:hover, &:focus {
-          color: #999;
+          color: #8a8a9c;
         }
 
         &:hover, &:focus {

@@ -176,11 +176,11 @@ export default {
         }
 
         &::before {
-          border-left: 1px solid #eee;
+          border-left: 1px solid #f1f1f6;
         }
       }
       &:nth-child(2n + 3)::before {
-        background-color: #eee;
+        background-color: #f1f1f6;
       }
       &:last-child::before {
         display: none;
@@ -193,7 +193,7 @@ export default {
     }
 
     td:nth-child(2n + 3) {
-      background-color: #eee;
+      background-color: #f1f1f6;
     }
     td:last-child {
       background-color: transparent;

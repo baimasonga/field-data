@@ -312,7 +312,7 @@ export default {
 #form-attachment-list-upload-button {
   margin-right: 5px;
 
-  + span { color: #999; }
+  + span { color: #8a8a9c; }
 }
 </style>
 

@@ -65,7 +65,7 @@ const message = computed(() => {
 }
 
 #odata-loading-message-text {
-  color: #555;
+  color: #4d4d5c;
   margin-left: 8px;
 }
 </style>

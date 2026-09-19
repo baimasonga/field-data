@@ -127,10 +127,10 @@ export default {
       margin-right: #{$margin-right-icon + 1px};
     }
 
-    .icon-pencil { color: #777; }
+    .icon-pencil { color: #68687a; }
   }
   .edits {
-    color: #777;
+    color: #68687a;
     margin-left: auto;
     width: 41px;
 

@@ -253,7 +253,7 @@ defineExpose({ resize });
   th:first-child { text-align: right; }
 
   th, td { @include text-overflow-ellipsis; }
-  td { border-left: 1px solid #bbb; }
+  td { border-left: 1px solid #adadbf; }
 
   tbody tr:nth-child(n + 2) {
     th, td {
@@ -269,7 +269,7 @@ defineExpose({ resize });
   .property-name { font-family: $font-family-monospace; }
 
   .unchanged {
-    color: #888;
+    color: #8a8a9c;
 
     font-style: italic;
     &:lang(ja), &:lang(zh) { font-style: normal; }
@@ -279,7 +279,7 @@ defineExpose({ resize });
     font-size: 16px;
     vertical-align: -2px;
   }
-  .icon-history { color: #888; }
+  .icon-history { color: #8a8a9c; }
   .icon-check-circle { color: $color-success; }
   .icon-question-circle { color: $color-warning-dark; }
   .icon-warning { color: $color-danger-dark; }
@@ -292,7 +292,7 @@ defineExpose({ resize });
 #entity-conflict-table tr:nth-child(2),
 #entity-conflict-table-status-row,
 #entity-conflict-table-branch-row {
-  background-color: #f4f4f4;
+  background-color: #f1f1f6;
 }
 
 #entity-conflict-table #entity-conflict-table-status-row {
@@ -315,7 +315,7 @@ defineExpose({ resize });
 
   td > div {
     @include text-overflow-ellipsis;
-    background-color: #888;
+    background-color: #8a8a9c;
     border-radius: 6px;
     color: #fff;
     font-size: 12px;

@@ -142,13 +142,13 @@ const showsAccuracyWarning = computed(() =>
   .version-and-source { @include text-overflow-ellipsis; }
   .offline-update {
     @include italic;
-    color: #888;
+    color: #8a8a9c;
     font-size: 12px;
     margin-bottom: -3px;
   }
 
   td:nth-child(3) { text-align: center; }
-  .icon-arrow-circle-right { color: #888; }
+  .icon-arrow-circle-right { color: #8a8a9c; }
 
   .accuracy-warning {
     p {

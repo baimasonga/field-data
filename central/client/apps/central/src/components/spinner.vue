@@ -76,7 +76,7 @@ $spinner-width: 3px;
   width: $spinner-size;
 
   &:before {
-    border: $spinner-width solid #666;
+    border: $spinner-width solid #68687a;
     border-radius: 999px;
     content: '';
     display: block;

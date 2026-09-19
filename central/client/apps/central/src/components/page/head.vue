@@ -56,7 +56,7 @@ defineOptions({
 }
 
 #page-head-body {
-  color: #555;
+  color: #4d4d5c;
   font-size: 15px;
   letter-spacing: -0.01em;
   // If #page-head-body is empty, this margin will collapse with the bottom

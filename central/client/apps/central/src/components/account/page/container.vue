@@ -129,7 +129,7 @@ Notes about the layout:
   &:not(:has(img[data-loaded])):not(:has(img[data-error])) {
     // We show a placeholder while the logo is loading so that the page content
     // below it doesn't jump.
-    background-color: color.scale(#f5f9ff, $lightness: -4%);
+    background-color: color.scale(#fcfcfe, $lightness: -4%);
     border-radius: 2px;
 
     // Choosing this number based on the assumption that most logos will be at
@@ -194,7 +194,7 @@ Notes about the layout:
   :where(&) .form-group .form-control {
     background-color: #fff;
     border-width: 1px;
-    border-color: #eee;
+    border-color: #f1f1f6;
     border-radius: 2px;
 
     &::placeholder { color: $color-input-inactive; }

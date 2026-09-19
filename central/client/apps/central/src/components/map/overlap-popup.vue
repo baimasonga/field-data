@@ -115,7 +115,7 @@ const preview = (feature) => {
     > :first-child { @include text-overflow-ellipsis; }
 
     > :last-child {
-      color: #1c1b1f;
+      color: #20202b;
       flex-shrink: 0;
       font-size: 20px;
       padding-right: 3px;

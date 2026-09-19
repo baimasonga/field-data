@@ -24,7 +24,7 @@ defineProps({
 
 <style lang="scss">
 .loading {
-  color: #999;
+  color: #8a8a9c;
   margin-bottom: 10px;
   text-align: center;
 }

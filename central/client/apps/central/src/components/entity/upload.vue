@@ -377,7 +377,7 @@ watch(() => props.state, (state) => {
 
     .panel-heading {
       @include text-overflow-ellipsis;
-      background-color: #ccc;
+      background-color: #cfcfdc;
       border-bottom: none;
     }
 
@@ -389,7 +389,7 @@ watch(() => props.state, (state) => {
       color: #fff;
     }
 
-    thead { background-color: #c5dfe7; }
+    thead { background-color: #e9f1fd; }
   }
 
   .pagination { margin-left: $padding-left-table-data; }

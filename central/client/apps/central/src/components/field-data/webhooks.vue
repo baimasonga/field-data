@@ -279,7 +279,7 @@ const toggleDetails = (hook) => {
   .actions-col { text-align: right; white-space: nowrap; }
   .actions-col .btn + .btn { margin-left: 5px; }
 
-  .details-row > td { background-color: #f7f7f7; }
+  .details-row > td { background-color: #f8f8fb; }
   .detail-label { font-weight: bold; margin: 5px 0; }
   .webhook-secret {
     margin-bottom: 15px;

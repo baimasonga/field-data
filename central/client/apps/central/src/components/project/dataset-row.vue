@@ -93,7 +93,7 @@ const lastEntityTooltip = computed(() => {
   td {
     font-size: 16px;
     padding: 4px 0px 4px 6px;
-    color: #333;
+    color: #333340;
 
     a {
       @include text-link;
@@ -113,7 +113,7 @@ const lastEntityTooltip = computed(() => {
 
   [class*='icon'] {
     margin-left: 5px;
-    color: #888;
+    color: #8a8a9c;
   }
 }
 </style>

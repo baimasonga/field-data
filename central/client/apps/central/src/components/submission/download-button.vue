@@ -80,9 +80,9 @@ export default {
     color: $color-text;
 
     &:hover {
-      color: #262626;
+      color: #20202b;
       text-decoration: none;
-      background-color: #f5f5f5;
+      background-color: #f8f8fb;
     }
   }
 }

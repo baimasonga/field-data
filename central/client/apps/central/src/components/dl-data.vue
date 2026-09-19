@@ -65,6 +65,6 @@ defineProps({
 
 .dl-data-empty {
   @include italic;
-  color: #888;
+  color: #8a8a9c;
 }
 </style>

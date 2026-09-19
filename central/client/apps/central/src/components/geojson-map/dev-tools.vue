@@ -96,7 +96,7 @@ const clustersDisabledMessage = computed(() => (props.zoom >= maxZoom.value
   }
 
   a {
-    color: #888;
+    color: #8a8a9c;
 
     span {
       @include text-link;

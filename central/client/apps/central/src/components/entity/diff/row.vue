@@ -75,7 +75,7 @@ const newValue = name === 'label' ? entityVersion.label : entityVersion.data[nam
 
   .empty {
     @include italic;
-    color: #888;
+    color: #8a8a9c;
   }
   .value {
     overflow-wrap: break-word;

@@ -173,7 +173,7 @@ export default {
   }
 
   .icon-exclamation-triangle {
-    color: #e1bf50;
+    color: #e29a2b;
     margin-right: $margin-right-icon;
   }
 

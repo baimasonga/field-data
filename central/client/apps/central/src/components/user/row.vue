@@ -149,7 +149,7 @@ export default {
   }
 
   .invitation-pending {
-    color: #555555;
+    color: #4d4d5c;
   }
 }
 </style>

@@ -162,7 +162,7 @@ export default {
   }
 
   .icon-pencil {
-    color: #555;
+    color: #4d4d5c;
     font-size: 16px;
   }
 }

@@ -298,7 +298,7 @@ const titleId = `modal-title${id}`;
 
         img {
           width: 100%;
-          border-bottom: 1px solid #e3e4e4;
+          border-bottom: 1px solid #e0e0ea;
         }
       }
 

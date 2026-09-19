@@ -168,12 +168,12 @@ const statusItems = computed(() => {
   .kpi-card {
     flex: 1 1 160px;
     padding: 18px 20px;
-    background-color: #f7f7f7;
-    border: 1px solid #ddd;
+    background-color: #f8f8fb;
+    border: 1px solid #e0e0ea;
     border-radius: 4px;
   }
   .kpi-value { font-size: 32px; font-weight: bold; line-height: 1.1; }
-  .kpi-label { margin-top: 4px; color: #666; text-transform: uppercase; font-size: 12px; letter-spacing: 0.5px; }
+  .kpi-label { margin-top: 4px; color: #68687a; text-transform: uppercase; font-size: 12px; letter-spacing: 0.5px; }
 
   .dashboard-columns { display: flex; flex-wrap: wrap; gap: 30px; }
   .dashboard-col { flex: 1 1 320px; min-width: 0; }
@@ -181,13 +181,13 @@ const statusItems = computed(() => {
   .count-col { text-align: right; }
 
   .status-list { list-style: none; padding: 0; margin: 0 0 10px; }
-  .status-list li { padding: 6px 0; border-bottom: 1px solid #eee; }
-  .status-text { color: #666; margin-left: 6px; font-size: 12px; }
+  .status-list li { padding: 6px 0; border-bottom: 1px solid #f1f1f6; }
+  .status-text { color: #68687a; margin-left: 6px; font-size: 12px; }
   .status-dot {
     display: inline-block; width: 10px; height: 10px; border-radius: 50%;
     margin-right: 8px; vertical-align: middle;
-    &.up { background-color: #4caf50; }
-    &.down { background-color: #ccc; }
+    &.up { background-color: #2fa96b; }
+    &.down { background-color: #cfcfdc; }
   }
 }
 </style>

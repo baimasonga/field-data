@@ -452,7 +452,7 @@ const emptyMessage = computed(() => (searchValue.value === ''
 
   .icon-angle-down {
     font-size: 16px;
-    color: #555555;
+    color: #4d4d5c;
     font-weight: bold;
     pointer-events: none;
     z-index: 1;

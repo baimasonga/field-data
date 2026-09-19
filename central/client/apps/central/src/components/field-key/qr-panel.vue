@@ -107,8 +107,8 @@ export default {
 <style lang="scss">
 .field-key-qr-panel {
   &.legacy {
-    .panel-heading { background-color: #777; }
-    .icon-mobile { color: #555; }
+    .panel-heading { background-color: #68687a; }
+    .icon-mobile { color: #4d4d5c; }
   }
 }
 </style>

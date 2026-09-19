@@ -64,6 +64,6 @@ defineProps({
 
 .separator {
   padding: 0px 10px;
-  color: #bbb;
+  color: #adadbf;
 }
 </style>

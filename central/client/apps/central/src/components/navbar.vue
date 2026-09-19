@@ -100,7 +100,7 @@ $border-height: 3px;
   background-color: $color-accent-primary;
   border: none;
   border-top: $border-height solid $color-accent-secondary;
-  box-shadow: 0 $border-height 0 #dedede;
+  box-shadow: 0 $border-height 0 #e0e0ea;
   height: 30px + $border-height; // the way bootstrap is set up, the border eats the body.
   margin-bottom: 0;
   min-height: auto;
@@ -133,8 +133,8 @@ $border-height: 3px;
 
 #navbar-analytics-notice {
   @include text-link;
-  background-color: #ffed88;
-  border: 1px solid #e39941;
+  background-color: #fcf3e0;
+  border: 1px solid #e29a2b;
   float: left;
   font-size: 10px;
   margin-top: 6px;
@@ -142,8 +142,8 @@ $border-height: 3px;
   padding: 1px 3px;
 
   &:hover, &:focus {
-    background-color: #ffdc1c;
-    border-color: #ffed88;
+    background-color: #fcf3e0;
+    border-color: #fcf3e0;
   }
 }
 
@@ -169,7 +169,7 @@ $border-height: 3px;
 
         &:focus {
           border-top-color: transparentize(#fff, 0.15);
-          box-shadow: 0 3px 0 transparentize(#000, 0.9);
+          box-shadow: 0 3px 0 transparentize(#0c0c11, 0.9);
           outline: none;
           transition-duration: 0s;
         }

@@ -51,7 +51,7 @@ defineEmits(['hide']);
 
   .action-bar {
     box-shadow: $m3-elevation-light-3;
-    background-color: #333;
+    background-color: #333340;
     color: #fff;
     display: flex;
     align-items: center;
