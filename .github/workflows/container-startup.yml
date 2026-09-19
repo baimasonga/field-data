@@ -22,7 +22,7 @@ jobs:
           mkdir -p /tmp/smoke-tls
           openssl req -x509 -newkey rsa:2048 -nodes -days 1 \
             -keyout /tmp/smoke-tls/server.key -out /tmp/smoke-tls/server.crt \
-            -subj /CN=database >/dev/null 2>&1
+            -subj /CN=database -addext subjectAltName=DNS:database >/dev/null 2>&1
           docker network create field-data-smoke
           docker run -d --name database --network field-data-smoke \
             -e POSTGRES_PASSWORD=smoke-only-password \
@@ -40,6 +40,8 @@ jobs:
       - name: Exercise complete application startup
         run: |
           docker run -d --name app --network field-data-smoke -p 8080:8080 \
+            -v /tmp/smoke-tls/server.crt:/tmp/smoke-ca.crt:ro \
+            -e NODE_EXTRA_CA_CERTS=/tmp/smoke-ca.crt \
             -e DOMAIN=localhost -e SYSADMIN_EMAIL=admin@example.test \
             -e PGHOST=database -e PGPORT=5432 -e PGDATABASE=postgres \
             -e PGUSER=postgres -e PGPASSWORD=smoke-only-password \
