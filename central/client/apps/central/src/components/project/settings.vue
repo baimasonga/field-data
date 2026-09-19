@@ -144,7 +144,7 @@ export default {
             "full": "Submission data encryption is {enabled} for this Project.",
             "enabled": "enabled"
           },
-          "In this version of ODK Central, you may not disable encryption once it is turned on."
+          "In this version of Field Data, you may not disable encryption once it is turned on."
         ]
       },
       "action": {
@@ -157,7 +157,7 @@ export default {
       },
       "archived": [
         "This Project has been archived.",
-        "In this version of ODK Central, you may not unarchive a Project. However, the ability to unarchive a Project is planned for a future release."
+        "In this version of Field Data, you may not unarchive a Project. However, the ability to unarchive a Project is planned for a future release."
       ]
     },
     "alert": {

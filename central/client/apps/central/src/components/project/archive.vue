@@ -79,7 +79,7 @@ const archive = () => {
     // This is the title at the top of a pop-up.
     "title": "Archiving Project",
     "introduction": [
-      "You are about to archive the Project “{name}”. It will still work as it does now, but it will be sorted to the bottom of the Project List on the Central homepage.",
+      "You are about to archive the Project “{name}”. It will still work as it does now, but it will be sorted to the bottom of the Project List on the Field Data homepage.",
       {
         "full": "{noUndo}, but the ability to unarchive a Project is planned for a future release.",
         "noUndo": "This action cannot be undone"

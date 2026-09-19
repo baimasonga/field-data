@@ -274,14 +274,14 @@ export default {
           [
             "If you enable encryption, the following things will happen:",
             "Finalized Submission data will be encrypted on mobile devices.",
-            "Submission data at rest will be encrypted on the Central server.",
+            "Submission data at rest will be encrypted on the Field Data server.",
             [
               // {submission} will have the text "<submission>", which is XML
               // and will not be translated.
               "Forms configured with manual {submission} keys will continue to use those keys, and must be manually decrypted.",
               // {base64RsaPublicKey} will have the text "base64RsaPublicKey",
               // which is code and will not be translated.
-              "To use the automatic Central encryption process on these Forms, remove the {base64RsaPublicKey} configuration."
+              "To use the automatic Field Data encryption process on these Forms, remove the {base64RsaPublicKey} configuration."
             ],
             "You will no longer be able to edit or view Submission data online.",
             "You will no longer be able to analyze data via OData.",
@@ -290,7 +290,7 @@ export default {
           ],
           [
             // don't translate this sentence, it is not used anywhere
-            "In addition, the following are true in this version of ODK Central:",
+            "In addition, the following are true in this version of Field Data:",
             [
               "Existing Submissions will remain unencrypted."
             ],

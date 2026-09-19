@@ -143,7 +143,7 @@ const formattedDelimiter = computed(() => formatCSVDelimiter(props.delimiter));
       "invalidQuotes": "A quoted field is invalid. Check the header row of your file to see if there are any unusual values.",
       // {label} will have the text "label" and refers to the "label" property.
       // The name of the property is not translated.
-      "missingLabel": "A {label} property is required. The label indicates the name to use for each Entity throughout Central and elsewhere.",
+      "missingLabel": "A {label} property is required. The label indicates the name to use for each Entity throughout Field Data and elsewhere.",
       "unknownProperty": "If you want to add properties to this Entity List, you can do so in the Entity Properties section on the Overview page of this Entity List, or you can upload and publish a Form that references the property.",
       "duplicateColumn": "It looks like two or more columns have the same header. Please make sure column headers are unique.",
       "emptyColumn": "It looks like you have an empty cell in the header. Please remove any empty columns in your file.",

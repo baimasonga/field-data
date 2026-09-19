@@ -36,15 +36,6 @@ except according to the terms contained in the LICENSE file.
         <template #subheader>{{ $tc('plural.user', users.length ?? 0) }}</template>
         <template #body>{{ $t('users.body') }}</template>
       </home-summary-item>
-      <home-summary-item to="https://docs.getodk.org/central-intro/"
-        icon="book">
-        <template #header>{{ $t('common.docs') }}</template>
-        <template #body>{{ $t('docs.body') }}</template>
-      </home-summary-item>
-      <home-summary-item to="https://forum.getodk.org/" icon="comments-o">
-        <template #header>{{ $t('common.forum') }}</template>
-        <template #body>{{ $t('forum.body') }}</template>
-      </home-summary-item>
     </div>
   </div>
 </template>
@@ -97,16 +88,10 @@ if (currentUser.can('user.list'))
 {
   "en": {
     "projects": {
-      "body": "Central is organized into Projects, each containing its own Forms and related data."
+      "body": "Field Data is organized into Projects, each containing its own Forms and related data."
     },
     "users": {
       "body": "Users can be assigned to Projects to manage them, collect data, or review Submissions."
-    },
-    "docs": {
-      "body": "A Getting Started Guide and user documentation are available on the ODK Docs website."
-    },
-    "forum": {
-      "body": "Need help? Visit the forum to ask questions or browse past discussions."
     }
   }
 }

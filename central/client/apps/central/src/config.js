@@ -14,7 +14,12 @@ except according to the terms contained in the LICENSE file.
 // for /client-config.json.
 export default {
   // `true` to allow navigation to /system/analytics and `false` not to.
-  showsAnalytics: true,
+  //
+  // Off here. The screens behind it offer to share this server's usage data
+  // with the ODK team, and the navbar nags every administrator until somebody
+  // answers. This deployment configures no analytics URL, so the report has
+  // nowhere to go and the offer could not be honoured either way.
+  showsAnalytics: false,
   home: {
     title: null,
     body: null

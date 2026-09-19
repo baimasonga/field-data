@@ -113,7 +113,7 @@ export default {
   "en": {
     // This is a title shown above a section of the page.
     "title": "Change Password",
-    "oidcBody": "This Central server does not manage any login passwords.",
+    "oidcBody": "This Field Data server does not manage any login passwords.",
     "action": {
       "change": "Change password"
     },

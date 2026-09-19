@@ -93,7 +93,7 @@ const { projectPath, formPath } = useRoutes();
     "title": "Submission Options",
     "introduction": [
       // This text is shown above a list of options for submitting data.
-      "There are several options for submitting data to ODK Central:",
+      "There are several options for submitting data to Field Data:",
       {
         // This text is shown in a list of options for submitting data.
         // {collect} is a link whose text is "ODK Collect".
@@ -107,7 +107,7 @@ const { projectPath, formPath } = useRoutes();
       },
       {
         // This text is shown in a list of options for submitting data.
-        "full": "Create a {webUser} with the Role of {dataCollector} for each individual who will be collecting data. These Users will log into Central to fill out this Form in a web browser. Project Managers can also create Submissions from a web browser.",
+        "full": "Create a {webUser} with the Role of {dataCollector} for each individual who will be collecting data. These Users will log into Field Data to fill out this Form in a web browser. Project Managers can also create Submissions from a web browser.",
         "webUser": "Web User",
         "dataCollector": "Data Collector"
       }

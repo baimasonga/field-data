@@ -14,7 +14,6 @@ except according to the terms contained in the LICENSE file.
     <!-- If the user's session is restored during the initial navigation, that
     will affect how the navbar is rendered. -->
     <navbar v-show="routerReady"/>
-    <outdated-version/>
     <alerts/>
     <feedback-button v-if="showsFeedbackButton"/>
     <div ref="containerEl" class="container-fluid">
@@ -48,8 +47,7 @@ export default {
     Alerts,
     HoverCards: defineAsyncComponent(loadAsync('HoverCards')),
     Navbar,
-    FeedbackButton: defineAsyncComponent(loadAsync('FeedbackButton')),
-    OutdatedVersion: defineAsyncComponent(loadAsync('OutdatedVersion'))
+    FeedbackButton: defineAsyncComponent(loadAsync('FeedbackButton'))
   },
   inject: ['alert', 'config', 'location'],
   setup() {

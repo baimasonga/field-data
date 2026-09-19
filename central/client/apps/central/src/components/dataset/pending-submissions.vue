@@ -89,7 +89,7 @@ const convert = ref(null);
       "changeSetting": "Change setting"
     },
     "explanation": {
-      "userAction": "You are setting Entity creation to occur when Submissions are first received by Central.",
+      "userAction": "You are setting Entity creation to occur when Submissions are first received by Field Data.",
       "implication": {
         "full": "You currently have {records} not marked Approved nor Rejected. | You currently have {records} not marked Approved nor Rejected.",
         "records": "{count} pending record | {count} pending records"

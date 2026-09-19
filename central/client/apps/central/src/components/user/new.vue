@@ -109,7 +109,7 @@ export default {
       "Once you create this account, the email address you provide will be sent instructions on how to set a password and proceed."
     ],
     "oidcIntroduction": [
-      "Users on your login server must have a Central account to log in to Central. Once you create this account, the user on your login server with the email address you provide will be able to log in to Central."
+      "Users on your login server must have a Field Data account to log in to Field Data. Once you create this account, the user on your login server with the email address you provide will be able to log in to Field Data."
     ],
     "problem": {
       "409_3": "It looks like {email} already has an account. Please try another email address."

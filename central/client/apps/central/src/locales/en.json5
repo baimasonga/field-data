@@ -396,10 +396,10 @@
     "heroImage": "Login image"
   },
   "analytics": {
-    "alwaysImprove": "We are always trying to improve ODK Central.",
+    "alwaysImprove": "We are always trying to improve Field Data.",
     "needFeedback": {
       // "This" refers to improving Central.
-      "full": "To do this, we need {your} feedback, so that we can understand how you are using Central, and how it could be better for you.",
+      "full": "To do this, we need {your} feedback, so that we can understand how you are using Field Data, and how it could be better for you.",
       "your": "your"
     },
     "mailingListOptIn": "Send me occasional emails about new features and best practices."

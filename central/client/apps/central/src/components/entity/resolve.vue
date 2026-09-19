@@ -217,7 +217,7 @@ watch(() => props.entity?.__system?.version, (version) => {
     // Entity.
     "title": "Parallel updates to “{label}”",
     "instructions": [
-      "Updates were made to “{label}” in parallel. This means changes may be in conflict with each other, as they were authored against older data than they were eventually applied to by Central.",
+      "Updates were made to “{label}” in parallel. This means changes may be in conflict with each other, as they were authored against older data than they were eventually applied to by Field Data.",
       "Review the updates, make any edits you need to, and if you are sure this Entity data is correct press “Mark as resolved” to clear this warning message."
     ],
     "action": {

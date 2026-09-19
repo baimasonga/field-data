@@ -143,8 +143,8 @@ const change = (value) => {
       // of the data collector (the author)
       "baseDiff": "Author’s View",
       // A comparison between two versions of an Entity, from the point of view
-      // of the Central server
-      "serverDiff": "Central’s View",
+      // of the Field Data server
+      "serverDiff": "Field Data’s View",
       // This text is shown for an update to an Entity. {version} is a short
       // version identifier, for example, "v3". It is the version that the
       // update was applied to.

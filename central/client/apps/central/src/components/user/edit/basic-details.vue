@@ -87,7 +87,7 @@ const submit = () => {
   "en": {
     // This is a title shown above a section of the page.
     "title": "Basic Details",
-    "emailDisabled": "Your email address cannot be changed. It is used between Central and your login server to ensure your identity.",
+    "emailDisabled": "Your email address cannot be changed. It is used between Field Data and your login server to ensure your identity.",
     "action": {
       "update": "Update details"
     },

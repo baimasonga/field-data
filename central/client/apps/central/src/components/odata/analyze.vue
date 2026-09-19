@@ -189,9 +189,9 @@ export default {
         "pageForPowerBi": "this page"
       },
       // {pyODK} is a link. Its text is "pyODK".
-      "python": "To connect to Central from Python, we recommend {pyODK}. pyODK is the official Python client for Central. It simplifies data analysis and workflow automation.",
+      "python": "To connect to Field Data from Python, we recommend {pyODK}. pyODK is the official Python client for ODK Central, whose API Field Data serves, and it simplifies data analysis and workflow automation.",
       // {ruODK} is a link. Its text is "ruODK".
-      "r": "To connect to Central from R, we recommend {ruODK}. ruODK is developed and supported by ODK community members.",
+      "r": "To connect to Field Data from R, we recommend {ruODK}. ruODK is developed and supported by ODK community members and works against the same API.",
       "other": {
         "full": "For a full description of our OData support, please see {article}.",
         "article": "this article"

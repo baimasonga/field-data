@@ -93,7 +93,7 @@ export default {
       "Are you sure you want to delete the Form {name} and all of its Submissions?",
       "This action will move the Form to the Trash. After 30 days in the Trash, it will be permanently purged, but it can be restored before then."
     ],
-    "noDeleteEntities": "Any Entities created by this Form’s Submissions will not be deleted. In a future version of Central, it will be possible to delete Entities."
+    "noDeleteEntities": "Any Entities created by this Form’s Submissions will not be deleted. In a future version of Field Data, it will be possible to delete Entities."
   }
 }
 </i18n>

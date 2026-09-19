@@ -14,24 +14,20 @@ except according to the terms contained in the LICENSE file.
     <home-summary/>
     <page-body>
       <div id="home-news-container">
-        <home-news/>
         <home-config-section v-if="config.home.title != null"
           :title="config.home.title" :body="config.home.body"/>
       </div>
       <project-list/>
     </page-body>
-    <whats-new/>
   </div>
 </template>
 
 <script setup>
 import { defineAsyncComponent, inject } from 'vue';
 
-import HomeNews from './home/news.vue';
 import HomeSummary from './home/summary.vue';
 import PageBody from './page/body.vue';
 import ProjectList from './project/list.vue';
-import WhatsNew from './whats-new.vue';
 
 import useProjects from '../request-data/projects';
 import { loadAsync } from '../util/load-async';
@@ -62,7 +58,7 @@ const config = inject('config');
 {
   "en": {
     "heading": [
-      "Welcome to Central."
+      "Welcome to Field Data."
     ]
   }
 }

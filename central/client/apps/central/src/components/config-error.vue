@@ -53,8 +53,8 @@ const errorMessage = computed(() => requestAlertMessage(i18n, props.error));
 {
   "en": {
     // This is the title at the top of a panel.
-    "title": "Error Loading Central",
-    "body": "There was an error loading Central."
+    "title": "Error Loading Field Data",
+    "body": "There was an error loading Field Data."
   }
 }
 </i18n>

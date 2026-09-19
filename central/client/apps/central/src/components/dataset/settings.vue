@@ -190,9 +190,9 @@ const dependentFormsCount = computed(() => {
     // This is a title shown above a section of the page.
     "entityWorkflow": "Entity Workflow",
     "onReceipt": {
-      "label": "Create Entities as soon as Submissions are received by Central",
+      "label": "Create Entities as soon as Submissions are received by Field Data",
       "description": "You will not have a chance to review or revise data before Entities are created.",
-      "successMessage": "Entities will be created as soon as Submissions are received by Central."
+      "successMessage": "Entities will be created as soon as Submissions are received by Field Data."
     },
     "onApproval": {
       "label": "Create Entities when Submissions are marked as Approved",

@@ -66,7 +66,7 @@ export default {
   "en": {
     "disabled": {
       "processing": "Preview has not finished processing for this Form. Please refresh later and try again.",
-      "notOpen": "In this version of ODK Central, preview is only available for Forms in the Open state."
+      "notOpen": "In this version of Field Data, preview is only available for Forms in the Open state."
     }
   }
 }
