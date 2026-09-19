@@ -223,6 +223,12 @@ jobs:
               });
             '
 
+      # Deploy first, then secrets. Cloudflare refuses a bulk secret edit when
+      # the Worker's latest version is not the deployed one -- "Secret edit
+      # failed ... deploy the latest version first, then modify secrets"
+      # (error 10215), which is what failed deploy 41. wrangler-action uploads
+      # secrets before it deploys, so the two steps are separated and put in
+      # the order Cloudflare asks for.
       - name: Deploy Field Data
         id: deploy
         uses: cloudflare/wrangler-action@v4
@@ -231,19 +237,17 @@ jobs:
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           wranglerVersion: "4.114.0"
           command: deploy --var CONTAINER_BUILD_ID:${{ github.sha }}
-          secrets: |
-            PGHOST
-            PGPORT
-            PGUSER
-            PGPASSWORD
-            SUPABASE_S3_ACCESS_KEY_ID
-            SUPABASE_S3_SECRET_ACCESS_KEY
-            FIELD_DATA_BACKUP_PASSPHRASE
-            FIELD_DATA_WEBHOOK_ENCRYPTION_KEY
-            FIELD_DATA_ADMIN_PASSWORD
-            EMAIL_USER
-            EMAIL_PASSWORD
+
+      # The container reads these at boot, so they have to be current before
+      # the new container starts -- which happens on the first request after
+      # the deploy, not during it. Uploading them here is in time.
+      #
+      # The values go in through the environment and are assembled by jq, so no
+      # secret is ever a shell word or a line in this file.
+      - name: Update Worker secrets
         env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           PGHOST: ${{ secrets.PGHOST }}
           PGPORT: ${{ secrets.PGPORT }}
           PGUSER: ${{ secrets.PGUSER }}
@@ -255,6 +259,18 @@ jobs:
           FIELD_DATA_ADMIN_PASSWORD: ${{ secrets.FIELD_DATA_ADMIN_PASSWORD }}
           EMAIL_USER: ${{ secrets.EMAIL_USER }}
           EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
+        run: |
+          jq -n '{
+            PGHOST: env.PGHOST, PGPORT: env.PGPORT, PGUSER: env.PGUSER,
+            PGPASSWORD: env.PGPASSWORD,
+            SUPABASE_S3_ACCESS_KEY_ID: env.SUPABASE_S3_ACCESS_KEY_ID,
+            SUPABASE_S3_SECRET_ACCESS_KEY: env.SUPABASE_S3_SECRET_ACCESS_KEY,
+            FIELD_DATA_BACKUP_PASSPHRASE: env.FIELD_DATA_BACKUP_PASSPHRASE,
+            FIELD_DATA_WEBHOOK_ENCRYPTION_KEY: env.FIELD_DATA_WEBHOOK_ENCRYPTION_KEY,
+            FIELD_DATA_ADMIN_PASSWORD: env.FIELD_DATA_ADMIN_PASSWORD,
+            EMAIL_USER: env.EMAIL_USER, EMAIL_PASSWORD: env.EMAIL_PASSWORD
+          } | with_entries(select(.value != null and .value != ""))' \
+            | npx --no-install wrangler secret bulk
 
       - name: Verify live health endpoint
         run: |
