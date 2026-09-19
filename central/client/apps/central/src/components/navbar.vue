@@ -22,7 +22,12 @@ except according to the terms contained in the LICENSE file.
             <span class="navbar-icon-bar"></span>
             <span class="navbar-icon-bar"></span>
           </button>
-          <router-link to="/" class="navbar-brand">Field Data</router-link>
+          <router-link to="/" class="navbar-brand">
+            <svg class="navbar-mark" viewBox="0 0 64 64" aria-hidden="true">
+              <path fill="currentColor" fill-rule="evenodd" d="M32 3C18.75 3 8 13.75 8 27c0 15.5 24 34 24 34s24-18.5 24-34C56 13.75 45.25 3 32 3zM24 28a2.5 2.5 0 0 1 5 0v10a2.5 2.5 0 0 1-5 0V28zm8-6a2.5 2.5 0 0 1 5 0v16a2.5 2.5 0 0 1-5 0V22zm8-6a2.5 2.5 0 0 1 5 0v22a2.5 2.5 0 0 1-5 0V16z"/>
+            </svg>
+            <span>Field Data</span>
+          </router-link>
         </div>
         <div class="collapse navbar-collapse">
           <navbar-links v-if="visiblyLoggedIn"/>
@@ -94,56 +99,60 @@ export default {
 <style lang="scss">
 @import '../assets/scss/mixins';
 
-$border-height: 3px;
-
 .navbar-default {
   background-color: $color-accent-primary;
   border: none;
-  border-top: $border-height solid $color-accent-secondary;
-  box-shadow: 0 $border-height 0 #e0e0ea;
-  height: 30px + $border-height; // the way bootstrap is set up, the border eats the body.
+  box-shadow: var(--shadow-sm);
   margin-bottom: 0;
-  min-height: auto;
+  min-height: var(--space-16);
 
   .navbar-brand {
+    align-items: center;
+    display: flex;
     float: left;
-    font-size: $font-size-btn;
-    font-weight: bold;
-    height: auto;
-    letter-spacing: -0.02em;
-    line-height: 20px;
-    padding: 5px 15px;
+    font-size: var(--text-body);
+    font-weight: 700;
+    gap: var(--space-3);
+    height: var(--space-16);
+    letter-spacing: var(--tracking-title);
+    padding-inline: 0;
 
-    &, &:hover, &:focus { color: #fff; }
+    &, &:hover, &:focus { color: var(--gray-0); }
+    &:focus { background-color: transparent; text-decoration: none; }
+    &:focus-visible { box-shadow: var(--ring-focus); outline: none; }
+  }
 
-    &:focus {
-      background-color: transparent;
-      text-decoration: none;
-    }
+  .navbar-mark {
+    color: var(--gray-0);
+    flex: none;
+    height: 26px;
+    width: 26px;
   }
 
   .navbar-nav {
-    font-size: $font-size-btn;
+    font-size: var(--text-body-sm);
 
     > li > a {
-      &, &:hover, &:focus { color: #fff; }
+      font-weight: 500;
+      &, &:hover, &:focus { color: var(--gray-0); }
     }
   }
 }
 
 #navbar-analytics-notice {
   @include text-link;
-  background-color: #fcf3e0;
-  border: 1px solid #e29a2b;
+  background-color: var(--warning-bg);
+  border: var(--border-thin) solid var(--warning);
+  border-radius: var(--radius-sm);
+  color: var(--warning-text);
   float: left;
-  font-size: 10px;
-  margin-top: 6px;
-  margin-right: 30px;
-  padding: 1px 3px;
+  font-size: var(--text-caption);
+  margin-right: var(--space-6);
+  padding: var(--space-1) var(--space-3);
 
   &:hover, &:focus {
-    background-color: #fcf3e0;
-    border-color: #fcf3e0;
+    background-color: var(--warning-bg);
+    border-color: var(--warning);
   }
 }
 
@@ -152,84 +161,133 @@ $border-height: 3px;
   .navbar-default {
     border-radius: 0;
 
-    .navbar-brand { margin-left: -15px; }
+    // Bootstrap 3 floats these into place, which is what pinned the old bar to
+    // 33px and left the items sitting on its top edge. A flex row centres them
+    // in a bar tall enough to take a 44px target.
+    .container-fluid {
+      align-items: center;
+      display: flex;
+      gap: var(--space-8);
+      min-height: var(--space-16);
+      padding-inline: var(--space-6);
+    }
+
+    // Bootstrap declares `display: block !important` on this at wide widths,
+    // which is why the row would not form and the right-hand group floated
+    // onto a second line, doubling the bar's height.
+    .navbar-collapse {
+      align-items: center;
+      display: flex !important;
+      flex: 1;
+      padding-block: 0;
+      padding-inline: 0;
+    }
+
+    #navbar-links { flex: 0 0 auto; }
+
+    .navbar-right {
+      align-items: center;
+      display: flex;
+      float: none;
+      margin-left: auto;
+      margin-right: 0;
+    }
 
     .navbar-nav {
-      margin-top: -1 * $border-height;
+      align-items: center;
+      display: flex;
+      float: none;
+      margin: 0;
 
       > li > a {
-        border-top: transparent solid $border-height;
-        padding: 5px 10px;
-        transition: 0.25s border-top-color;
+        align-items: center;
+        border-radius: var(--radius-sm);
+        display: flex;
+        min-height: 40px;
+        padding: var(--space-2) var(--space-4);
+        transition: background-color 150ms ease;
 
-        &:hover {
-          border-top-color: transparentize(#fff, 0.3);
-          transition-duration: 0s;
-        }
-
-        &:focus {
-          border-top-color: transparentize(#fff, 0.15);
-          box-shadow: 0 3px 0 transparentize(#0c0c11, 0.9);
-          outline: none;
-          transition-duration: 0s;
-        }
+        &:hover { background-color: var(--iris-700); }
+        &:focus-visible { box-shadow: var(--ring-focus); outline: none; }
       }
 
-      .active > a, .open > a {
-        box-shadow: 0 0 6px transparentize($color-accent-secondary, 0.7) inset;
+      > li + li { margin-left: var(--space-1); }
 
+      .active > a, .open > a {
         &, &:hover, &:focus {
-          background-color: #3e33a6; // gradient --iris-800
-          border-top-color: #fff;
-          color: #fff;
+          background-color: var(--iris-800);
+          color: var(--gray-0);
         }
       }
     }
-  }
 
-  .navbar-right {
-    // Counters the 15px padding of .navbar-collapse and the 15px padding of
-    // .container-fluid. The Bootstrap default is -15px.
-    margin-right: -25px;
+    #navbar-actions { margin-left: var(--space-2); }
   }
-
-  #navbar-actions { margin-left: 10px; }
 }
 
 // Navbar is collapsed.
 @media (max-width: 767px) {
   .navbar-default {
+    .navbar-header { align-items: center; display: flex; min-height: var(--space-16); }
+
+    .navbar-brand { margin-left: var(--space-2); }
+
     .navbar-toggle {
+      align-items: center;
       border: none;
-      margin: -2px 5px;
+      border-radius: var(--radius-sm);
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+      justify-content: center;
+      // A 44px target, which the old 30px bar could not contain.
+      height: 44px;
+      margin: 0 var(--space-2) 0 0;
+      padding: 0;
+      width: 44px;
 
-      &:hover, &:focus { background-color: inherit; }
+      &:hover, &:focus { background-color: var(--iris-700); }
+      &:focus-visible { box-shadow: var(--ring-focus); outline: none; }
 
-      .navbar-icon-bar { background-color: #fff; }
+      .navbar-icon-bar {
+        background-color: var(--gray-0);
+        border-radius: var(--radius-pill);
+        display: block;
+        height: 2px;
+        width: 22px;
+      }
     }
 
     .navbar-collapse {
-      background-color: $color-accent-secondary;
+      background-color: var(--iris-800);
       border: none;
+      padding-block: var(--space-2);
       position: relative;
       z-index: 99;
     }
 
     .navbar-nav {
-      margin-top: 0;
+      margin-block: 0;
+
+      > li > a {
+        align-items: center;
+        display: flex;
+        min-height: 48px;
+        padding-inline: var(--space-6);
+      }
 
       .active > a, .open > a {
-        border-left: $border-height solid #fff;
-        padding-left: 15px - $border-height;
+        border-left: 3px solid var(--gray-0);
+        padding-left: calc(var(--space-6) - 3px);
 
         &, &:hover, &:focus {
-          background-color: $color-accent-secondary;
-          color: #fff;
+          background-color: var(--iris-900);
+          color: var(--gray-0);
         }
       }
 
       .open .dropdown-menu > li > a {
-        &, &:hover, &:focus { color: #fff; }
+        &, &:hover, &:focus { color: var(--gray-0); }
       }
     }
   }
@@ -245,7 +303,7 @@ $border-height: 3px;
       // Used by screen readers to describe the button used to show or hide the navigation bar on small screens ("hamburger menu").
       "toggle": "Toggle navigation"
     },
-    "analyticsNotice": "Help improve Central!"
+    "analyticsNotice": "Help improve Field Data!"
   }
 }
 </i18n>
