@@ -1,6 +1,6 @@
 ARG NODE_VERSION=24.16.0
 
-FROM node:${NODE_VERSION}-slim AS frontend
+FROM node:${NODE_VERSION}-bookworm-slim AS frontend
 ARG APP_VERSION
 WORKDIR /build
 RUN apt-get update \
@@ -14,13 +14,13 @@ RUN APP_VERSION="${APP_VERSION:-$(cat VERSION)}" \
     && FRONTEND_BUILD_MODE=source FRONTEND_VERSION=v2026.2.0 \
     files/prebuild/build-frontend.sh
 
-FROM node:${NODE_VERSION}-slim AS backend
+FROM node:${NODE_VERSION}-bookworm-slim AS backend
 WORKDIR /usr/odk
 COPY central/server/package*.json ./
 RUN npm clean-install --omit=dev --no-audit --fund=false --update-notifier=false
 COPY central/server/ ./
 
-FROM python:3.12-slim AS form-compiler
+FROM python:3.12-slim-bookworm AS form-compiler
 ENV VIRTUAL_ENV=/opt/field-data-form-compiler/venv
 RUN python -m venv "$VIRTUAL_ENV"
 ENV PATH="$VIRTUAL_ENV/bin:$PATH"
@@ -28,7 +28,7 @@ COPY cloudflare/form-compiler/requirements.txt /tmp/form-compiler-requirements.t
 RUN pip install --no-cache-dir --disable-pip-version-check \
       -r /tmp/form-compiler-requirements.txt
 
-FROM node:${NODE_VERSION}-slim
+FROM node:${NODE_VERSION}-bookworm-slim
 ARG APP_VERSION
 WORKDIR /usr/odk
 
