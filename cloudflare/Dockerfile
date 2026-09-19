@@ -38,6 +38,12 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/* \
     && rm -f /etc/nginx/sites-enabled/default
 
+# Public CA from Supabase's dashboard certificate download.
+# https://supabase-downloads.s3-ap-southeast-1.amazonaws.com/prod/ssl/prod-ca-2021.crt
+COPY cloudflare/certs/supabase-root-2021.crt /usr/local/share/ca-certificates/supabase-root-2021.crt
+RUN update-ca-certificates
+ENV NODE_EXTRA_CA_CERTS=/usr/local/share/ca-certificates/supabase-root-2021.crt
+
 COPY --from=backend /usr/odk /usr/odk
 COPY --from=form-compiler /usr/local /usr/local
 COPY --from=form-compiler /opt/field-data-form-compiler/venv /opt/field-data-form-compiler/venv
