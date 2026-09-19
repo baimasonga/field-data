@@ -60,6 +60,21 @@ none of it would be true.
       </div>
     </section>
 
+    <section v-if="photos.length !== 0" id="landing-field">
+      <div class="landing-inner">
+        <h2 class="landing-section-title">{{ $t('field.title') }}</h2>
+        <ul class="landing-photo-grid">
+          <li v-for="photo in photos" :key="photo.file">
+            <figure>
+              <img :src="photo.src" :alt="photo.alt" loading="lazy" decoding="async"
+                width="800" height="600">
+              <figcaption>{{ photo.caption }}</figcaption>
+            </figure>
+          </li>
+        </ul>
+      </div>
+    </section>
+
     <section id="landing-capabilities">
       <div class="landing-inner">
         <h2 class="landing-section-title">{{ $t('capabilities.title') }}</h2>
@@ -119,12 +134,26 @@ none of it would be true.
 import { computed } from 'vue';
 import { useI18n } from 'vue-i18n';
 
+import { landingPhotos } from './landing-photos';
+
 defineOptions({
   name: 'Landing'
 });
 
 const { t, tm, rt } = useI18n();
 const hostname = window.location.hostname;
+
+// Only photographs that exist on disk AND carry alt text and a caption are
+// shown; anything else is dropped rather than rendered half-described.
+const files = import.meta.glob('../assets/images/landing/*.{jpg,jpeg,png,webp}', {
+  eager: true, query: '?url', import: 'default'
+});
+const photos = landingPhotos
+  .map(photo => ({
+    ...photo,
+    src: files[`../assets/images/landing/${photo.file}`]
+  }))
+  .filter(photo => photo.src != null && photo.alt && photo.caption);
 
 const rowStates = ['approved', 'issues', 'received', 'edited', 'received'];
 const pins = [
@@ -366,6 +395,38 @@ const included = strings('included.items');
   }
 }
 
+// ------------------------------------------------------------------ field
+#landing-field {
+  padding-block: var(--space-20);
+
+  ul {
+    display: grid;
+    gap: var(--space-8);
+    grid-template-columns: 1fr;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+
+  figure { margin: 0; }
+
+  img {
+    aspect-ratio: 4 / 3;
+    background-color: var(--color-surface-subtle);
+    border-radius: var(--radius-lg);
+    display: block;
+    height: auto;
+    object-fit: cover;
+    width: 100%;
+  }
+
+  figcaption {
+    color: var(--text-secondary);
+    font-size: var(--text-body-sm);
+    margin-top: var(--space-3);
+  }
+}
+
 // --------------------------------------------------------------- sections
 #landing-capabilities { padding-block: var(--space-20); }
 
@@ -476,6 +537,7 @@ const included = strings('included.items');
   #landing-hero h1 { font-size: var(--text-display-lg); }
   .landing-figure { min-height: 360px; }
   #landing-standards ul { grid-template-columns: repeat(3, 1fr); }
+  #landing-field ul { grid-template-columns: repeat(3, 1fr); }
   .landing-capability-grid { grid-template-columns: repeat(3, 1fr); }
   #landing-steps ol { grid-template-columns: repeat(3, 1fr); }
   .landing-included-grid { grid-template-columns: repeat(2, 1fr); }
@@ -500,6 +562,7 @@ const included = strings('included.items');
         "Your own database and object storage"
       ]
     },
+    "field": { "title": "In the field" },
     "capabilities": {
       "title": "Built for how field teams actually work",
       "a": {
