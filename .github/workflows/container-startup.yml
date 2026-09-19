@@ -5,6 +5,8 @@ on:
     paths:
       - Dockerfile
       - cloudflare/entrypoint.sh
+      - central/files/service/scripts/start-odk.sh
+      - central/files/service/crontab
       - .github/workflows/container-startup.yml
   workflow_dispatch:
 permissions:
@@ -59,8 +61,52 @@ jobs:
             sleep 3
           done
           exit 1
+      - name: Exercise startup without /dev/shm
+        run: |
+          # Cloudflare's container runtime does not mount /dev/shm, which the
+          # step above cannot catch because Docker always mounts it. `--ipc=none`
+          # reproduces that: a private IPC namespace with no /dev/shm.
+          docker run -d --name app-no-shm --network field-data-smoke \
+            --ipc=none -p 8081:8080 \
+            -v /tmp/smoke-tls/server.crt:/tmp/smoke-ca.crt:ro \
+            -e NODE_EXTRA_CA_CERTS=/tmp/smoke-ca.crt \
+            -e DOMAIN=localhost -e SYSADMIN_EMAIL=admin@example.test \
+            -e PGHOST=database -e PGPORT=5432 -e PGDATABASE=postgres \
+            -e PGUSER=postgres -e PGPASSWORD=smoke-only-password \
+            -e SUPABASE_S3_ENDPOINT=https://example.test/storage/v1/s3 \
+            -e SUPABASE_S3_ACCESS_KEY_ID=smoke-only-access \
+            -e SUPABASE_S3_SECRET_ACCESS_KEY=smoke-only-secret \
+            -e SUPABASE_STORAGE_BUCKET=smoke -e SUPABASE_REGION=eu-west-2 \
+            -e FIELD_DATA_STORAGE_MODE=object \
+            -e FIELD_DATA_BACKUP_PASSPHRASE=smoke-only-backup-passphrase \
+            -e FIELD_DATA_WEBHOOK_ENCRYPTION_KEY=0000000000000000000000000000000000000000000000000000000000000000 \
+            -e EMAIL_HOST=localhost field-data-smoke
+          for attempt in $(seq 1 60); do
+            if curl --fail --silent http://localhost:8081/healthz; then break; fi
+            if [ "$(docker inspect -f '{{.State.Running}}' app-no-shm)" != true ]; then
+              echo "Container exited without serving /healthz."
+              exit 1
+            fi
+            sleep 3
+            if [ "$attempt" = 60 ]; then exit 1; fi
+          done
+          # The backend must also reach a listening state, and the cron
+          # environment block must exist wherever the entrypoint placed it.
+          for attempt in $(seq 1 60); do
+            if docker exec app-no-shm nc -z 127.0.0.1 8383; then break; fi
+            sleep 5
+            if [ "$attempt" = 60 ]; then
+              echo "Backend never listened on 8383."
+              exit 1
+            fi
+          done
+          block=$(docker exec app-no-shm awk 'NR==1 {print $8}' /etc/cron.d/odk)
+          echo "cron environment block: $block"
+          docker exec app-no-shm test -s "$block"
+
       - name: Show isolated test logs
         if: failure()
         run: |
           docker logs app 2>&1 || true
+          docker logs app-no-shm 2>&1 || true
           docker logs database 2>&1 || true
