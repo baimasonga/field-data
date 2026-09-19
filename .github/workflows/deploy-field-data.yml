@@ -273,32 +273,58 @@ jobs:
       - name: Check each URL reaches the right application
         run: |
           base=https://field-data.mohamedbangura.workers.dev
-          failed=0
 
+          # A deploy only repoints the container application at the new image.
+          # The instance that is running keeps serving the old one -- old nginx
+          # and all -- until a request retires it and a fresh one finishes
+          # booting. So this cannot assert once and believe the answer: a fast
+          # reply here means some container is up, not that it is this one.
+          # Retry until the new configuration is the one answering, and only
+          # call it a failure when it never is.
           serves() {
-            local path=$1 expected=$2 label=$3
+            local path=$1 expected=$2
             local body
-            body=$(curl --silent --show-error --max-time 60 \
-              --retry 5 --retry-delay 10 --retry-all-errors "$base$path") || body=''
-            if printf '%s' "$body" | grep -q "$expected"; then
-              echo "ok    $path -> $label"
-            else
-              echo "WRONG $path did not reach $label" >&2
-              failed=1
-            fi
+            body=$(curl --silent --show-error --max-time 60 "$base$path") || body=''
+            printf '%s' "$body" | grep -q "$expected"
           }
 
-          # Filling in, previewing and editing belong to the Web Forms app.
-          serves /projects/1/forms/probe/submissions/new /assets/forms/ "Web Forms"
-          serves /projects/1/forms/probe/draft/submissions/new /assets/forms/ "Web Forms"
-          serves /projects/1/forms/probe/draft/preview /assets/forms/ "Web Forms"
-          serves /f/probe123 /assets/forms/ "Web Forms"
+          check_all() {
+            # Filling in, previewing and editing belong to the Web Forms app.
+            serves /projects/1/forms/probe/submissions/new /assets/forms/ &&
+            serves /projects/1/forms/probe/draft/submissions/new /assets/forms/ &&
+            serves /projects/1/forms/probe/draft/preview /assets/forms/ &&
+            serves /f/probe123 /assets/forms/ &&
+            # Everything else belongs to the management app.
+            serves /projects/1/forms/probe/submissions /assets/central/ &&
+            serves /users /assets/central/
+          }
 
-          # Everything else belongs to the management app.
-          serves /projects/1/forms/probe/submissions /assets/central/ "the management app"
-          serves /users /assets/central/ "the management app"
+          for attempt in $(seq 1 20); do
+            if check_all; then
+              echo "Every URL reached the right application (after $attempt attempt(s))."
+              exit 0
+            fi
+            echo "Not yet on attempt $attempt; the new container may still be booting."
+            sleep 15
+          done
 
-          exit $failed
+          echo "URLs are still reaching the wrong application after five minutes:" >&2
+          for pair in \
+            "/projects/1/forms/probe/submissions/new|/assets/forms/|Web Forms" \
+            "/projects/1/forms/probe/draft/submissions/new|/assets/forms/|Web Forms" \
+            "/projects/1/forms/probe/draft/preview|/assets/forms/|Web Forms" \
+            "/f/probe123|/assets/forms/|Web Forms" \
+            "/projects/1/forms/probe/submissions|/assets/central/|the management app" \
+            "/users|/assets/central/|the management app"
+          do
+            IFS='|' read -r path expected label <<< "$pair"
+            if serves "$path" "$expected"; then
+              echo "  ok    $path -> $label" >&2
+            else
+              echo "  WRONG $path did not reach $label" >&2
+            fi
+          done
+          exit 1
 
       # Health means nginx is answering, which it does before the backend has
       # finished booting. The only test of "can somebody log in" is logging in,
