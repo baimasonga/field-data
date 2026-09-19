@@ -32,7 +32,8 @@ function preserves(toName, fromName, toParams, fromParams = toParams) {
 }
 for (const names of [
   ['ProjectOverview', 'ProjectSummary', 'ProjectSettings'],
-  ['FormSubmissions', 'SubmissionSummary', 'SubmissionPhotos', 'FormSettings']
+  ['FormSubmissions', 'SubmissionSummary', 'SubmissionPhotos', 'SubmissionVerification',
+    'FormSettings']
 ]) {
   for (const from of names) for (const to of names) {
     test(`${from} → ${to} retains mounted page data`, () => {

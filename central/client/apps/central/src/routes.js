@@ -932,6 +932,7 @@ const routesByName = new Map();
     'FormSubmissions',
     'SubmissionSummary',
     'SubmissionPhotos',
+    'SubmissionVerification',
     'PublicLinkList',
     'FormVersionList',
     'FormEdit',
