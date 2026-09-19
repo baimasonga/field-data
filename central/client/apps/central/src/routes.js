@@ -519,6 +519,24 @@ const routes = [
         }
       }),
       asyncRoute({
+        path: 'verification',
+        component: 'SubmissionVerification',
+        props: true,
+        loading: 'tab',
+        meta: {
+          validateData: {
+            project: () => project.permits([
+              'form.read',
+              'submission.list',
+              'submission.read'
+            ]),
+            form: () => form.publishedAt != null
+          },
+          title: () => [i18n.t('formHead.tab.verification'), form.nameOrId],
+          fullWidth: true
+        }
+      }),
+      asyncRoute({
         path: 'public-links',
         component: 'PublicLinkList',
         props: true,

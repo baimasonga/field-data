@@ -30,7 +30,10 @@
       // A tab of charts totalling up a Form's Submissions.
       "summary": "Summary",
       // A tab showing every photograph a Form has collected.
-      "photos": "Photos"
+      "photos": "Photos",
+      // A tab where a reviewer sees what evidence each Submission carries and
+      // which Submissions are worth a closer look.
+      "verification": "Verification"
     }
   },
   "systemHome": {

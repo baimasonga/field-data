@@ -216,6 +216,14 @@ export const apiPaths = {
   formDashboards: (projectId, xmlFormId) =>
     `/v1/projects/${projectId}/forms/${encodeURIComponent(xmlFormId)}/dashboards`,
   sharedDashboard: (token) => `/v1/field-data/shared/${encodeURIComponent(token)}`,
+  formEvidence: (projectId, xmlFormId) =>
+    `/v1/projects/${projectId}/forms/${encodeURIComponent(xmlFormId)}/evidence`,
+  formIntegrity: (projectId, xmlFormId) =>
+    `/v1/projects/${projectId}/forms/${encodeURIComponent(xmlFormId)}/integrity`,
+  formIntegrityRun: (projectId, xmlFormId) =>
+    `/v1/projects/${projectId}/forms/${encodeURIComponent(xmlFormId)}/integrity/run`,
+  formIntegrityFlag: (projectId, xmlFormId, id) =>
+    `/v1/projects/${projectId}/forms/${encodeURIComponent(xmlFormId)}/integrity/${id}`,
   formPhotos: (projectId, xmlFormId, offset, limit) =>
     `/v1/projects/${projectId}/forms/${encodeURIComponent(xmlFormId)}/photos?offset=${offset}&limit=${limit}`,
   fieldDataStats: () => '/v1/field-data/stats',

@@ -18,6 +18,9 @@ const { webhookEvents } = require('../worker/webhooks');
 const { storage, formatBytes } = require('../external/field-data-storage');
 const { resolveWebhookUrl } = require('../util/safe-webhook-url');
 const { encryptSecret } = require('../util/field-data-secret');
+const {
+  parseGeopoint, checkImplausibleTravel, IMPLAUSIBLE_TRAVEL
+} = require('../util/fieldwork-integrity');
 
 const pingUrl = (urlStr) => new Promise((resolve) => {
   try {
@@ -205,6 +208,265 @@ module.exports = (service, endpoint) => {
     await auth.canOrReject('submission.list', form);
     await auth.canOrReject('submission.read', form);
     return summarizeForm(container.db, form.id);
+  }));
+
+  ////////////////////////////////////////////////////////////////////////////////
+  // FIELDWORK VERIFICATION
+  //
+  // Evidence about how submissions were collected, and explainable checks over
+  // it. Nothing here decides anything: a check produces a finding for a person
+  // to review, with what it saw and what would innocently explain it.
+  //
+  // What the evidence can and cannot say is part of the feature. A location
+  // reading does not prove somebody was there, an accuracy figure is the
+  // device's own claim, and a device identifier does not say who held it. The
+  // responses carry those limits so the interface can show them.
+
+  const evidenceFor = async (db, formId) => {
+    // Device capture time comes from the audit log ODK Collect writes when a
+    // form enables it. Server receipt time is when the upload arrived, which
+    // for offline work can be days later and is never used as a capture time.
+    const rows = await db.any(sql`
+      with live as (
+        select s.id, s."instanceId", s."createdAt", s."submitterId",
+               s."deviceId", s."reviewState", s."currentDefId"
+        from submissions s
+        where s."formId" = ${formId} and s."deletedAt" is null and s.draft = false
+      ),
+      device_time as (
+        -- One row per submission: the first and last event the device logged.
+        select l.id,
+               min(nullif(ca.start, '')::timestamptz) as "deviceStart",
+               max(nullif(ca."end", '')::timestamptz) as "deviceEnd",
+               count(*)::integer as events
+        from live l
+        join submission_attachments sa
+          on sa."submissionDefId" = l."currentDefId" and sa."isClientAudit" = true
+        join client_audits ca on ca."blobId" = sa."blobId"
+        group by l.id
+      ),
+      geopoint as (
+        -- The first geopoint answer in the form. ODK writes these as
+        -- "latitude longitude altitude accuracy".
+        select l.id, btrim((xpath('/*' || ff.path || '/text()', sd.xml::xml))[1]::text) as value
+        from live l
+        join submission_defs sd on sd.id = l."currentDefId"
+        join lateral (
+          select path from form_fields
+          where "formId" = ${formId} and type = 'geopoint'
+            and path ~ '^(/[A-Za-z_][A-Za-z0-9_.-]*)+$'
+          order by "order" limit 1
+        ) ff on true
+      ),
+      attachments as (
+        select l.id, count(*)::integer as files,
+               count(b.sha)::integer as hashed
+        from live l
+        join submission_attachments sa on sa."submissionDefId" = l."currentDefId"
+        left join blobs b on b.id = sa."blobId"
+        where coalesce(sa."isClientAudit", false) = false
+        group by l.id
+      )
+      select l."instanceId", l."createdAt" as "receivedAt", l."deviceId",
+             l."reviewState",
+             actors."displayName" as submitter, l."submitterId",
+             d."deviceStart", d."deviceEnd", d.events as "deviceEvents",
+             g.value as "geopoint",
+             coalesce(a.files, 0) as "attachments",
+             coalesce(a.hashed, 0) as "attachmentsHashed"
+      from live l
+      left join actors on actors.id = l."submitterId"
+      left join device_time d on d.id = l.id
+      left join geopoint g on g.id = l.id
+      left join attachments a on a.id = l.id
+      order by l."createdAt" desc`).catch(() => []);
+
+    return rows.map((row) => {
+      const location = parseGeopoint(row.geopoint);
+      return {
+        instanceId: row.instanceId,
+        submitter: row.submitter,
+        submitterId: row.submitterId,
+        // A device identifier says which installation, not who held it.
+        deviceId: row.deviceId,
+        receivedAt: row.receivedAt,
+        capturedAt: row.deviceStart ?? null,
+        captureEndedAt: row.deviceEnd ?? null,
+        captureTimeSource: row.deviceStart != null ? 'device-audit-log' : null,
+        location,
+        locationSource: location != null ? 'form-answer' : null,
+        reviewState: row.reviewState ?? 'received',
+        attachments: row.attachments,
+        attachmentsHashed: row.attachmentsHashed,
+        // Named rather than implied, so a reader can see what is missing and
+        // an interface can say why a check could not run.
+        missing: [
+          row.deviceStart == null ? 'device-capture-time' : null,
+          location == null ? 'location' : null
+        ].filter((m) => m != null)
+      };
+    });
+  };
+
+  service.get('/projects/:projectId/forms/:xmlFormId/evidence', endpoint(async (container, { params, auth }) => {
+    const form = await container.Forms
+      .getByProjectAndXmlFormId(params.projectId, params.xmlFormId, Form.PublishedVersion)
+      .then(getOrNotFound);
+    await auth.canOrReject('submission.list', form);
+    await auth.canOrReject('submission.read', form);
+
+    const evidence = await evidenceFor(container.db, form.id);
+    return {
+      submissions: evidence,
+      // A summary of the evidence itself, so somebody can see at a glance
+      // whether the checks below have anything to work with.
+      coverage: {
+        total: evidence.length,
+        withCaptureTime: evidence.filter((e) => e.capturedAt != null).length,
+        withLocation: evidence.filter((e) => e.location != null).length
+      },
+      limits: [
+        'A location reading shows where a device believed it was, not that anybody was present.',
+        'Reported accuracy is the device\'s own estimate and is not a guarantee.',
+        'A device identifier identifies an installation, not a person.',
+        'Device capture times come from the form\'s audit log and exist only where the form enables it.'
+      ]
+    };
+  }));
+
+  // Runs the checks and records what they found. Re-running is safe: a finding
+  // is identified by its rule, version and the submissions it is about, so the
+  // same observation updates in place and a reviewer's decision survives.
+  service.post('/projects/:projectId/forms/:xmlFormId/integrity/run', endpoint(async (container, { params, auth }) => {
+    const form = await container.Forms
+      .getByProjectAndXmlFormId(params.projectId, params.xmlFormId, Form.PublishedVersion)
+      .then(getOrNotFound);
+    await auth.canOrReject('submission.update', form);
+
+    const evidence = await evidenceFor(container.db, form.id);
+
+    // Travel is only meaningful within one collector's own sequence. Two
+    // people working in two districts are not travelling between them.
+    const byCollector = new Map();
+    for (const row of evidence) {
+      const key = row.submitterId ?? 'unknown';
+      if (!byCollector.has(key)) byCollector.set(key, []);
+      byCollector.get(key).push({
+        instanceId: row.instanceId,
+        capturedAt: row.capturedAt == null ? null : new Date(row.capturedAt),
+        location: row.location,
+        locationSource: row.locationSource,
+        captureTimeSource: row.captureTimeSource
+      });
+    }
+
+    const findings = [];
+    for (const rows of byCollector.values())
+      findings.push(...checkImplausibleTravel(rows));
+
+    // Only what a person should see is stored. A plausible pair is the normal
+    // case and recording every one of them would bury the rest.
+    const worthKeeping = findings.filter((f) => f.outcome !== 'plausible');
+
+    for (const finding of worthKeeping) {
+      // eslint-disable-next-line no-await-in-loop
+      await container.db.query(sql`
+        insert into field_data_integrity_flags
+          ("formId", rule, "ruleVersion", "instanceId", "relatedInstanceId", outcome, evidence)
+        values (${form.id}, ${finding.rule}, ${finding.ruleVersion},
+                ${finding.instanceId}, ${finding.relatedInstanceId},
+                ${finding.outcome}, ${JSON.stringify(finding.evidence)})
+        on conflict ("formId", rule, "ruleVersion", "instanceId", coalesce("relatedInstanceId", ''))
+        -- The evidence is refreshed; the review is not touched.
+        do update set evidence = excluded.evidence, outcome = excluded.outcome`);
+    }
+
+    return {
+      rule: IMPLAUSIBLE_TRAVEL.rule,
+      ruleVersion: IMPLAUSIBLE_TRAVEL.version,
+      thresholds: {
+        maxSpeedKmh: IMPLAUSIBLE_TRAVEL.maxSpeedKmh,
+        minSecondsBetween: IMPLAUSIBLE_TRAVEL.minSecondsBetween,
+        maxUsableAccuracyM: IMPLAUSIBLE_TRAVEL.maxUsableAccuracyM
+      },
+      examined: evidence.length,
+      collectors: byCollector.size,
+      concerns: findings.filter((f) => f.outcome === 'concern').length,
+      inconclusive: findings.filter((f) => f.outcome === 'inconclusive').length,
+      plausible: findings.filter((f) => f.outcome === 'plausible').length
+    };
+  }));
+
+  service.get('/projects/:projectId/forms/:xmlFormId/integrity', endpoint(async (container, { params, auth }) => {
+    const form = await container.Forms
+      .getByProjectAndXmlFormId(params.projectId, params.xmlFormId, Form.PublishedVersion)
+      .then(getOrNotFound);
+    await auth.canOrReject('submission.list', form);
+    await auth.canOrReject('submission.read', form);
+
+    return container.db.any(sql`
+      select f.*, actors."displayName" as "decidedByName"
+      from field_data_integrity_flags f
+      left join actors on actors.id = f."decidedBy"
+      where f."formId" = ${form.id}
+      order by
+        case f.outcome when 'concern' then 0 else 1 end,
+        case f.status when 'open' then 0 when 'investigating' then 1 else 2 end,
+        f."createdAt" desc`);
+  }));
+
+  // A reviewer's decision. The rule never writes here: a finding is closed by
+  // a person, with a reason, and the finding itself is left intact.
+  const DECISIONS = new Set([
+    'data-error',        // the data was wrong and has been or will be corrected
+    'explained',         // there is an ordinary explanation
+    'unresolved',        // looked at, still not understood
+    'substantiated'      // an authorised process established misconduct
+  ]);
+
+  service.patch('/projects/:projectId/forms/:xmlFormId/integrity/:id', endpoint(async (container, { params, body, auth }) => {
+    const form = await container.Forms
+      .getByProjectAndXmlFormId(params.projectId, params.xmlFormId, Form.PublishedVersion)
+      .then(getOrNotFound);
+    await auth.canOrReject('submission.update', form);
+
+    const id = Number.parseInt(params.id, 10);
+    if (!Number.isInteger(id)) return reject(Problem.user.notFound());
+
+    const status = String(body?.status ?? '');
+    if (!['open', 'investigating', 'resolved'].includes(status))
+      return reject(Problem.user.unexpectedValue({
+        field: 'status', value: body?.status,
+        reason: 'must be open, investigating or resolved'
+      }));
+
+    const decision = body?.decision == null ? null : String(body.decision);
+    if (status === 'resolved' && !DECISIONS.has(decision))
+      return reject(Problem.user.unexpectedValue({
+        field: 'decision', value: decision,
+        reason: `resolving a finding needs one of: ${[...DECISIONS].join(', ')}`
+      }));
+
+    const note = body?.note == null ? null : String(body.note).slice(0, 4000);
+    // Saying a finding is substantiated is an accusation, and an accusation
+    // with no reasoning attached is not one this will record.
+    if (decision === 'substantiated' && (note == null || note.trim() === ''))
+      return reject(Problem.user.unexpectedValue({
+        field: 'note', value: note,
+        reason: 'recording substantiated misconduct requires a written reason'
+      }));
+
+    const updated = await container.db.maybeOne(sql`
+      update field_data_integrity_flags
+      set status = ${status},
+          decision = ${status === 'resolved' ? decision : null},
+          note = ${note},
+          "decidedBy" = ${auth.actor.map((a) => a.id).orNull()},
+          "decidedAt" = clock_timestamp()
+      where id = ${id} and "formId" = ${form.id}
+      returning *`);
+    if (updated == null) return reject(Problem.user.notFound());
+    return updated;
   }));
 
   ////////////////////////////////////////////////////////////////////////////////

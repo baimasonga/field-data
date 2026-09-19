@@ -64,6 +64,12 @@ except according to the terms contained in the LICENSE file.
             {{ $t('formHead.tab.photos') }}
           </router-link>
         </li>
+        <li v-if="canRoute(tabPath('verification'))"
+          :class="formTabClass('verification')" role="presentation">
+          <router-link :to="tabPath('verification')">
+            {{ $t('formHead.tab.verification') }}
+          </router-link>
+        </li>
         <!-- Using rendersFormTabs rather than canRoute(), because we want to
         render the tabs even if the form does not have a published version (in
         which case canRoute() will return `false`). -->
