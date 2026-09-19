@@ -10,7 +10,8 @@ an empty list leaves the section out entirely.
   alt      what is in the photograph, for anyone who cannot see it. Required.
   caption  the survey it illustrates, shown under the image. Required.
 
-Captions name the kind of survey rather than a date, a district or a client,
+The water point photograph is the hero background and so is not repeated
+here. Captions name the kind of survey rather than a date, a district or a client,
 because these images illustrate the work; they are not a record of a particular
 round of it. See the README in the images directory before publishing a
 photograph of an identifiable person.
@@ -18,14 +19,6 @@ photograph of an identifiable person.
 
 // eslint-disable-next-line import/prefer-default-export
 export const landingPhotos = [
-  {
-    file: 'water-point-survey.webp',
-    alt: 'An enumerator in a high-visibility vest holds a tablet showing a '
-      + 'water point condition form while a resident looks on, beside a tap '
-      + 'stand and a solar-powered water tank. A second enumerator records on '
-      + 'a phone.',
-    caption: 'Water point condition and flow'
-  },
   {
     file: 'health-facility-survey.webp',
     alt: 'Two enumerators interview a nurse on the veranda of a health '
