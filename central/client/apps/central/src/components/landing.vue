@@ -537,7 +537,14 @@ const included = strings('included.items');
   #landing-hero h1 { font-size: var(--text-display-lg); }
   .landing-figure { min-height: 360px; }
   #landing-standards ul { grid-template-columns: repeat(3, 1fr); }
-  #landing-field ul { grid-template-columns: repeat(3, 1fr); }
+  // Five photographs: two wide across the top, three beneath, so the rows
+  // fill rather than leaving a ragged tail.
+  #landing-field ul {
+    grid-template-columns: repeat(6, 1fr);
+
+    li { grid-column: span 2; }
+    li:nth-child(1), li:nth-child(2) { grid-column: span 3; }
+  }
   .landing-capability-grid { grid-template-columns: repeat(3, 1fr); }
   #landing-steps ol { grid-template-columns: repeat(3, 1fr); }
   .landing-included-grid { grid-template-columns: repeat(2, 1fr); }
