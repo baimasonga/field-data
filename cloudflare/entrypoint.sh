@@ -133,14 +133,30 @@ done
 # granted later survives the next boot. A failure here must not take down a
 # server that is otherwise working.
 bootstrap_admin() {
-  local existing
-  existing=$(psql --no-password --quiet --tuples-only --no-align \
-    --set=email="$SYSADMIN_EMAIL" \
-    --command "select 1 from users where email = :'email' limit 1") \
-    || { echo "could not query for an existing administrator." >&2; return 1; }
+  local existing probe
+
+  # Say what we have before using it. The value never appears, only whether it
+  # is there and how long, which is the difference between "the secret never
+  # arrived" and "the secret is wrong".
+  if [[ -n "${FIELD_DATA_ADMIN_PASSWORD:-}" ]]; then
+    echo "bootstrap: FIELD_DATA_ADMIN_PASSWORD is set (${#FIELD_DATA_ADMIN_PASSWORD} characters)."
+  else
+    echo "bootstrap: FIELD_DATA_ADMIN_PASSWORD is not set."
+  fi
+  echo "bootstrap: looking for $SYSADMIN_EMAIL in schema $FIELD_DATA_DB_SCHEMA."
+
+  # Schema-qualified rather than relying on PGOPTIONS reaching the server: the
+  # connection goes through a pooler, and an unqualified name here fails with
+  # an error this function used to swallow.
+  probe=$(psql --no-password --quiet --tuples-only --no-align \
+    --set=email="$SYSADMIN_EMAIL" --set=schema="$FIELD_DATA_DB_SCHEMA" \
+    --command 'select 1 from :"schema".users where email = :'"'"'email'"'"' limit 1' 2>&1) \
+    || { echo "bootstrap: could not query for an existing administrator:" >&2
+         echo "$probe" >&2; return 1; }
+  existing=$probe
 
   if [[ -n "$existing" ]]; then
-    echo "administrator $SYSADMIN_EMAIL already exists; leaving it untouched."
+    echo "bootstrap: $SYSADMIN_EMAIL already exists; leaving it untouched."
     return 0
   fi
 
@@ -156,12 +172,14 @@ bootstrap_admin() {
   node -e 'const { run } = require("/usr/odk/lib/task/task");
     const { createUser } = require("/usr/odk/lib/task/account");
     run(createUser(process.env.SYSADMIN_EMAIL, process.env.FIELD_DATA_ADMIN_PASSWORD));' \
-    || { echo "creating $SYSADMIN_EMAIL failed." >&2; return 1; }
+    || { echo "bootstrap: creating $SYSADMIN_EMAIL failed, see the error above." >&2
+         return 1; }
   node -e 'const { run } = require("/usr/odk/lib/task/task");
     const { promoteUser } = require("/usr/odk/lib/task/account");
     run(promoteUser(process.env.SYSADMIN_EMAIL));' \
-    || { echo "promoting $SYSADMIN_EMAIL to administrator failed." >&2; return 1; }
-  echo "created administrator $SYSADMIN_EMAIL."
+    || { echo "bootstrap: promoting $SYSADMIN_EMAIL failed, see the error above." >&2
+         return 1; }
+  echo "bootstrap: created administrator $SYSADMIN_EMAIL."
 }
 
 bootstrap_admin || echo "Administrator bootstrap failed; the server keeps running." >&2
