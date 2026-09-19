@@ -179,7 +179,7 @@ $border-height: 3px;
         box-shadow: 0 0 6px transparentize($color-accent-secondary, 0.7) inset;
 
         &, &:hover, &:focus {
-          background-color: #b40066;
+          background-color: #3e33a6; // gradient --iris-800
           border-top-color: #fff;
           color: #fff;
         }

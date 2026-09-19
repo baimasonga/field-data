@@ -36,30 +36,30 @@ $color-text-secondary: #4d4d5c;   // gradient --gray-700 / --text-secondary
 $margin-right-icon: 6px;
 
 // Contextual colors
-$color-success: #08a10b;
-$color-success-light: #ddf1d5;
+$color-success: #2fa96b;                    // gradient --success
+$color-success-light: #e6f6ee;              // gradient --success-bg
 $color-success-dark: darken($color-success, 10%);
-$color-info: #31708f;
-$color-info-light: #d9edf7;
+$color-info: #2c66bf;                       // gradient --info-text
+$color-info-light: #e9f1fd;                 // gradient --info-bg
 $color-info-dark: darken($color-info, 10%);
-$color-warning: #f29e00;
-$color-warning-light: #f5c93b;
-$color-warning-dark: #e06f0b;
-$color-danger: #de2a11;
+$color-warning: #e29a2b;                    // gradient --warning
+$color-warning-light: #fcf3e0;              // gradient --warning-bg
+$color-warning-dark: #a86f14;               // gradient --warning-text
+$color-danger: #e5484d;                     // gradient --danger
 $color-danger-lighter: #dd5454; // Between $color-danger and $color-danger-light
-$color-danger-light: #ffe6e6;
+$color-danger-light: #fdeaea;               // gradient --danger-bg
 $color-danger-dark: darken($color-danger, 10%);
-$color-highlight: #faf1cd;
+$color-highlight: #fcf3e0;                  // gradient --warning-bg
 
 // Buttons and inputs
-$color-action-foreground: #0c7bd1;
-$color-action-background: #009ecc;
-$color-action-background-hover: #0086ad;
-$color-action-background-disabled: #999;
-$color-action-light: #d0e7f1;
-$color-action-overlay: #0096c1;
-$color-input: #555;
-$color-input-inactive: #777;
+$color-action-foreground: #5d4ee0;          // gradient --iris-600
+$color-action-background: #5d4ee0;          // gradient --iris-600
+$color-action-background-hover: #4b3ccb;    // gradient --iris-700
+$color-action-background-disabled: #adadbf; // gradient --gray-400
+$color-action-light: #e1defc;               // gradient --iris-100
+$color-action-overlay: #7263e9;             // gradient --iris-500
+$color-input: #4d4d5c;                      // gradient --gray-700
+$color-input-inactive: #68687a;             // gradient --gray-600
 $font-size-btn: 12px;
 $hpadding-btn: 10px;
 $padding-bottom-btn: 5px;
@@ -70,7 +70,7 @@ $font-size-dropdown-menu: $font-size-btn;
 $min-width-dropdown-menu: 150px;
 
 // <dl>
-$border-bottom-dl: 1px solid #ddd;
+$border-bottom-dl: 1px solid #e0e0ea;       // gradient --gray-200
 $padding-block-dl: 10px;
 
 // Forms
@@ -79,18 +79,18 @@ $padding-top-form-control: 6px;
 // Tables
 $margin-bottom-table: 20px;
 // Heading
-$border-bottom-table-heading: 1px solid #bbb;
-$color-table-heading-background: #ddd;
+$border-bottom-table-heading: 1px solid #cfcfdc; // gradient --gray-300
+$color-table-heading-background: #f1f1f6;   // gradient --gray-100
 $font-size-table-heading: 12px;
 $padding-table-heading: 8px 9px 6px;
 // Data
-$border-top-table-data: 1px solid #ddd;
+$border-top-table-data: 1px solid #e0e0ea;  // gradient --gray-200
 $padding-bottom-table-data: 8px;
 $padding-left-table-data: 8px;
 $padding-right-table-data: 8px;
 $padding-top-table-data: 8px;
 // Row
-$color-selected-row: #E4EDF1;
+$color-selected-row: #eeedfe;               // gradient --iris-50
 
 // Panels
 $box-shadow-panel-main: 0 0 24px rgba(0, 0, 0, 0.25), 0 35px 115px rgba(0, 0, 0, 0.28);
@@ -99,10 +99,10 @@ $padding-panel-body: 15px;
 // Navs
 $hpadding-nav-tab: 8px;
 
-$color-subpanel-background: #eee;
-$color-subpanel-active: #ddd;
-$color-subpanel-border: #e6e6e6;
-$color-subpanel-border-strong: #c3c3c3;
+$color-subpanel-background: #f8f8fb;        // gradient --gray-50
+$color-subpanel-active: #e9e9f1;            // gradient --gray-150
+$color-subpanel-border: #e0e0ea;            // gradient --gray-200
+$color-subpanel-border-strong: #cfcfdc;     // gradient --gray-300
 
 $box-shadow-offset-y-body: -2px;
 
@@ -119,7 +119,7 @@ $padding-bottom-expandable-row: 16px;
 $padding-top-expandable-row: 8px;
 
 // FeedEntry
-$background-color-feed-entry: #f9f9f9;
+$background-color-feed-entry: #f8f8fb;      // gradient --gray-50
 $hpadding-feed-entry: 15px;
 
 // FileDropZone
