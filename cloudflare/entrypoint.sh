@@ -42,6 +42,14 @@ export FORM_COMPILER_MAX_BYTES="${FORM_COMPILER_MAX_BYTES:-26214400}"
 export SESSION_LIFETIME="${SESSION_LIFETIME:-86400}"
 export DB_POOL_SIZE="${DB_POOL_SIZE:-5}"
 export HTTPS_PORT=443
+export BASE_URL="https://$DOMAIN"
+# The native Supabase adapter reads SUPABASE_* directly. These optional
+# legacy blob-store fields must still exist for strict template rendering.
+export S3_SERVER="${S3_SERVER:-}"
+export S3_ACCESS_KEY="${S3_ACCESS_KEY:-}"
+export S3_SECRET_KEY="${S3_SECRET_KEY:-}"
+export S3_BUCKET_NAME="${S3_BUCKET_NAME:-}"
+export S3_OBJECT_PREFIX="${S3_OBJECT_PREFIX:-}"
 
 /scripts/envsub.awk \
   < /usr/share/odk/cloudflare-nginx.conf.template \

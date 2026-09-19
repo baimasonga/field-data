@@ -61,7 +61,7 @@ RUN VERSION="${APP_VERSION:-$(cat /usr/share/odk/VERSION)}" \
       /usr/odk/sentry-versions/server \
       /usr/odk/sentry-versions/client >/dev/null \
     && printf '%s\n' 'field-data-native-web-forms' > /etc/secrets/enketo-api-key \
-    && chmod 0755 /usr/local/bin/field-data-entrypoint /usr/odk/*.sh \
+    && chmod 0755 /usr/local/bin/field-data-entrypoint /usr/odk/*.sh /scripts/envsub.awk /usr/bin/odk-cmd /usr/bin/with-pgenvblock.pl \
     && chmod 0600 /etc/secrets/enketo-api-key \
     && chmod 0644 /etc/cron.d/odk
 
