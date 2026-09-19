@@ -26,7 +26,9 @@
     "OIDC_ENABLED": "false",
     "OIDC_ISSUER_URL": "",
     "OIDC_CLIENT_ID": "",
-    "SENTRY_DSN_FRONTEND": ""
+    "SENTRY_DSN_FRONTEND": "",
+    // Overridden per deploy with the commit being shipped.
+    "CONTAINER_BUILD_ID": ""
   },
   "workers_dev": true,
   "containers": [

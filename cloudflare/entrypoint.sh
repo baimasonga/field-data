@@ -150,10 +150,16 @@ bootstrap_admin() {
     return 0
   fi
 
-  printf '%s\n' "$FIELD_DATA_ADMIN_PASSWORD" \
-    | odk-cmd --email "$SYSADMIN_EMAIL" user-create \
+  # odk-cmd reads the password through an interactive prompt library, which
+  # needs a usable stdin and hides the reason for any failure. Call the tasks
+  # it wraps instead: they read the environment and print the real error.
+  node -e 'const { run } = require("/usr/odk/lib/task/task");
+    const { createUser } = require("/usr/odk/lib/task/account");
+    run(createUser(process.env.SYSADMIN_EMAIL, process.env.FIELD_DATA_ADMIN_PASSWORD));' \
     || { echo "creating $SYSADMIN_EMAIL failed." >&2; return 1; }
-  odk-cmd --email "$SYSADMIN_EMAIL" user-promote \
+  node -e 'const { run } = require("/usr/odk/lib/task/task");
+    const { promoteUser } = require("/usr/odk/lib/task/account");
+    run(promoteUser(process.env.SYSADMIN_EMAIL));' \
     || { echo "promoting $SYSADMIN_EMAIL to administrator failed." >&2; return 1; }
   echo "created administrator $SYSADMIN_EMAIL."
 }

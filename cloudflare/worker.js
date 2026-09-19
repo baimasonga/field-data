@@ -53,7 +53,26 @@ export class FieldDataContainer extends Container {
     SESSION_LIFETIME: env.SESSION_LIFETIME || '86400'
   };
 
+  // A deploy only repoints the container application at the new image: an
+  // instance that is already running keeps the old one. Nothing retires it on
+  // its own either, because the five minute cron ping means it never stays
+  // idle long enough to hit sleepAfter. Retire it explicitly when the build it
+  // was started from is no longer the deployed one.
+  async #retireStaleContainer() {
+    const deployed = env.CONTAINER_BUILD_ID || '';
+    if (deployed === '') return;
+    const running = await this.ctx.storage.get('containerBuildId');
+    if (running === deployed) return;
+    if (this.container.running) {
+      console.log('Retiring container from build', running, 'for', deployed);
+      await this.destroy();
+      this.#boot = null;
+    }
+    await this.ctx.storage.put('containerBuildId', deployed);
+  }
+
   async fetch(request) {
+    await this.#retireStaleContainer();
     // `containerFetch()` starts the container with the default port timeout, so
     // do the start here instead with a budget that matches a real cold boot.
     this.#boot ??= this.startAndWaitForPorts({
