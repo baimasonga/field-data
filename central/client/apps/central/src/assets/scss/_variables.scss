@@ -11,9 +11,9 @@ except according to the terms contained in the LICENSE file.
 */
 
 // Core
-$color-accent-primary: #bd006b;
-$color-accent-secondary: #8d0050;
-$color-page-background: #f7f7f7;
+$color-accent-primary: #5d4ee0;   // gradient --iris-600 / --accent
+$color-accent-secondary: #4b3ccb; // gradient --iris-700 / --accent-hover
+$color-page-background: #fcfcfe;  // gradient --gray-25 / --color-canvas
 
 // Media query breakpoints - copied from bootstrap
 $screen-xs-min: 480px;
@@ -28,9 +28,9 @@ $z-index-modal: 1050;
 $z-index-modal-backdrop: 1040;
 
 // Text
-$color-text: #333;
+$color-text: #20202b;             // gradient --gray-900 / --text-primary
 $font-family-monospace: Monaco, Menlo, Consolas, "Courier New", monospace;
-$color-text-secondary: #9499A5;
+$color-text-secondary: #4d4d5c;   // gradient --gray-700 / --text-secondary
 
 // Icons
 $margin-right-icon: 6px;
