@@ -172,6 +172,10 @@ const loaders = new Map()
     /* webpackChunkName: "component-hover-cards" */
     '../components/hover-cards.vue'
   )))
+  .set('SharedDashboard', loader(() => import(
+    /* webpackChunkName: "component-shared-dashboard" */
+    '../components/shared-dashboard.vue'
+  )))
   .set('SubmissionPhotos', loader(() => import(
     /* webpackChunkName: "component-submission-photos" */
     '../components/submission/photos.vue'

@@ -437,6 +437,8 @@
     "conflictsCount": "{count} conflict | {count} conflicts"
   },
   "common": {
+    // The name of the product, shown where a page has to identify itself.
+    "appName": "Field Data",
     // This is a title shown above a section of the page.
     "activity": "Activity",
     // This is shown in a dropdown that allows the user to filter to only show

@@ -86,6 +86,107 @@ const validateEvents = (events) => {
   return [...new Set(events)];
 };
 
+// The whole of a form's summary, counted in the database. Lives here rather
+// than inside the route because a shared dashboard serves exactly the same
+// numbers to somebody who has no account, and two copies of this would drift.
+const summarizeForm = async (db, formId) => {
+  const live = sql`
+    from submissions s
+    where s."formId" = ${formId} and s."deletedAt" is null and s.draft = false`;
+
+  const totals = await db.one(sql`
+    select count(*)::integer as submissions,
+           count(distinct s."submitterId")::integer as submitters,
+           min(s."createdAt") as "firstSubmission",
+           max(s."createdAt") as "lastSubmission"
+    ${live}`);
+
+  if (totals.submissions === 0)
+    return { ...totals, overTime: [], reviewStates: [], fields: [], truncated: false };
+
+  // One row per day the form was in use. Days with no submissions are the
+  // client's to fill in, because only it knows the reader's time zone.
+  const overTime = await db.any(sql`
+    select (s."createdAt" at time zone 'UTC')::date as date, count(*)::integer as count
+    ${live}
+    group by 1 order by 1`);
+
+  // Null is what ODK stores for a submission nobody has reviewed. It is a
+  // state like any other to a reader, so it gets named rather than dropped.
+  const reviewStates = await db.any(sql`
+    select coalesce(s."reviewState", 'received') as state, count(*)::integer as count
+    ${live}
+    group by 1 order by 2 desc`);
+
+  // The paths come from uploaded forms, so they are somebody's input, and
+  // they are about to be concatenated into an XPath expression. Only a plain
+  // slash-separated path of ordinary name characters is allowed through;
+  // anything else is skipped rather than escaped, because a form field whose
+  // name needs escaping is not one worth charting.
+  // Postgres has no try-cast, so one submission whose body will not parse as
+  // XML takes the whole query down with it. The counts above do not depend
+  // on it, so a failure here costs the answer charts and nothing else.
+  const answers = await db.any(sql`
+    with candidate as (
+      select distinct on (ff.path) ff.path, ff.name, ff.type, ff."order"
+      from form_fields ff
+      where ff."formId" = ${formId}
+        and ff.type in ('string', 'int', 'decimal', 'date', 'time', 'dateTime')
+        and coalesce(ff.binary, false) = false
+        and ff.path ~ '^(/[A-Za-z_][A-Za-z0-9_.-]*)+$'
+      order by ff.path, ff."order" desc
+    ),
+    current_defs as (
+      select sd.id, sd.xml
+      from submissions s
+      join submission_defs sd on sd.id = s."currentDefId"
+      where s."formId" = ${formId} and s."deletedAt" is null and s.draft = false
+    ),
+    answered as (
+      select c.path, c.name, c.type, c."order",
+             btrim((xpath('/*' || c.path || '/text()', d.xml::xml))[1]::text) as value
+      from current_defs d cross join candidate c
+    )
+    select path, name, type, "order", value, count(*)::integer as count
+    from answered
+    where value is not null and value <> ''
+    group by path, name, type, "order", value
+    order by "order", count(*) desc`).catch(() => []);
+
+  // A field is worth a chart when its answers repeat. A name, a note or a
+  // free-text comment has about as many distinct answers as submissions and
+  // makes a chart of one-tall bars, so those are left out. The cutoffs are
+  // the series-count ladder: past eight bars a chart stops being readable,
+  // so the tail becomes one "Other" bar rather than more bars.
+  const MAX_DISTINCT = 25;
+  const MAX_BARS = 8;
+  const MAX_FIELDS = 12;
+
+  const byPath = new Map();
+  for (const row of answers) {
+    if (!byPath.has(row.path))
+      byPath.set(row.path, { path: row.path, name: row.name, type: row.type, values: [] });
+    byPath.get(row.path).values.push({ value: row.value, count: row.count });
+  }
+
+  const fields = [];
+  for (const field of byPath.values()) {
+    const distinct = field.values.length;
+    const answered = field.values.reduce((sum, v) => sum + v.count, 0);
+    // Every answer different means free text, not a category.
+    if (distinct > MAX_DISTINCT || distinct === answered) continue;
+    if (distinct < 2) continue;
+    const top = field.values.slice(0, MAX_BARS);
+    const tail = field.values.slice(MAX_BARS);
+    if (tail.length > 0)
+      top.push({ value: null, other: tail.length, count: tail.reduce((sum, v) => sum + v.count, 0) });
+    fields.push({ ...field, values: top, distinct, answered });
+    if (fields.length === MAX_FIELDS) break;
+  }
+
+  return { ...totals, overTime, reviewStates, fields, truncated: byPath.size > fields.length };
+};
+
 module.exports = (service, endpoint) => {
   // The field_data_* tables backing these resources are created by the
   // 20260707-01-add-field-data-tables migration.
@@ -98,109 +199,132 @@ module.exports = (service, endpoint) => {
   // whatever it managed to download rather than the form, and would say so
   // only by being quietly wrong on the forms where it matters most.
   service.get('/projects/:projectId/forms/:xmlFormId/summary', endpoint(async (container, { params, auth }) => {
-    const { Forms } = container;
-    const db = container.db;
-
-    const form = await Forms.getByProjectAndXmlFormId(params.projectId, params.xmlFormId, Form.PublishedVersion)
+    const form = await container.Forms
+      .getByProjectAndXmlFormId(params.projectId, params.xmlFormId, Form.PublishedVersion)
       .then(getOrNotFound);
     await auth.canOrReject('submission.list', form);
     await auth.canOrReject('submission.read', form);
+    return summarizeForm(container.db, form.id);
+  }));
 
-    const live = sql`
-      from submissions s
-      where s."formId" = ${form.id} and s."deletedAt" is null and s.draft = false`;
+  ////////////////////////////////////////////////////////////////////////////////
+  // SHARED DASHBOARDS
+  //
+  // A read-only link to one form's summary that works without an account, for
+  // the funder, the ministry or the district office who should see the numbers
+  // and should not be given a login.
+  //
+  // Only counts go through a share. The summary has no individual submission
+  // in it, no attachment and no submitter's name, so a link cannot leak what
+  // one household answered however long somebody holds it.
+  //
+  // The token is a credential, so the database keeps only its SHA-256. A
+  // reader of the table cannot use what they find; the usable token is
+  // returned once, at creation, and never again.
+  const dashboardView = ({ tokenSha, ...rest }) => rest;
+  const tokenSha = (token) => crypto.createHash('sha256').update(token).digest('hex');
 
-    const totals = await db.one(sql`
-      select count(*)::integer as submissions,
-             count(distinct s."submitterId")::integer as submitters,
-             min(s."createdAt") as "firstSubmission",
-             max(s."createdAt") as "lastSubmission"
-      ${live}`);
+  service.get('/projects/:projectId/forms/:xmlFormId/dashboards', endpoint(async (container, { params, auth }) => {
+    const form = await container.Forms
+      .getByProjectAndXmlFormId(params.projectId, params.xmlFormId, Form.PublishedVersion)
+      .then(getOrNotFound);
+    await auth.canOrReject('form.update', form);
+    const rows = await container.db.any(sql`
+      select * from field_data_dashboards
+      where "formId" = ${form.id} and "revokedAt" is null
+      order by "createdAt" desc`);
+    return rows.map(dashboardView);
+  }));
 
-    if (totals.submissions === 0)
-      return { ...totals, overTime: [], reviewStates: [], fields: [], truncated: false };
+  service.post('/projects/:projectId/forms/:xmlFormId/dashboards', endpoint(async (container, { params, body, auth }) => {
+    const form = await container.Forms
+      .getByProjectAndXmlFormId(params.projectId, params.xmlFormId, Form.PublishedVersion)
+      .then(getOrNotFound);
+    // Sharing a form's numbers with the whole internet is an act of
+    // publication, so it takes the permission that changes the form rather
+    // than the one that reads it.
+    await auth.canOrReject('form.update', form);
 
-    // One row per day the form was in use. Days with no submissions are the
-    // client's to fill in, because only it knows the reader's time zone.
-    const overTime = await db.any(sql`
-      select (s."createdAt" at time zone 'UTC')::date as date, count(*)::integer as count
-      ${live}
-      group by 1 order by 1`);
+    const name = String(body?.name ?? '').trim().slice(0, 255);
+    if (name === '')
+      return reject(Problem.user.missingParameter({ field: 'name' }));
 
-    // Null is what ODK stores for a submission nobody has reviewed. It is a
-    // state like any other to a reader, so it gets named rather than dropped.
-    const reviewStates = await db.any(sql`
-      select coalesce(s."reviewState", 'received') as state, count(*)::integer as count
-      ${live}
-      group by 1 order by 2 desc`);
+    // 32 bytes of randomness. Long enough that guessing is not a strategy.
+    const token = crypto.randomBytes(32).toString('base64url');
 
-    // The paths come from uploaded forms, so they are somebody's input, and
-    // they are about to be concatenated into an XPath expression. Only a plain
-    // slash-separated path of ordinary name characters is allowed through;
-    // anything else is skipped rather than escaped, because a form field whose
-    // name needs escaping is not one worth charting.
-    // Postgres has no try-cast, so one submission whose body will not parse as
-    // XML takes the whole query down with it. The counts above do not depend
-    // on it, so a failure here costs the answer charts and nothing else.
-    const answers = await db.any(sql`
-      with candidate as (
-        select distinct on (ff.path) ff.path, ff.name, ff.type, ff."order"
-        from form_fields ff
-        where ff."formId" = ${form.id}
-          and ff.type in ('string', 'int', 'decimal', 'date', 'time', 'dateTime')
-          and coalesce(ff.binary, false) = false
-          and ff.path ~ '^(/[A-Za-z_][A-Za-z0-9_.-]*)+$'
-        order by ff.path, ff."order" desc
-      ),
-      current_defs as (
-        select sd.id, sd.xml
-        from submissions s
-        join submission_defs sd on sd.id = s."currentDefId"
-        where s."formId" = ${form.id} and s."deletedAt" is null and s.draft = false
-      ),
-      answered as (
-        select c.path, c.name, c.type, c."order",
-               btrim((xpath('/*' || c.path || '/text()', d.xml::xml))[1]::text) as value
-        from current_defs d cross join candidate c
-      )
-      select path, name, type, "order", value, count(*)::integer as count
-      from answered
-      where value is not null and value <> ''
-      group by path, name, type, "order", value
-      order by "order", count(*) desc`).catch(() => []);
-
-    // A field is worth a chart when its answers repeat. A name, a note or a
-    // free-text comment has about as many distinct answers as submissions and
-    // makes a chart of one-tall bars, so those are left out. The cutoffs are
-    // the series-count ladder: past eight bars a chart stops being readable,
-    // so the tail becomes one "Other" bar rather than more bars.
-    const MAX_DISTINCT = 25;
-    const MAX_BARS = 8;
-    const MAX_FIELDS = 12;
-
-    const byPath = new Map();
-    for (const row of answers) {
-      if (!byPath.has(row.path))
-        byPath.set(row.path, { path: row.path, name: row.name, type: row.type, values: [] });
-      byPath.get(row.path).values.push({ value: row.value, count: row.count });
+    let expiresAt = null;
+    if (body?.expiresInDays != null) {
+      const days = Number.parseInt(body.expiresInDays, 10);
+      if (!Number.isFinite(days) || days < 1 || days > 3650)
+        return reject(Problem.user.unexpectedValue({
+          field: 'expiresInDays', value: body.expiresInDays,
+          reason: 'must be a whole number of days between 1 and 3650'
+        }));
+      expiresAt = new Date(Date.now() + (days * 24 * 60 * 60 * 1000));
     }
 
-    const fields = [];
-    for (const field of byPath.values()) {
-      const distinct = field.values.length;
-      const answered = field.values.reduce((sum, v) => sum + v.count, 0);
-      // Every answer different means free text, not a category.
-      if (distinct > MAX_DISTINCT || distinct === answered) continue;
-      if (distinct < 2) continue;
-      const top = field.values.slice(0, MAX_BARS);
-      const tail = field.values.slice(MAX_BARS);
-      if (tail.length > 0)
-        top.push({ value: null, other: tail.length, count: tail.reduce((sum, v) => sum + v.count, 0) });
-      fields.push({ ...field, values: top, distinct, answered });
-      if (fields.length === MAX_FIELDS) break;
-    }
+    const created = await container.db.one(sql`
+      insert into field_data_dashboards
+        ("tokenSha", "tokenHint", name, "projectId", "formId", "createdBy", "expiresAt")
+      values (${tokenSha(token)}, ${token.slice(0, 8)}, ${name},
+              ${form.projectId}, ${form.id}, ${auth.actor.map((a) => a.id).orNull()}, ${expiresAt})
+      returning *`);
 
-    return { ...totals, overTime, reviewStates, fields, truncated: byPath.size > fields.length };
+    // The only time the usable token is ever returned.
+    return { ...dashboardView(created), token };
+  }));
+
+  service.delete('/projects/:projectId/forms/:xmlFormId/dashboards/:id', endpoint(async (container, { params, auth }) => {
+    const form = await container.Forms
+      .getByProjectAndXmlFormId(params.projectId, params.xmlFormId, Form.PublishedVersion)
+      .then(getOrNotFound);
+    await auth.canOrReject('form.update', form);
+    const revoked = await container.db.maybeOne(sql`
+      update field_data_dashboards set "revokedAt" = clock_timestamp()
+      where id = ${params.id} and "formId" = ${form.id} and "revokedAt" is null
+      returning id`);
+    if (revoked == null) return reject(Problem.user.notFound());
+    return success();
+  }));
+
+  // The public face of a share. No session, no cookie, no actor: the token in
+  // the URL is the whole of the authorisation, which is why it buys so little.
+  service.get('/field-data/shared/:token', endpoint(async (container, { params }) => {
+    const token = String(params.token ?? '');
+    // A token is 32 random bytes in base64url. Anything else is not a token
+    // that was ever issued, and is refused before it reaches the database.
+    if (!/^[A-Za-z0-9_-]{43}$/.test(token)) return reject(Problem.user.notFound());
+
+    const share = await container.db.maybeOne(sql`
+      select d.*, f."xmlFormId", f.name as "formName", p.name as "projectName"
+      from field_data_dashboards d
+      join forms f on f.id = d."formId"
+      join projects p on p.id = d."projectId"
+      where d."tokenSha" = ${tokenSha(token)}
+        and d."revokedAt" is null
+        and (d."expiresAt" is null or d."expiresAt" > clock_timestamp())
+        and f."deletedAt" is null`);
+
+    // Revoked, expired, never issued, or for a form since deleted: all the
+    // same answer, so the link cannot be used to learn which it was.
+    if (share == null) return reject(Problem.user.notFound());
+
+    // Counting views is what makes a share auditable after the fact. It must
+    // never be the reason a reader gets an error, so it is not awaited into
+    // the response path.
+    container.db.query(sql`
+      update field_data_dashboards
+      set views = views + 1, "lastViewedAt" = clock_timestamp()
+      where id = ${share.id}`).catch(() => {});
+
+    const summary = await summarizeForm(container.db, share.formId);
+    return {
+      name: share.name,
+      formName: share.formName ?? share.xmlFormId,
+      projectName: share.projectName,
+      expiresAt: share.expiresAt,
+      summary
+    };
   }));
 
   ////////////////////////////////////////////////////////////////////////////////

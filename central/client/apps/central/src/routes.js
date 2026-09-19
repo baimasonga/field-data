@@ -216,6 +216,23 @@ const { i18n, requestData, config } = container;
 const { currentUser, serverConfig, project, form, dataset } = requestData;
 const routes = [
   asyncRoute({
+    // A read-only view of one form's counts, for somebody with no account.
+    // The token in the path is the whole of the authorisation.
+    path: '/shared/:token',
+    component: 'SharedDashboard',
+    props: true,
+    loading: 'page',
+    meta: {
+      requireLogin: false,
+      // Nothing here needs a session, and a reader who happens to have one
+      // should not have it spent on a page that ignores it.
+      restoreSession: false,
+      standalone: true,
+      title: () => [i18n.t('common.appName')]
+    }
+  }),
+
+  asyncRoute({
     path: '/load-error',
     component: 'ClientConfigError',
     loading: 'page',
@@ -815,6 +832,10 @@ const routesByName = new Map();
     preserveData: [],
     fullWidth: false,
     skipAutoLogout: false,
+    // `true` for a page that stands on its own, with no navigation around it.
+    // A shared link sent to somebody without an account should not greet them
+    // with a menu they cannot use and a notice that they are not logged in.
+    standalone: false,
     ...meta,
     validateData: meta == null || meta.validateData == null
       ? []

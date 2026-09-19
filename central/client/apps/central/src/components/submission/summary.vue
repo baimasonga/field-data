@@ -52,6 +52,9 @@ the browser managed to download.
           {{ $t('truncated') }}
         </p>
       </template>
+
+      <submission-share v-if="project.dataExists && project.permits('form.update')"
+        :project-id="projectId" :xml-form-id="xmlFormId"/>
     </template>
   </div>
 </template>
@@ -65,6 +68,7 @@ import ChartBars from '../chart/bars.vue';
 import ChartTrend from '../chart/trend.vue';
 import DateTime from '../date-time.vue';
 import Loading from '../loading.vue';
+import SubmissionShare from './share.vue';
 
 import useReviewState from '../../composables/review-state';
 import { apiPaths } from '../../util/request';
@@ -80,7 +84,7 @@ const props = defineProps({
 
 const { t, n } = useI18n();
 const { reviewStateIcon } = useReviewState();
-const { createResource } = useRequestData();
+const { project, createResource } = useRequestData();
 
 const summary = createResource('formSummary');
 summary.request({ url: apiPaths.formSummary(props.projectId, props.xmlFormId) }).catch(noop);

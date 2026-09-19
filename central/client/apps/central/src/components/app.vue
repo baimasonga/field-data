@@ -13,7 +13,7 @@ except according to the terms contained in the LICENSE file.
   <div>
     <!-- If the user's session is restored during the initial navigation, that
     will affect how the navbar is rendered. -->
-    <navbar v-show="routerReady"/>
+    <navbar v-show="routerReady && !$route.meta.standalone"/>
     <alerts/>
     <feedback-button v-if="showsFeedbackButton"/>
     <div ref="containerEl" class="container-fluid">
