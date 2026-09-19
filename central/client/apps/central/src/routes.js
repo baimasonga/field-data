@@ -919,6 +919,7 @@ const routesByName = new Map();
   const preserveBetweenTabs = (to, from) => equals(to.params, from.params);
   const projectRoutes = [
     'ProjectOverview',
+    'ProjectSummary',
     'ProjectUserList',
     'FieldKeyList',
     'CustomPropertyList',
@@ -929,6 +930,8 @@ const routesByName = new Map();
   ];
   const formRoutes = [
     'FormSubmissions',
+    'SubmissionSummary',
+    'SubmissionPhotos',
     'PublicLinkList',
     'FormVersionList',
     'FormEdit',
