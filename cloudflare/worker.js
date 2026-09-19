@@ -11,11 +11,12 @@ const BOOT_TIMEOUT_MS = 10 * 60 * 1000;
 // on in the background and the next request picks it up.
 const PATIENCE_MS = 20 * 1000;
 
-// How the container runtime says "the container is not there right now". These
-// are its words, not the application's: the application never talks about
-// containers, so matching on them cannot swallow a real server error.
+// A backup signal, not the primary one. Matching the runtime's wording is a
+// losing game -- three deploys produced three different sentences -- so the
+// state of the container decides, and this only catches the case where the
+// container came back up before we got around to asking.
 const CONTAINER_UNAVAILABLE =
-  /Container suddenly disconnected|container is not running|no container instance/i;
+  /Error proxying request to container|Container suddenly disconnected|container is not running|container just exited|no container instance/i;
 
 const STARTING_UP_HTML = `<!doctype html>
 <html lang="en">
@@ -186,14 +187,16 @@ export class FieldDataContainer extends Container {
     // bad gateway. That is the same "not ready" and deserves the same answer.
     if (response.status === 502 || response.status === 504) return startingUp(request);
 
-    // The container runtime reports a container that went away mid-request as
-    // a 500 whose body says "Container suddenly disconnected, try again". That
-    // is the platform telling the caller to retry, and it is not something a
-    // person should ever read. It means the same as every other not-ready
-    // state here, so it gets the same answer.
+    // A 500 here is either the application's own or the runtime reporting that
+    // the container went away mid-request -- "Container suddenly disconnected",
+    // "The container just exited", "Error proxying request to container", three
+    // sentences from three deploys. Which one it is does not depend on the
+    // wording: if the container is not running, nothing in it produced this.
+    // That is a fact to read rather than a string to match, and the wording is
+    // kept only as a second signal for when it has already come back up.
     if (response.status === 500) {
       const body = await response.text();
-      if (CONTAINER_UNAVAILABLE.test(body)) {
+      if (!this.container.running || CONTAINER_UNAVAILABLE.test(body)) {
         console.log('Container was unavailable mid-request, reporting as starting up.');
         this.#boot = null;
         return startingUp(request);

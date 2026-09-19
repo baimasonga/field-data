@@ -357,9 +357,15 @@ jobs:
           body=$(jq -nc --arg e "$SYSADMIN_EMAIL" --arg p "$FIELD_DATA_ADMIN_PASSWORD" \
             '{email: $e, password: $p}')
 
-          # The backend may still be running migrations behind a healthy nginx,
-          # which answers 502. That is "not up yet", not "wrong password".
-          for attempt in 1 2 3 4 5 6 7 8 9 10; do
+          # The question is "can the administrator log in, once the system is
+          # up". Only two answers exist: 200 is yes, 401 is no. Everything else
+          # -- a booting backend, a container being replaced, whatever sentence
+          # the runtime invents for a container that went away -- means the
+          # system is not up yet and is worth waiting out.
+          #
+          # Three deploys were failed by enumerating those sentences one at a
+          # time. This stops enumerating them.
+          for attempt in $(seq 1 12); do
             response=$(curl --silent --show-error --max-time 30 \
               --write-out '\n%{http_code}' \
               --header 'Content-Type: application/json' \
@@ -368,34 +374,25 @@ jobs:
             status=${response##*$'\n'}
             payload=${response%$'\n'*}
 
-            # The container runtime answers a request that arrives while the
-            # container is being replaced with a 500 reading "Container
-            # suddenly disconnected, try again" -- its own words, telling the
-            # caller to retry. Deploy 42 called that a login failure. It is the
-            # same "not ready" as the rest and waits like the rest; every other
-            # 500 is still fatal on the first one.
-            if [[ "$status" == 500 ]] &&
-               printf '%s' "$payload" | grep -qiE 'Container suddenly disconnected|container is not running'; then
-              status=503
+            if [[ "$status" == 200 ]]; then
+              echo "The administrator can log in (after $attempt attempt(s))."
+              exit 0
             fi
 
-            case "$status" in
-              502|503|504|000)
-                echo "The backend answered $status (attempt $attempt of 10); waiting 20s."
-                sleep 20
-                ;;
-              *) break ;;
-            esac
+            if [[ "$status" == 401 ]]; then
+              echo "The server rejected the administrator's credentials:"
+              printf '%s\n' "$payload" | jq . 2>/dev/null || printf '%s\n' "$payload"
+              echo "Nobody can log in with $SYSADMIN_EMAIL." >&2
+              exit 1
+            fi
+
+            echo "Not up yet: answered $status (attempt $attempt of 12); waiting 20s."
+            sleep 20
           done
 
-          echo "POST /v1/sessions answered $status."
-          if [[ "$status" == 200 ]]; then
-            echo "The administrator can log in."
-            exit 0
-          fi
-          echo "The server said:"
-          printf '%s\n' "$payload" | jq . 2>/dev/null || printf '%s\n' "$payload"
-          echo "Nobody can log in with $SYSADMIN_EMAIL." >&2
+          echo "The server never became ready enough to answer a login in four minutes." >&2
+          echo "The last answer was $status:" >&2
+          printf '%s\n' "$payload" >&2
           exit 1
 
       # Runs whether the login worked or not, because the interesting case is
