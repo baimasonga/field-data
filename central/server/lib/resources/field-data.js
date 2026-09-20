@@ -23,6 +23,7 @@ const { parseGeopoint, checkImplausibleTravel, IMPLAUSIBLE_TRAVEL } = require('.
 const { normalizeDefinition, resolveStoredDefinition, compileFilter, extractObject, projectObject } = require('../util/filtered-datasets');
 const { normalizeWidget, capRows, tooManyDistinct, MAX_BARS } = require('../util/widgets');
 const { mergeFields, codingDivergence } = require('../util/merged-datasets');
+const { normalizeConfig, redactConfig, describeTargets } = require('../util/rest-targets');
 
 const pingUrl = (urlStr) => new Promise((resolve) => {
   try {
@@ -69,7 +70,27 @@ const uploadErrorHandler = (error, request, response, next) => {
   }
 };
 
-const publicWebhook = ({ secret, ...webhook }) => ({ ...webhook, hasSecret: Boolean(secret) });
+// Never the signing secret, and never a credential out of config: a value
+// handed back once is a value that has been logged and pasted into a ticket.
+// What comes back is whether it is set and the last few characters.
+const publicWebhook = ({ secret, config, ...webhook }) => ({
+  ...webhook,
+  config: redactConfig(webhook.target, config),
+  hasSecret: Boolean(secret)
+});
+
+const targetOrProblem = (target, config) => {
+  try {
+    return normalizeConfig(target, config);
+  } catch (error) {
+    if (error.field != null) {
+      throw Problem.user.unexpectedValue({
+        field: error.field, value: error.value, reason: error.reason
+      });
+    }
+    throw error;
+  }
+};
 const validWebhookUrl = async (url) => {
   try {
     await resolveWebhookUrl(url);
@@ -1703,10 +1724,15 @@ module.exports = (service, endpoint) => {
   service.get('/field-data/webhooks', endpoint(async (container, { auth }) => {
     await auth.canOrReject('config.set', Config.species);
     const webhooks = await container.db.any(sql`
-      select id, name, url, events, active, "lastStatus", "createdAt",
-        (secret is not null and secret <> '') as "hasSecret"
-      from field_data_webhooks order by "createdAt" desc`);
-    return webhooks;
+      select w.id, w.name, w.url, w.events, w.active, w."lastStatus", w."createdAt",
+        w.target, w.config, w."formId", f."xmlFormId",
+        (w.secret is not null and w.secret <> '') as "hasSecret"
+      from field_data_webhooks w
+      left join forms f on f.id = w."formId" and f."deletedAt" is null
+      order by w."createdAt" desc`);
+    return webhooks.map(webhook => ({
+      ...webhook, config: redactConfig(webhook.target, webhook.config)
+    }));
   }));
 
   service.post('/field-data/webhooks', endpoint(async (container, { body, auth }) => {
@@ -1717,13 +1743,33 @@ module.exports = (service, endpoint) => {
     // Generate a signing secret so receivers can verify the HMAC-SHA256
     // signature sent with each delivery (X-FieldData-Signature header).
     const events = validateEvents(body.events === undefined ? [] : body.events);
+    const { target, config } = targetOrProblem(body.target ?? 'json', body.config);
+
+    // Scoping to a form takes permission on that form, not only the site-wide
+    // config right: pointing a service at a form is a way to read it.
+    let formId = null;
+    if (body.xmlFormId != null && body.projectId != null) {
+      const form = await container.Forms
+        .getByProjectAndXmlFormId(body.projectId, body.xmlFormId, Form.PublishedVersion)
+        .then(getOrNotFound);
+      await auth.canOrReject('submission.list', form);
+      await auth.canOrReject('submission.read', form);
+      formId = form.id;
+    }
+
     const secret = crypto.randomBytes(24).toString('hex');
     const created = await container.db.one(sql`
-      insert into field_data_webhooks (name, url, events, secret)
-      values (${body.name}, ${body.url}, ${JSON.stringify(events)}, ${encryptSecret(secret)})
+      insert into field_data_webhooks (name, url, events, secret, target, config, "formId")
+      values (${body.name}, ${body.url}, ${JSON.stringify(events)}, ${encryptSecret(secret)},
+        ${target.name}, ${JSON.stringify(config)}, ${formId})
       returning *
     `);
     return { ...publicWebhook(created), secret };
+  }));
+
+  service.get('/field-data/webhook-targets', endpoint(async (container, { auth }) => {
+    await auth.canOrReject('config.set', Config.species);
+    return describeTargets();
   }));
 
   service.get('/field-data/webhooks/:id/deliveries', endpoint(async (container, { params, auth }) => {
@@ -1749,10 +1795,17 @@ module.exports = (service, endpoint) => {
       active: body.active !== undefined ? body.active : webhook.active
     };
     await validWebhookUrl(updated.url);
+    const { target, config } = targetOrProblem(
+      body.target ?? webhook.target,
+      // An absent config on a patch means "leave it"; an explicit one replaces
+      // it wholesale, so a secret cannot be half-rotated into place.
+      body.config === undefined ? webhook.config : body.config
+    );
 
     const result = await container.db.one(sql`
       update field_data_webhooks
-      set name=${updated.name}, url=${updated.url}, events=${updated.events}, active=${updated.active}
+      set name=${updated.name}, url=${updated.url}, events=${updated.events},
+        active=${updated.active}, target=${target.name}, config=${JSON.stringify(config)}
       where id=${params.id}
       returning *
     `);

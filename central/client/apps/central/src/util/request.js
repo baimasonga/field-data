@@ -253,6 +253,7 @@ export const apiPaths = {
   fieldDataMediaItem: (id) => `/v1/field-data/media/${id}`,
   fieldDataMediaDownload: (id) => `/v1/field-data/media/download/${id}`,
   fieldDataWebhooks: () => '/v1/field-data/webhooks',
+  fieldDataWebhookTargets: () => '/v1/field-data/webhook-targets',
   fieldDataWebhook: (id) => `/v1/field-data/webhooks/${id}`,
   fieldDataWebhookDeliveries: (id) => `/v1/field-data/webhooks/${id}/deliveries`,
   fieldDataWebhookRotateSecret: (id) => `/v1/field-data/webhooks/${id}/rotate-secret`,

@@ -15,6 +15,20 @@ distribution and at https://www.apache.org/licenses/LICENSE-2.0.
         :placeholder="$t('field.url')" :aria-label="$t('field.url')" required>
       <input v-model.trim="newHook.events" class="form-control" type="text"
         :placeholder="$t('field.events')" :aria-label="$t('field.events')">
+      <select v-model="newHook.target" class="form-control"
+        :aria-label="$t('field.target')">
+        <option v-for="target of targets" :key="target.name" :value="target.name">
+          {{ target.label }}
+        </option>
+      </select>
+      <!-- The fields a target needs come from the same schema the server
+      validates against, so the form and the validator cannot drift apart. -->
+      <template v-for="setting of targetConfig" :key="setting.key">
+        <input v-model.trim="newHook.config[setting.key]" class="form-control"
+          :type="setting.secret ? 'password' : 'text'"
+          :placeholder="setting.describe" :aria-label="setting.describe"
+          :required="setting.required">
+      </template>
       <button type="submit" class="btn btn-primary" :aria-disabled="awaitingResponse">
         {{ $t('action.add') }} <spinner :state="awaitingResponse"/>
       </button>
@@ -35,6 +49,7 @@ distribution and at https://www.apache.org/licenses/LICENSE-2.0.
           <th>{{ $t('header.name') }}</th>
           <th>{{ $t('header.url') }}</th>
           <th>{{ $t('header.events') }}</th>
+          <th>{{ $t('header.target') }}</th>
           <th>{{ $t('header.status') }}</th>
           <th>{{ $t('header.active') }}</th>
           <th class="actions-col">{{ $t('header.actions') }}</th>
@@ -46,6 +61,11 @@ distribution and at https://www.apache.org/licenses/LICENSE-2.0.
             <td>{{ hook.name }}</td>
             <td class="url-cell">{{ hook.url }}</td>
             <td>{{ (hook.events || []).join(', ') || $t('allEvents') }}</td>
+            <td class="target-cell">
+              {{ targetLabel(hook.target) }}
+              <span v-if="hook.xmlFormId" class="scoped">{{ hook.xmlFormId }}</span>
+              <span v-else class="scoped">{{ $t('everyForm') }}</span>
+            </td>
             <td :class="{ 'status-failed': failing(hook.lastStatus) }">
               {{ hook.lastStatus }}
             </td>
@@ -115,7 +135,7 @@ distribution and at https://www.apache.org/licenses/LICENSE-2.0.
 </template>
 
 <script setup>
-import { inject, reactive, ref } from 'vue';
+import { computed, inject, reactive, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 
 import DateTime from '../date-time.vue';
@@ -148,7 +168,16 @@ const failing = (status) => {
   return Number.isFinite(code) && (code < 200 || code >= 300);
 };
 
-const newHook = reactive({ name: '', url: '', events: '' });
+const newHook = reactive({ name: '', url: '', events: '', target: 'json', config: {} });
+const targets = ref([]);
+const targetConfig = computed(() => targets.value
+  .find(target => target.name === newHook.target)?.config ?? []);
+const targetLabel = (name) => targets.value
+  .find(target => target.name === name)?.label ?? name ?? 'json';
+
+request({ method: 'GET', url: apiPaths.fieldDataWebhookTargets() })
+  .then(({ data }) => { targets.value = data; })
+  .catch(noop);
 const parseEvents = (str) => str.split(',').map(s => s.trim()).filter(s => s !== '');
 
 const expandedId = ref(null);
@@ -160,7 +189,13 @@ const create = () => {
   request({
     method: 'POST',
     url: apiPaths.fieldDataWebhooks(),
-    data: { name: newHook.name, url: newHook.url, events: parseEvents(newHook.events) }
+    data: {
+      name: newHook.name,
+      url: newHook.url,
+      events: parseEvents(newHook.events),
+      target: newHook.target,
+      config: { ...newHook.config }
+    }
   })
     .then(({ data }) => {
       latestSecret.value = data.secret;
@@ -168,6 +203,8 @@ const create = () => {
       newHook.name = '';
       newHook.url = '';
       newHook.events = '';
+      newHook.target = 'json';
+      newHook.config = {};
       fetchData();
     })
     .catch(noop);
@@ -233,7 +270,8 @@ const toggleDetails = (hook) => {
     "field": {
       "name": "Name",
       "url": "URL (https://…)",
-      "events": "Events (comma-separated)"
+      "events": "Events (comma-separated)",
+      "target": "Where to send it"
     },
     "action": {
       "add": "Add webhook",
@@ -247,12 +285,15 @@ const toggleDetails = (hook) => {
       "name": "Name",
       "url": "URL",
       "events": "Events",
+      "target": "Sends",
       "status": "Last status",
       "active": "Active",
       "actions": "Actions"
     },
     // Shown in the Events column when a webhook subscribes to every event.
     "allEvents": "All events",
+    // Shown where a service is not scoped to one Form.
+    "everyForm": "every Form",
     "emptyTable": "No webhooks have been configured yet.",
     "confirmDelete": "Are you sure you want to delete the webhook “{name}”?",
     "alert": {
@@ -277,6 +318,8 @@ const toggleDetails = (hook) => {
 </i18n>
 
 <style lang="scss">
+@import '../../assets/scss/variables';
+
 #field-data-webhooks {
   .webhook-form {
     display: flex;
@@ -286,6 +329,15 @@ const toggleDetails = (hook) => {
     .form-control { width: auto; flex: 1 1 180px; }
   }
   .url-cell { max-width: 320px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  // The target and its scope are two facts, not one phrase: without a
+  // separator "JSON endpoint every Form" reads as a single label.
+  .target-cell .scoped {
+    color: $color-text-muted;
+    font-size: 12px;
+
+    &::before { content: '·'; margin: 0 4px; }
+  }
   .actions-col { text-align: right; white-space: nowrap; }
   .actions-col .btn + .btn { margin-left: 5px; }
 

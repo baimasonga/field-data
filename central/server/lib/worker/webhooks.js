@@ -18,6 +18,7 @@ const https = require('https');
 const { sql } = require('slonik');
 const { resolveWebhookUrl } = require('../util/safe-webhook-url');
 const { decryptSecret } = require('../util/field-data-secret');
+const { getTarget } = require('../util/rest-targets');
 
 // The set of audit actions for which webhooks may be delivered. Listing an
 // action here also makes it "actionable" (see Audit.actionableEvents), which is
@@ -136,11 +137,18 @@ const dispatchWebhooks = async (container, event) => {
   const { all, run } = container;
 
   const webhooks = await all(sql`
-    select id, url, secret from field_data_webhooks
+    select id, url, secret, target, config from field_data_webhooks
     where active = true and jsonb_typeof(events) = 'array'
       and (
         (case when jsonb_typeof(events) = 'array' then jsonb_array_length(events) else null end) = 0
         or events @> ${JSON.stringify([event.action])}::jsonb
+      )
+      -- A null formId is the site-wide case and still fires for everything.
+      -- A scoped service fires only for its own form, which for a submission
+      -- event is the actee: Audits.log names the form, not the submission.
+      and (
+        "formId" is null
+        or "formId" = (select id from forms where "acteeId" = ${event.acteeId ?? null})
       )`);
   if (webhooks.length === 0) return;
 
@@ -151,23 +159,32 @@ const dispatchWebhooks = async (container, event) => {
     loggedAt: event.loggedAt,
     details: event.details
   };
-  const rawBody = Buffer.from(JSON.stringify(payload));
-
   await eachWithConcurrency(webhooks, 5, async (hook) => {
-    const headers = {
-      'Content-Type': 'application/json',
-      'Content-Length': rawBody.length,
-      'User-Agent': 'FieldData-Webhook/1.0',
-      'X-FieldData-Event': event.action
-    };
     let outcome;
     try {
+      // The target decides the body and its content type; everything else --
+      // the signature, the retries, the delivery log -- stays the same for all
+      // of them, which is the point of having one registry rather than one
+      // delivery path per integration.
+      const target = getTarget(hook.target);
+      if (target == null)
+        throw new Error(`Unknown delivery target "${hook.target}".`);
+      const built = target.buildRequest(payload, hook.config ?? {});
+      const rawBody = built.body;
+
+      const headers = {
+        ...built.headers,
+        'User-Agent': 'FieldData-Webhook/1.0',
+        'X-FieldData-Event': event.action
+      };
+      // Signed over the bytes actually sent, so a receiver verifies what it
+      // got rather than what a JSON-shaped version of it would have been.
       if (hook.secret != null && hook.secret !== '') {
         const secret = decryptSecret(hook.secret);
         const signature = crypto.createHmac('sha256', secret).update(rawBody).digest('hex');
         headers['X-FieldData-Signature'] = `sha256=${signature}`;
       }
-      outcome = await deliver(hook.url, rawBody, headers);
+      outcome = await deliver(built.url ?? hook.url, rawBody, headers);
     } catch (error) {
       outcome = {
         statusCode: null,

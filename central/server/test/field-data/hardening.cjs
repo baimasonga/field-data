@@ -7,8 +7,13 @@ const vm = require('node:vm');
 const { Readable } = require('node:stream');
 const dns = require('node:dns').promises;
 const http = require('node:http');
+const crypto = require('node:crypto');
 process.env.NODE_ENV = 'test';
 process.env.FIELD_DATA_STORAGE_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'field-data-test-'));
+// A fixed throwaway key so the secret round-trip can be exercised here. Not a
+// credential: it never leaves this process and encrypts only test fixtures.
+process.env.FIELD_DATA_WEBHOOK_ENCRYPTION_KEY =
+  process.env.FIELD_DATA_WEBHOOK_ENCRYPTION_KEY ?? '0'.repeat(64);
 const { isBlockedAddress, resolveWebhookUrl } = require('../../lib/util/safe-webhook-url');
 const { deliver } = require('../../lib/worker/webhooks');
 
@@ -374,6 +379,79 @@ test('merged datasets refuse fewer than two forms or a repeated form', async () 
       ),
       `expected ${JSON.stringify(xmlFormIds)} to be refused`
     );
+  }
+});
+
+// Every webhook that existed before targets did is target 'json' with a null
+// formId, and must keep behaving exactly as it did. A migration that quietly
+// stopped somebody's integration would do it at the far end, where nobody here
+// would see it.
+test('an untyped site-wide webhook still delivers the same JSON it always did', async () => {
+  const { dispatchWebhooks } = require('../../lib/worker/webhooks');
+  const posted = [];
+  const server = http.createServer((req, res) => {
+    let body = '';
+    req.on('data', chunk => { body += chunk; });
+    req.on('end', () => {
+      posted.push({ type: req.headers['content-type'], body });
+      res.end('ok');
+    });
+  });
+  await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+
+  try {
+    const url = `http://127.0.0.1:${server.address().port}/`;
+    const queries = [];
+    await dispatchWebhooks({
+      all: async query => {
+        queries.push(query.sql);
+        // The shape the migration leaves behind: defaulted target, no config.
+        return [{ id: 1, url, secret: null, target: 'json', config: {} }];
+      },
+      run: async () => {}
+    }, { action: 'submission.create', actorId: 1, acteeId: 'a1', loggedAt: 'now', details: {} });
+
+    assert.equal(posted.length, 1);
+    assert.equal(posted[0].type, 'application/json');
+    assert.equal(JSON.parse(posted[0].body).event, 'submission.create');
+    // And the selection still offers the site-wide case rather than requiring
+    // every row to name a form.
+    assert.ok(queries[0].includes('"formId" is null'));
+  } finally {
+    server.close();
+  }
+});
+
+// A scoped service delivers its target's body, signed over the bytes actually
+// sent rather than over a JSON version of them.
+test('a typed webhook sends its target body and signs those bytes', async () => {
+  const { dispatchWebhooks } = require('../../lib/worker/webhooks');
+  const { encryptSecret } = require('../../lib/util/field-data-secret');
+  let seen;
+  const server = http.createServer((req, res) => {
+    let body = '';
+    req.on('data', chunk => { body += chunk; });
+    req.on('end', () => { seen = { headers: req.headers, body }; res.end('ok'); });
+  });
+  await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+
+  try {
+    await dispatchWebhooks({
+      all: async () => [{
+        id: 2, url: `http://127.0.0.1:${server.address().port}/`,
+        secret: encryptSecret('shhh'), target: 'xml', config: { rootElement: 'submission' }
+      }],
+      run: async () => {}
+    }, { action: 'submission.create', actorId: 1, acteeId: 'a1', loggedAt: 'now', details: {} });
+
+    assert.equal(seen.headers['content-type'], 'application/xml');
+    assert.ok(seen.body.startsWith('<?xml'), seen.body);
+    assert.ok(seen.body.includes('<submission>'), seen.body);
+
+    const expected = crypto.createHmac('sha256', 'shhh').update(Buffer.from(seen.body)).digest('hex');
+    assert.equal(seen.headers['x-fielddata-signature'], `sha256=${expected}`);
+  } finally {
+    server.close();
   }
 });
 
