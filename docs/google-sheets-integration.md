@@ -33,6 +33,26 @@ If Google rejects the refresh token, the integration is marked as needing
 reauthorization. Replace both OAuth credentials in Details, then retry the
 failed synchronization. Stored credentials are never displayed again.
 
+## What has been checked, and what has not
+
+The requests this integration builds were sent to the live Google endpoints
+with deliberately invalid credentials, and the token exchange came back
+`invalid_client` — a complaint about the credential, not about the request, so
+the endpoint understands the form it is sent. The paths, parameters and
+response shapes are pinned in tests against Google's own machine-readable
+discovery document rather than against anybody's reading of the guide.
+
+Values are written with `valueInputOption=RAW`. The alternative, `USER_ENTERED`,
+parses each value as though a person had typed it, which would turn an answer
+beginning with `=` into a live formula in the spreadsheet. RAW stores what it
+is given, and a test exists to keep it that way.
+
+What none of that shows is whether an authorised request behaves as documented.
+Google checks credentials before it validates a range, so an unauthenticated
+probe cannot confirm that a range is acceptable — a deliberately malformed one
+is refused identically. The first real spreadsheet is still the first real
+test of that, and the place to watch is the delivery log.
+
 ## What it costs, and what it will not do
 
 A new Submission reads a single cell of the worksheet — enough to tell whether

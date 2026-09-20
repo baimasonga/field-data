@@ -1326,3 +1326,176 @@ test('a template is measured by what it becomes, not by what was uploaded', () =
     '../../lib/util/xls-reports.js'), 'utf8');
   assert.match(source, /await assertBoundedArchive\([\s\S]{0,200}?\n\s*const workbook = new ExcelJS\.Workbook\(\)/);
 });
+
+/*
+A round trip through the real target.
+
+Everything above tests a loop or a URL in isolation. This runs the sequence the
+worker actually performs -- exchange the refresh token, find the row, write it
+-- using lib/util/rest-targets/google-sheets.js unmodified, against a server
+that answers the way Google's published contract says it does.
+
+One substitution, and only one: the origin is rewritten to the local server,
+because the target's URLs point at Google over TLS and there are no
+credentials here. The paths, the query parameters, the bodies and the parsing
+are the real ones, and test/unit/util/google-sheets-contract.js is what pins
+those paths to Google's own discovery document.
+
+The response shapes below are ValueRange, AppendValuesResponse and
+UpdateValuesResponse as that document defines them; the 401 bodies are the
+ones the live endpoints returned to these exact requests.
+*/
+const realTarget = require('../../lib/util/rest-targets/google-sheets');
+
+const fakeGoogle = async (sheet, { tokenStatus = 200 } = {}) => {
+  const requests = [];
+  const server = http.createServer((req, res) => {
+    let body = '';
+    req.on('data', chunk => { body += chunk; });
+    req.on('end', () => {
+      const url = new URL(req.url, 'http://x');
+      requests.push({ method: req.method, path: url.pathname, query: url.searchParams });
+
+      if (url.pathname === '/token') {
+        if (tokenStatus !== 200) {
+          res.writeHead(401, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'invalid_client', error_description: 'The OAuth client was not found.' }));
+          return;
+        }
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ access_token: 'ya29.fake', expires_in: 3599, token_type: 'Bearer' }));
+        return;
+      }
+
+      if (req.headers.authorization !== 'Bearer ya29.fake') {
+        res.writeHead(401, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: { code: 401, status: 'UNAUTHENTICATED', message: 'Request had invalid authentication credentials.' } }));
+        return;
+      }
+
+      const range = decodeURIComponent(url.pathname.split('/values/')[1] ?? '');
+      if (req.method === 'GET') {
+        const [from, to] = range.split('!')[1].split(':').map(cell => Number(cell.slice(1)));
+        const column = sheet.slice(from - 1, to).map(row => row[0]);
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ range, majorDimension: 'COLUMNS', values: column.length === 0 ? [] : [column] }));
+        return;
+      }
+      const sent = JSON.parse(body).values;
+      if (req.method === 'POST') { // :append
+        sheet.push(...sent);
+        res.end(JSON.stringify({ spreadsheetId: 'x', tableRange: range, updates: { updatedRows: sent.length } }));
+        return;
+      }
+      const row = Number(range.split('!')[1].split(':')[0].slice(1)); // PUT, one row
+      sheet[row - 1] = sent[0];
+      res.end(JSON.stringify({ spreadsheetId: 'x', updatedRange: range, updatedRows: 1, updatedCells: sent[0].length }));
+    });
+  });
+  await new Promise(resolve => { server.listen(0, '127.0.0.1', resolve); });
+  const origin = `http://127.0.0.1:${server.address().port}`;
+  const local = (request) => ({ ...request, url: request.url.replace(/^https:\/\/[^/]+/, origin) });
+  return {
+    requests,
+    sheet,
+    close: () => new Promise(resolve => { server.close(resolve); }),
+    // The real target, with its origin pointed here.
+    target: {
+      ...realTarget,
+      buildTokenRequest: config => local({ ...realTarget.buildTokenRequest(config), url: `${origin}/token` }),
+      buildLookupRequest: (...args) => local(realTarget.buildLookupRequest(...args)),
+      buildRequest: (...args) => local(realTarget.buildRequest(...args))
+    }
+  };
+};
+
+const sheetsConfig = { spreadsheetId: 'sheet-id', sheetName: 'Submissions' };
+
+// The worker's sequence, kept in one place so the tests below read as the
+// story rather than as plumbing.
+const runDelivery = async (google, payload, { search }) => {
+  const tokenRequest = google.target.buildTokenRequest({ ...sheetsConfig, clientId: 'c', clientSecret: 's', refreshToken: 'r' });
+  const tokenOutcome = await deliver(tokenRequest.url, tokenRequest.body, tokenRequest.headers, tokenRequest.method);
+  const token = tokenOutcome.success ? JSON.parse(tokenOutcome.responseBody).access_token : null;
+  if (token == null) return { token: null, tokenOutcome };
+
+  const found = await _findSheetRow(google.target, sheetsConfig, token, payload.instanceId, { search });
+  if (found.failure != null) return { token, failure: found.failure };
+  const built = google.target.buildRequest(payload, sheetsConfig,
+    { accessToken: token, lookup: found.lookup });
+  const outcome = found.lookup.rowNumber == null
+    ? await _appendWithVerification(google.target, sheetsConfig, token, payload.instanceId, built)
+    : await deliver(built.url, built.body, built.headers, built.method);
+  return { token, found, outcome };
+};
+
+const rowFor = (id, district) => ({
+  instanceId: id,
+  headers: ['_instance_id', '_submitted_at', '_event', '/district'],
+  row: [id, '2026-09-20T00:00:00.000Z', 'submission.create', district]
+});
+
+test('a first Submission writes the header row and its own row', async () => {
+  const previousAgent = http.globalAgent;
+  http.globalAgent = new http.Agent({ proxyEnv: {} });
+  const google = await fakeGoogle([]);
+  try {
+    const result = await runDelivery(google, rowFor('uuid:1', 'Bombali'), { search: false });
+    assert.equal(result.outcome.success, true, JSON.stringify(result.outcome));
+    assert.deepEqual(google.sheet[0], ['_instance_id', '_submitted_at', '_event', '/district']);
+    assert.deepEqual(google.sheet[1][3], 'Bombali');
+    // One cell read, then the append: no column scan for a new Submission.
+    assert.deepEqual(google.requests.map(r => r.method), ['POST', 'GET', 'POST']);
+  } finally {
+    http.globalAgent.destroy(); http.globalAgent = previousAgent; await google.close();
+  }
+});
+
+test('a later Submission appends without repeating the headers', async () => {
+  const previousAgent = http.globalAgent;
+  http.globalAgent = new http.Agent({ proxyEnv: {} });
+  const google = await fakeGoogle([['_instance_id', '_submitted_at', '_event', '/district'],
+    ['uuid:1', '2026-09-20T00:00:00.000Z', 'submission.create', 'Bombali']]);
+  try {
+    await runDelivery(google, rowFor('uuid:2', 'Kono'), { search: false });
+    assert.equal(google.sheet.length, 3);
+    assert.deepEqual(google.sheet[2][3], 'Kono');
+  } finally {
+    http.globalAgent.destroy(); http.globalAgent = previousAgent; await google.close();
+  }
+});
+
+test('a new version replaces the Submission’s own row rather than adding one', async () => {
+  const previousAgent = http.globalAgent;
+  http.globalAgent = new http.Agent({ proxyEnv: {} });
+  const google = await fakeGoogle([['_instance_id', '_submitted_at', '_event', '/district'],
+    ['uuid:1', '2026-09-20T00:00:00.000Z', 'submission.create', 'Bombali'],
+    ['uuid:2', '2026-09-20T00:00:00.000Z', 'submission.create', 'Kono']]);
+  try {
+    const result = await runDelivery(google, rowFor('uuid:1', 'Bombali East'), { search: true });
+    assert.equal(result.found.lookup.rowNumber, 2);
+    assert.equal(google.sheet.length, 3, 'no row was added');
+    assert.deepEqual(google.sheet[1][3], 'Bombali East');
+    assert.deepEqual(google.sheet[2][3], 'Kono', 'the neighbouring row is untouched');
+    assert.ok(google.requests.some(r => r.method === 'PUT'));
+  } finally {
+    http.globalAgent.destroy(); http.globalAgent = previousAgent; await google.close();
+  }
+});
+
+test('an expired refresh token is reported as that, and not retried', async () => {
+  const previousAgent = http.globalAgent;
+  http.globalAgent = new http.Agent({ proxyEnv: {} });
+  const google = await fakeGoogle([], { tokenStatus: 401 });
+  try {
+    const result = await runDelivery(google, rowFor('uuid:1', 'Bombali'), { search: false });
+    assert.equal(result.token, null);
+    // 401 is not in retryable(), so a dead credential fails once rather than
+    // three times. This is the body the live endpoint actually returns.
+    assert.equal(result.tokenOutcome.attempts, 1);
+    assert.equal(JSON.parse(result.tokenOutcome.responseBody).error, 'invalid_client');
+    assert.equal(google.requests.length, 1, 'nothing was attempted against the sheet');
+  } finally {
+    http.globalAgent.destroy(); http.globalAgent = previousAgent; await google.close();
+  }
+});
