@@ -188,6 +188,10 @@ const loaders = new Map()
     /* webpackChunkName: "component-submission-summary" */
     '../components/submission/summary.vue'
   )))
+  .set('SubmissionFilteredDatasets', loader(() => import(
+    /* webpackChunkName: "component-submission-filtered-datasets" */
+    '../components/submission/filtered-datasets.vue'
+  )))
   .set('SubmissionVerification', loader(() => import(
     /* webpackChunkName: "component-submission-verification" */
     '../components/submission/verification.vue'

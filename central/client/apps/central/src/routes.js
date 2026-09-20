@@ -519,6 +519,26 @@ const routes = [
         }
       }),
       asyncRoute({
+        path: 'filtered-datasets',
+        component: 'SubmissionFilteredDatasets',
+        props: true,
+        loading: 'tab',
+        meta: {
+          validateData: {
+            project: () => project.permits([
+              'project.update',
+              'form.read',
+              'form.update',
+              'submission.list',
+              'submission.read'
+            ]),
+            form: () => form.publishedAt != null
+          },
+          title: () => [i18n.t('formHead.tab.filteredData'), form.nameOrId],
+          fullWidth: true
+        }
+      }),
+      asyncRoute({
         path: 'verification',
         component: 'SubmissionVerification',
         props: true,
@@ -931,6 +951,7 @@ const routesByName = new Map();
   const formRoutes = [
     'FormSubmissions',
     'SubmissionSummary',
+    'SubmissionFilteredDatasets',
     'SubmissionPhotos',
     'SubmissionVerification',
     'PublicLinkList',

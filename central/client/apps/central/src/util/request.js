@@ -213,6 +213,18 @@ export const apiPaths = {
   projectSummary: (projectId) => `/v1/projects/${projectId}/summary`,
   formSummary: (projectId, xmlFormId) =>
     `/v1/projects/${projectId}/forms/${encodeURIComponent(xmlFormId)}/summary`,
+  formFilterFields: (projectId, xmlFormId) =>
+    `/v1/projects/${projectId}/forms/${encodeURIComponent(xmlFormId)}/filter-fields`,
+  filteredDatasetPreview: (projectId, xmlFormId) =>
+    `/v1/projects/${projectId}/forms/${encodeURIComponent(xmlFormId)}/filtered-datasets/preview`,
+  filteredDatasets: (projectId, query = undefined) =>
+    `/v1/projects/${projectId}/filtered-datasets${queryString(query)}`,
+  filteredDataset: (projectId, id) =>
+    `/v1/projects/${projectId}/filtered-datasets/${id}`,
+  filteredDatasetDefinition: (projectId, id) =>
+    `/v1/projects/${projectId}/filtered-datasets/${id}/definition`,
+  filteredDatasetData: (projectId, id, query = undefined) =>
+    `/v1/projects/${projectId}/filtered-datasets/${id}/data${queryString(query)}`,
   formDashboards: (projectId, xmlFormId) =>
     `/v1/projects/${projectId}/forms/${encodeURIComponent(xmlFormId)}/dashboards`,
   sharedDashboard: (token) => `/v1/field-data/shared/${encodeURIComponent(token)}`,
