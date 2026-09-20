@@ -127,6 +127,10 @@ test('field-data queries do not name columns the schema dropped or never had', (
   const submissionDef = source.match(/\bs\."currentDefId"/g) || [];
   assert.deepEqual(submissionDef, [],
     `submissions has no currentDefId; join submission_defs on current = true`);
+
+  const formFieldDef = source.match(/\bff\."formDefId"/g) || [];
+  assert.deepEqual(formFieldDef, [],
+    `form_fields has schemaId, not formDefId; join through form_defs.schemaId`);
 });
 
 test('filtered dataset readers receive only declared columns without source-form access', async () => {
