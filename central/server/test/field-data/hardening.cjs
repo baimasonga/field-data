@@ -38,7 +38,7 @@ test('delivers through a DNS hostname on Node 24 with a pinned address', async (
     req.on('data', chunk => { body += chunk; });
     req.on('end', () => { res.end('ok'); });
   });
-  await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+  await new Promise(resolve => { server.listen(0, '127.0.0.1', resolve); });
   try {
     const result = await deliver(`http://webhook.test:${server.address().port}/`, Buffer.from('payload'), {});
     assert.equal(result.success, true, JSON.stringify(result));
@@ -47,14 +47,14 @@ test('delivers through a DNS hostname on Node 24 with a pinned address', async (
     dns.lookup = previous;
     http.globalAgent.destroy();
     http.globalAgent = previousAgent;
-    await new Promise(resolve => server.close(resolve));
+    await new Promise(resolve => { server.close(resolve); });
   }
 });
 
 const supabaseStore = fetch => {
   const module = { exports: {} };
   vm.runInNewContext(fs.readFileSync(path.join(__dirname, '../../lib/external/field-data-storage.js'), 'utf8'), {
-    require: name => name === 'config' ? { has: () => false } : require(name), module,
+    require: name => (name === 'config' ? { has: () => false } : require(name)), module,
     Buffer, URL, AbortController, AbortSignal, fetch,
     process: { env: {
       SUPABASE_S3_ENDPOINT: 'https://storage.test/storage/v1/s3', SUPABASE_REGION: 'test',
@@ -67,7 +67,7 @@ const supabaseStore = fetch => {
 
 test('Supabase upload rejects a source failure instead of hanging', { timeout: 2000 }, async () => {
   const store = supabaseStore(async (_, options) => {
-    for await (const chunk of options.body) { /* consume */ }
+    for await (const chunk of options.body) { assert.ok(chunk); }
     return { ok: true };
   });
   const source = new Readable({ read() { this.destroy(new Error('dump failed')); } });
@@ -369,8 +369,8 @@ test('merged datasets refuse fewer than two forms or a repeated form', async () 
   };
   const auth = { canOrReject: async () => {}, actor: { map: () => ({ orNull: () => 1 }) } };
 
-  for (const xmlFormIds of [['only-one'], [], ['same', 'same']]) {
-    await assert.rejects(
+  await Promise.all([['only-one'], [], ['same', 'same']].map(xmlFormIds =>
+    assert.rejects(
       routes.get('post /projects/:projectId/merged-datasets')(container, {
         params: { projectId: '9' }, body: { name: 'x', xmlFormIds }, auth
       }),
@@ -378,8 +378,7 @@ test('merged datasets refuse fewer than two forms or a repeated form', async () 
         error.problemDetails?.reason ?? error.message
       ),
       `expected ${JSON.stringify(xmlFormIds)} to be refused`
-    );
-  }
+    )));
 });
 
 // Every webhook that existed before targets did is target 'json' with a null
@@ -397,7 +396,7 @@ test('an untyped site-wide webhook still delivers the same JSON it always did', 
       res.end('ok');
     });
   });
-  await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+  await new Promise(resolve => { server.listen(0, '127.0.0.1', resolve); });
 
   try {
     const url = `http://127.0.0.1:${server.address().port}/`;
@@ -433,7 +432,7 @@ test('a typed webhook sends its target body and signs those bytes', async () => 
     req.on('data', chunk => { body += chunk; });
     req.on('end', () => { seen = { headers: req.headers, body }; res.end('ok'); });
   });
-  await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+  await new Promise(resolve => { server.listen(0, '127.0.0.1', resolve); });
 
   try {
     await dispatchWebhooks({
@@ -516,23 +515,24 @@ test('removing an organization member revokes only the organization grant', asyn
 });
 
 test('backup routes require backup.run rather than project creation rights', async () => {
-  for (const route of ['get /field-data/backups', 'post /field-data/backups', 'get /field-data/backups/:id/download']) {
-    await assert.rejects(routes.get(route)({}, { auth: { canOrReject: async verb => {
-      assert.equal(verb, 'backup.run');
-      throw new Error('forbidden');
-    } } }), /forbidden/);
-  }
+  await Promise.all([
+    'get /field-data/backups',
+    'post /field-data/backups',
+    'get /field-data/backups/:id/download'
+  ].map(route => assert.rejects(routes.get(route)({}, { auth: { canOrReject: async verb => {
+    assert.equal(verb, 'backup.run');
+    throw new Error('forbidden');
+  } } }), /forbidden/)));
 });
 
 test('webhook creation rejects malformed and unsupported event settings before insertion', async () => {
   const previous = dns.lookup;
   dns.lookup = async () => [{ address: '8.8.8.8', family: 4 }];
   try {
-    for (const events of [{}, 'submission.create', ['unknown.event']]) {
-      await assert.rejects(routes.get('post /field-data/webhooks')({}, {
+    await Promise.all([{}, 'submission.create', ['unknown.event']].map(events =>
+      assert.rejects(routes.get('post /field-data/webhooks')({}, {
         auth: { canOrReject: async () => {} }, body: { name: 'test', url: 'https://example.test/', events }
-      }), /supported webhook/);
-    }
+      }), /supported webhook/)));
   } finally { dns.lookup = previous; }
 });
 
@@ -691,12 +691,12 @@ test("a form's shares are listed to the form's administrator, wherever they serv
   let listed;
   const shares = await routes.get(
     'get /projects/:projectId/forms/:xmlFormId/filtered-datasets')({
-      Forms: { getByProjectAndXmlFormId: async () => option({ id: 7 }) },
-      db: { any: async query => { listed = query; return [{ id: 3, projectId: 9 }]; } }
-    }, {
-      params: { projectId: '4', xmlFormId: 'survey' },
-      auth: { canOrReject: async (verb, target) => permissions.push([verb, target]) }
-    });
+    Forms: { getByProjectAndXmlFormId: async () => option({ id: 7 }) },
+    db: { any: async query => { listed = query; return [{ id: 3, projectId: 9 }]; } }
+  }, {
+    params: { projectId: '4', xmlFormId: 'survey' },
+    auth: { canOrReject: async (verb, target) => permissions.push([verb, target]) }
+  });
   // The same right that authorises creating one. Anything weaker and this is
   // a way to learn which projects hold a form's data.
   assert.deepEqual(permissions.map(([verb]) => verb), ['form.update']);

@@ -31,7 +31,7 @@ describe('(util) merged datasets', () => {
       ]);
       merged.should.have.length(1);
       reasonFor(excluded, '/data/gps').should.equal(EXCLUDED.MISSING);
-      const detail = excluded.find(row => row.path === '/data/gps').detail;
+      const { detail } = excluded.find(row => row.path === '/data/gps');
       detail.present.should.eql(['round1']);
       detail.absent.should.eql(['round2']);
     });

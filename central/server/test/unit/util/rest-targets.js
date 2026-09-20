@@ -1,7 +1,6 @@
 const Should = require('should'); // eslint-disable-line no-unused-vars
-const {
-  getTarget, normalizeConfig, redactConfig, describeTargets
-} = require('../../../lib/util/rest-targets');
+const { getTarget, normalizeConfig, redactConfig, describeTargets } =
+  require('../../../lib/util/rest-targets');
 const xml = require('../../../lib/util/rest-targets/xml');
 
 // A recorded event, the shape the worker actually builds.
