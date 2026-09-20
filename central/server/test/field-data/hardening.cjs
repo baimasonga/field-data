@@ -142,29 +142,72 @@ test('dashboard submission queries exclude projects without both read and list p
 // does not have, and none of them could fail until a real database saw them.
 // A source scan is crude, but it catches the whole class in the one file where
 // this project writes raw SQL, and it costs nothing to run.
+/*
+Every file where Field Data writes raw SQL, found rather than listed.
+
+Three of these scans existed as a hand-kept list of two files, and two more
+files with raw SQL arrived without being added to it -- which is the same way
+the mistakes below arrived in the first place. A Field Data file is one
+carrying this project's copyright header, so a new one is covered the day it
+is written.
+
+Upstream ODK files are deliberately out of scope: they alias tables by other
+conventions, and `f.name` is perfectly correct where `f` is a form_defs.
+*/
+const fieldDataSqlFiles = () => {
+  const root = path.join(__dirname, '..', '..', 'lib');
+  const found = [];
+  const walk = (dir) => {
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+      const full = path.join(dir, entry.name);
+      if (entry.isDirectory()) { walk(full); continue; }
+      if (!entry.name.endsWith('.js')) continue;
+      const text = fs.readFileSync(full, 'utf8');
+      if (!text.includes('Field Data Developers')) continue;
+      if (!/\bsql`/.test(text)) continue;
+      found.push({
+        file: path.relative(path.join(__dirname, '..', '..'), full),
+        // Comments here explain these very mistakes, so strip both comment
+        // styles before scanning or the explanation trips the test.
+        source: text.split('\n').filter(line => !/^\s*(\/\/|--)/.test(line)).join('\n')
+      });
+    }
+  };
+  walk(root);
+  return found;
+};
+
+test('the schema scan looks at every Field Data file that writes SQL', () => {
+  const files = fieldDataSqlFiles().map(entry => entry.file);
+  // A discovery that quietly finds nothing would make every scan below pass
+  // without reading a line, so it has to prove it found the known ones.
+  for (const expected of [
+    'lib/resources/field-data.js',
+    'lib/worker/webhooks.js',
+    'lib/worker/field-data-google-sheets.js',
+    'lib/util/xls-report-data.js',
+    'lib/util/filtered-datasets.js'
+  ]) assert.ok(files.includes(expected), `${expected} missing from ${files.join(', ')}`);
+  assert.ok(files.length >= 5);
+});
+
 test('field-data queries do not name columns the schema dropped or never had', () => {
-  // Comments in that file explain these very mistakes, so strip both comment
-  // styles before scanning or the explanation trips the test.
-  const source = fs.readFileSync(
-    path.join(__dirname, '..', '..', 'lib', 'resources', 'field-data.js'), 'utf8')
-    .split('\n')
-    .filter(line => !/^\s*(\/\/|--)/.test(line))
-    .join('\n');
+  for (const { file, source } of fieldDataSqlFiles()) {
+    // forms.name was dropped in migration 20210423-02. A form's title lives on
+    // its current definition, so these have to go through form_defs.
+    const formsName = source.match(/\b(?:forms|f)\.name\b/g) || [];
+    assert.deepEqual(formsName, [], `${file}: forms has no name column (${formsName.join(', ')})`);
 
-  // forms.name was dropped in migration 20210423-02. A form's title lives on
-  // its current definition, so these have to go through form_defs.
-  const formsName = source.match(/\b(?:forms|f)\.name\b/g) || [];
-  assert.deepEqual(formsName, [], `forms has no name column: ${formsName.join(', ')}`);
+    // submissions has no currentDefId. The current version of a submission is
+    // the submission_defs row flagged current.
+    const submissionDef = source.match(/\bs\."currentDefId"/g) || [];
+    assert.deepEqual(submissionDef, [],
+      `${file}: submissions has no currentDefId; join submission_defs on current = true`);
 
-  // submissions has no currentDefId. The current version of a submission is
-  // the submission_defs row flagged current.
-  const submissionDef = source.match(/\bs\."currentDefId"/g) || [];
-  assert.deepEqual(submissionDef, [],
-    `submissions has no currentDefId; join submission_defs on current = true`);
-
-  const formFieldDef = source.match(/\bff\."formDefId"/g) || [];
-  assert.deepEqual(formFieldDef, [],
-    `form_fields has schemaId, not formDefId; join through form_defs.schemaId`);
+    const formFieldDef = source.match(/\bff\."formDefId"/g) || [];
+    assert.deepEqual(formFieldDef, [],
+      `${file}: form_fields has schemaId, not formDefId; join through form_defs.schemaId`);
+  }
 });
 
 // The same family, one table over, and the fourth bug of this shape here: an
@@ -173,13 +216,7 @@ test('field-data queries do not name columns the schema dropped or never had', (
 // where the numbers coincide -- which they do early in a fresh deployment,
 // long enough to look like it works.
 test('field-data queries do not bind one table id to another table id column', () => {
-  const sources = ['lib/resources/field-data.js', 'lib/worker/webhooks.js']
-    .map(file => [file, fs.readFileSync(path.join(__dirname, '..', '..', file), 'utf8')
-      .split('\n')
-      .filter(line => !/^\s*(\/\/|--)/.test(line))
-      .join('\n')]);
-
-  for (const [file, source] of sources) {
+  for (const { file, source } of fieldDataSqlFiles()) {
     // A submission version's id reaches form_defs through
     // submission_defs."formDefId", never by being compared to form_defs.id.
     const direct = source.match(/form_defs\s+\w+\s+on\s+\w+\.id\s*=\s*\$\{\s*submission\w*/gi) || [];

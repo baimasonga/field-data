@@ -169,6 +169,27 @@ require a session, so a route is public until it calls `auth.canOrReject`.
 Before adding anything to a response that a public route shares with an
 authenticated one, ask what the anonymous version of that response says.
 
+## A guard with a hand-written file list goes stale
+
+`test/field-data/hardening.cjs` scans this project's raw SQL for mistakes the
+schema makes easy: `forms.name`, `submissions.currentDefId`,
+`form_fields.formDefId`, and an id from one table bound to another table's id
+column. Those scans named the files they read. Two more files with raw SQL
+arrived, were not added to the list, and one of them shipped a bug from that
+very family.
+
+So the scan finds its files instead: everything under `lib/` carrying this
+project's copyright header and a `sql\`` template literal. A new file is
+covered the day it is written. Upstream ODK files stay out of scope
+deliberately -- they alias tables by other conventions, and `f.name` is
+correct where `f` is a form_defs.
+
+Discovery brings its own failure mode, and it is the worse one: a walk that
+quietly finds nothing makes every scan pass without reading a line. So there
+is a test whose only job is to assert the discovery found the files it must,
+and it fails if the marker stops matching. Any test that iterates over a
+discovered set needs that companion, or it is only pretending.
+
 ## A health probe is a side effect, not a read
 
 The Field Data dashboard's system-status block writes and deletes an object in
