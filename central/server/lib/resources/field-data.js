@@ -212,12 +212,13 @@ const filteredDatasetName = (body) => {
 };
 
 const filteredDatasetFields = (db, form) => db.any(sql`
-  select path, name, type, binary, "order"
-  from form_fields
-  where "formId" = ${form.id}
-    and coalesce(binary, false) = false
-    and path ~ '^(/[A-Za-z_][A-Za-z0-9_.-]*)+$'
-  order by "order", path`);
+  select ff.path, ff.name, ff.type, ff.binary, ff."order"
+  from form_fields ff
+  join form_defs fd on fd.id = ${form.currentDefId} and fd."schemaId" = ff."schemaId"
+  where ff."formId" = ${form.id}
+    and coalesce(ff.binary, false) = false
+    and ff.path ~ '^(/[A-Za-z_][A-Za-z0-9_.-]*)+$'
+  order by ff."order", ff.path`);
 
 const filteredDatasetRecord = (db, projectId, id) => db.maybeOne(sql`
   select d.*, f."xmlFormId", f."projectId" as "sourceProjectId", f."currentDefId"
