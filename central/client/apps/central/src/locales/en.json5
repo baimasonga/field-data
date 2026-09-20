@@ -17,8 +17,6 @@
     "tab": {
       // A tab of charts totalling up a Project's Submissions.
       "summary": "Summary",
-      // A tab for named, reusable subsets of a Form's Submissions.
-      "filteredData": "Filtered Data",
 
       "formAccess": "Form Access",
       "customProperties": "Custom Properties",
@@ -31,6 +29,8 @@
       "editForm": "Edit Form",
       // A tab of charts totalling up a Form's Submissions.
       "summary": "Summary",
+      // A tab for named, reusable subsets of a Form's Submissions.
+      "filteredData": "Filtered Data",
       // A tab showing every photograph a Form has collected.
       "photos": "Photos",
       // A tab where a reviewer sees what evidence each Submission carries and
