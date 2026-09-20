@@ -110,8 +110,8 @@ test('client navigation uses the same permissions as protected Field Data APIs',
   const home = fs.readFileSync(path.join(__dirname,
     '../../client/apps/central/src/components/field-data/home.vue'), 'utf8');
 
-  assert.match(routes, /path: 'webhooks'[\s\S]*?currentUser\.can\('config\.set'\)/);
+  assert.match(routes, /path: 'integrations'[\s\S]*?currentUser\.can\('config\.set'\)/);
   assert.match(routes, /path: 'backups'[\s\S]*?currentUser\.can\('backup\.run'\)/);
-  assert.match(home, /v-if="canConfigure"[\s\S]*?tabClass\('webhooks'\)/);
+  assert.match(home, /v-if="canConfigure"[\s\S]*?tabClass\('integrations'\)/);
   assert.match(home, /v-if="canBackup"[\s\S]*?tabClass\('backups'\)/);
 });
