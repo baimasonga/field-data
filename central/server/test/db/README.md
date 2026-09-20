@@ -51,6 +51,53 @@ every effective grant across the organizations migration's data path, with
 projects and grants already present. That diff was empty.
 
 
+## Tenancy: does an organization's role reach its Projects and nothing else?
+
+`seed-two-tenants.js` builds two organizations, each owning a Project with a
+Form and Submissions, and five people: a site administrator, an organization's
+owner and viewer, the other organization's manager, and somebody with no grant
+at all. `tenant-isolation.sql` then asks Central's own `can()` about eighteen
+combinations of person, Project and verb.
+
+```
+NODE_PATH=node_modules node test/db/seed-two-tenants.js   # writes /tmp/tenants.json
+psql -d odktest -f test/db/can.sql
+psql -d odktest -f test/db/tenant-isolation.sql
+```
+
+Run 2026-09-20 against PostgreSQL 16 with all 227 migrations: eighteen of
+eighteen matched.
+
+**But `can()` being right does not mean the routes ask it.** The sessions in
+`/tmp/tenants.json` exist so the real server can be driven as each person:
+
+```
+NODE_CONFIG_DIR=<config pointing at odktest> node lib/bin/run-server.js
+curl -H "Authorization: Bearer <token from /tmp/tenants.json>" localhost:8383/v1/projects
+```
+
+That is what found the two things below, neither of which any SQL assertion or
+mocked test could reach.
+
+**`GET /v1/projects` shows an organization's members nothing.** The listing in
+`lib/model/query/projects.js` authorises with a flat match —
+
+```sql
+on assignment."acteeId" in ('*', 'project', projects."acteeId")
+```
+
+— which is the site-wide grant, the species, or the Project's own actee. It
+never walks `actees.parent`, so a grant on an organization does not appear.
+Every per-Project route uses `can()` and is correct, so an organization's
+Projects are reachable by direct link and invisible in the list. `/v1/field-data/stats`
+inherits it through `Projects.getAllByAuth` and shows those members zero
+Projects.
+
+**Administrators had lost the organization routes entirely**, fixed in
+`20260920-09`. Moving those routes onto `organization.read` and friends left
+the verbs only on the owner role, so the administrator — who holds `config.set`
+and not these — got 403 on every organization they had not created themselves.
+
 ## End-to-end: do the queries return the right numbers?
 
 `seed-real-form.js` builds a real form from `forms/avdp_tree_crops_survey.xml`
