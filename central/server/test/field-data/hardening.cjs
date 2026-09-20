@@ -129,6 +129,60 @@ test('field-data queries do not name columns the schema dropped or never had', (
     `submissions has no currentDefId; join submission_defs on current = true`);
 });
 
+test('filtered dataset readers receive only declared columns without source-form access', async () => {
+  const project = { id: 9 };
+  const option = value => ({ isDefined: () => true, get: () => value });
+  const permissions = [];
+  const result = await routes.get('get /projects/:projectId/filtered-datasets/:id/data')({
+    Projects: { getById: async () => option(project) },
+    Forms: { getByProjectAndXmlFormId: async () => assert.fail('must not check source form') },
+    db: {
+      maybeOne: async () => option({
+        id: 3, projectId: 9, formId: 7, currentDefId: 12,
+        columns: ['/data/district'],
+        query: [{ column: '/data/name', filter: '<>', value: '', condition: 'AND' }]
+      }),
+      any: async query => (query.sql.includes('from form_fields')
+        ? [
+          { path: '/data/district', name: 'district', type: 'string', binary: false, order: 1 },
+          { path: '/data/name', name: 'name', type: 'string', binary: false, order: 2 }
+        ]
+        : [{ data: { '/data/district': 'Bombali' } }]),
+      one: async () => ({ total: 1, valid: 1 }),
+      oneFirst: async () => 1
+    }
+  }, {
+    params: { projectId: '9', id: '3' }, query: { limit: '10', offset: '0' },
+    auth: { canOrReject: async (verb, target) => permissions.push([verb, target]) }
+  });
+  assert.deepEqual(permissions.map(([verb]) => verb), [
+    'project.read', 'submission.list', 'submission.read'
+  ]);
+  assert.deepEqual(result.columns, ['/data/district']);
+  assert.deepEqual(Object.keys(result.data[0]), ['/data/district']);
+  assert.equal('/data/name' in result.data[0], false);
+
+  permissions.length = 0;
+  const definition = await routes.get('get /projects/:projectId/filtered-datasets/:id')({
+    Projects: { getById: async () => option(project) },
+    Forms: { getByProjectAndXmlFormId: async () => assert.fail('must not check source form') },
+    db: {
+      maybeOne: async () => option({
+        id: 3, projectId: 9, formId: 7, columns: ['/data/district'],
+        query: [{ column: '/data/name', filter: '<>', value: '', condition: 'AND' }]
+      })
+    }
+  }, {
+    params: { projectId: '9', id: '3' },
+    auth: { canOrReject: async (verb, target) => permissions.push([verb, target]) }
+  });
+  assert.deepEqual(permissions.map(([verb]) => verb), [
+    'project.read', 'submission.list', 'submission.read'
+  ]);
+  assert.equal(definition.query, undefined);
+  assert.equal(definition.filterCount, 1);
+});
+
 test('backup routes require backup.run rather than project creation rights', async () => {
   for (const route of ['get /field-data/backups', 'post /field-data/backups', 'get /field-data/backups/:id/download']) {
     await assert.rejects(routes.get(route)({}, { auth: { canOrReject: async verb => {

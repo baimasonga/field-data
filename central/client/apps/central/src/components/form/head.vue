@@ -58,6 +58,12 @@ except according to the terms contained in the LICENSE file.
             {{ $t('formHead.tab.summary') }}
           </router-link>
         </li>
+        <li v-if="canRoute(tabPath('filtered-datasets'))"
+          :class="formTabClass('filtered-datasets')" role="presentation">
+          <router-link :to="tabPath('filtered-datasets')">
+            {{ $t('formHead.tab.filteredData') }}
+          </router-link>
+        </li>
         <li v-if="canRoute(tabPath('photos'))" :class="formTabClass('photos')"
           role="presentation">
           <router-link :to="tabPath('photos')">

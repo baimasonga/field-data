@@ -17,6 +17,8 @@
     "tab": {
       // A tab of charts totalling up a Project's Submissions.
       "summary": "Summary",
+      // A tab for named, reusable subsets of a Form's Submissions.
+      "filteredData": "Filtered Data",
 
       "formAccess": "Form Access",
       "customProperties": "Custom Properties",

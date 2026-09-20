@@ -12,15 +12,15 @@ const http = require('http');
 const https = require('https');
 const { User, Project, Config, Form } = require('../model/frames');
 const Problem = require('../util/problem');
+const { postgresErrorToProblem } = require('../util/db');
 const { getOrNotFound, reject } = require('../util/promise');
 const { success, contentDisposition } = require('../util/http');
 const { webhookEvents } = require('../worker/webhooks');
 const { storage, formatBytes } = require('../external/field-data-storage');
 const { resolveWebhookUrl } = require('../util/safe-webhook-url');
 const { encryptSecret } = require('../util/field-data-secret');
-const {
-  parseGeopoint, checkImplausibleTravel, IMPLAUSIBLE_TRAVEL
-} = require('../util/fieldwork-integrity');
+const { parseGeopoint, checkImplausibleTravel, IMPLAUSIBLE_TRAVEL } = require('../util/fieldwork-integrity');
+const { normalizeDefinition, compileFilter, extractObject, projectObject } = require('../util/filtered-datasets');
 
 const pingUrl = (urlStr) => new Promise((resolve) => {
   try {
@@ -192,6 +192,91 @@ const summarizeForm = async (db, formId) => {
   return { ...totals, overTime, reviewStates, fields, truncated: byPath.size > fields.length };
 };
 
+const normalizeFilteredDataset = (body, fields) => {
+  try {
+    return normalizeDefinition(body, fields);
+  } catch (error) {
+    if (error.field != null) {
+      throw Problem.user.unexpectedValue({
+        field: error.field, value: error.value, reason: error.reason
+      });
+    }
+    throw error;
+  }
+};
+
+const filteredDatasetName = (body) => {
+  const name = String(body?.name ?? '').trim().slice(0, 255);
+  if (name === '') throw Problem.user.missingParameter({ field: 'name' });
+  return name;
+};
+
+const filteredDatasetFields = (db, form) => db.any(sql`
+  select path, name, type, binary, "order"
+  from form_fields
+  where "formId" = ${form.id}
+    and coalesce(binary, false) = false
+    and path ~ '^(/[A-Za-z_][A-Za-z0-9_.-]*)+$'
+  order by "order", path`);
+
+const filteredDatasetRecord = (db, projectId, id) => db.maybeOne(sql`
+  select d.*, f."xmlFormId", f."projectId" as "sourceProjectId", f."currentDefId"
+  from field_data_filtered_datasets d
+  join forms f on f.id = d."formId" and f."deletedAt" is null
+  where d.id = ${id} and d."projectId" = ${projectId}`);
+
+// A row filter may use a field that is not one of the dataset's visible
+// columns. Destination readers can use the subset, but the filter definition
+// itself is editor-only because even its field names can disclose source data.
+const publicFilteredDataset = ({ query, ...dataset }) => ({
+  ...dataset, filterCount: Array.isArray(query) ? query.length : 0
+});
+
+const filteredDatasetStats = async (db, formId, normalized) => {
+  const paths = [...new Set([
+    ...normalized.columns,
+    ...normalized.query.map(filter => filter.column)
+  ])];
+  const filter = compileFilter(normalized.query, normalized.fieldByPath);
+  const totals = await db.one(sql`
+    select count(*)::integer as total,
+      count(*) filter (where xml_is_well_formed_document(sd.xml))::integer as valid
+    from submissions s
+    join submission_defs sd on sd."submissionId" = s.id and sd.current = true
+    where s."formId" = ${formId} and s."deletedAt" is null and s.draft = false`);
+  const matching = totals.valid === 0 ? 0 : await db.oneFirst(sql`
+    with valid as (
+      select ${extractObject(paths)} as extracted
+      from submissions s
+      join submission_defs sd on sd."submissionId" = s.id and sd.current = true
+      where s."formId" = ${formId} and s."deletedAt" is null and s.draft = false
+        and xml_is_well_formed_document(sd.xml)
+    )
+    select count(*)::integer from valid where ${filter}`);
+  return { total: totals.total, matching, excludedMalformed: totals.total - totals.valid };
+};
+
+const filteredDatasetData = async (db, dataset, normalized, limit, offset) => {
+  const paths = [...new Set([
+    ...normalized.columns,
+    ...normalized.query.map(filter => filter.column)
+  ])];
+  const filter = compileFilter(normalized.query, normalized.fieldByPath);
+  const rows = await db.any(sql`
+    with valid as (
+      select s."createdAt", ${extractObject(paths)} as extracted
+      from submissions s
+      join submission_defs sd on sd."submissionId" = s.id and sd.current = true
+      where s."formId" = ${dataset.formId} and s."deletedAt" is null and s.draft = false
+        and xml_is_well_formed_document(sd.xml)
+    )
+    select ${projectObject(normalized.columns)} as data
+    from valid where ${filter}
+    order by "createdAt" desc
+    limit ${limit} offset ${offset}`);
+  return rows.map(row => row.data);
+};
+
 module.exports = (service, endpoint) => {
   // The field_data_* tables backing these resources are created by the
   // 20260707-01-add-field-data-tables migration.
@@ -210,6 +295,160 @@ module.exports = (service, endpoint) => {
     await auth.canOrReject('submission.list', form);
     await auth.canOrReject('submission.read', form);
     return summarizeForm(container.db, form.id);
+  }));
+
+  ////////////////////////////////////////////////////////////////////////////////
+  // FILTERED DATASETS
+  //
+  // A filtered dataset exposes selected answer paths and matching rows from a
+  // source form through a destination project. Editors must be able to change
+  // the source form; readers need rights only on the destination project. The
+  // data route deliberately performs no source-form permission fallback.
+
+  service.get('/projects/:projectId/forms/:xmlFormId/filter-fields', endpoint(async (container, { params, auth }) => {
+    const form = await container.Forms
+      .getByProjectAndXmlFormId(params.projectId, params.xmlFormId, Form.PublishedVersion)
+      .then(getOrNotFound);
+    await auth.canOrReject('submission.list', form);
+    await auth.canOrReject('submission.read', form);
+    return filteredDatasetFields(container.db, form);
+  }));
+
+  service.post('/projects/:projectId/forms/:xmlFormId/filtered-datasets/preview', endpoint(async (container, { params, body, auth }) => {
+    const form = await container.Forms
+      .getByProjectAndXmlFormId(params.projectId, params.xmlFormId, Form.PublishedVersion)
+      .then(getOrNotFound);
+    await auth.canOrReject('form.update', form);
+    const fields = await filteredDatasetFields(container.db, form);
+    const normalized = normalizeFilteredDataset(body, fields);
+    const stats = await filteredDatasetStats(container.db, form.id, normalized);
+    return { ...stats, fields: normalized.columns.length, availableFields: fields.length };
+  }));
+
+  service.post('/projects/:projectId/filtered-datasets', endpoint(async (container, { params, body, auth }) => {
+    const project = await container.Projects.getById(params.projectId).then(getOrNotFound);
+    await auth.canOrReject('project.update', project);
+    const sourceProjectId = Number.parseInt(body?.sourceProjectId ?? params.projectId, 10);
+    const form = await container.Forms
+      .getByProjectAndXmlFormId(sourceProjectId, body?.xmlFormId, Form.PublishedVersion)
+      .then(getOrNotFound);
+    await auth.canOrReject('form.update', form);
+    const fields = await filteredDatasetFields(container.db, form);
+    const normalized = normalizeFilteredDataset(body, fields);
+    const name = filteredDatasetName(body);
+    const created = await container.db.one(sql`
+      insert into field_data_filtered_datasets
+        (name, "projectId", "formId", columns, query, "createdBy")
+      values (${name}, ${project.id}, ${form.id}, ${JSON.stringify(normalized.columns)},
+        ${JSON.stringify(normalized.query)}, ${auth.actor.map(actor => actor.id).orNull()})
+      returning *`).catch(postgresErrorToProblem);
+    const stats = await filteredDatasetStats(container.db, form.id, normalized);
+    return { ...created, xmlFormId: form.xmlFormId, sourceProjectId: form.projectId, stats };
+  }));
+
+  service.get('/projects/:projectId/filtered-datasets', endpoint(async (container, { params, query, auth }) => {
+    const project = await container.Projects.getById(params.projectId).then(getOrNotFound);
+    await auth.canOrReject('project.read', project);
+    await auth.canOrReject('submission.list', project);
+    await auth.canOrReject('submission.read', project);
+    const sourceProjectId = Number.parseInt(query.sourceProjectId, 10);
+    const rows = await container.db.any(sql`
+      select d.id, d.name, d."projectId", d."formId", d.columns,
+        jsonb_array_length(d.query) as "filterCount", d."createdAt", d."updatedAt",
+        f."xmlFormId", f."projectId" as "sourceProjectId"
+      from field_data_filtered_datasets d
+      join forms f on f.id = d."formId" and f."deletedAt" is null
+      where d."projectId" = ${project.id}
+        and (${query.xmlFormId ?? null}::text is null or f."xmlFormId" = ${query.xmlFormId ?? null})
+        and (${Number.isFinite(sourceProjectId) ? sourceProjectId : null}::integer is null
+          or f."projectId" = ${Number.isFinite(sourceProjectId) ? sourceProjectId : null})
+      order by d."createdAt" desc`);
+    return rows;
+  }));
+
+  service.get('/projects/:projectId/filtered-datasets/:id', endpoint(async (container, { params, auth }) => {
+    const id = Number.parseInt(params.id, 10);
+    if (!Number.isInteger(id)) return reject(Problem.user.notFound());
+    const project = await container.Projects.getById(params.projectId).then(getOrNotFound);
+    await auth.canOrReject('project.read', project);
+    await auth.canOrReject('submission.list', project);
+    await auth.canOrReject('submission.read', project);
+    const dataset = await filteredDatasetRecord(container.db, project.id, id).then(getOrNotFound);
+    return publicFilteredDataset(dataset);
+  }));
+
+  service.get('/projects/:projectId/filtered-datasets/:id/definition', endpoint(async (container, { params, auth }) => {
+    const id = Number.parseInt(params.id, 10);
+    if (!Number.isInteger(id)) return reject(Problem.user.notFound());
+    const project = await container.Projects.getById(params.projectId).then(getOrNotFound);
+    await auth.canOrReject('project.update', project);
+    const dataset = await filteredDatasetRecord(container.db, project.id, id).then(getOrNotFound);
+    const form = await container.Forms
+      .getByProjectAndXmlFormId(dataset.sourceProjectId, dataset.xmlFormId, Form.PublishedVersion)
+      .then(getOrNotFound);
+    await auth.canOrReject('form.update', form);
+    return dataset;
+  }));
+
+  service.patch('/projects/:projectId/filtered-datasets/:id', endpoint(async (container, { params, body, auth }) => {
+    const id = Number.parseInt(params.id, 10);
+    if (!Number.isInteger(id)) return reject(Problem.user.notFound());
+    const project = await container.Projects.getById(params.projectId).then(getOrNotFound);
+    await auth.canOrReject('project.update', project);
+    const dataset = await filteredDatasetRecord(container.db, project.id, id).then(getOrNotFound);
+    const form = await container.Forms
+      .getByProjectAndXmlFormId(dataset.sourceProjectId, dataset.xmlFormId, Form.PublishedVersion)
+      .then(getOrNotFound);
+    await auth.canOrReject('form.update', form);
+    const fields = await filteredDatasetFields(container.db, form);
+    const normalized = normalizeFilteredDataset({
+      columns: body?.columns ?? dataset.columns,
+      query: body?.query ?? dataset.query
+    }, fields);
+    const name = body?.name == null ? dataset.name : filteredDatasetName(body);
+    const updated = await container.db.one(sql`
+      update field_data_filtered_datasets
+      set name = ${name}, columns = ${JSON.stringify(normalized.columns)},
+        query = ${JSON.stringify(normalized.query)}, "updatedAt" = clock_timestamp()
+      where id = ${dataset.id}
+      returning *`).catch(postgresErrorToProblem);
+    const stats = await filteredDatasetStats(container.db, form.id, normalized);
+    return { ...updated, xmlFormId: form.xmlFormId, sourceProjectId: form.projectId, stats };
+  }));
+
+  service.delete('/projects/:projectId/filtered-datasets/:id', endpoint(async (container, { params, auth }) => {
+    const id = Number.parseInt(params.id, 10);
+    if (!Number.isInteger(id)) return reject(Problem.user.notFound());
+    const project = await container.Projects.getById(params.projectId).then(getOrNotFound);
+    await auth.canOrReject('project.update', project);
+    const dataset = await filteredDatasetRecord(container.db, project.id, id).then(getOrNotFound);
+    const form = await container.Forms
+      .getByProjectAndXmlFormId(dataset.sourceProjectId, dataset.xmlFormId, Form.PublishedVersion)
+      .then(getOrNotFound);
+    await auth.canOrReject('form.update', form);
+    await container.db.query(sql`delete from field_data_filtered_datasets where id = ${dataset.id}`);
+    return success();
+  }));
+
+  service.get('/projects/:projectId/filtered-datasets/:id/data', endpoint(async (container, { params, query, auth }) => {
+    const id = Number.parseInt(params.id, 10);
+    if (!Number.isInteger(id)) return reject(Problem.user.notFound());
+    const project = await container.Projects.getById(params.projectId).then(getOrNotFound);
+    await auth.canOrReject('project.read', project);
+    await auth.canOrReject('submission.list', project);
+    await auth.canOrReject('submission.read', project);
+    const dataset = await filteredDatasetRecord(container.db, project.id, id).then(getOrNotFound);
+    const formShape = { id: dataset.formId, currentDefId: dataset.currentDefId };
+    const fields = await filteredDatasetFields(container.db, formShape);
+    const normalized = normalizeFilteredDataset(dataset, fields);
+    const limit = Math.min(Math.max(Number.parseInt(query.limit, 10) || 50, 1), 200);
+    const offset = Math.max(Number.parseInt(query.offset, 10) || 0, 0);
+    const stats = await filteredDatasetStats(container.db, dataset.formId, normalized);
+    const data = stats.matching === 0 ? [] : await filteredDatasetData(
+      container.db, dataset, normalized, limit, offset
+    );
+    return { total: stats.matching, limit, offset, excludedMalformed: stats.excludedMalformed,
+      columns: normalized.columns, data };
   }));
 
   ////////////////////////////////////////////////////////////////////////////////
