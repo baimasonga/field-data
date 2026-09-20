@@ -43,18 +43,46 @@ const buildTokenRequest = (config) => {
   };
 };
 
-const buildLookupRequest = (config, accessToken) => ({
+/*
+The instance-ID column is read in bounded windows rather than as `A:A`.
+
+`A:A` asks for the whole column, and the delivery worker keeps at most a
+megabyte of any response. An instance ID is about 46 bytes once JSON has
+quoted it, so a worksheet stopped syncing for good at roughly twenty-two
+thousand rows: the response was truncated mid-document, JSON.parse threw, and
+every later delivery failed with a parse error that said nothing about size.
+
+Ten thousand rows is about 460 KB, comfortably inside that cap, and the worker
+asks for the next window only when it has to.
+*/
+const LOOKUP_BATCH = 10000;
+
+const buildLookupRequest = (config, accessToken, { offset = 0, limit = LOOKUP_BATCH } = {}) => ({
   method: 'GET',
-  url: `${API}/${encodeURIComponent(config.spreadsheetId)}/values/${sheetRange(config.sheetName, 'A:A')}?majorDimension=COLUMNS`,
+  url: `${API}/${encodeURIComponent(config.spreadsheetId)}/values/${sheetRange(config.sheetName, `A${offset + 1}:A${offset + limit}`)}?majorDimension=COLUMNS`,
   headers: bearer(accessToken),
   body: null
 });
 
-const analyseLookup = (body, instanceId) => {
+/*
+`empty` is only meaningful for the first window: a later one coming back short
+means the end of the data, not an empty worksheet.
+
+`exhausted` says there is no point asking for another window. Sheets trims
+trailing blanks, so a short window can also mean somebody left gaps in the
+column; stopping there costs an append that could have been an update, which
+is a duplicate row rather than a row overwritten with the wrong answers.
+*/
+const analyseLookup = (body, instanceId, { offset = 0, limit = LOOKUP_BATCH } = {}) => {
   const parsed = JSON.parse(body || '{}');
-  const firstColumn = Array.isArray(parsed.values?.[0]) ? parsed.values[0] : [];
-  const index = firstColumn.findIndex(value => String(value) === String(instanceId));
-  return { empty: firstColumn.length === 0, rowNumber: index === -1 ? null : index + 1 };
+  const column = Array.isArray(parsed.values?.[0]) ? parsed.values[0] : [];
+  const index = column.findIndex(value => String(value) === String(instanceId));
+  return {
+    empty: offset === 0 && column.length === 0,
+    rowNumber: index === -1 ? null : offset + index + 1,
+    scanned: column.length,
+    exhausted: column.length < limit
+  };
 };
 
 const buildRequest = (payload, config, context) => {
@@ -114,5 +142,6 @@ module.exports = {
   buildLookupRequest,
   analyseLookup,
   buildRequest,
+  LOOKUP_BATCH,
   _columnName: columnName
 };

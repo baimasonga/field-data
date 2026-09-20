@@ -114,10 +114,13 @@ const deliverOnce = async (urlStr, rawBody, headers, method = 'POST') => {
 const retryable = (outcome) => outcome.statusCode == null || outcome.statusCode === 408
   || outcome.statusCode === 429 || outcome.statusCode >= 500;
 const pause = (milliseconds) => new Promise(resolve => { setTimeout(resolve, milliseconds); });
-const deliver = async (url, rawBody, headers, method = 'POST') => {
+// `maxAttempts` exists so a caller can ask for exactly one try. A retry is
+// safe for anything idempotent, and appending a spreadsheet row is not: see
+// appendWithVerification below.
+const deliver = async (url, rawBody, headers, method = 'POST', maxAttempts = 3) => {
   let outcome;
   let attempts = 0;
-  for (const delay of [0, 250, 1000]) {
+  for (const delay of [0, 250, 1000].slice(0, maxAttempts)) {
     // Retries are intentionally sequential and use bounded backoff.
     // eslint-disable-next-line no-await-in-loop
     if (delay !== 0 && process.env.NODE_ENV !== 'test') await pause(delay);
@@ -145,7 +148,10 @@ const eachWithConcurrency = async (items, concurrency, callback) => {
 
 // A short human-readable status for the field_data_webhooks."lastStatus" column.
 const statusLabel = (outcome) => (outcome.success
-  ? `Delivered (${outcome.statusCode})`
+  // An append whose response was lost but whose row is demonstrably in the
+  // sheet. Said differently from an ordinary success, because the difference
+  // is exactly what somebody reading the log would want to know.
+  ? (outcome.verified === true ? 'Delivered (confirmed in sheet)' : `Delivered (${outcome.statusCode})`)
   : `Failed (${outcome.statusCode != null ? outcome.statusCode : outcome.error})`).slice(0, 50);
 
 // Turn the audited Submission version into one stable spreadsheet row. Paths,
@@ -188,6 +194,70 @@ const googleSheetPayload = async ({ all }, event, hook) => {
     row: [submission.instanceId, submission.createdAt?.toISOString?.() ?? submission.createdAt,
       event.action, ...paths.map(path => submission.answers?.[path] ?? '')]
   };
+};
+
+/*
+Find an instance ID's row, reading the column in bounded windows.
+
+`search` is false when the integration does not synchronize updates. Then
+every event is a new Submission with an instance ID the sheet has never seen,
+so there is nothing to find: one small window answers the only question that
+remains, which is whether the worksheet is empty and needs its header row.
+That turns the common case from "fetch every ID ever written, on every
+Submission" into a single-cell read.
+
+When `search` is true the windows are walked until the ID turns up or the data
+runs out. Walking is what keeps updates safe: the row number is re-derived
+from the sheet each time rather than remembered, so somebody inserting a row
+by hand cannot make a later update overwrite the wrong one.
+*/
+const findSheetRow = async (target, config, accessToken, instanceId, { search }) => {
+  let offset = 0;
+  let empty = false;
+  for (;;) {
+    const window = search
+      ? { offset, limit: target.LOOKUP_BATCH }
+      : { offset: 0, limit: 1 };
+    const request = target.buildLookupRequest(config, accessToken, window);
+    // eslint-disable-next-line no-await-in-loop
+    const outcome = await deliver(request.url, request.body, request.headers, request.method);
+    if (!outcome.success) return { failure: outcome };
+
+    const batch = target.analyseLookup(outcome.responseBody, instanceId, window);
+    if (offset === 0) empty = batch.empty;
+    if (batch.rowNumber != null) return { lookup: { empty, rowNumber: batch.rowNumber } };
+    if (!search || batch.exhausted || batch.scanned === 0)
+      return { lookup: { empty, rowNumber: null } };
+    offset += batch.scanned;
+  }
+};
+
+/*
+Append the row, and never append it twice.
+
+A POST that appends is not idempotent. The delivery retry exists for lost
+responses, and a lost response is exactly the case where Google may already
+have committed the row -- so retrying blindly writes it a second time. The
+lookup that would have caught a duplicate ran before the append, so it cannot.
+
+Each retry therefore asks the sheet first. If the row is already there the
+delivery is over and succeeded, whatever the connection did.
+*/
+const appendWithVerification = async (target, config, accessToken, instanceId, built) => {
+  let outcome = await deliver(built.url, built.body, built.headers, built.method, 1);
+  let attempts = outcome.attempts;
+
+  for (let attempt = 1; attempt < 3 && !outcome.success && retryable(outcome); attempt += 1) {
+    // eslint-disable-next-line no-await-in-loop
+    const check = await findSheetRow(target, config, accessToken, instanceId, { search: true });
+    if (check.lookup?.rowNumber != null)
+      return { ...outcome, success: true, verified: true, error: null, attempts };
+    // Not there, so the append genuinely did not land and may be repeated.
+    // eslint-disable-next-line no-await-in-loop
+    outcome = await deliver(built.url, built.body, built.headers, built.method, 1);
+    attempts += outcome.attempts;
+  }
+  return { ...outcome, attempts };
 };
 
 const googleAccessToken = (outcome) => {
@@ -253,17 +323,20 @@ const dispatchWebhooks = async (container, event) => {
             error: 'Google authorization expired; replace the refresh token.',
           };
         } else {
-          const lookupRequest = target.buildLookupRequest(openedConfig, accessToken);
-          const lookupOutcome = await deliver(lookupRequest.url, lookupRequest.body,
-            lookupRequest.headers, lookupRequest.method);
-          if (!lookupOutcome.success) {
-            outcome = lookupOutcome;
-          } else {
-            targetContext = {
-              accessToken,
-              lookup: target.analyseLookup(lookupOutcome.responseBody, targetPayload.instanceId)
-            };
-          }
+          // Searching is only ever needed for a new version of a Submission
+          // the sheet already holds. An integration that does not synchronize
+          // updates never has one, and a create carries an instance ID that is
+          // new by construction -- ODK will not accept a second Submission
+          // under an ID a Form already has. So the common path, a new
+          // Submission arriving, reads one cell instead of every ID ever
+          // written, and only an actual update walks the column.
+          const found = await findSheetRow(target, openedConfig, accessToken,
+            targetPayload.instanceId, {
+              search: openedConfig.syncUpdates === true
+                && event.action !== 'submission.create'
+            });
+          if (found.failure != null) outcome = found.failure;
+          else targetContext = { accessToken, lookup: found.lookup };
         }
       }
 
@@ -285,7 +358,11 @@ const dispatchWebhooks = async (container, event) => {
           const signature = crypto.createHmac('sha256', secret).update(rawBody).digest('hex');
           headers['X-FieldData-Signature'] = `sha256=${signature}`;
         }
-        outcome = await deliver(built.url ?? hook.url, rawBody, headers, built.method);
+        // An append is the one request here that cannot be retried blindly.
+        outcome = (target.submissionRows === true && targetContext.lookup?.rowNumber == null)
+          ? await appendWithVerification(target, openedConfig, targetContext.accessToken,
+            targetPayload.instanceId, { ...built, headers, body: rawBody })
+          : await deliver(built.url ?? hook.url, rawBody, headers, built.method);
       }
     } catch (error) {
       outcome = {
@@ -312,6 +389,10 @@ const dispatchWebhooks = async (container, event) => {
 
 module.exports = {
   deliver, dispatchWebhooks, webhookEvents,
-  // Exported for its own test; not part of the worker's interface.
-  _googleSheetPayload: googleSheetPayload
+  // Exported for their own tests; not part of the worker's interface. The
+  // two loops are target-agnostic, so a test drives them with a stub target
+  // pointing at a local server rather than at Google.
+  _googleSheetPayload: googleSheetPayload,
+  _findSheetRow: findSheetRow,
+  _appendWithVerification: appendWithVerification
 };

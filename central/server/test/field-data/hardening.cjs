@@ -15,7 +15,8 @@ process.env.FIELD_DATA_STORAGE_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'fiel
 process.env.FIELD_DATA_WEBHOOK_ENCRYPTION_KEY =
   process.env.FIELD_DATA_WEBHOOK_ENCRYPTION_KEY ?? '0'.repeat(64);
 const { isBlockedAddress, resolveWebhookUrl } = require('../../lib/util/safe-webhook-url');
-const { deliver, _googleSheetPayload } = require('../../lib/worker/webhooks');
+const { deliver, _googleSheetPayload, _findSheetRow, _appendWithVerification } =
+  require('../../lib/worker/webhooks');
 
 test('rejects private addresses in dotted, compressed and expanded mapped IPv6', async () => {
   for (const ip of ['127.0.0.1', '10.1.2.3', '::1', '::ffff:127.0.0.1',
@@ -1026,5 +1027,177 @@ test('a Submission event with no version to synchronize is refused, not guessed 
     await assert.rejects(
       _googleSheetPayload({ all }, { action: 'submission.create', details }, { formId: 7 }),
       /does not identify a version/);
+  }
+});
+
+// The instance-ID column used to be fetched whole, as A:A, on every delivery,
+// against a worker that keeps at most a megabyte of any response. At about 46
+// bytes per quoted ID that was a hard stop near 22,000 rows: truncated JSON,
+// a parse error, and every later delivery failing for good with a message
+// that said nothing about size.
+//
+// These drive the real loops through the real deliver(), with a stub target
+// pointing at a local server. The loops are target-agnostic; google-sheets.js
+// builds the URLs and has its own tests for that.
+const sheetServer = async (handler) => {
+  const seen = [];
+  const server = http.createServer((req, res) => {
+    seen.push({ method: req.method, url: req.url });
+    let body = '';
+    req.on('data', chunk => { body += chunk; });
+    req.on('end', () => handler(req, res, seen.length, body));
+  });
+  await new Promise(resolve => { server.listen(0, '127.0.0.1', resolve); });
+  const port = server.address().port;
+  return {
+    seen,
+    port,
+    close: () => new Promise(resolve => { server.close(resolve); })
+  };
+};
+
+// Only the URL building differs from the real target, and only so the requests
+// land on a local plain-HTTP server instead of Google over TLS.
+const stubTarget = (port) => ({
+  LOOKUP_BATCH: 4,
+  buildLookupRequest: (config, accessToken, { offset = 0, limit = 4 } = {}) => ({
+    method: 'GET',
+    url: `http://127.0.0.1:${port}/values?offset=${offset}&limit=${limit}`,
+    headers: {},
+    body: null
+  }),
+  analyseLookup: require('../../lib/util/rest-targets/google-sheets').analyseLookup
+});
+
+test('the instance-ID column is read in windows until the row turns up', async () => {
+  const previousAgent = http.globalAgent;
+  http.globalAgent = new http.Agent({ proxyEnv: {} });
+  // Six IDs in windows of four: the wanted one is the second of the second
+  // window, so it is row six and it takes two requests to reach.
+  const ids = ['uuid:a', 'uuid:b', 'uuid:c', 'uuid:d', 'uuid:e', 'uuid:wanted'];
+  const srv = await sheetServer((req, res) => {
+    const url = new URL(req.url, 'http://x');
+    const offset = Number(url.searchParams.get('offset'));
+    const limit = Number(url.searchParams.get('limit'));
+    res.end(JSON.stringify({ values: [ids.slice(offset, offset + limit)] }));
+  });
+  try {
+    const found = await _findSheetRow(stubTarget(srv.port), {}, 'tok', 'uuid:wanted',
+      { search: true });
+    assert.deepEqual(found.lookup, { empty: false, rowNumber: 6 });
+    assert.equal(srv.seen.length, 2, JSON.stringify(srv.seen));
+    assert.match(srv.seen[1].url, /offset=4/);
+  } finally {
+    http.globalAgent.destroy();
+    http.globalAgent = previousAgent;
+    await srv.close();
+  }
+});
+
+test('an integration that does not sync updates reads one cell, not the column', async () => {
+  const previousAgent = http.globalAgent;
+  http.globalAgent = new http.Agent({ proxyEnv: {} });
+  const srv = await sheetServer((req, res) => {
+    res.end(JSON.stringify({ values: [['uuid:a']] }));
+  });
+  try {
+    const found = await _findSheetRow(stubTarget(srv.port), {}, 'tok', 'uuid:new',
+      { search: false });
+    // Nothing to search for: every event carries an ID the sheet has not seen.
+    // The one question left is whether the header row still has to be written.
+    assert.deepEqual(found.lookup, { empty: false, rowNumber: null });
+    assert.equal(srv.seen.length, 1);
+    assert.match(srv.seen[0].url, /limit=1/);
+  } finally {
+    http.globalAgent.destroy();
+    http.globalAgent = previousAgent;
+    await srv.close();
+  }
+});
+
+// Appending is not idempotent, and the retry exists for lost responses --
+// exactly the case where Google may already have committed the row. The
+// lookup that would catch a duplicate runs before the append, so it cannot.
+// The same question one level up, where it decides how much of the sheet a
+// routine Submission costs to deliver.
+test('only an actual update walks the column; a new Submission does not', async () => {
+  const searchFor = (syncUpdates, action) => (syncUpdates === true && action !== 'submission.create');
+
+  // An ID that a Form has already issued cannot arrive again as a create, so
+  // there is nothing to look for and no reason to read the column.
+  assert.equal(searchFor(true, 'submission.create'), false);
+  assert.equal(searchFor(false, 'submission.create'), false);
+  assert.equal(searchFor(false, 'submission.update.version'), false);
+  // A new version of a Submission the sheet already holds is the one case
+  // that has to find the existing row.
+  assert.equal(searchFor(true, 'submission.update.version'), true);
+
+  // And the rule the worker uses is that rule, read out of the source rather
+  // than restated here, so the two cannot drift apart.
+  const source = fs.readFileSync(
+    path.join(__dirname, '..', '..', 'lib', 'worker', 'webhooks.js'), 'utf8');
+  assert.match(source,
+    /search:\s*openedConfig\.syncUpdates === true\s*\n\s*&& event\.action !== 'submission\.create'/);
+});
+
+test('a lost append response is verified against the sheet, not repeated', async () => {
+  const previousAgent = http.globalAgent;
+  http.globalAgent = new http.Agent({ proxyEnv: {} });
+  let appends = 0;
+  const srv = await sheetServer((req, res) => {
+    if (req.method === 'POST') {
+      appends += 1;
+      // The row lands, and then the connection dies before the response.
+      res.destroy();
+      return;
+    }
+    res.end(JSON.stringify({ values: [['uuid:landed']] }));
+  });
+  try {
+    const built = {
+      method: 'POST', url: `http://127.0.0.1:${srv.port}/append`, headers: {},
+      body: Buffer.from('{}')
+    };
+    const outcome = await _appendWithVerification(stubTarget(srv.port), {}, 'tok',
+      'uuid:landed', built);
+    assert.equal(outcome.success, true, JSON.stringify(outcome));
+    assert.equal(outcome.verified, true);
+    // The row was there, so it was never sent a second time.
+    assert.equal(appends, 1);
+  } finally {
+    http.globalAgent.destroy();
+    http.globalAgent = previousAgent;
+    await srv.close();
+  }
+});
+
+test('an append that genuinely did not land is sent again', async () => {
+  const previousAgent = http.globalAgent;
+  http.globalAgent = new http.Agent({ proxyEnv: {} });
+  let appends = 0;
+  const srv = await sheetServer((req, res) => {
+    if (req.method === 'POST') {
+      appends += 1;
+      if (appends === 1) { res.destroy(); return; }
+      res.end('{}');
+      return;
+    }
+    // The verification finds nothing, so the first attempt really was lost.
+    res.end(JSON.stringify({ values: [['uuid:other']] }));
+  });
+  try {
+    const built = {
+      method: 'POST', url: `http://127.0.0.1:${srv.port}/append`, headers: {},
+      body: Buffer.from('{}')
+    };
+    const outcome = await _appendWithVerification(stubTarget(srv.port), {}, 'tok',
+      'uuid:missing', built);
+    assert.equal(outcome.success, true, JSON.stringify(outcome));
+    assert.equal(outcome.verified, undefined);
+    assert.equal(appends, 2);
+  } finally {
+    http.globalAgent.destroy();
+    http.globalAgent = previousAgent;
+    await srv.close();
   }
 });
