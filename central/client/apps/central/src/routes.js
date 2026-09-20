@@ -393,6 +393,23 @@ const routes = [
         }
       }),
       asyncRoute({
+        path: 'merged-datasets',
+        component: 'ProjectMergedDatasets',
+        props: true,
+        loading: 'tab',
+        meta: {
+          validateData: {
+            project: () => project.permits([
+              'form.list',
+              'submission.list',
+              'submission.read'
+            ])
+          },
+          title: () => [i18n.t('projectShow.tab.mergedDatasets'), project.nameOrId],
+          fullWidth: true
+        }
+      }),
+      asyncRoute({
         path: 'summary',
         component: 'ProjectSummary',
         props: true,
@@ -958,6 +975,7 @@ const routesByName = new Map();
   const projectRoutes = [
     'ProjectOverview',
     'ProjectSummary',
+    'ProjectMergedDatasets',
     'ProjectUserList',
     'FieldKeyList',
     'CustomPropertyList',

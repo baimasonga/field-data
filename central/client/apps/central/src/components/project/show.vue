@@ -37,6 +37,12 @@ except according to the terms contained in the LICENSE file.
             {{ $t('projectShow.tab.summary') }}
           </router-link>
         </li>
+        <li v-if="canRoute(tabPath('merged-datasets'))"
+          :class="tabClass('merged-datasets')" role="presentation">
+          <router-link :to="tabPath('merged-datasets')">
+            {{ $t('projectShow.tab.mergedDatasets') }}
+          </router-link>
+        </li>
         <li v-if="canRoute(tabPath('entity-lists'))" :class="tabClass('entity-lists')"
           role="presentation">
           <router-link :to="tabPath('entity-lists')">

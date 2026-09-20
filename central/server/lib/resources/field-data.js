@@ -22,6 +22,7 @@ const { encryptSecret } = require('../util/field-data-secret');
 const { parseGeopoint, checkImplausibleTravel, IMPLAUSIBLE_TRAVEL } = require('../util/fieldwork-integrity');
 const { normalizeDefinition, resolveStoredDefinition, compileFilter, extractObject, projectObject } = require('../util/filtered-datasets');
 const { normalizeWidget, capRows, tooManyDistinct, MAX_BARS } = require('../util/widgets');
+const { mergeFields, codingDivergence } = require('../util/merged-datasets');
 
 const pingUrl = (urlStr) => new Promise((resolve) => {
   try {
@@ -369,6 +370,79 @@ const widgetData = async (db, formId, normalized, filter) => {
   })), MAX_BARS);
 
   return { ...capped, coverage, distinct: grouped.length };
+};
+
+
+////////////////////////////////////////////////////////////////////////////////
+// MERGED DATASETS
+//
+// Several forms, one table over the fields they genuinely share. Read-only by
+// construction: there is no route here that writes a submission, because a row
+// belongs to one of the source forms and editing it through the merge has no
+// good answer to whose validation applies.
+
+const mergedDatasetRecord = (db, projectId, id) => db.maybeOne(sql`
+  select * from field_data_merged_datasets
+  where id = ${id} and "projectId" = ${projectId}`);
+
+const mergedDatasetForms = (db, mergedDatasetId) => db.any(sql`
+  select f.id as "formId", f."xmlFormId", f."currentDefId", fd.name as "formName"
+  from field_data_merged_dataset_forms mf
+  join forms f on f.id = mf."formId" and f."deletedAt" is null
+  left join form_defs fd on fd.id = f."currentDefId"
+  where mf."mergedDatasetId" = ${mergedDatasetId}
+  order by f."xmlFormId"`);
+
+// The shared field set, recomputed every time. Forms get republished; a
+// cached list would go stale and start lying rather than going missing.
+const mergedDatasetShape = async (db, forms) => {
+  const withFields = await Promise.all(forms.map(async (form) => ({
+    ...form,
+    fields: await filteredDatasetFields(db, form)
+  })));
+  return { forms: withFields, ...mergeFields(withFields) };
+};
+
+// Rows from every source form, each carrying which form it came from so a
+// reader can always get back to it.
+const mergedDatasetRows = (forms, merged) => sql.join(forms.map(form => sql`
+  select ${form.xmlFormId} as "sourceForm", s."instanceId", s."createdAt",
+    ${extractObject(merged.map(field => field.path))} as extracted
+  from submissions s
+  join submission_defs sd on sd."submissionId" = s.id and sd.current = true
+  where s."formId" = ${form.formId} and s."deletedAt" is null and s.draft = false
+    and xml_is_well_formed_document(sd.xml)`), sql` union all `);
+
+// Evidence of a coding clash, gathered from what submissions actually carry
+// because ODK stores no queryable choice list. Bounded hard: this is a
+// courtesy check, not a reason to make the detail route expensive.
+const CODING_SAMPLE = 25;
+const mergedDatasetCoding = async (db, forms, merged) => {
+  const candidates = merged
+    .filter(field => field.type === 'string' && field.selectMultiple !== true)
+    .slice(0, 10);
+  if (candidates.length === 0 || forms.length < 2) return [];
+
+  const findings = [];
+  for (const field of candidates) {
+    const valuesByForm = {};
+    for (const form of forms) {
+      // eslint-disable-next-line no-await-in-loop
+      const rows = await db.any(sql`
+        select distinct btrim((xpath(${`/*${field.path}/text()`}, sd.xml::xml))[1]::text) as value
+        from submissions s
+        join submission_defs sd on sd."submissionId" = s.id and sd.current = true
+        where s."formId" = ${form.formId} and s."deletedAt" is null and s.draft = false
+          and xml_is_well_formed_document(sd.xml)
+        limit ${CODING_SAMPLE}`).catch(() => []);
+      valuesByForm[form.xmlFormId] = rows
+        .map(row => row.value)
+        .filter(value => value != null && value !== '');
+    }
+    const divergence = codingDivergence(valuesByForm);
+    if (divergence != null) findings.push({ path: field.path, ...divergence });
+  }
+  return findings;
 };
 
 module.exports = (service, endpoint) => {
@@ -763,6 +837,156 @@ module.exports = (service, endpoint) => {
     if (removed == null) return reject(Problem.user.notFound());
     await renumber(container.db, parent);
     return success();
+  }));
+
+
+  ////////////////////////////////////////////////////////////////////////////////
+  // MERGED DATASETS
+
+  // The floor, not the ceiling: read permission on every source form. Anything
+  // less turns a merge into a way to read a form you were not given.
+  const mergedSourceForms = async (container, projectId, xmlFormIds, auth) => {
+    if (!Array.isArray(xmlFormIds) || xmlFormIds.length < 2)
+      return reject(Problem.user.unexpectedValue({
+        field: 'xmlFormIds', value: xmlFormIds,
+        reason: 'a merged dataset needs at least two forms'
+      }));
+    if (new Set(xmlFormIds).size !== xmlFormIds.length)
+      return reject(Problem.user.unexpectedValue({
+        field: 'xmlFormIds', value: xmlFormIds, reason: 'must not list a form twice'
+      }));
+
+    const forms = [];
+    for (const xmlFormId of xmlFormIds) {
+      // eslint-disable-next-line no-await-in-loop
+      const form = await container.Forms
+        .getByProjectAndXmlFormId(projectId, String(xmlFormId), Form.PublishedVersion)
+        .then(getOrNotFound);
+      // eslint-disable-next-line no-await-in-loop
+      await auth.canOrReject('submission.list', form);
+      // eslint-disable-next-line no-await-in-loop
+      await auth.canOrReject('submission.read', form);
+      forms.push({ formId: form.id, xmlFormId: form.xmlFormId, currentDefId: form.currentDefId });
+    }
+    return forms;
+  };
+
+  const readMergedDataset = async (container, params, auth) => {
+    const id = Number.parseInt(params.id, 10);
+    if (!Number.isInteger(id)) return reject(Problem.user.notFound());
+    const project = await container.Projects.getById(params.projectId).then(getOrNotFound);
+    await auth.canOrReject('project.read', project);
+    const dataset = await mergedDatasetRecord(container.db, project.id, id).then(getOrNotFound);
+    const forms = await mergedDatasetForms(container.db, dataset.id);
+    // Permission is re-checked on read, not only at creation: a grant can be
+    // withdrawn after a merge is saved, and the merge must not outlive it.
+    await mergedSourceForms(container, project.id, forms.map(f => f.xmlFormId), auth);
+    return { project, dataset, forms };
+  };
+
+  service.post('/projects/:projectId/merged-datasets', endpoint(async (container, { params, body, auth }) => {
+    const project = await container.Projects.getById(params.projectId).then(getOrNotFound);
+    await auth.canOrReject('project.update', project);
+    const forms = await mergedSourceForms(container, project.id, body?.xmlFormIds, auth);
+
+    const name = String(body?.name ?? '').trim().slice(0, 255);
+    if (name === '') throw Problem.user.missingParameter({ field: 'name' });
+
+    const created = await container.db.one(sql`
+      insert into field_data_merged_datasets (name, "projectId", "createdBy")
+      values (${name}, ${project.id}, ${auth.actor.map(actor => actor.id).orNull()})
+      returning *`).catch(postgresErrorToProblem);
+    for (const form of forms) {
+      // eslint-disable-next-line no-await-in-loop
+      await container.db.query(sql`
+        insert into field_data_merged_dataset_forms ("mergedDatasetId", "formId")
+        values (${created.id}, ${form.formId})`);
+    }
+
+    const shape = await mergedDatasetShape(container.db, forms);
+    return {
+      ...created,
+      forms: forms.map(form => form.xmlFormId),
+      fields: shape.merged,
+      excluded: shape.excluded
+    };
+  }));
+
+  service.get('/projects/:projectId/merged-datasets', endpoint(async (container, { params, auth }) => {
+    const project = await container.Projects.getById(params.projectId).then(getOrNotFound);
+    await auth.canOrReject('project.read', project);
+    await auth.canOrReject('submission.list', project);
+    return container.db.any(sql`
+      select d.*, count(mf."formId")::integer as "formCount"
+      from field_data_merged_datasets d
+      left join field_data_merged_dataset_forms mf on mf."mergedDatasetId" = d.id
+      where d."projectId" = ${project.id}
+      group by d.id order by d."createdAt" desc`);
+  }));
+
+  // The detail route is where somebody decides whether to trust the merge, so
+  // it carries what was left out and why, not just what went in.
+  service.get('/projects/:projectId/merged-datasets/:id', endpoint(async (container, { params, query, auth }) => {
+    const { dataset, forms } = await readMergedDataset(container, params, auth);
+    const shape = await mergedDatasetShape(container.db, forms);
+    const coding = query.coding === 'true'
+      ? await mergedDatasetCoding(container.db, shape.forms, shape.merged)
+      : null;
+    return {
+      ...dataset,
+      forms: forms.map(form => ({
+        xmlFormId: form.xmlFormId, name: form.formName ?? form.xmlFormId
+      })),
+      fields: shape.merged,
+      excluded: shape.excluded,
+      coding
+    };
+  }));
+
+  service.delete('/projects/:projectId/merged-datasets/:id', endpoint(async (container, { params, auth }) => {
+    const id = Number.parseInt(params.id, 10);
+    if (!Number.isInteger(id)) return reject(Problem.user.notFound());
+    const project = await container.Projects.getById(params.projectId).then(getOrNotFound);
+    await auth.canOrReject('project.update', project);
+    const dataset = await mergedDatasetRecord(container.db, project.id, id).then(getOrNotFound);
+    await container.db.query(sql`
+      delete from field_data_merged_datasets where id = ${dataset.id}`);
+    return success();
+  }));
+
+  service.get('/projects/:projectId/merged-datasets/:id/data', endpoint(async (container, { params, query, auth }) => {
+    const { forms } = await readMergedDataset(container, params, auth);
+    const shape = await mergedDatasetShape(container.db, forms);
+    const limit = Math.min(Math.max(Number.parseInt(query.limit, 10) || 50, 1), 200);
+    const offset = Math.max(Number.parseInt(query.offset, 10) || 0, 0);
+
+    // No shared fields is a real answer, not an error: these forms have
+    // nothing in common worth putting in a table.
+    if (shape.merged.length === 0)
+      return { total: 0, limit, offset, fields: [], excluded: shape.excluded, data: [] };
+
+    const union = mergedDatasetRows(shape.forms, shape.merged);
+    const total = await container.db.oneFirst(sql`
+      select count(*)::integer from (${union}) as merged`);
+    const rows = total === 0 ? [] : await container.db.any(sql`
+      select "sourceForm", "instanceId",
+        ${projectObject(shape.merged.map(field => field.path))} as data
+      from (${union}) as merged
+      order by "createdAt" desc, "instanceId"
+      limit ${limit} offset ${offset}`);
+
+    return {
+      total,
+      limit,
+      offset,
+      fields: shape.merged,
+      excluded: shape.excluded,
+      // Which form each row came from, so a reader is never looking at a
+      // pooled table wondering where a number originated.
+      data: rows.map(row => ({
+        sourceForm: row.sourceForm, instanceId: row.instanceId, ...row.data
+      }))
+    };
   }));
 
   ////////////////////////////////////////////////////////////////////////////////

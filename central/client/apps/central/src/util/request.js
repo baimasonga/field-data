@@ -225,6 +225,11 @@ export const apiPaths = {
     `/v1/projects/${projectId}/filtered-datasets/${id}/definition`,
   filteredDatasetData: (projectId, id, query = undefined) =>
     `/v1/projects/${projectId}/filtered-datasets/${id}/data${queryString(query)}`,
+  mergedDatasets: (projectId) => `/v1/projects/${projectId}/merged-datasets`,
+  mergedDataset: (projectId, id, query = undefined) =>
+    `/v1/projects/${projectId}/merged-datasets/${id}${queryString(query)}`,
+  mergedDatasetData: (projectId, id, query = undefined) =>
+    `/v1/projects/${projectId}/merged-datasets/${id}/data${queryString(query)}`,
   widgets: (projectId, query = undefined) =>
     `/v1/projects/${projectId}/widgets${queryString(query)}`,
   widget: (projectId, id, query = undefined) =>

@@ -15,6 +15,9 @@
   },
   "projectShow": {
     "tab": {
+      // A tab where several Forms are pooled into one table over the fields
+      // they have in common.
+      "mergedDatasets": "Merged Data",
       // A tab of charts totalling up a Project's Submissions.
       "summary": "Summary",
 

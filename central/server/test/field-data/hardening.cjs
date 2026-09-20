@@ -312,6 +312,71 @@ test('widget reordering refuses a partial list', async () => {
   );
 });
 
+// A merge must never become a way to read a form you were not given. The
+// check is the floor -- every source form -- not the ceiling, and it runs on
+// read as well as on creation, because a grant can be withdrawn after a merge
+// is saved and the merge must not outlive it.
+test('merged dataset data is refused when one source form is not readable', async () => {
+  const option = value => ({ isDefined: () => true, get: () => value });
+  const asked = [];
+  const container = {
+    Projects: { getById: async () => option({ id: 9 }) },
+    Forms: {
+      getByProjectAndXmlFormId: async (projectId, xmlFormId) =>
+        option({ id: xmlFormId === 'round1' ? 7 : 8, xmlFormId, currentDefId: 12 })
+    },
+    db: {
+      maybeOne: async () => option({ id: 3, projectId: 9, name: 'Both rounds' }),
+      any: async () => [
+        { formId: 7, xmlFormId: 'round1', currentDefId: 12, formName: 'Round 1' },
+        { formId: 8, xmlFormId: 'round2', currentDefId: 13, formName: 'Round 2' }
+      ],
+      oneFirst: async () => assert.fail('must not read rows without every grant')
+    }
+  };
+  const context = {
+    params: { projectId: '9', id: '3' }, query: {},
+    auth: {
+      canOrReject: async (verb, target) => {
+        asked.push([verb, target?.xmlFormId ?? 'project']);
+        // Readable on round1, not on round2.
+        if (target?.xmlFormId === 'round2') throw new Error('insufficient rights');
+        return true;
+      }
+    }
+  };
+
+  await assert.rejects(
+    routes.get('get /projects/:projectId/merged-datasets/:id/data')(container, context),
+    /insufficient rights/
+  );
+  assert.ok(asked.some(([, form]) => form === 'round2'), 'must have checked the second form');
+});
+
+// Two forms at minimum, and never the same form twice -- a merge of a form
+// with itself doubles every row and looks like twice the fieldwork.
+test('merged datasets refuse fewer than two forms or a repeated form', async () => {
+  const option = value => ({ isDefined: () => true, get: () => value });
+  const container = {
+    Projects: { getById: async () => option({ id: 9 }) },
+    Forms: { getByProjectAndXmlFormId: async () => assert.fail('must not reach the forms') },
+    db: { one: async () => assert.fail('must not write') }
+  };
+  const auth = { canOrReject: async () => {}, actor: { map: () => ({ orNull: () => 1 }) } };
+
+  for (const xmlFormIds of [['only-one'], [], ['same', 'same']]) {
+    await assert.rejects(
+      routes.get('post /projects/:projectId/merged-datasets')(container, {
+        params: { projectId: '9' }, body: { name: 'x', xmlFormIds }, auth
+      }),
+      error => /at least two forms|list a form twice/.test(
+        error.problemDetails?.reason ?? error.message
+      ),
+      `expected ${JSON.stringify(xmlFormIds)} to be refused`
+    );
+  }
+});
+
 test('backup routes require backup.run rather than project creation rights', async () => {
   for (const route of ['get /field-data/backups', 'post /field-data/backups', 'get /field-data/backups/:id/download']) {
     await assert.rejects(routes.get(route)({}, { auth: { canOrReject: async verb => {

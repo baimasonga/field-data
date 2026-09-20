@@ -200,6 +200,10 @@ const loaders = new Map()
     /* webpackChunkName: "component-submission-widgets" */
     '../components/submission/widgets.vue'
   )))
+  .set('ProjectMergedDatasets', loader(() => import(
+    /* webpackChunkName: "component-project-merged-datasets" */
+    '../components/project/merged-datasets.vue'
+  )))
   .set('NotFound', loader(() => import(
     /* webpackChunkName: "component-not-found" */
     '../components/not-found.vue'
