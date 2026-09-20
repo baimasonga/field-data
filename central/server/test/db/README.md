@@ -1,7 +1,12 @@
 # Tests that need a real database
 
-Two kinds live here: the permission tests organizations rest on, and the
-end-to-end check that the Field Data queries return the right numbers.
+Three kinds live here: the permission tests organizations rest on, the
+end-to-end check that the Field Data queries return the right numbers, and
+`submission-def-join.sql`, which shows what a mock cannot: that form_defs and
+submission_defs have independent id sequences, so comparing one table's id to
+the other's id column matches only where the numbers coincide. That shipped
+once already, in the Google Sheets target, and looked like it worked because a
+fresh deployment's first submission happens to line up.
 
 These exercise the one property organizations rest on: that a role granted on
 an organization reaches the projects it owns, that it reaches nothing else,

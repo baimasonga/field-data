@@ -156,10 +156,18 @@ const googleSheetPayload = async ({ all }, event, hook) => {
   if (!Number.isInteger(submissionDefId))
     throw new Error('This Submission event does not identify a version to synchronize.');
 
+  // Through submission_defs."formDefId", which is the foreign key to
+  // form_defs.id. A submission_defs id is not a form_defs id -- the two tables
+  // have independent sequences -- so comparing one to the other matches only
+  // where the numbers happen to coincide. They do for the very first
+  // submission of a fresh deployment, and for nothing after it, which is how
+  // this passed every test and would have failed in front of the first person
+  // to use it twice.
   const fields = await all(sql`
     select ff.path
     from form_fields ff
-    join form_defs fd on fd.id = ${submissionDefId} and fd."schemaId" = ff."schemaId"
+    join submission_defs sd on sd.id = ${submissionDefId}
+    join form_defs fd on fd.id = sd."formDefId" and fd."schemaId" = ff."schemaId"
     where ff."formId" = ${hook.formId}
       and coalesce(ff.binary, false) = false
       and ff.path ~ '^(/[A-Za-z_][A-Za-z0-9_.-]*)+$'
@@ -302,4 +310,8 @@ const dispatchWebhooks = async (container, event) => {
     where "createdAt" < clock_timestamp() - interval '30 days'`);
 };
 
-module.exports = { deliver, dispatchWebhooks, webhookEvents };
+module.exports = {
+  deliver, dispatchWebhooks, webhookEvents,
+  // Exported for its own test; not part of the worker's interface.
+  _googleSheetPayload: googleSheetPayload
+};

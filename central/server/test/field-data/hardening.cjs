@@ -15,7 +15,7 @@ process.env.FIELD_DATA_STORAGE_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'fiel
 process.env.FIELD_DATA_WEBHOOK_ENCRYPTION_KEY =
   process.env.FIELD_DATA_WEBHOOK_ENCRYPTION_KEY ?? '0'.repeat(64);
 const { isBlockedAddress, resolveWebhookUrl } = require('../../lib/util/safe-webhook-url');
-const { deliver } = require('../../lib/worker/webhooks');
+const { deliver, _googleSheetPayload } = require('../../lib/worker/webhooks');
 
 test('rejects private addresses in dotted, compressed and expanded mapped IPv6', async () => {
   for (const ip of ['127.0.0.1', '10.1.2.3', '::1', '::ffff:127.0.0.1',
@@ -136,6 +136,32 @@ test('field-data queries do not name columns the schema dropped or never had', (
   const formFieldDef = source.match(/\bff\."formDefId"/g) || [];
   assert.deepEqual(formFieldDef, [],
     `form_fields has schemaId, not formDefId; join through form_defs.schemaId`);
+});
+
+// The same family, one table over, and the fourth bug of this shape here: an
+// id from one table bound to another table's id column. form_defs and
+// submission_defs have independent sequences, so the comparison matches only
+// where the numbers coincide -- which they do early in a fresh deployment,
+// long enough to look like it works.
+test('field-data queries do not bind one table id to another table id column', () => {
+  const sources = ['lib/resources/field-data.js', 'lib/worker/webhooks.js']
+    .map(file => [file, fs.readFileSync(path.join(__dirname, '..', '..', file), 'utf8')
+      .split('\n')
+      .filter(line => !/^\s*(\/\/|--)/.test(line))
+      .join('\n')]);
+
+  for (const [file, source] of sources) {
+    // A submission version's id reaches form_defs through
+    // submission_defs."formDefId", never by being compared to form_defs.id.
+    const direct = source.match(/form_defs\s+\w+\s+on\s+\w+\.id\s*=\s*\$\{\s*submission\w*/gi) || [];
+    assert.deepEqual(direct, [],
+      `${file}: a submission_defs id is not a form_defs id; join through submission_defs."formDefId" (${direct.join(', ')})`);
+
+    // And the mirror of it: a form def id standing in for a submission version.
+    const mirror = source.match(/submission_defs\s+\w+\s+on\s+\w+\.id\s*=\s*\$\{\s*(?:form|current)\w*Def/gi) || [];
+    assert.deepEqual(mirror, [],
+      `${file}: a form_defs id is not a submission_defs id (${mirror.join(', ')})`);
+  }
 });
 
 test('filtered dataset readers receive only declared columns without source-form access', async () => {
@@ -925,4 +951,80 @@ test('the probes run once for a burst of administrators, not once each', async (
   const { container, context } = statsContainer(true, probes);
   await routes.get('get /field-data/stats')(container, context);
   assert.deepEqual(probes, ['database']);
+});
+
+// A submission_defs id is not a form_defs id. The two tables have independent
+// sequences, so joining form_defs.id to a submission version's id matches only
+// where the numbers happen to coincide -- which they do for the first
+// submission of a fresh deployment and for nothing after it. Shipped that way,
+// Google Sheets synchronized one row and then failed every delivery with "The
+// Form has no fields that can be synchronized."
+//
+// This mock keeps the two id spaces deliberately apart, the way a real
+// database does: the form's definition is form_defs 4, and its submissions are
+// submission_defs 11, 12 and 13.
+const sheetDatabase = () => {
+  const FORM_DEF = { id: 4, schemaId: 9 };
+  const SUBMISSION_DEFS = new Map([
+    [11, { formDefId: 4, instanceId: 'uuid:one' }],
+    [12, { formDefId: 4, instanceId: 'uuid:two' }],
+    [13, { formDefId: 4, instanceId: 'uuid:three' }]
+  ]);
+  const FIELDS = [
+    { schemaId: 9, path: '/district' },
+    { schemaId: 9, path: '/hh_size' }
+  ];
+
+  return async (query) => {
+    // The first bound value is the submission version id in either shape of
+    // this query. What differs -- and what is under test -- is which table's
+    // id column it gets compared against, so that is read off the SQL rather
+    // than guessed from the number. A mock that decides for itself what an
+    // integer means is a mock that can be wrong in the same way as the code,
+    // and then it agrees with the bug instead of catching it.
+    const bound = query.values[0];
+    if (query.sql.includes('from form_fields')) {
+      const comparedToSubmissionDefs =
+        /join\s+submission_defs\s+\w+\s+on\s+\w+\."?id"?\s*=\s*\$/.test(query.sql);
+      const formDefId = comparedToSubmissionDefs
+        ? SUBMISSION_DEFS.get(bound)?.formDefId   // resolved through the real FK
+        : bound;                                  // compared straight to form_defs.id
+      return formDefId === FORM_DEF.id
+        ? FIELDS.filter(field => field.schemaId === FORM_DEF.schemaId).map(({ path }) => ({ path }))
+        : [];
+    }
+    const submissionDefId = query.values.find(value => SUBMISSION_DEFS.has(value));
+    if (submissionDefId == null) return [];
+    return [{
+      instanceId: SUBMISSION_DEFS.get(submissionDefId).instanceId,
+      createdAt: new Date('2026-09-20T08:00:00.000Z'),
+      answers: { '/district': 'Bombali', '/hh_size': '6' }
+    }];
+  };
+};
+
+test('Google Sheets resolves a form version through formDefId, not by id collision', async () => {
+  const all = sheetDatabase();
+  const hook = { formId: 7 };
+
+  // Every submission, not just the one whose id happens to match a form_defs
+  // row. The second and third are the ones the shipped join lost.
+  for (const submissionDefId of [11, 12, 13]) {
+    // eslint-disable-next-line no-await-in-loop
+    const payload = await _googleSheetPayload({ all },
+      { action: 'submission.create', details: { submissionDefId } }, hook);
+    assert.deepEqual(payload.headers,
+      ['_instance_id', '_submitted_at', '_event', '/district', '/hh_size']);
+    assert.equal(payload.row[0], `uuid:${{ 11: 'one', 12: 'two', 13: 'three' }[submissionDefId]}`);
+    assert.deepEqual(payload.row.slice(3), ['Bombali', '6']);
+  }
+});
+
+test('a Submission event with no version to synchronize is refused, not guessed at', async () => {
+  const all = sheetDatabase();
+  for (const details of [undefined, {}, { submissionDefId: 'not-a-number' }]) {
+    await assert.rejects(
+      _googleSheetPayload({ all }, { action: 'submission.create', details }, { formId: 7 }),
+      /does not identify a version/);
+  }
 });
