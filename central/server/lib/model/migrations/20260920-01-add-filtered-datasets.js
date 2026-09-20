@@ -33,6 +33,8 @@ const up = async (db) => {
     ON field_data_filtered_datasets ("projectId")`);
   await db.raw(`CREATE INDEX IF NOT EXISTS field_data_filtered_datasets_form
     ON field_data_filtered_datasets ("formId")`);
+  await db.raw(`CREATE INDEX IF NOT EXISTS field_data_filtered_datasets_creator
+    ON field_data_filtered_datasets ("createdBy")`);
 };
 
 const down = async (db) => {
