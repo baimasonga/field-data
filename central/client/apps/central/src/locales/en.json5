@@ -33,6 +33,9 @@
       "filteredData": "Filtered Data",
       // A tab showing every photograph a Form has collected.
       "photos": "Photos",
+      // A tab of charts somebody saved and arranged, as opposed to the
+      // Summary tab's charts, which are computed fresh and not kept.
+      "charts": "Charts",
       // A tab where a reviewer sees what evidence each Submission carries and
       // which Submissions are worth a closer look.
       "verification": "Verification"

@@ -225,6 +225,11 @@ export const apiPaths = {
     `/v1/projects/${projectId}/filtered-datasets/${id}/definition`,
   filteredDatasetData: (projectId, id, query = undefined) =>
     `/v1/projects/${projectId}/filtered-datasets/${id}/data${queryString(query)}`,
+  widgets: (projectId, query = undefined) =>
+    `/v1/projects/${projectId}/widgets${queryString(query)}`,
+  widget: (projectId, id, query = undefined) =>
+    `/v1/projects/${projectId}/widgets/${id}${queryString(query)}`,
+  widgetOrder: (projectId) => `/v1/projects/${projectId}/widgets/order`,
   formDashboards: (projectId, xmlFormId) =>
     `/v1/projects/${projectId}/forms/${encodeURIComponent(xmlFormId)}/dashboards`,
   sharedDashboard: (token) => `/v1/field-data/shared/${encodeURIComponent(token)}`,

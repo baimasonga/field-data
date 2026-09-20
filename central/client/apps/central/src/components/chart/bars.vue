@@ -67,7 +67,11 @@ const props = defineProps({
   data: { type: Array, required: true },
   title: { type: String, default: null },
   subtitle: { type: String, default: null },
-  labelHeader: { type: String, default: '' }
+  labelHeader: { type: String, default: '' },
+  // Counts are parts of a whole, so a share column reads naturally. An
+  // average or a median is not: "6.4" is not 32% of anything, and a share
+  // beside it invites exactly that reading.
+  showShare: { type: Boolean, default: true }
 });
 
 const { n } = useI18n();
@@ -84,7 +88,9 @@ const rows = computed(() => props.data.map((row) => ({
   ...row,
   color: row.color ?? DEFAULT_FILL,
   width: (row.count / max.value) * 100,
-  share: total.value === 0 ? '' : `${n(row.count / total.value, 'percent')}`
+  share: (!props.showShare || total.value === 0)
+    ? ''
+    : `${n(row.count / total.value, 'percent')}`
 })));
 
 defineExpose({ n });

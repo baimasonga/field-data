@@ -252,6 +252,66 @@ test('filtered dataset keeps serving the columns that survive a republished form
   assert.equal(result.data.length, 1);
 });
 
+// A widget over a filtered dataset must be built from that dataset's visible
+// columns only. A chart leaks a hidden field as readily as a table does, and
+// more quietly, because nobody reads a bar chart looking for a column name.
+test('widgets on a filtered dataset can only be built from its visible columns', async () => {
+  const option = value => ({ isDefined: () => true, get: () => value });
+  const allFields = [
+    { path: '/data/district', name: 'district', type: 'string', binary: false, order: 1 },
+    { path: '/data/name', name: 'name', type: 'string', binary: false, order: 2 }
+  ];
+  const container = {
+    Projects: { getById: async () => option({ id: 9 }) },
+    Forms: { getByProjectAndXmlFormId: async () => assert.fail('dataset parent, not form') },
+    db: {
+      // The dataset shows district only; name is deliberately hidden.
+      maybeOne: async () => option({
+        id: 4, projectId: 9, formId: 7, currentDefId: 12,
+        columns: ['/data/district'], query: []
+      }),
+      any: async () => allFields,
+      one: async () => assert.fail('must not reach the data query')
+    }
+  };
+  const context = {
+    params: { projectId: '9' },
+    body: { filteredDatasetId: '4', title: 'Names', column: '/data/name' },
+    auth: { canOrReject: async () => {}, actor: { map: () => ({ orNull: () => 1 }) } }
+  };
+
+  await assert.rejects(
+    routes.get('post /projects/:projectId/widgets')(container, context),
+    error => /allowed to read/.test(error.problemDetails?.reason ?? error.message)
+  );
+});
+
+// Order is contiguous from zero, and reordering takes the whole list at once
+// so two widgets can never end up sharing a place.
+test('widget reordering refuses a partial list', async () => {
+  const option = value => ({ isDefined: () => true, get: () => value });
+  const container = {
+    Projects: { getById: async () => option({ id: 9 }) },
+    Forms: { getByProjectAndXmlFormId: async () => option({ id: 7, xmlFormId: 'f', currentDefId: 12 }) },
+    db: {
+      any: async query => (query.sql.includes('from form_fields')
+        ? [{ path: '/data/district', name: 'district', type: 'string', binary: false, order: 1 }]
+        : [{ id: 1 }, { id: 2 }, { id: 3 }]),
+      query: async () => assert.fail('must not write a partial order')
+    }
+  };
+  const context = {
+    params: { projectId: '9' },
+    body: { xmlFormId: 'f', order: [2, 1] },
+    auth: { canOrReject: async () => {} }
+  };
+
+  await assert.rejects(
+    routes.get('patch /projects/:projectId/widgets/order')(container, context),
+    error => /exactly once/.test(error.problemDetails?.reason ?? error.message)
+  );
+});
+
 test('backup routes require backup.run rather than project creation rights', async () => {
   for (const route of ['get /field-data/backups', 'post /field-data/backups', 'get /field-data/backups/:id/download']) {
     await assert.rejects(routes.get(route)({}, { auth: { canOrReject: async verb => {

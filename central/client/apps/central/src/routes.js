@@ -539,6 +539,24 @@ const routes = [
         }
       }),
       asyncRoute({
+        path: 'charts',
+        component: 'SubmissionWidgets',
+        props: true,
+        loading: 'tab',
+        meta: {
+          validateData: {
+            project: () => project.permits([
+              'form.read',
+              'submission.list',
+              'submission.read'
+            ]),
+            form: () => form.publishedAt != null
+          },
+          title: () => [i18n.t('formHead.tab.charts'), form.nameOrId],
+          fullWidth: true
+        }
+      }),
+      asyncRoute({
         path: 'verification',
         component: 'SubmissionVerification',
         props: true,
@@ -954,6 +972,7 @@ const routesByName = new Map();
     'SubmissionFilteredDatasets',
     'SubmissionPhotos',
     'SubmissionVerification',
+    'SubmissionWidgets',
     'PublicLinkList',
     'FormVersionList',
     'FormEdit',

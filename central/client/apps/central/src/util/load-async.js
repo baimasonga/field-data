@@ -196,6 +196,10 @@ const loaders = new Map()
     /* webpackChunkName: "component-submission-verification" */
     '../components/submission/verification.vue'
   )))
+  .set('SubmissionWidgets', loader(() => import(
+    /* webpackChunkName: "component-submission-widgets" */
+    '../components/submission/widgets.vue'
+  )))
   .set('NotFound', loader(() => import(
     /* webpackChunkName: "component-not-found" */
     '../components/not-found.vue'

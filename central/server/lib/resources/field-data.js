@@ -21,6 +21,7 @@ const { resolveWebhookUrl } = require('../util/safe-webhook-url');
 const { encryptSecret } = require('../util/field-data-secret');
 const { parseGeopoint, checkImplausibleTravel, IMPLAUSIBLE_TRAVEL } = require('../util/fieldwork-integrity');
 const { normalizeDefinition, resolveStoredDefinition, compileFilter, extractObject, projectObject } = require('../util/filtered-datasets');
+const { normalizeWidget, capRows, tooManyDistinct, MAX_BARS } = require('../util/widgets');
 
 const pingUrl = (urlStr) => new Promise((resolve) => {
   try {
@@ -192,6 +193,19 @@ const summarizeForm = async (db, formId) => {
   return { ...totals, overTime, reviewStates, fields, truncated: byPath.size > fields.length };
 };
 
+const normalizeWidgetOrProblem = (body, fields) => {
+  try {
+    return normalizeWidget(body, fields);
+  } catch (error) {
+    if (error.field != null) {
+      throw Problem.user.unexpectedValue({
+        field: error.field, value: error.value, reason: error.reason
+      });
+    }
+    throw error;
+  }
+};
+
 const normalizeFilteredDataset = (body, fields) => {
   try {
     return normalizeDefinition(body, fields);
@@ -276,6 +290,85 @@ const filteredDatasetData = async (db, dataset, normalized, limit, offset) => {
     order by "createdAt" desc
     limit ${limit} offset ${offset}`);
   return rows.map(row => row.data);
+};
+
+
+////////////////////////////////////////////////////////////////////////////////
+// SAVED CHART WIDGETS
+//
+// A widget is a chart somebody kept: a title they chose, a field, an
+// aggregation and a place in an order. It hangs off a form, or off a filtered
+// dataset -- and when it is the latter it may only read that dataset's visible
+// columns and only sees that dataset's rows, because a chart is as good a way
+// to leak a hidden field as a table is.
+
+// Only a number that looks like a number is cast. Postgres has no try-cast, so
+// one submission where somebody typed "four" would otherwise take the whole
+// chart down.
+const WIDGET_NUMERIC = '^[+-]?([0-9]+([.][0-9]*)?|[.][0-9]+)$';
+
+// The rows a widget draws from: current submission versions whose XML parses,
+// narrowed by the parent's filter when the parent is a filtered dataset.
+const widgetRows = (formId, paths) => sql`
+  select ${extractObject(paths)} as extracted
+  from submissions s
+  join submission_defs sd on sd."submissionId" = s.id and sd.current = true
+  where s."formId" = ${formId} and s."deletedAt" is null and s.draft = false
+    and xml_is_well_formed_document(sd.xml)`;
+
+const widgetData = async (db, formId, normalized, filter) => {
+  const paths = [...new Set([normalized.column, normalized.groupBy].filter(p => p != null))];
+  const base = widgetRows(formId, paths);
+  const scoped = filter == null
+    ? sql`with rows as (${base}) select * from rows`
+    : sql`with rows as (${base}) select * from rows where ${filter}`;
+
+  // How much the answer rests on, gathered before the answer itself so a
+  // reader is never shown a mean without its denominator.
+  const key = normalized.groupBy ?? normalized.column;
+  const value = normalized.column;
+  const coverage = await db.one(sql`
+    with rows as (${scoped})
+    select count(*)::integer as total,
+      count(*) filter (where nullif(btrim(extracted ->> ${key}), '') is not null)::integer as grouped,
+      count(*) filter (where nullif(btrim(extracted ->> ${value}), '') is not null)::integer as answered
+    from rows`);
+
+  if (coverage.total === 0)
+    return { rows: [], omitted: null, coverage, distinct: 0 };
+
+  const grouped = normalized.aggregation === 'count'
+    ? await db.any(sql`
+        with rows as (${scoped})
+        select btrim(extracted ->> ${key}) as key, count(*)::integer as count
+        from rows
+        where nullif(btrim(extracted ->> ${key}), '') is not null
+        group by 1 order by count(*) desc, 1`)
+    : await db.any(sql`
+        with rows as (${scoped}),
+        numbers as (
+          select btrim(extracted ->> ${key}) as key,
+            case when btrim(extracted ->> ${value}) ~ ${WIDGET_NUMERIC}
+              then (btrim(extracted ->> ${value}))::numeric end as value
+          from rows
+          where nullif(btrim(extracted ->> ${key}), '') is not null
+        )
+        select key, count(value)::integer as count,
+          ${normalized.aggregation === 'sum' ? sql`sum(value)`
+    : normalized.aggregation === 'mean' ? sql`avg(value)`
+      : sql`percentile_cont(0.5) within group (order by value)`}::numeric as value
+        from numbers
+        where value is not null
+        group by key
+        order by 3 desc, 1`);
+
+  const capped = capRows(grouped.map(row => ({
+    key: row.key,
+    count: row.count,
+    value: row.value == null ? null : Number(row.value)
+  })), MAX_BARS);
+
+  return { ...capped, coverage, distinct: grouped.length };
 };
 
 module.exports = (service, endpoint) => {
@@ -468,6 +561,208 @@ module.exports = (service, endpoint) => {
     );
     return { total: stats.matching, limit, offset, excludedMalformed: stats.excludedMalformed,
       columns: normalized.columns, data, usable: true, ...stale };
+  }));
+
+
+  ////////////////////////////////////////////////////////////////////////////////
+  // SAVED CHART WIDGETS
+
+  // What a widget is allowed to read depends on its parent. A form widget sees
+  // every chartable field; a filtered-dataset widget sees only that dataset's
+  // visible columns and only its rows. Resolving that here, once, is what keeps
+  // the restriction from being something each route remembers separately.
+  const widgetParent = async (container, projectId, body, auth, { write }) => {
+    const datasetId = body?.filteredDatasetId == null
+      ? null
+      : Number.parseInt(body.filteredDatasetId, 10);
+
+    if (datasetId != null) {
+      if (!Number.isInteger(datasetId)) return reject(Problem.user.notFound());
+      const project = await container.Projects.getById(projectId).then(getOrNotFound);
+      await auth.canOrReject(write ? 'project.update' : 'project.read', project);
+      if (!write) {
+        await auth.canOrReject('submission.list', project);
+        await auth.canOrReject('submission.read', project);
+      }
+      const dataset = await filteredDatasetRecord(container.db, project.id, datasetId)
+        .then(getOrNotFound);
+      const all = await filteredDatasetFields(container.db,
+        { id: dataset.formId, currentDefId: dataset.currentDefId });
+      const resolved = resolveStoredDefinition(dataset, all);
+      // Only the dataset's surviving visible columns, so a widget can never be
+      // built on -- or keep drawing -- a field the dataset hides.
+      const visible = new Set(resolved.columns);
+      return {
+        kind: 'dataset',
+        formId: dataset.formId,
+        datasetId: dataset.id,
+        fields: all.filter(field => visible.has(field.path)),
+        filter: resolved.usable
+          ? compileFilter(normalizeDefinition(
+            { columns: resolved.columns, query: resolved.query }, all
+          ).query, new Map(all.map(f => [f.path, f])))
+          : null,
+        usable: resolved.usable,
+        missingFilters: resolved.missingFilters
+      };
+    }
+
+    const form = await container.Forms
+      .getByProjectAndXmlFormId(projectId, body?.xmlFormId, Form.PublishedVersion)
+      .then(getOrNotFound);
+    if (write) await auth.canOrReject('form.update', form);
+    else {
+      await auth.canOrReject('submission.list', form);
+      await auth.canOrReject('submission.read', form);
+    }
+    return {
+      kind: 'form',
+      formId: form.id,
+      datasetId: null,
+      fields: await filteredDatasetFields(container.db, form),
+      filter: null,
+      usable: true,
+      missingFilters: []
+    };
+  };
+
+  const parentWhere = (parent) => (parent.datasetId == null
+    ? sql`"formId" = ${parent.formId}`
+    : sql`"filteredDatasetId" = ${parent.datasetId}`);
+
+  // Order is contiguous from zero within a parent. Renumbering on every write
+  // costs a few lines here and saves every later reordering feature from
+  // coping with gaps.
+  const renumber = (db, parent) => db.query(sql`
+    with ordered as (
+      select id, row_number() over (order by "order", id) - 1 as position
+      from field_data_widgets where ${parentWhere(parent)}
+    )
+    update field_data_widgets w set "order" = ordered.position
+    from ordered where ordered.id = w.id and w."order" <> ordered.position`);
+
+  service.post('/projects/:projectId/widgets', endpoint(async (container, { params, body, auth }) => {
+    const parent = await widgetParent(container, params.projectId, body, auth, { write: true });
+    const normalized = normalizeWidgetOrProblem(body, parent.fields);
+    const created = await container.db.one(sql`
+      insert into field_data_widgets
+        (title, description, "formId", "filteredDatasetId", column_path, "groupBy",
+         aggregation, "viewType", "order", "createdBy")
+      values (${normalized.title}, ${normalized.description},
+        ${parent.datasetId == null ? parent.formId : null}, ${parent.datasetId},
+        ${normalized.column}, ${normalized.groupBy}, ${normalized.aggregation},
+        ${normalized.viewType},
+        (select coalesce(max("order") + 1, 0) from field_data_widgets where ${parentWhere(parent)}),
+        ${auth.actor.map(actor => actor.id).orNull()})
+      returning *`).catch(postgresErrorToProblem);
+    await renumber(container.db, parent);
+    return created;
+  }));
+
+  service.get('/projects/:projectId/widgets', endpoint(async (container, { params, query, auth }) => {
+    const parent = await widgetParent(container, params.projectId, query, auth, { write: false });
+    const widgets = await container.db.any(sql`
+      select * from field_data_widgets
+      where ${parentWhere(parent)} order by "order", id`);
+
+    if (query.data !== 'true') return widgets;
+
+    // A dataset whose filter field the form no longer has serves no rows at
+    // all, and its widgets must not quietly become charts of everything.
+    if (!parent.usable) {
+      return widgets.map(widget => ({
+        ...widget, usable: false, missingFilters: parent.missingFilters
+      }));
+    }
+
+    const byPath = new Map(parent.fields.map(field => [field.path, field]));
+    return Promise.all(widgets.map(async (widget) => {
+      // A form republished without this widget's field leaves the widget
+      // readable but undrawable. Said, rather than thrown at the reader.
+      const missing = [widget.column_path, widget.groupBy]
+        .filter(path => path != null && !byPath.has(path));
+      if (missing.length > 0)
+        return { ...widget, usable: false, missingFields: missing };
+
+      const normalized = {
+        column: widget.column_path,
+        groupBy: widget.groupBy,
+        aggregation: widget.aggregation
+      };
+      const result = await widgetData(container.db, parent.formId, normalized, parent.filter);
+      return {
+        ...widget,
+        usable: true,
+        ...result,
+        // Charting free text produces one bar per submission. Say so instead.
+        tooManyCategories: tooManyDistinct(result.distinct)
+      };
+    }));
+  }));
+
+  service.patch('/projects/:projectId/widgets/order', endpoint(async (container, { params, body, auth }) => {
+    const parent = await widgetParent(container, params.projectId, body, auth, { write: true });
+    const ids = Array.isArray(body?.order) ? body.order.map(id => Number.parseInt(id, 10)) : null;
+    if (ids == null || ids.some(id => !Number.isInteger(id)))
+      return reject(Problem.user.unexpectedValue({
+        field: 'order', value: body?.order, reason: 'must be an array of widget ids'
+      }));
+
+    // The whole order arrives at once. Patching each widget's position one at a
+    // time races with itself and leaves two widgets sharing a place.
+    const existing = await container.db.any(sql`
+      select id from field_data_widgets where ${parentWhere(parent)}`);
+    const known = new Set(existing.map(row => row.id));
+    if (ids.length !== known.size || ids.some(id => !known.has(id)))
+      return reject(Problem.user.unexpectedValue({
+        field: 'order', value: body.order,
+        reason: 'must list every widget of this chart set exactly once'
+      }));
+
+    for (const [position, id] of ids.entries()) {
+      // eslint-disable-next-line no-await-in-loop
+      await container.db.query(sql`
+        update field_data_widgets set "order" = ${position}, "updatedAt" = clock_timestamp()
+        where id = ${id}`);
+    }
+    return container.db.any(sql`
+      select * from field_data_widgets where ${parentWhere(parent)} order by "order", id`);
+  }));
+
+  service.patch('/projects/:projectId/widgets/:id', endpoint(async (container, { params, body, auth }) => {
+    const id = Number.parseInt(params.id, 10);
+    if (!Number.isInteger(id)) return reject(Problem.user.notFound());
+    const parent = await widgetParent(container, params.projectId, body, auth, { write: true });
+    const existing = await container.db.maybeOne(sql`
+      select * from field_data_widgets where id = ${id} and ${parentWhere(parent)}`)
+      .then(getOrNotFound);
+    const normalized = normalizeWidgetOrProblem({
+      title: body?.title ?? existing.title,
+      description: body?.description ?? existing.description,
+      column: body?.column ?? existing.column_path,
+      groupBy: body?.groupBy === undefined ? existing.groupBy : body.groupBy,
+      aggregation: body?.aggregation ?? existing.aggregation,
+      viewType: body?.viewType ?? existing.viewType
+    }, parent.fields);
+    return container.db.one(sql`
+      update field_data_widgets
+      set title = ${normalized.title}, description = ${normalized.description},
+        column_path = ${normalized.column}, "groupBy" = ${normalized.groupBy},
+        aggregation = ${normalized.aggregation}, "viewType" = ${normalized.viewType},
+        "updatedAt" = clock_timestamp()
+      where id = ${existing.id}
+      returning *`).catch(postgresErrorToProblem);
+  }));
+
+  service.delete('/projects/:projectId/widgets/:id', endpoint(async (container, { params, query, auth }) => {
+    const id = Number.parseInt(params.id, 10);
+    if (!Number.isInteger(id)) return reject(Problem.user.notFound());
+    const parent = await widgetParent(container, params.projectId, query, auth, { write: true });
+    const removed = await container.db.maybeOne(sql`
+      delete from field_data_widgets where id = ${id} and ${parentWhere(parent)} returning id`);
+    if (removed == null) return reject(Problem.user.notFound());
+    await renumber(container.db, parent);
+    return success();
   }));
 
   ////////////////////////////////////////////////////////////////////////////////

@@ -70,6 +70,12 @@ except according to the terms contained in the LICENSE file.
             {{ $t('formHead.tab.photos') }}
           </router-link>
         </li>
+        <li v-if="canRoute(tabPath('charts'))" :class="formTabClass('charts')"
+          role="presentation">
+          <router-link :to="tabPath('charts')">
+            {{ $t('formHead.tab.charts') }}
+          </router-link>
+        </li>
         <li v-if="canRoute(tabPath('verification'))"
           :class="formTabClass('verification')" role="presentation">
           <router-link :to="tabPath('verification')">
