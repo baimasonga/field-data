@@ -85,6 +85,16 @@ describe('(util) rest targets', () => {
         .should.throw(/must be one of/);
     });
 
+    it('normalizes the two Google synchronization choices as booleans', () => {
+      const normalized = normalizeConfig('google-sheets', {
+        spreadsheetId: 'sheet', sheetName: 'Data', clientId: 'client',
+        clientSecret: 'secret', refreshToken: 'refresh',
+        syncUpdates: 'true', sendExisting: true
+      });
+      normalized.config.syncUpdates.should.equal(true);
+      normalized.config.sendExisting.should.equal(true);
+    });
+
     it('defaults to json, which is what every existing row is', () => {
       normalizeConfig(undefined, null).target.name.should.equal('json');
     });

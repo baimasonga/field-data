@@ -136,6 +136,10 @@ module.exports = {
     syncUpdates: {
       type: 'boolean', required: false, secret: false,
       describe: 'Update an existing row when a Submission receives a new version.'
+    },
+    sendExisting: {
+      type: 'boolean', required: false, secret: false,
+      describe: 'Queue existing Submissions for synchronization after this integration is created.'
     }
   },
   buildTokenRequest,

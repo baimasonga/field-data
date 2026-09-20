@@ -17,6 +17,16 @@ process.env.FIELD_DATA_WEBHOOK_ENCRYPTION_KEY =
 const { isBlockedAddress, resolveWebhookUrl } = require('../../lib/util/safe-webhook-url');
 const { deliver, _googleSheetPayload, _findSheetRow, _appendWithVerification } =
   require('../../lib/worker/webhooks');
+const { BATCH_SIZE: SHEET_SYNC_BATCH_SIZE } =
+  require('../../lib/worker/field-data-google-sheets');
+
+test('historical Sheet synchronization is bounded to a small resumable batch', () => {
+  assert.ok(SHEET_SYNC_BATCH_SIZE > 0 && SHEET_SYNC_BATCH_SIZE <= 25);
+  const migration = fs.readFileSync(path.join(__dirname,
+    '../../lib/model/migrations/20260920-07-add-google-sheet-sync-jobs.js'), 'utf8');
+  assert.match(migration, /UNIQUE \("syncId", "submissionId"\)/);
+  assert.match(migration, /WHERE status IN \('Pending', 'Running'\)/);
+});
 
 test('rejects private addresses in dotted, compressed and expanded mapped IPv6', async () => {
   for (const ip of ['127.0.0.1', '10.1.2.3', '::1', '::ffff:127.0.0.1',
@@ -987,11 +997,14 @@ const sheetDatabase = () => {
     if (query.sql.includes('from form_fields')) {
       const comparedToSubmissionDefs =
         /join\s+submission_defs\s+\w+\s+on\s+\w+\."?id"?\s*=\s*\$/.test(query.sql);
+      // Either resolve through the real FK or reproduce the old, incorrect
+      // comparison straight to form_defs.id.
       const formDefId = comparedToSubmissionDefs
-        ? SUBMISSION_DEFS.get(bound)?.formDefId   // resolved through the real FK
-        : bound;                                  // compared straight to form_defs.id
+        ? SUBMISSION_DEFS.get(bound)?.formDefId
+        : bound;
       return formDefId === FORM_DEF.id
-        ? FIELDS.filter(field => field.schemaId === FORM_DEF.schemaId).map(({ path }) => ({ path }))
+        ? FIELDS.filter(field => field.schemaId === FORM_DEF.schemaId)
+          .map(({ path: fieldPath }) => ({ path: fieldPath }))
         : [];
     }
     const submissionDefId = query.values.find(value => SUBMISSION_DEFS.has(value));
@@ -1023,11 +1036,10 @@ test('Google Sheets resolves a form version through formDefId, not by id collisi
 
 test('a Submission event with no version to synchronize is refused, not guessed at', async () => {
   const all = sheetDatabase();
-  for (const details of [undefined, {}, { submissionDefId: 'not-a-number' }]) {
-    await assert.rejects(
+  await Promise.all([undefined, {}, { submissionDefId: 'not-a-number' }].map(details =>
+    assert.rejects(
       _googleSheetPayload({ all }, { action: 'submission.create', details }, { formId: 7 }),
-      /does not identify a version/);
-  }
+      /does not identify a version/)));
 });
 
 // The instance-ID column used to be fetched whole, as A:A, on every delivery,
@@ -1048,7 +1060,7 @@ const sheetServer = async (handler) => {
     req.on('end', () => handler(req, res, seen.length, body));
   });
   await new Promise(resolve => { server.listen(0, '127.0.0.1', resolve); });
-  const port = server.address().port;
+  const { port } = server.address();
   return {
     seen,
     port,

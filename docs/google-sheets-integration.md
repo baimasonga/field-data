@@ -18,14 +18,20 @@ updated Submission from becoming a duplicate row.
 
 In Field Data, open **Field Data → Integrations**, select **Google Sheets**,
 choose a Form, and enter those values. Enable update synchronization if a new
-Submission version should replace its existing spreadsheet row.
+Submission version should replace its existing spreadsheet row. Select **send
+existing Submissions** to queue a historical synchronization immediately, or
+use **Sync existing submissions** from the integration's Details later.
 
 Client secrets and refresh tokens are encrypted before they are stored and are
 never returned by the API. The integration shows only a short credential hint.
-Delivery results are available under the integration's **Details** action.
+Delivery results and historical-sync progress are available under the
+integration's **Details** action. Historical work runs in batches of ten and
+continues in the background, so closing the browser does not stop it. A partial
+run can retry only its failed rows. A pending run can be cancelled.
 
-The integration handles new events after it is enabled. It does not backfill
-historical Submissions.
+If Google rejects the refresh token, the integration is marked as needing
+reauthorization. Replace both OAuth credentials in Details, then retry the
+failed synchronization. Stored credentials are never displayed again.
 
 ## What it costs, and what it will not do
 

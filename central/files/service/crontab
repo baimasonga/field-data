@@ -4,3 +4,4 @@
 0 2 * * * root /usr/bin/with-pgenvblock.pl /dev/shm/docker-envblock /usr/odk/process-backlog.sh
 0 1 * * 0 root /usr/bin/with-pgenvblock.pl /dev/shm/docker-envblock /usr/odk/reap-sessions.sh
 * * * * * root /usr/bin/with-pgenvblock.pl /dev/shm/docker-envblock /usr/odk/run-field-data-backups.sh
+* * * * * root /usr/bin/with-pgenvblock.pl /dev/shm/docker-envblock /usr/odk/run-field-data-google-sheets.sh
