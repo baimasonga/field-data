@@ -149,6 +149,26 @@ repo pins Node 24 and this environment has 22, so install `should` and
 `mocha` into the scratchpad and run with `NODE_PATH` pointed at them rather
 than fighting `npm install`.
 
+## A readability rule is not a privacy rule
+
+`summarizeForm` picks which fields are worth charting by asking whether their
+answers repeat. That is a taste judgement, and for a long time it was also the
+only thing standing between a form's answers and the anonymous shared-dashboard
+route. It is not up to that job: six submissions with five distinct answers
+passes it, and four of the resulting bars are one person's answer each.
+
+Whenever a route has no reader behind it, the question is not "is this a chart
+worth drawing" but "how many people does each number stand for". Those need
+separate code, and the second one needs a floor -- `minValueCount` in
+`lib/util/summary-fields.js`, five on the shared path. Put it somewhere a unit
+test can reach: a control that only an integration test can exercise is one
+nobody re-checks.
+
+The same instinct applies to the public route itself. `endpoint` does not
+require a session, so a route is public until it calls `auth.canOrReject`.
+Before adding anything to a response that a public route shares with an
+authenticated one, ask what the anonymous version of that response says.
+
 ## Honesty about what has been verified
 
 Much of the Field Data surface has never run against real submissions, and

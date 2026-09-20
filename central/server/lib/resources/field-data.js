@@ -22,6 +22,7 @@ const { encryptSecret } = require('../util/field-data-secret');
 const { parseGeopoint, checkImplausibleTravel, IMPLAUSIBLE_TRAVEL } = require('../util/fieldwork-integrity');
 const { normalizeDefinition, resolveStoredDefinition, compileFilter, extractObject, projectObject } = require('../util/filtered-datasets');
 const { normalizeWidget, capRows, tooManyDistinct, MAX_BARS } = require('../util/widgets');
+const { chartableFields } = require('../util/summary-fields');
 const { mergeFields, codingDivergence } = require('../util/merged-datasets');
 const { normalizeConfig, redactConfig, describeTargets } = require('../util/rest-targets');
 const {
@@ -118,7 +119,25 @@ const validateEvents = (events) => {
 // The whole of a form's summary, counted in the database. Lives here rather
 // than inside the route because a shared dashboard serves exactly the same
 // numbers to somebody who has no account, and two copies of this would drift.
-const summarizeForm = async (db, formId) => {
+/*
+`minValueCount` is the disclosure control on the anonymous path.
+
+The heuristics below pick a field for charting when its answers repeat, which
+is a readability rule and not a privacy one: a field with six submissions and
+five distinct answers passes it, and four of those bars are then one bar per
+person. On the authenticated routes that is fine -- the reader already holds
+submission.read and could open the submissions themselves. On the shared
+dashboard, which has no reader at all, it publishes individual answers to the
+internet, and the field types that pass include dates of birth and any short
+text answer.
+
+So a share asks for a floor: a value is only shown when at least this many
+submissions gave it, and a field is only shown when at least two of its values
+clear the floor. Everything below it becomes part of the "Other" bar, and that
+bar is itself dropped unless it clears the floor too. The result is a chart of
+genuine aggregates or no chart at all.
+*/
+const summarizeForm = async (db, formId, { minValueCount = 1 } = {}) => {
   const live = sql`
     from submissions s
     where s."formId" = ${formId} and s."deletedAt" is null and s.draft = false`;
@@ -184,38 +203,24 @@ const summarizeForm = async (db, formId) => {
     group by path, name, type, "order", value
     order by "order", count(*) desc`).catch(() => []);
 
-  // A field is worth a chart when its answers repeat. A name, a note or a
-  // free-text comment has about as many distinct answers as submissions and
-  // makes a chart of one-tall bars, so those are left out. The cutoffs are
-  // the series-count ladder: past eight bars a chart stops being readable,
-  // so the tail becomes one "Other" bar rather than more bars.
-  const MAX_DISTINCT = 25;
-  const MAX_BARS = 8;
-  const MAX_FIELDS = 12;
+  // Which fields are worth a chart, and which values may be shown at all.
+  // Both rules live in lib/util/summary-fields.js, where the second one can
+  // be tested without a database -- it is the disclosure control on the
+  // anonymous path, and it should not be something only an integration test
+  // can see.
+  const { fields, truncated } = chartableFields(answers, { minValueCount });
 
-  const byPath = new Map();
-  for (const row of answers) {
-    if (!byPath.has(row.path))
-      byPath.set(row.path, { path: row.path, name: row.name, type: row.type, values: [] });
-    byPath.get(row.path).values.push({ value: row.value, count: row.count });
-  }
+  return { ...totals, overTime, reviewStates, fields, truncated };
+};
 
-  const fields = [];
-  for (const field of byPath.values()) {
-    const distinct = field.values.length;
-    const answered = field.values.reduce((sum, v) => sum + v.count, 0);
-    // Every answer different means free text, not a category.
-    if (distinct > MAX_DISTINCT || distinct === answered) continue;
-    if (distinct < 2) continue;
-    const top = field.values.slice(0, MAX_BARS);
-    const tail = field.values.slice(MAX_BARS);
-    if (tail.length > 0)
-      top.push({ value: null, other: tail.length, count: tail.reduce((sum, v) => sum + v.count, 0) });
-    fields.push({ ...field, values: top, distinct, answered });
-    if (fields.length === MAX_FIELDS) break;
-  }
-
-  return { ...totals, overTime, reviewStates, fields, truncated: byPath.size > fields.length };
+// A path parameter on its way into an integer column. Left as a string it
+// reaches Postgres as one, and "abc" comes back a 500 rather than the 404 the
+// route means. Throws the Problem rather than returning it, so it can be used
+// inline in a query template.
+const intParam = (value) => {
+  const parsed = Number.parseInt(value, 10);
+  if (!Number.isInteger(parsed)) throw Problem.user.notFound();
+  return parsed;
 };
 
 const normalizeWidgetOrProblem = (body, fields) => {
@@ -464,7 +469,11 @@ const mergedDatasetCoding = async (db, forms, merged) => {
     for (const form of forms) {
       // eslint-disable-next-line no-await-in-loop
       const rows = await db.any(sql`
-        select distinct btrim((xpath(${`/*${field.path}/text()`}, sd.xml::xml))[1]::text) as value
+        -- ::text for the same reason extractObject casts: xpath's first
+        -- argument cannot be a bare parameter, and without it Postgres refuses
+        -- the statement. The catch below would then swallow it and this check
+        -- would silently never find anything.
+        select distinct btrim((xpath(${`/*${field.path}/text()`}::text, sd.xml::xml))[1]::text) as value
         from submissions s
         join submission_defs sd on sd."submissionId" = s.id and sd.current = true
         where s."formId" = ${form.formId} and s."deletedAt" is null and s.draft = false
@@ -1536,13 +1545,20 @@ module.exports = (service, endpoint) => {
   // the funder, the ministry or the district office who should see the numbers
   // and should not be given a login.
   //
-  // Only counts go through a share. The summary has no individual submission
-  // in it, no attachment and no submitter's name, so a link cannot leak what
-  // one household answered however long somebody holds it.
+  // Only aggregates go through a share. There is no individual submission in
+  // it, no attachment and no submitter's name -- and the answer charts carry a
+  // minimum count per value (SHARED_MIN_VALUE_COUNT below), because a bar of
+  // height one is one household's answer whatever the chart around it says.
   //
   // The token is a credential, so the database keeps only its SHA-256. A
   // reader of the table cannot use what they find; the usable token is
   // returned once, at creation, and never again.
+
+  // How many submissions must give an answer before that answer is shown to
+  // somebody with no account. Five is the usual floor for published tabulations
+  // and is low enough that a real district breakdown still draws.
+  const SHARED_MIN_VALUE_COUNT = 5;
+
   const dashboardView = ({ tokenSha, ...rest }) => rest;
   const tokenSha = (token) => crypto.createHash('sha256').update(token).digest('hex');
 
@@ -1603,7 +1619,7 @@ module.exports = (service, endpoint) => {
     await auth.canOrReject('form.update', form);
     const revoked = await container.db.maybeOne(sql`
       update field_data_dashboards set "revokedAt" = clock_timestamp()
-      where id = ${params.id} and "formId" = ${form.id} and "revokedAt" is null
+      where id = ${intParam(params.id)} and "formId" = ${form.id} and "revokedAt" is null
       returning id`);
     if (revoked == null) return reject(Problem.user.notFound());
     return success();
@@ -1642,7 +1658,9 @@ module.exports = (service, endpoint) => {
       set views = views + 1, "lastViewedAt" = clock_timestamp()
       where id = ${share.id}`).catch(() => {});
 
-    const summary = await summarizeForm(container.db, share.formId);
+    // The floor that keeps a public chart an aggregate. See summarizeForm.
+    const summary = await summarizeForm(container.db, share.formId,
+      { minValueCount: SHARED_MIN_VALUE_COUNT });
     return {
       name: share.name,
       formName: share.formName ?? share.xmlFormId,
@@ -1887,19 +1905,20 @@ module.exports = (service, endpoint) => {
 
   service.delete('/field-data/media/:id', endpoint(async (container, { params, auth }) => {
     await auth.canOrReject('project.create', Project.species);
+    const mediaId = intParam(params.id);
     const record = await container.maybeOne(sql`
-      select * from field_data_media where id = ${params.id}
+      select * from field_data_media where id = ${mediaId}
     `).then(getOrNotFound);
 
     if (record.storageKey) await storage.delete(record.storageKey);
-    await container.db.query(sql`delete from field_data_media where id = ${params.id}`);
+    await container.db.query(sql`delete from field_data_media where id = ${mediaId}`);
     return success();
   }));
 
   service.get('/field-data/media/download/:id', endpoint(async (container, { params, auth }, _, response) => {
     await auth.canOrReject('project.create', Project.species);
     const record = await container.maybeOne(sql`
-      select * from field_data_media where id = ${params.id}
+      select * from field_data_media where id = ${intParam(params.id)}
     `).then(getOrNotFound);
     if (!record.storageKey) return reject(Problem.user.notFound());
 
@@ -1965,7 +1984,7 @@ module.exports = (service, endpoint) => {
     await auth.canOrReject('config.set', Config.species);
     return container.db.any(sql`
       select * from field_data_webhook_deliveries
-      where "webhookId" = ${params.id}
+      where "webhookId" = ${intParam(params.id)}
       order by "createdAt" desc
       limit 50
     `);
@@ -1973,8 +1992,9 @@ module.exports = (service, endpoint) => {
 
   service.patch('/field-data/webhooks/:id', endpoint(async (container, { params, body, auth }) => {
     await auth.canOrReject('config.set', Config.species);
+    const webhookId = intParam(params.id);
     const webhook = await container.maybeOne(sql`
-      select * from field_data_webhooks where id = ${params.id}
+      select * from field_data_webhooks where id = ${webhookId}
     `).then(getOrNotFound);
 
     const updated = {
@@ -1995,7 +2015,7 @@ module.exports = (service, endpoint) => {
       update field_data_webhooks
       set name=${updated.name}, url=${updated.url}, events=${updated.events},
         active=${updated.active}, target=${target.name}, config=${JSON.stringify(config)}
-      where id=${params.id}
+      where id=${webhookId}
       returning *
     `);
     return publicWebhook(result);
@@ -2006,14 +2026,14 @@ module.exports = (service, endpoint) => {
     const secret = crypto.randomBytes(24).toString('hex');
     const result = await container.maybeOne(sql`
       update field_data_webhooks set secret=${encryptSecret(secret)}
-      where id=${params.id} returning *
+      where id=${intParam(params.id)} returning *
     `).then(getOrNotFound);
     return { ...publicWebhook(result), secret };
   }));
 
   service.delete('/field-data/webhooks/:id', endpoint(async (container, { params, auth }) => {
     await auth.canOrReject('config.set', Config.species);
-    await container.db.query(sql`delete from field_data_webhooks where id = ${params.id}`);
+    await container.db.query(sql`delete from field_data_webhooks where id = ${intParam(params.id)}`);
     return success();
   }));
 
@@ -2050,7 +2070,7 @@ module.exports = (service, endpoint) => {
   service.get('/field-data/backups/:id/download', endpoint(async (container, { params, auth }, _, response) => {
     await auth.canOrReject('backup.run', Config.species);
     const record = await container.maybeOne(sql`
-      select * from field_data_backups where id=${params.id}
+      select * from field_data_backups where id=${intParam(params.id)}
     `).then(getOrNotFound);
     if (!record.storageKey || record.status !== 'Success') return reject(Problem.user.notFound());
     response.set('Content-Disposition', contentDisposition(`field-data-backup-${record.id}.pgdump.enc.bin`));
