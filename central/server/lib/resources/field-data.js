@@ -745,10 +745,11 @@ module.exports = (service, endpoint) => {
     // 2. Recent Submissions
     const recentSubmissions = await dbPool.any(sql`
       select submissions.id, submissions."instanceId", submissions."createdAt",
-             forms."xmlFormId" as form, forms.name as "formName",
+             forms."xmlFormId" as form, form_defs.name as "formName",
              projects.name as project, actors."displayName" as submitter
       from submissions
       join forms on submissions."formId" = forms.id
+      join form_defs on form_defs.id = forms."currentDefId"
       join projects on forms."projectId" = projects.id
       left join actors on submissions."submitterId" = actors.id
       where forms."deletedAt" is null and submissions."deletedAt" is null
@@ -773,13 +774,14 @@ module.exports = (service, endpoint) => {
 
     // 4. Top Forms
     const topForms = await dbPool.any(sql`
-      select forms."xmlFormId" as form, forms.name as name, count(submissions.id)::integer as count
+      select forms."xmlFormId" as form, form_defs.name as name, count(submissions.id)::integer as count
       from submissions
       join forms on submissions."formId" = forms.id
+      join form_defs on form_defs.id = forms."currentDefId"
       where forms."deletedAt" is null and submissions."deletedAt" is null
         and submissions.draft = false
         and forms."projectId" = ANY(${sql.array(submissionProjectIds, 'int4')})
-      group by forms.id, forms."xmlFormId", forms.name
+      group by forms.id, forms."xmlFormId", form_defs.name
       order by count desc
       limit 5
     `);
