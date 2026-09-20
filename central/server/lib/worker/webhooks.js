@@ -18,7 +18,8 @@ const https = require('https');
 const { sql } = require('slonik');
 const { resolveWebhookUrl } = require('../util/safe-webhook-url');
 const { decryptSecret } = require('../util/field-data-secret');
-const { getTarget } = require('../util/rest-targets');
+const { getTarget, openConfig } = require('../util/rest-targets');
+const { extractObject } = require('../util/filtered-datasets');
 
 // The set of audit actions for which webhooks may be delivered. Listing an
 // action here also makes it "actionable" (see Audit.actionableEvents), which is
@@ -43,7 +44,7 @@ const webhookEvents = [
 
 // POSTs a raw body to a URL with the given headers, resolving to a delivery
 // outcome { statusCode, success, error }. Never rejects.
-const deliverOnce = async (urlStr, rawBody, headers) => {
+const deliverOnce = async (urlStr, rawBody, headers, method = 'POST') => {
   let resolved;
   try {
     resolved = await resolveWebhookUrl(urlStr, { allowPrivate: process.env.NODE_ENV === 'test' });
@@ -68,18 +69,32 @@ const deliverOnce = async (urlStr, rawBody, headers) => {
           ? callback(null, [{ address: resolved.address, family: resolved.family }])
           : callback(null, resolved.address, resolved.family));
       const req = client.request(resolved.url, {
-        method: 'POST',
+        method,
         timeout: 10000,
         headers,
         lookup
       }, (res) => {
-        // Drain the response so the socket can be freed.
-        res.on('data', () => {});
+        // OAuth and the Sheets lookup return small JSON documents the target
+        // needs for its next request. Cap what is retained while still draining
+        // the response so the socket is freed.
+        const chunks = [];
+        let retained = 0;
+        res.on('data', (chunk) => {
+          if (retained >= 1024 * 1024) return;
+          const keep = chunk.subarray(0, (1024 * 1024) - retained);
+          chunks.push(keep);
+          retained += keep.length;
+        });
         res.on('error', (error) => settle({ statusCode: null, success: false, error: error.message }));
         res.on('aborted', () => settle({ statusCode: null, success: false, error: 'response aborted' }));
         res.on('end', () => {
           const success = res.statusCode >= 200 && res.statusCode < 300;
-          settle({ statusCode: res.statusCode, success, error: success ? null : `HTTP ${res.statusCode}` });
+          settle({
+            statusCode: res.statusCode,
+            success,
+            error: success ? null : `HTTP ${res.statusCode}`,
+            responseBody: Buffer.concat(chunks).toString('utf8')
+          });
         });
       });
       req.on('error', (err) => settle({ statusCode: null, success: false, error: err.message || 'request error' }));
@@ -88,7 +103,7 @@ const deliverOnce = async (urlStr, rawBody, headers) => {
         req.destroy();
         settle({ statusCode: null, success: false, error: 'delivery deadline exceeded' });
       }, 10000);
-      req.write(rawBody);
+      if (rawBody != null) req.write(rawBody);
       req.end();
     } catch (err) {
       settle({ statusCode: null, success: false, error: 'invalid URL' });
@@ -99,7 +114,7 @@ const deliverOnce = async (urlStr, rawBody, headers) => {
 const retryable = (outcome) => outcome.statusCode == null || outcome.statusCode === 408
   || outcome.statusCode === 429 || outcome.statusCode >= 500;
 const pause = (milliseconds) => new Promise(resolve => { setTimeout(resolve, milliseconds); });
-const deliver = async (url, rawBody, headers) => {
+const deliver = async (url, rawBody, headers, method = 'POST') => {
   let outcome;
   let attempts = 0;
   for (const delay of [0, 250, 1000]) {
@@ -108,7 +123,7 @@ const deliver = async (url, rawBody, headers) => {
     if (delay !== 0 && process.env.NODE_ENV !== 'test') await pause(delay);
     attempts += 1;
     // eslint-disable-next-line no-await-in-loop
-    outcome = await deliverOnce(url, rawBody, headers);
+    outcome = await deliverOnce(url, rawBody, headers, method);
     if (outcome.success || !retryable(outcome)) break;
   }
   return { ...outcome, attempts };
@@ -133,11 +148,55 @@ const statusLabel = (outcome) => (outcome.success
   ? `Delivered (${outcome.statusCode})`
   : `Failed (${outcome.statusCode != null ? outcome.statusCode : outcome.error})`).slice(0, 50);
 
+// Turn the audited Submission version into one stable spreadsheet row. Paths,
+// rather than labels, are the headers: labels can repeat and can be translated,
+// while an XML path identifies the answer unambiguously.
+const googleSheetPayload = async ({ all }, event, hook) => {
+  const submissionDefId = Number(event.details?.submissionDefId);
+  if (!Number.isInteger(submissionDefId))
+    throw new Error('This Submission event does not identify a version to synchronize.');
+
+  const fields = await all(sql`
+    select ff.path
+    from form_fields ff
+    join form_defs fd on fd.id = ${submissionDefId} and fd."schemaId" = ff."schemaId"
+    where ff."formId" = ${hook.formId}
+      and coalesce(ff.binary, false) = false
+      and ff.path ~ '^(/[A-Za-z_][A-Za-z0-9_.-]*)+$'
+    order by ff."order", ff.path`);
+  const paths = fields.map(field => field.path);
+  if (paths.length === 0)
+    throw new Error('The Form has no fields that can be synchronized.');
+  const rows = await all(sql`
+    select sd."instanceId", sd."createdAt", ${extractObject(paths)} as answers
+    from submission_defs sd
+    join submissions s on s.id = sd."submissionId" and s."formId" = ${hook.formId}
+    where sd.id = ${submissionDefId} and s."deletedAt" is null`);
+  if (rows.length !== 1) throw new Error('The Submission version no longer exists.');
+  const submission = rows[0];
+  return {
+    instanceId: submission.instanceId,
+    headers: ['_instance_id', '_submitted_at', '_event', ...paths],
+    row: [submission.instanceId, submission.createdAt?.toISOString?.() ?? submission.createdAt,
+      event.action, ...paths.map(path => submission.answers?.[path] ?? '')]
+  };
+};
+
+const googleAccessToken = (outcome) => {
+  if (!outcome.success) return null;
+  try {
+    const parsed = JSON.parse(outcome.responseBody);
+    return typeof parsed.access_token === 'string' ? parsed.access_token : null;
+  } catch (_) {
+    return null;
+  }
+};
+
 const dispatchWebhooks = async (container, event) => {
   const { all, run } = container;
 
   const webhooks = await all(sql`
-    select id, url, secret, target, config from field_data_webhooks
+    select id, url, secret, target, config, "formId" from field_data_webhooks
     where active = true and jsonb_typeof(events) = 'array'
       and (
         (case when jsonb_typeof(events) = 'array' then jsonb_array_length(events) else null end) = 0
@@ -169,22 +228,57 @@ const dispatchWebhooks = async (container, event) => {
       const target = getTarget(hook.target);
       if (target == null)
         throw new Error(`Unknown delivery target "${hook.target}".`);
-      const built = target.buildRequest(payload, hook.config ?? {});
-      const rawBody = built.body;
+      const openedConfig = openConfig(hook.target, hook.config ?? {});
+      let targetPayload = payload;
+      let targetContext = {};
 
-      const headers = {
-        ...built.headers,
-        'User-Agent': 'FieldData-Webhook/1.0',
-        'X-FieldData-Event': event.action
-      };
-      // Signed over the bytes actually sent, so a receiver verifies what it
-      // got rather than what a JSON-shaped version of it would have been.
-      if (hook.secret != null && hook.secret !== '') {
-        const secret = decryptSecret(hook.secret);
-        const signature = crypto.createHmac('sha256', secret).update(rawBody).digest('hex');
-        headers['X-FieldData-Signature'] = `sha256=${signature}`;
+      if (target.submissionRows === true) {
+        targetPayload = await googleSheetPayload(container, event, hook);
+        const tokenRequest = target.buildTokenRequest(openedConfig);
+        const tokenOutcome = await deliver(tokenRequest.url, tokenRequest.body,
+          tokenRequest.headers, tokenRequest.method);
+        const accessToken = googleAccessToken(tokenOutcome);
+        if (accessToken == null) {
+          outcome = {
+            ...tokenOutcome,
+            success: false,
+            error: 'Google authorization expired; replace the refresh token.',
+          };
+        } else {
+          const lookupRequest = target.buildLookupRequest(openedConfig, accessToken);
+          const lookupOutcome = await deliver(lookupRequest.url, lookupRequest.body,
+            lookupRequest.headers, lookupRequest.method);
+          if (!lookupOutcome.success) {
+            outcome = lookupOutcome;
+          } else {
+            targetContext = {
+              accessToken,
+              lookup: target.analyseLookup(lookupOutcome.responseBody, targetPayload.instanceId)
+            };
+          }
+        }
       }
-      outcome = await deliver(built.url ?? hook.url, rawBody, headers);
+
+      if (outcome != null) {
+        // Token or lookup failure already carries the actionable result.
+      } else {
+        const built = target.buildRequest(targetPayload, openedConfig, targetContext);
+        const rawBody = built.body;
+
+        const headers = {
+          ...built.headers,
+          'User-Agent': 'FieldData-Webhook/1.0',
+          'X-FieldData-Event': event.action
+        };
+        // Signed over the bytes actually sent, so a receiver verifies what it
+        // got rather than what a JSON-shaped version of it would have been.
+        if (hook.secret != null && hook.secret !== '') {
+          const secret = decryptSecret(hook.secret);
+          const signature = crypto.createHmac('sha256', secret).update(rawBody).digest('hex');
+          headers['X-FieldData-Signature'] = `sha256=${signature}`;
+        }
+        outcome = await deliver(built.url ?? hook.url, rawBody, headers, built.method);
+      }
     } catch (error) {
       outcome = {
         statusCode: null,

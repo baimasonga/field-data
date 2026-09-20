@@ -1,5 +1,5 @@
 const Should = require('should'); // eslint-disable-line no-unused-vars
-const { getTarget, normalizeConfig, redactConfig, describeTargets } =
+const { getTarget, normalizeConfig, redactConfig, sealConfig, openConfig, describeTargets } =
   require('../../../lib/util/rest-targets');
 const xml = require('../../../lib/util/rest-targets/xml');
 
@@ -75,8 +75,13 @@ describe('(util) rest targets', () => {
   });
 
   describe('normalizeConfig', () => {
+    it('requires every credential needed by Google Sheets', () => {
+      (() => normalizeConfig('google-sheets', { spreadsheetId: 'sheet' }))
+        .should.throw(/Worksheet tab name/);
+    });
+
     it('refuses a target this build cannot dispatch', () => {
-      (() => normalizeConfig('google-sheets', {}))
+      (() => normalizeConfig('unknown', {}))
         .should.throw(/must be one of/);
     });
 
@@ -117,16 +122,40 @@ describe('(util) rest targets', () => {
     it('says nothing at all about a key that is not set', () => {
       redactConfig('xml', {}).should.eql({});
     });
+
+    it('encrypts Google credentials at rest and only returns a hint', () => {
+      const previous = process.env.FIELD_DATA_WEBHOOK_ENCRYPTION_KEY;
+      process.env.FIELD_DATA_WEBHOOK_ENCRYPTION_KEY = '11'.repeat(32);
+      try {
+        const sealed = sealConfig('google-sheets', {
+          clientSecret: 'client-secret-abcd', refreshToken: 'refresh-token-1234'
+        });
+        JSON.stringify(sealed).should.not.containEql('client-secret-abcd');
+        openConfig('google-sheets', sealed).should.eql({
+          clientSecret: 'client-secret-abcd', refreshToken: 'refresh-token-1234'
+        });
+        redactConfig('google-sheets', sealed).should.eql({
+          clientSecret: { set: true, hint: '…abcd' },
+          refreshToken: { set: true, hint: '…1234' }
+        });
+      } finally {
+        if (previous == null) delete process.env.FIELD_DATA_WEBHOOK_ENCRYPTION_KEY;
+        else process.env.FIELD_DATA_WEBHOOK_ENCRYPTION_KEY = previous;
+      }
+    });
   });
 
   describe('describeTargets', () => {
     // The form and the validator read the same schema, so they cannot drift.
     it('describes each target from the schema the validator uses', () => {
       const described = describeTargets();
-      described.map(t => t.name).sort().should.eql(['json', 'xml']);
+      described.map(t => t.name).sort().should.eql(['google-sheets', 'json', 'xml']);
       const xmlTarget = described.find(t => t.name === 'xml');
       xmlTarget.config.map(c => c.key).should.eql(['rootElement']);
       xmlTarget.config[0].describe.should.be.a.String();
+      const google = described.find(t => t.name === 'google-sheets');
+      google.requiresForm.should.equal(true);
+      google.managesUrl.should.equal(true);
     });
   });
 });
