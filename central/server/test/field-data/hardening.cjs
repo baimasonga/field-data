@@ -112,7 +112,7 @@ test('Supabase upload cancels the producer after a remote rejection', async () =
 });
 
 const routes = new Map();
-const service = Object.fromEntries(['get', 'post', 'patch', 'delete'].map(method => [method,
+const service = Object.fromEntries(['get', 'post', 'put', 'patch', 'delete'].map(method => [method,
   (url, ...handlers) => routes.set(`${method} ${url}`, handlers.at(-1))]));
 require('../../lib/resources/field-data')(service, handler => handler);
 

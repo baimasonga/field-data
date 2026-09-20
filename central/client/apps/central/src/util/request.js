@@ -217,6 +217,15 @@ export const apiPaths = {
     `/v1/projects/${projectId}/forms/${encodeURIComponent(xmlFormId)}/filter-fields`,
   filteredDatasetPreview: (projectId, xmlFormId) =>
     `/v1/projects/${projectId}/forms/${encodeURIComponent(xmlFormId)}/filtered-datasets/preview`,
+  // The browser Form builder. The first turns a definition into an XLSForm,
+  // which the client then posts to apiPaths.forms -- the same endpoint an
+  // uploaded spreadsheet goes to, so a built Form and an uploaded one come
+  // into being by exactly one path.
+  formBuilderQuestionTypes: () => '/v1/field-data/form-builder/question-types',
+  formBuilderXlsform: (projectId) =>
+    `/v1/projects/${projectId}/form-builder/xlsform`,
+  formBuilderDefinition: (projectId, xmlFormId) =>
+    `/v1/projects/${projectId}/forms/${encodeURIComponent(xmlFormId)}/builder-definition`,
   // The shares of one Form, wherever they serve. Keyed on the Form rather than
   // on a Project, because the ones worth finding are the ones serving
   // somewhere else.

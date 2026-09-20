@@ -10,6 +10,7 @@ const multer = require('multer');
 const path = require('path');
 const http = require('http');
 const https = require('https');
+const { Readable } = require('node:stream');
 const { User, Project, Config, Form } = require('../model/frames');
 const Problem = require('../util/problem');
 const { postgresErrorToProblem } = require('../util/db');
@@ -26,6 +27,7 @@ const { chartableFields } = require('../util/summary-fields');
 const { mergeFields, codingDivergence } = require('../util/merged-datasets');
 const { getTarget, normalizeConfig, redactConfig, sealConfig, describeTargets } = require('../util/rest-targets');
 const { normalizeOrganization, roleForOrganization, describeRoles } = require('../util/organizations');
+const { normalizeFormDefinition, buildWorkbook, QUESTION_TYPES } = require('../util/xlsform-builder');
 const { inspectTemplate, validateTemplate, MIME_TYPE,
   MAX_TEMPLATE_BYTES } = require('../util/xls-reports');
 const { resolveReportSource } = require('../util/xls-report-data');
@@ -594,6 +596,91 @@ const mergedDatasetCoding = async (db, forms, merged) => {
 module.exports = (service, endpoint) => {
   // The field_data_* tables backing these resources are created by the
   // 20260707-01-add-field-data-tables migration.
+
+  ////////////////////////////////////////////////////////////////////////////////
+  // FORM BUILDER
+  //
+  // Building a Form in the browser, without leaving to make a spreadsheet.
+  //
+  // The builder does not create the Form. It writes an XLSForm and hands it
+  // back, and the client posts that to POST /projects/:id/forms -- the same
+  // endpoint somebody dropping a file on the page uses. So pyxform's
+  // validation, draft and publish, versioning, and the OpenRosa list ODK
+  // Collect downloads from are all inherited rather than rebuilt, and there is
+  // exactly one path by which a Form comes into being.
+  //
+  // It also means the spreadsheet is a real artifact. When the builder runs
+  // out of road -- a repeat group, a cascading select -- somebody downloads
+  // what they have and finishes it in Excel, rather than starting again.
+
+  const formDefinitionOrProblem = (body) => {
+    try {
+      return normalizeFormDefinition(body);
+    } catch (error) {
+      if (error.field != null) {
+        throw Problem.user.unexpectedValue({
+          field: error.field, value: error.value, reason: error.reason
+        });
+      }
+      throw error;
+    }
+  };
+
+  // What the builder can offer, read from the same table that validates it, so
+  // the interface and the validator cannot disagree about which types exist.
+  service.get('/field-data/form-builder/question-types', endpoint(async (container, { auth }) => {
+    if (!auth.isAuthenticated) return reject(Problem.user.insufficientRights());
+    return Object.entries(QUESTION_TYPES).map(([name, spec]) => ({
+      name, needsChoices: spec.list === true
+    }));
+  }));
+
+  service.post('/projects/:projectId/form-builder/xlsform', endpoint(async (container, { params, body, auth }, _, response) => {
+    const project = await container.Projects.getById(params.projectId).then(getOrNotFound);
+    // The right to make a Form here, because this is the first half of making
+    // one. Nothing is read and nothing is written; the check is about who gets
+    // to start.
+    await auth.canOrReject('form.create', project);
+
+    const definition = formDefinitionOrProblem(body);
+    const workbook = await buildWorkbook(definition);
+    response.set('Content-Disposition', contentDisposition(`${definition.formId}.xlsx`));
+    response.set('Content-Type',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    return Readable.from(workbook);
+  }));
+
+  // AnyVersion, not PublishedVersion: a Form still in draft is exactly the one
+  // somebody is most likely to reopen in the builder.
+  const builderForm = (container, params, auth, verb) => container.Forms
+    .getByProjectAndXmlFormId(params.projectId, params.xmlFormId, Form.AnyVersion)
+    .then(getOrNotFound)
+    .then(async (form) => { await auth.canOrReject(verb, form); return form; });
+
+  service.get('/projects/:projectId/forms/:xmlFormId/builder-definition', endpoint(async (container, { params, auth }) => {
+    const form = await builderForm(container, params, auth, 'form.read');
+    const row = await container.db.maybeOne(sql`
+      select definition, "updatedAt" from field_data_form_definitions
+      where "formId" = ${form.id}`);
+    // A Form uploaded as a spreadsheet has no definition, and that is not an
+    // error: it is the answer to "can this be opened in the builder".
+    return row ?? { definition: null, updatedAt: null };
+  }));
+
+  service.put('/projects/:projectId/forms/:xmlFormId/builder-definition', endpoint(async (container, { params, body, auth }) => {
+    const form = await builderForm(container, params, auth, 'form.update');
+    // Validated before it is stored, so what comes back out can always be
+    // built again. A definition that cannot be rebuilt is worse than none.
+    const definition = formDefinitionOrProblem(body);
+    await container.db.query(sql`
+      insert into field_data_form_definitions ("formId", definition, "updatedBy", "updatedAt")
+      values (${form.id}, ${JSON.stringify(definition)},
+        ${auth.actor.map(actor => actor.id).orNull()}, clock_timestamp())
+      on conflict ("formId") do update
+        set definition = excluded.definition, "updatedBy" = excluded."updatedBy",
+          "updatedAt" = excluded."updatedAt"`);
+    return success();
+  }));
 
   ////////////////////////////////////////////////////////////////////////////////
   // FORM SUMMARY
