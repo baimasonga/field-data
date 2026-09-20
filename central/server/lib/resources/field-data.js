@@ -24,10 +24,8 @@ const { normalizeDefinition, resolveStoredDefinition, compileFilter, extractObje
 const { normalizeWidget, capRows, tooManyDistinct, MAX_BARS } = require('../util/widgets');
 const { chartableFields } = require('../util/summary-fields');
 const { mergeFields, codingDivergence } = require('../util/merged-datasets');
-const { normalizeConfig, redactConfig, describeTargets } = require('../util/rest-targets');
-const {
-  normalizeOrganization, roleForOrganization, describeRoles
-} = require('../util/organizations');
+const { getTarget, normalizeConfig, redactConfig, sealConfig, describeTargets } = require('../util/rest-targets');
+const { normalizeOrganization, roleForOrganization, describeRoles } = require('../util/organizations');
 
 const pingUrl = (urlStr) => new Promise((resolve) => {
   try {
@@ -77,15 +75,15 @@ const uploadErrorHandler = (error, request, response, next) => {
 // Never the signing secret, and never a credential out of config: a value
 // handed back once is a value that has been logged and pasted into a ticket.
 // What comes back is whether it is set and the last few characters.
-const publicWebhook = ({ secret, config, ...webhook }) => ({
+const publicWebhook = ({ secret, config: targetConfig, ...webhook }) => ({
   ...webhook,
-  config: redactConfig(webhook.target, config),
+  config: redactConfig(webhook.target, targetConfig),
   hasSecret: Boolean(secret)
 });
 
-const targetOrProblem = (target, config) => {
+const targetOrProblem = (target, targetConfig) => {
   try {
-    return normalizeConfig(target, config);
+    return normalizeConfig(target, targetConfig);
   } catch (error) {
     if (error.field != null) {
       throw Problem.user.unexpectedValue({
@@ -918,7 +916,7 @@ module.exports = (service, endpoint) => {
       // A form republished without this widget's field leaves the widget
       // readable but undrawable. Said, rather than thrown at the reader.
       const missing = [widget.column_path, widget.groupBy]
-        .filter(path => path != null && !byPath.has(path));
+        .filter(fieldPath => fieldPath != null && !byPath.has(fieldPath));
       if (missing.length > 0)
         return { ...widget, usable: false, missingFields: missing };
 
@@ -1635,10 +1633,10 @@ module.exports = (service, endpoint) => {
   // A reviewer's decision. The rule never writes here: a finding is closed by
   // a person, with a reason, and the finding itself is left intact.
   const DECISIONS = new Set([
-    'data-error',        // the data was wrong and has been or will be corrected
-    'explained',         // there is an ordinary explanation
-    'unresolved',        // looked at, still not understood
-    'substantiated'      // an authorised process established misconduct
+    'data-error', // the data was wrong and has been or will be corrected
+    'explained', // there is an ordinary explanation
+    'unresolved', // looked at, still not understood
+    'substantiated' // an authorised process established misconduct
   ]);
 
   service.patch('/projects/:projectId/forms/:xmlFormId/integrity/:id', endpoint(async (container, { params, body, auth }) => {
@@ -1693,8 +1691,7 @@ module.exports = (service, endpoint) => {
   // A project manager wants to know how the round is going, and reading it
   // form by form makes them do the adding up themselves.
   service.get('/projects/:projectId/summary', endpoint(async (container, { params, auth }) => {
-    const { Projects } = container;
-    const db = container.db;
+    const { Projects, db } = container;
 
     const project = await Projects.getById(params.projectId).then(getOrNotFound);
     await auth.canOrReject('submission.list', project);
@@ -1893,8 +1890,7 @@ module.exports = (service, endpoint) => {
   // by the existing attachment route; this only says which ones exist, so a
   // gallery never has to walk every submission to find out.
   service.get('/projects/:projectId/forms/:xmlFormId/photos', endpoint(async (container, { params, query, auth }) => {
-    const { Forms } = container;
-    const db = container.db;
+    const { Forms, db } = container;
 
     const form = await Forms.getByProjectAndXmlFormId(params.projectId, params.xmlFormId, Form.PublishedVersion)
       .then(getOrNotFound);
@@ -2119,15 +2115,38 @@ module.exports = (service, endpoint) => {
     }));
   }));
 
+  // A Google Sheet must belong to one readable Form: its columns come from
+  // that Form and site-wide delivery would mix unrelated questionnaires into
+  // one worksheet. This small picker is administrator-only, like the rest of
+  // integration configuration.
+  service.get('/field-data/integration-forms', endpoint(async (container, { auth }) => {
+    await auth.canOrReject('config.set', Config.species);
+    return container.db.any(sql`
+      select p.id as "projectId", p.name as "projectName", f."xmlFormId",
+        coalesce(fd.name, f."xmlFormId") as "formName"
+      from projects p
+      join forms f on f."projectId" = p.id and f."deletedAt" is null
+      join form_defs fd on fd.id = f."currentDefId"
+      where p."deletedAt" is null
+      order by p.name, fd.name, f."xmlFormId"`);
+  }));
+
   service.post('/field-data/webhooks', endpoint(async (container, { body, auth }) => {
     await auth.canOrReject('config.set', Config.species);
     if (!body.name) return reject(Problem.user.missingParameter({ field: 'name' }));
-    if (!body.url) return reject(Problem.user.missingParameter({ field: 'url' }));
-    await validWebhookUrl(body.url);
+    const normalized = targetOrProblem(body.target ?? 'json', body.config);
+    const { target } = normalized;
+    const deliveryUrl = target.managesUrl
+      ? 'https://sheets.googleapis.com/'
+      : body.url;
+    if (!deliveryUrl) return reject(Problem.user.missingParameter({ field: 'url' }));
+    await validWebhookUrl(deliveryUrl);
     // Generate a signing secret so receivers can verify the HMAC-SHA256
     // signature sent with each delivery (X-FieldData-Signature header).
-    const events = validateEvents(body.events === undefined ? [] : body.events);
-    const { target, config } = targetOrProblem(body.target ?? 'json', body.config);
+    const events = target.name === 'google-sheets'
+      ? ['submission.create', ...(normalized.config.syncUpdates ? ['submission.update.version'] : [])]
+      : validateEvents(body.events === undefined ? [] : body.events);
+    const storedConfig = sealConfig(target.name, normalized.config);
 
     // Scoping to a form takes permission on that form, not only the site-wide
     // config right: pointing a service at a form is a way to read it.
@@ -2140,15 +2159,24 @@ module.exports = (service, endpoint) => {
       await auth.canOrReject('submission.read', form);
       formId = form.id;
     }
+    if (target.requiresForm && formId == null) {
+      throw Problem.user.unexpectedValue({
+        field: 'xmlFormId', value: body.xmlFormId,
+        reason: 'choose the Form whose Submissions should be synchronized'
+      });
+    }
 
-    const secret = crypto.randomBytes(24).toString('hex');
+    const secret = target.name === 'google-sheets'
+      ? null
+      : crypto.randomBytes(24).toString('hex');
     const created = await container.db.one(sql`
       insert into field_data_webhooks (name, url, events, secret, target, config, "formId")
-      values (${body.name}, ${body.url}, ${JSON.stringify(events)}, ${encryptSecret(secret)},
-        ${target.name}, ${JSON.stringify(config)}, ${formId})
+      values (${body.name}, ${deliveryUrl}, ${JSON.stringify(events)},
+        ${secret == null ? null : encryptSecret(secret)},
+        ${target.name}, ${JSON.stringify(storedConfig)}, ${formId})
       returning *
     `);
-    return { ...publicWebhook(created), secret };
+    return secret == null ? publicWebhook(created) : { ...publicWebhook(created), secret };
   }));
 
   service.get('/field-data/webhook-targets', endpoint(async (container, { auth }) => {
@@ -2173,24 +2201,41 @@ module.exports = (service, endpoint) => {
       select * from field_data_webhooks where id = ${webhookId}
     `).then(getOrNotFound);
 
+    const requestedTarget = body.target ?? webhook.target;
+    const target = getTarget(requestedTarget);
+    if (target == null) targetOrProblem(requestedTarget, {});
     const updated = {
       name: body.name !== undefined ? body.name : webhook.name,
-      url: body.url !== undefined ? body.url : webhook.url,
+      url: target.managesUrl
+        ? 'https://sheets.googleapis.com/'
+        : (body.url !== undefined ? body.url : webhook.url),
       events: body.events !== undefined ? JSON.stringify(validateEvents(body.events)) : JSON.stringify(validateEvents(webhook.events)),
       active: body.active !== undefined ? body.active : webhook.active
     };
     await validWebhookUrl(updated.url);
-    const { target, config } = targetOrProblem(
-      body.target ?? webhook.target,
-      // An absent config on a patch means "leave it"; an explicit one replaces
-      // it wholesale, so a secret cannot be half-rotated into place.
-      body.config === undefined ? webhook.config : body.config
-    );
+    // An absent config means leave the sealed JSONB untouched. Re-normalizing
+    // it would stringify encrypted credential envelopes as "[object Object]".
+    const storedConfig = body.config === undefined && requestedTarget === webhook.target
+      ? webhook.config
+      : sealConfig(requestedTarget, targetOrProblem(requestedTarget, body.config).config);
+    if (target.requiresForm && webhook.formId == null) {
+      throw Problem.user.unexpectedValue({
+        field: 'target', value: requestedTarget,
+        reason: 'this integration must be created for a specific Form'
+      });
+    }
+    if (target.name === 'google-sheets' && body.config !== undefined) {
+      updated.events = JSON.stringify([
+        'submission.create',
+        ...(targetOrProblem(requestedTarget, body.config).config.syncUpdates
+          ? ['submission.update.version'] : [])
+      ]);
+    }
 
     const result = await container.db.one(sql`
       update field_data_webhooks
       set name=${updated.name}, url=${updated.url}, events=${updated.events},
-        active=${updated.active}, target=${target.name}, config=${JSON.stringify(config)}
+        active=${updated.active}, target=${target.name}, config=${JSON.stringify(storedConfig)}
       where id=${webhookId}
       returning *
     `);

@@ -817,17 +817,21 @@ const routes = [
         }
       }),
       asyncRoute({
-        path: 'webhooks',
+        path: 'integrations',
         component: 'FieldDataWebhooks',
         loading: 'tab',
         meta: {
           validateData: {
             currentUser: () => currentUser.can('config.set')
           },
-          title: () => [i18n.t('fieldDataHome.tab.webhooks'), i18n.t('fieldDataHome.title')],
+          title: () => [i18n.t('fieldDataHome.tab.integrations'), i18n.t('fieldDataHome.title')],
           fullWidth: true
         }
       }),
+      {
+        path: 'webhooks',
+        redirect: '/field-data/integrations'
+      },
       asyncRoute({
         path: 'backups',
         component: 'FieldDataBackups',

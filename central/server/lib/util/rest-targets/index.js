@@ -19,8 +19,10 @@
 
 const json = require('./json');
 const xml = require('./xml');
+const googleSheets = require('./google-sheets');
+const { decryptSecret, encryptSecret } = require('../field-data-secret');
 
-const TARGETS = new Map([json, xml].map(target => [target.name, target]));
+const TARGETS = new Map([json, xml, googleSheets].map(target => [target.name, target]));
 
 const invalid = (field, value, reason) => Object.assign(new Error(reason), {
   field, value, reason
@@ -78,10 +80,36 @@ const redactConfig = (targetName, config) => {
     const value = config[key];
     if (value == null || value === '') continue;
     safe[key] = spec.secret
-      ? { set: true, hint: `…${String(value).slice(-4)}` }
+      ? { set: true, hint: value.hint ?? `…${String(value).slice(-4)}` }
       : value;
   }
   return safe;
+};
+
+// Secrets inside target config are credentials, not display preferences. Keep
+// only an encrypted value and a short hint in JSONB; the worker opens them in
+// memory immediately before delivery.
+const sealConfig = (targetName, config) => {
+  const target = getTarget(targetName);
+  if (target == null) return config;
+  return Object.fromEntries(Object.entries(config).map(([key, value]) => {
+    const spec = target.configSchema[key];
+    return [key, spec?.secret === true
+      ? { encrypted: encryptSecret(String(value)), hint: `…${String(value).slice(-4)}` }
+      : value];
+  }));
+};
+
+const openConfig = (targetName, config) => {
+  const target = getTarget(targetName);
+  if (target == null || config == null) return {};
+  return Object.fromEntries(Object.entries(config).map(([key, value]) => {
+    const spec = target.configSchema[key];
+    if (spec?.secret !== true) return [key, value];
+    if (value == null || typeof value !== 'object' || typeof value.encrypted !== 'string')
+      throw new Error(`The stored ${key} credential is invalid.`);
+    return [key, decryptSecret(value.encrypted)];
+  }));
 };
 
 // What the interface needs to build a form, so the two can never disagree
@@ -89,6 +117,8 @@ const redactConfig = (targetName, config) => {
 const describeTargets = () => [...TARGETS.values()].map(target => ({
   name: target.name,
   label: target.label,
+  managesUrl: target.managesUrl === true,
+  requiresForm: target.requiresForm === true,
   config: Object.entries(target.configSchema).map(([key, spec]) => ({
     key,
     type: spec.type,
@@ -98,4 +128,6 @@ const describeTargets = () => [...TARGETS.values()].map(target => ({
   }))
 }));
 
-module.exports = { TARGETS, getTarget, normalizeConfig, redactConfig, describeTargets };
+module.exports = {
+  TARGETS, getTarget, normalizeConfig, redactConfig, sealConfig, openConfig, describeTargets
+};

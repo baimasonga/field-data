@@ -269,6 +269,7 @@ export const apiPaths = {
   fieldDataOrganizationRoles: () => '/v1/field-data/organization-roles',
   fieldDataWebhooks: () => '/v1/field-data/webhooks',
   fieldDataWebhookTargets: () => '/v1/field-data/webhook-targets',
+  fieldDataIntegrationForms: () => '/v1/field-data/integration-forms',
   fieldDataWebhook: (id) => `/v1/field-data/webhooks/${id}`,
   fieldDataWebhookDeliveries: (id) => `/v1/field-data/webhooks/${id}/deliveries`,
   fieldDataWebhookRotateSecret: (id) => `/v1/field-data/webhooks/${id}/rotate-secret`,
