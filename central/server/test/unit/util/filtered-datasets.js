@@ -1,5 +1,5 @@
 const Should = require('should'); // eslint-disable-line no-unused-vars
-const { normalizeDefinition, compileFilter, extractObject, projectObject } = require('../../../lib/util/filtered-datasets');
+const { normalizeDefinition, resolveStoredDefinition, compileFilter, extractObject, projectObject } = require('../../../lib/util/filtered-datasets');
 
 const fields = [
   { path: '/data/district', name: 'district', type: 'string', binary: false },
@@ -50,5 +50,56 @@ describe('(util) filtered datasets', () => {
     extraction.values.should.containEql('/*/data/hh_size/text()');
     const projection = projectObject(['/data/district']);
     projection.values.should.eql(['/data/district', '/data/district']);
+  });
+
+  describe('resolveStoredDefinition', () => {
+    // Filters on district, shows district and hh_size. Keeping the filter
+    // field separate from the droppable one is what lets the two kinds of
+    // loss be told apart below.
+    const saved = {
+      columns: ['/data/district', '/data/hh_size'],
+      query: [{ column: '/data/district', filter: '=', value: 'Bombali', condition: 'AND' }]
+    };
+
+    it('resolves cleanly while the form still has every field', () => {
+      const resolved = resolveStoredDefinition(saved, fields);
+      resolved.usable.should.equal(true);
+      resolved.columns.should.eql(['/data/district', '/data/hh_size']);
+      resolved.missingColumns.should.be.empty();
+      resolved.missingFilters.should.be.empty();
+    });
+
+    // A republished form that drops a visible field costs the reader a column,
+    // not the whole dataset.
+    it('keeps serving the columns that survive a republished form', () => {
+      // hh_size is gone; district, which the filter needs, is not.
+      const resolved = resolveStoredDefinition(saved, [fields[0]]);
+      resolved.usable.should.equal(true);
+      resolved.columns.should.eql(['/data/district']);
+      resolved.missingColumns.should.eql(['/data/hh_size']);
+    });
+
+    // The filter is what narrows the rows. Losing it and carrying on would
+    // widen the result to rows the dataset exists to hide, so it fails closed.
+    it('refuses to serve anything when a filter field is gone', () => {
+      const resolved = resolveStoredDefinition(
+        { columns: ['/data/district'], query: [{ column: '/data/gone', filter: '=', value: 'x' }] },
+        fields
+      );
+      resolved.usable.should.equal(false);
+      resolved.missingFilters.should.eql(['/data/gone']);
+    });
+
+    it('is unusable when no visible field survives', () => {
+      resolveStoredDefinition({ columns: ['/data/gone'], query: [] }, fields)
+        .usable.should.equal(false);
+    });
+
+    it('does not throw on anything a reader could be handed', () => {
+      for (const definition of [null, {}, { columns: null, query: null },
+        { columns: ['/data/photo'], query: [] }]) {
+        (() => resolveStoredDefinition(definition, fields)).should.not.throw();
+      }
+    });
   });
 });

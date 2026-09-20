@@ -126,11 +126,29 @@ Build and inspect named, reusable subsets of a Form's Submissions.
 
           <div v-if="openDatasetId === dataset.id" class="data-preview">
             <Loading :state="rowsLoading"/>
-            <p v-if="!rowsLoading && rows != null && rows.data.length === 0"
-              class="empty-table-message">
+
+            <!-- A dataset outlives the form it was built on. Saying so beats an
+            empty table, and the filter case has to be distinguished from the
+            column case because only one of them is withholding rows. -->
+            <p v-if="!rowsLoading && rows != null && rows.usable === false"
+              class="dataset-stale">
+              <span class="icon-exclamation-triangle" aria-hidden="true"></span>
+              {{ rows.missingFilters.length > 0
+                ? $t('stale.filterGone', { fields: rows.missingFilters.join(', ') })
+                : $t('stale.allGone') }}
+            </p>
+            <p v-else-if="!rowsLoading && rows != null && rows.missingColumns.length > 0"
+              class="dataset-stale">
+              <span class="icon-exclamation-triangle" aria-hidden="true"></span>
+              {{ $t('stale.columnsGone', { fields: rows.missingColumns.join(', ') }) }}
+            </p>
+
+            <p v-if="!rowsLoading && rows != null && rows.usable !== false
+              && rows.data.length === 0" class="empty-table-message">
               {{ $t('saved.noMatches') }}
             </p>
-            <div v-else-if="!rowsLoading && rows != null" class="table-responsive">
+            <div v-else-if="!rowsLoading && rows != null && rows.usable !== false"
+              class="table-responsive">
               <table class="table">
                 <thead><tr><th v-for="column of rows.columns" :key="column">{{ column }}</th></tr></thead>
                 <tbody>
@@ -337,6 +355,14 @@ const showRows = (dataset) => {
       "filters": "{count} filter | {count} filters", "noMatches": "No rows match this dataset.",
       "totalMatches": "{count} matching row | {count} matching rows"
     },
+    "stale": {
+      // Shown when the source Form was republished without a field this
+      // dataset filters on. No rows are served, because the filter was what
+      // kept them narrowed.
+      "filterGone": "This dataset filters on {fields}, which the Form no longer has. No rows are shown, because showing them without that filter could reveal rows the dataset was set up to hide. Edit the dataset to choose a new filter.",
+      "allGone": "The Form no longer has any of the fields this dataset shows. Edit the dataset to choose fields it still has.",
+      "columnsGone": "The Form no longer has {fields}, so that column is not shown. The rest of the dataset is unaffected."
+    },
     "confirmDelete": "Delete “{name}”? This cannot be undone.",
     "alert": { "created": "Filtered dataset created.", "updated": "Filtered dataset updated.", "deleted": "Filtered dataset deleted." }
   }
@@ -405,6 +431,20 @@ const showRows = (dataset) => {
   .dataset-card h3 { margin: 0; }
   .dataset-actions { display: flex; flex-wrap: wrap; gap: 8px; }
   .data-preview { border-top: 1px solid #e9e9f1; margin-top: 16px; padding-top: 16px; }
+  .dataset-stale {
+    background-color: #fdf6e7;             // gradient --warning-bg
+    border-left: 3px solid #a86f14;        // gradient --warning-text
+    border-radius: 4px;
+    color: $color-text-secondary;
+    font-size: 13px;
+    margin-bottom: 12px;
+    max-width: 82ch;
+    padding: 10px 12px;
+
+    // Icon first so the [class^="icon-"] rule matches and the glyph resolves.
+    [class^="icon-"] { margin-right: 6px; }
+  }
+
   .preview-total { color: $color-text-muted; font-size: 12px; }
 
   @media (max-width: 600px) {

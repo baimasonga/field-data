@@ -106,9 +106,52 @@ const projectObject = (columns) => sql`jsonb_build_object(${sql.join(columns.fla
   sql`extracted ->> ${path}`
 ]), sql`,`)})`;
 
+/*
+Resolve a stored definition against the form as it is now, without throwing.
+
+Forms get republished, and a republished form can rename or drop a field a
+saved dataset refers to. On the editor's paths that is an error worth raising;
+on the reader's path it must not be, because the reader cannot fix it and a
+validation message written for an editor tells them nothing.
+
+The two kinds of loss are not equally serious, and this is the whole point:
+
+  A missing column is cosmetic. The dataset shows one fewer field.
+
+  A missing filter is a security boundary. The filter is what kept this
+  reader's rows narrowed to their district, so dropping it and carrying on
+  would widen the result to rows the dataset was built to hide. That fails
+  closed instead: `usable` is false and the caller serves nothing.
+*/
+const resolveStoredDefinition = (definition, fields) => {
+  const fieldByPath = new Map(fields
+    .filter(field => field.binary !== true && PATH_PATTERN.test(field.path))
+    .map(field => [field.path, field]));
+
+  const stored = Array.isArray(definition?.columns) ? definition.columns.map(String) : [];
+  const columns = stored.filter(path => fieldByPath.has(path));
+  const missingColumns = stored.filter(path => !fieldByPath.has(path));
+
+  const storedQuery = Array.isArray(definition?.query) ? definition.query : [];
+  const missingFilters = [...new Set(storedQuery
+    .map(filter => String(filter?.column ?? ''))
+    .filter(path => !fieldByPath.has(path)))];
+
+  return {
+    columns,
+    query: storedQuery,
+    fieldByPath,
+    missingColumns,
+    missingFilters,
+    // Nothing left to show is as unusable as a filter we cannot honour.
+    usable: missingFilters.length === 0 && columns.length > 0
+  };
+};
+
 module.exports = {
   PATH_PATTERN,
   normalizeDefinition,
+  resolveStoredDefinition,
   compileFilter,
   extractObject,
   projectObject

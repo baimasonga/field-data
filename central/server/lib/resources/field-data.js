@@ -20,7 +20,7 @@ const { storage, formatBytes } = require('../external/field-data-storage');
 const { resolveWebhookUrl } = require('../util/safe-webhook-url');
 const { encryptSecret } = require('../util/field-data-secret');
 const { parseGeopoint, checkImplausibleTravel, IMPLAUSIBLE_TRAVEL } = require('../util/fieldwork-integrity');
-const { normalizeDefinition, compileFilter, extractObject, projectObject } = require('../util/filtered-datasets');
+const { normalizeDefinition, resolveStoredDefinition, compileFilter, extractObject, projectObject } = require('../util/filtered-datasets');
 
 const pingUrl = (urlStr) => new Promise((resolve) => {
   try {
@@ -441,15 +441,33 @@ module.exports = (service, endpoint) => {
     const dataset = await filteredDatasetRecord(container.db, project.id, id).then(getOrNotFound);
     const formShape = { id: dataset.formId, currentDefId: dataset.currentDefId };
     const fields = await filteredDatasetFields(container.db, formShape);
-    const normalized = normalizeFilteredDataset(dataset, fields);
     const limit = Math.min(Math.max(Number.parseInt(query.limit, 10) || 50, 1), 200);
     const offset = Math.max(Number.parseInt(query.offset, 10) || 0, 0);
+
+    // The reader's path resolves rather than validates. A republished form can
+    // drop a field this dataset was built on, and the reader can neither fix
+    // that nor read a message written for the person who can.
+    const resolved = resolveStoredDefinition(dataset, fields);
+    const stale = {
+      missingColumns: resolved.missingColumns,
+      missingFilters: resolved.missingFilters
+    };
+    if (!resolved.usable) {
+      // A filter we can no longer apply was holding the row set narrow, so
+      // serving the rows without it would disclose what the dataset hid.
+      return { total: 0, limit, offset, excludedMalformed: 0,
+        columns: resolved.columns, data: [], usable: false, ...stale };
+    }
+
+    const normalized = normalizeFilteredDataset(
+      { columns: resolved.columns, query: resolved.query }, fields
+    );
     const stats = await filteredDatasetStats(container.db, dataset.formId, normalized);
     const data = stats.matching === 0 ? [] : await filteredDatasetData(
       container.db, dataset, normalized, limit, offset
     );
     return { total: stats.matching, limit, offset, excludedMalformed: stats.excludedMalformed,
-      columns: normalized.columns, data };
+      columns: normalized.columns, data, usable: true, ...stale };
   }));
 
   ////////////////////////////////////////////////////////////////////////////////

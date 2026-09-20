@@ -187,6 +187,71 @@ test('filtered dataset readers receive only declared columns without source-form
   assert.equal(definition.filterCount, 1);
 });
 
+// A saved dataset outlives the form it was built on. When a republished form
+// no longer has a field the dataset filters on, the filter was the thing
+// keeping this reader's rows narrow, so serving the rows without it would
+// disclose what the dataset was set up to hide. It fails closed instead, and
+// still without reaching for the source form.
+test('filtered dataset serves nothing when a republished form dropped its filter field', async () => {
+  const option = value => ({ isDefined: () => true, get: () => value });
+  const permissions = [];
+  const result = await routes.get('get /projects/:projectId/filtered-datasets/:id/data')({
+    Projects: { getById: async () => option({ id: 9 }) },
+    Forms: { getByProjectAndXmlFormId: async () => assert.fail('must not check source form') },
+    db: {
+      maybeOne: async () => option({
+        id: 3, projectId: 9, formId: 7, currentDefId: 12,
+        columns: ['/data/district'],
+        query: [{ column: '/data/name', filter: '<>', value: '', condition: 'AND' }]
+      }),
+      // The form was republished without /data/name.
+      any: async query => (query.sql.includes('from form_fields')
+        ? [{ path: '/data/district', name: 'district', type: 'string', binary: false, order: 1 }]
+        : assert.fail('must not query submissions once the filter cannot be applied')),
+      one: async () => assert.fail('must not count rows it cannot filter'),
+      oneFirst: async () => assert.fail('must not count rows it cannot filter')
+    }
+  }, {
+    params: { projectId: '9', id: '3' }, query: { limit: '10', offset: '0' },
+    auth: { canOrReject: async (verb, target) => permissions.push([verb, target]) }
+  });
+
+  assert.equal(result.usable, false);
+  assert.deepEqual(result.data, []);
+  assert.equal(result.total, 0);
+  assert.deepEqual(result.missingFilters, ['/data/name']);
+});
+
+// Losing a visible column is cosmetic, not a disclosure, so the dataset keeps
+// working with one fewer field rather than refusing the reader entirely.
+test('filtered dataset keeps serving the columns that survive a republished form', async () => {
+  const option = value => ({ isDefined: () => true, get: () => value });
+  const result = await routes.get('get /projects/:projectId/filtered-datasets/:id/data')({
+    Projects: { getById: async () => option({ id: 9 }) },
+    Forms: { getByProjectAndXmlFormId: async () => assert.fail('must not check source form') },
+    db: {
+      maybeOne: async () => option({
+        id: 3, projectId: 9, formId: 7, currentDefId: 12,
+        columns: ['/data/district', '/data/hh_size'],
+        query: [{ column: '/data/district', filter: '=', value: 'Bombali', condition: 'AND' }]
+      }),
+      any: async query => (query.sql.includes('from form_fields')
+        ? [{ path: '/data/district', name: 'district', type: 'string', binary: false, order: 1 }]
+        : [{ data: { '/data/district': 'Bombali' } }]),
+      one: async () => ({ total: 1, valid: 1 }),
+      oneFirst: async () => 1
+    }
+  }, {
+    params: { projectId: '9', id: '3' }, query: { limit: '10', offset: '0' },
+    auth: { canOrReject: async () => {} }
+  });
+
+  assert.equal(result.usable, true);
+  assert.deepEqual(result.columns, ['/data/district']);
+  assert.deepEqual(result.missingColumns, ['/data/hh_size']);
+  assert.equal(result.data.length, 1);
+});
+
 test('backup routes require backup.run rather than project creation rights', async () => {
   for (const route of ['get /field-data/backups', 'post /field-data/backups', 'get /field-data/backups/:id/download']) {
     await assert.rejects(routes.get(route)({}, { auth: { canOrReject: async verb => {
