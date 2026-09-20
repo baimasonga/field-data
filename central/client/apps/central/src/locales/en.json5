@@ -57,6 +57,8 @@
   "fieldDataHome": {
     "title": "Field Data",
     "tab": {
+      // A tab listing the organizations that own this deployment's Projects.
+      "organizations": "Organizations",
       "dashboard": "Dashboard",
       "media": "Media Library",
       "webhooks": "Webhooks",

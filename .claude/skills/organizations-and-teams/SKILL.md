@@ -37,13 +37,27 @@ Central already has the machinery: `actors` (people, app users, and groups),
 `actees` (the thing being granted on). An actor is already allowed to be a
 group, and a role is already grantable on a container.
 
-So an organization should be an **actee that owns projects**, and a team
-should be an **actor that contains actors**. Then:
+An organization should be an **actee that owns projects**. That half works
+exactly as hoped, and better than described: `_impliedActees` in
+`lib/model/query/auth.js` is a recursive CTE over `actees.parent` and
+`actees.species`, so setting an owned project's `actees.parent` to the
+organization's acteeId makes a grant on the organization reach it with no new
+permission code at all.
 
-- Granting a role on the organization grants it on every project the
-  organization owns, through the existing assignment lookup.
-- Granting a role to a team grants it to the team's members, through the
-  existing actor resolution.
+It is also **monotonic**, which is the property that makes the migration safe:
+a project actee's parent is null today, null matches no actee id, so setting
+it can only ever add implied actees. No existing grant, including a site
+admin's grant on `'*'`, can be taken away. Verified against a real PostgreSQL
+with the real query — see `central/server/test/db/`.
+
+**Teams do not work this way, and an earlier version of this skill was wrong
+to say they did.** It claimed a role granted to a team reaches its members
+"through the existing actor resolution". There is no such resolution:
+`can()` filters on `"actorId"` alone, `actors.type` has a `'group'` value that
+nothing uses, and there is no membership table anywhere. Teams would require
+changing `can()` itself — the single query deciding who may read what — which
+is not something to add alongside a schema change, and not something to write
+blind against a database you cannot test.
 
 Do not build a parallel permission table. A second source of truth about who
 can see what is how a deployment ends up showing one organisation another's
@@ -68,7 +82,19 @@ verbs already cover the distinctions; map rather than invent:
 | read only | view and download |
 
 Only `owner` is genuinely new — the ability to administer the tenant. The
-rest should resolve to project roles that already exist.
+rest should resolve to project roles that already exist: manager, `formfill`
+for data entry, `viewer` for read only.
+
+**`editor` has no Central equivalent and should be left out.** There is no
+role between manager and viewer, and both ways to supply one are worse than
+its absence: mapping it onto manager grants more than the name promises, and
+inventing a verb set means guessing at a security boundary. An organization
+that needs it can still grant a project role directly.
+
+One trap: `roles.system` is `varchar(8)`, so the owner role's system name is
+`'owner'` and not `'org_owner'`. There is no unique constraint on that column
+either, so guard the insert with `NOT EXISTS` rather than `ON CONFLICT`,
+which without a conflict target silently does nothing.
 
 ## Schema
 
@@ -81,8 +107,8 @@ field_data_organization_projects
   "organizationId", "projectId"   -- unique on projectId: a project has one owner
 ```
 
-Teams are actors with membership, which Central can already express — check
-before adding a table.
+Teams are **not** expressible today — see above. Anything claiming otherwise
+is describing a codebase this is not.
 
 Make `projectId` unique. A project belonging to two organizations has no
 answer to "who may administer it", and every later feature will have to

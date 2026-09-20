@@ -17,6 +17,9 @@ distribution and at https://www.apache.org/licenses/LICENSE-2.0.
         <li v-if="canManage" :class="tabClass('media')" role="presentation">
           <router-link :to="tabPath('media')">{{ $t('tab.media') }}</router-link>
         </li>
+        <li v-if="canConfigure" :class="tabClass('organizations')" role="presentation">
+          <router-link :to="tabPath('organizations')">{{ $t('tab.organizations') }}</router-link>
+        </li>
         <li v-if="canConfigure" :class="tabClass('webhooks')" role="presentation">
           <router-link :to="tabPath('webhooks')">{{ $t('tab.webhooks') }}</router-link>
         </li>
@@ -59,6 +62,8 @@ const canManage = computed(() => currentUser.can('project.create'));
     "tab": {
       "dashboard": "Dashboard",
       "media": "Media Library",
+      // The tenants that own this deployment's Projects.
+      "organizations": "Organizations",
       "webhooks": "Webhooks",
       "backups": "Backups"
     }

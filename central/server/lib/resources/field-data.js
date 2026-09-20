@@ -24,6 +24,9 @@ const { normalizeDefinition, resolveStoredDefinition, compileFilter, extractObje
 const { normalizeWidget, capRows, tooManyDistinct, MAX_BARS } = require('../util/widgets');
 const { mergeFields, codingDivergence } = require('../util/merged-datasets');
 const { normalizeConfig, redactConfig, describeTargets } = require('../util/rest-targets');
+const {
+  normalizeOrganization, roleForOrganization, describeRoles
+} = require('../util/organizations');
 
 const pingUrl = (urlStr) => new Promise((resolve) => {
   try {
@@ -860,6 +863,181 @@ module.exports = (service, endpoint) => {
     return success();
   }));
 
+
+
+  ////////////////////////////////////////////////////////////////////////////////
+  // ORGANIZATIONS
+  //
+  // A tenant above the project. There is no permission logic here: an
+  // organization is an actee, a project it owns has that actee as its parent,
+  // and Central's can() already walks that parent chain. Every route below
+  // either reads a table or grants a role the existing way.
+
+  const organizationBySlug = (db, slug) => db.maybeOne(sql`
+    select * from field_data_organizations where slug = ${slug}`);
+
+  const organizationOrProblem = (body) => {
+    try {
+      return normalizeOrganization(body);
+    } catch (error) {
+      if (error.field != null) {
+        throw Problem.user.unexpectedValue({
+          field: error.field, value: error.value, reason: error.reason
+        });
+      }
+      throw error;
+    }
+  };
+
+  service.get('/field-data/organization-roles', endpoint(async (container, { auth }) => {
+    await auth.canOrReject('config.read', Config.species);
+    return describeRoles();
+  }));
+
+  service.get('/field-data/organizations', endpoint(async (container, { auth }) => {
+    // Listing tenants is a site-wide question, so it takes the site-wide read.
+    await auth.canOrReject('config.read', Config.species);
+    return container.db.any(sql`
+      select o.*, count(op."projectId")::integer as "projectCount"
+      from field_data_organizations o
+      left join field_data_organization_projects op on op."organizationId" = o.id
+      group by o.id
+      order by o."archivedAt" nulls first, o.name`);
+  }));
+
+  service.post('/field-data/organizations', endpoint(async (container, { body, auth }) => {
+    await auth.canOrReject('config.set', Config.species);
+    const { name, slug } = organizationOrProblem(body);
+
+    // Provisioned through Actees so the row looks exactly like every other
+    // actee, including its species, rather than being a special case.
+    const actee = await container.Actees.provision('organization');
+    return container.db.one(sql`
+      insert into field_data_organizations (name, slug, "acteeId", "createdBy")
+      values (${name}, ${slug}, ${actee.id}, ${auth.actor.map(a => a.id).orNull()})
+      returning *`).catch(postgresErrorToProblem);
+  }));
+
+  service.get('/field-data/organizations/:slug', endpoint(async (container, { params, auth }) => {
+    await auth.canOrReject('config.read', Config.species);
+    const org = await organizationBySlug(container.db, params.slug).then(getOrNotFound);
+    const projects = await container.db.any(sql`
+      select p.id, p.name from field_data_organization_projects op
+      join projects p on p.id = op."projectId"
+      where op."organizationId" = ${org.id} order by p.name`);
+    return { ...org, projects };
+  }));
+
+  service.patch('/field-data/organizations/:slug', endpoint(async (container, { params, body, auth }) => {
+    await auth.canOrReject('config.set', Config.species);
+    const org = await organizationBySlug(container.db, params.slug).then(getOrNotFound);
+
+    // Archived, never deleted. An organization owns projects that hold
+    // submissions, and a delete button beside that is an accident waiting.
+    const archivedAt = body?.archived === undefined
+      ? org.archivedAt
+      : (body.archived === true ? new Date() : null);
+    const name = body?.name == null ? org.name : organizationOrProblem(body).name;
+
+    return container.db.one(sql`
+      update field_data_organizations
+      set name = ${name}, "archivedAt" = ${archivedAt}
+      where id = ${org.id} returning *`).catch(postgresErrorToProblem);
+  }));
+
+  // Adopting a project is the whole mechanism: point its actee at the
+  // organization and every grant on the organization reaches it. Nothing is
+  // taken away by this -- a project actee's parent was null, and null implies
+  // no actee -- so a grant somebody already held survives untouched.
+  service.post('/field-data/organizations/:slug/projects', endpoint(async (container, { params, body, auth }) => {
+    await auth.canOrReject('config.set', Config.species);
+    const org = await organizationBySlug(container.db, params.slug).then(getOrNotFound);
+    const project = await container.Projects.getById(body?.projectId).then(getOrNotFound);
+    // Moving a project between tenants changes who can read it, so it takes
+    // authority over the project and not only over the organization.
+    await auth.canOrReject('project.update', project);
+
+    await container.db.query(sql`
+      insert into field_data_organization_projects ("organizationId", "projectId")
+      values (${org.id}, ${project.id})
+      on conflict ("projectId") do update set "organizationId" = excluded."organizationId"`);
+    await container.db.query(sql`
+      update actees set parent = ${org.acteeId} where id = ${project.acteeId}`);
+    return success();
+  }));
+
+  service.delete('/field-data/organizations/:slug/projects/:projectId', endpoint(async (container, { params, auth }) => {
+    await auth.canOrReject('config.set', Config.species);
+    const org = await organizationBySlug(container.db, params.slug).then(getOrNotFound);
+    const project = await container.Projects.getById(params.projectId).then(getOrNotFound);
+    await auth.canOrReject('project.update', project);
+
+    await container.db.query(sql`
+      delete from field_data_organization_projects
+      where "organizationId" = ${org.id} and "projectId" = ${project.id}`);
+    // Releasing the project returns its actee to having no parent, which is
+    // what it was before any organization existed.
+    await container.db.query(sql`
+      update actees set parent = null
+      where id = ${project.acteeId} and parent = ${org.acteeId}`);
+    return success();
+  }));
+
+  service.get('/field-data/organizations/:slug/members', endpoint(async (container, { params, auth }) => {
+    await auth.canOrReject('config.read', Config.species);
+    const org = await organizationBySlug(container.db, params.slug).then(getOrNotFound);
+    return container.db.any(sql`
+      select actors.id as "actorId", actors."displayName", users.email,
+        roles.system as "roleSystem", roles.name as "roleName"
+      from assignments
+      join actors on actors.id = assignments."actorId"
+      left join users on users."actorId" = actors.id
+      join roles on roles.id = assignments."roleId"
+      where assignments."acteeId" = ${org.acteeId}
+      order by actors."displayName"`);
+  }));
+
+  service.post('/field-data/organizations/:slug/members', endpoint(async (container, { params, body, auth }) => {
+    await auth.canOrReject('config.set', Config.species);
+    const org = await organizationBySlug(container.db, params.slug).then(getOrNotFound);
+    let mapped;
+    try {
+      mapped = roleForOrganization(body?.role);
+    } catch (error) {
+      return reject(Problem.user.unexpectedValue({
+        field: error.field, value: error.value, reason: error.reason
+      }));
+    }
+
+    const actorId = Number.parseInt(body?.actorId, 10);
+    if (!Number.isInteger(actorId)) return reject(Problem.user.notFound());
+    const actor = await container.Actors.getById(actorId).then(getOrNotFound);
+    const role = await container.Roles.getBySystemName(mapped.system).then(getOrNotFound);
+
+    // Granted the ordinary way, on the organization's actee. One role per
+    // person per organization: two would leave "what can they do" with two
+    // answers and no way to revoke the one you meant.
+    await container.db.query(sql`
+      delete from assignments
+      where "actorId" = ${actor.id} and "acteeId" = ${org.acteeId}`);
+    await container.Assignments.grant(actor, role, { acteeId: org.acteeId });
+    return success();
+  }));
+
+  service.delete('/field-data/organizations/:slug/members/:actorId', endpoint(async (container, { params, auth }) => {
+    await auth.canOrReject('config.set', Config.species);
+    const org = await organizationBySlug(container.db, params.slug).then(getOrNotFound);
+    const actorId = Number.parseInt(params.actorId, 10);
+    if (!Number.isInteger(actorId)) return reject(Problem.user.notFound());
+
+    // Only the grants made through this organization. A person may also hold
+    // a grant directly on one of its projects, and removing them from the
+    // organization is not a statement about that.
+    await container.db.query(sql`
+      delete from assignments
+      where "actorId" = ${actorId} and "acteeId" = ${org.acteeId}`);
+    return success();
+  }));
 
   ////////////////////////////////////////////////////////////////////////////////
   // MERGED DATASETS

@@ -455,6 +455,59 @@ test('a typed webhook sends its target body and signs those bytes', async () => 
   }
 });
 
+// Moving a project between tenants changes who can read it, so it takes
+// authority over the project and not only the site-wide config right. A
+// deployment where config.set alone could reparent a project would let one
+// administrator hand another organization's data to their own.
+test('adopting a project into an organization requires rights on that project', async () => {
+  const option = value => ({ isDefined: () => true, get: () => value });
+  const asked = [];
+  await assert.rejects(
+    routes.get('post /field-data/organizations/:slug/projects')({
+      Projects: { getById: async () => option({ id: 4, acteeId: 'proj-actee' }) },
+      db: {
+        maybeOne: async () => option({ id: 1, slug: 'agency-a', acteeId: 'org-actee' }),
+        query: async () => assert.fail('must not reparent without rights on the project')
+      }
+    }, {
+      params: { slug: 'agency-a' }, body: { projectId: 4 },
+      auth: {
+        canOrReject: async (verb) => {
+          asked.push(verb);
+          if (verb === 'project.update') throw new Error('insufficient rights');
+          return true;
+        }
+      }
+    }),
+    /insufficient rights/
+  );
+  assert.ok(asked.includes('config.set'), 'still takes the site-wide right');
+  assert.ok(asked.includes('project.update'), 'and the project right');
+});
+
+// Removing somebody from an organization revokes what the organization gave
+// them and nothing else. A person may also hold a grant directly on one of its
+// projects, and leaving the organization is not a statement about that.
+test('removing an organization member revokes only the organization grant', async () => {
+  const option = value => ({ isDefined: () => true, get: () => value });
+  const deletes = [];
+  await routes.get('delete /field-data/organizations/:slug/members/:actorId')({
+    db: {
+      maybeOne: async () => option({ id: 1, slug: 'agency-a', acteeId: 'org-actee' }),
+      query: async query => { deletes.push({ sql: query.sql, values: query.values }); }
+    }
+  }, {
+    params: { slug: 'agency-a', actorId: '11' },
+    auth: { canOrReject: async () => {} }
+  });
+
+  assert.equal(deletes.length, 1);
+  // Scoped to this organization's actee, not to the actor generally.
+  assert.ok(deletes[0].sql.includes('"acteeId"'), deletes[0].sql);
+  assert.ok(deletes[0].values.includes('org-actee'), JSON.stringify(deletes[0].values));
+  assert.ok(deletes[0].values.includes(11), JSON.stringify(deletes[0].values));
+});
+
 test('backup routes require backup.run rather than project creation rights', async () => {
   for (const route of ['get /field-data/backups', 'post /field-data/backups', 'get /field-data/backups/:id/download']) {
     await assert.rejects(routes.get(route)({}, { auth: { canOrReject: async verb => {

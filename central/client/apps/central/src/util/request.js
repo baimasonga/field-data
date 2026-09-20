@@ -252,6 +252,16 @@ export const apiPaths = {
   fieldDataMedia: () => '/v1/field-data/media',
   fieldDataMediaItem: (id) => `/v1/field-data/media/${id}`,
   fieldDataMediaDownload: (id) => `/v1/field-data/media/download/${id}`,
+  fieldDataOrganizations: () => '/v1/field-data/organizations',
+  fieldDataOrganization: (slug) =>
+    `/v1/field-data/organizations/${encodeURIComponent(slug)}`,
+  fieldDataOrganizationMembers: (slug) =>
+    `/v1/field-data/organizations/${encodeURIComponent(slug)}/members`,
+  fieldDataOrganizationMember: (slug, actorId) =>
+    `/v1/field-data/organizations/${encodeURIComponent(slug)}/members/${actorId}`,
+  fieldDataOrganizationProjects: (slug) =>
+    `/v1/field-data/organizations/${encodeURIComponent(slug)}/projects`,
+  fieldDataOrganizationRoles: () => '/v1/field-data/organization-roles',
   fieldDataWebhooks: () => '/v1/field-data/webhooks',
   fieldDataWebhookTargets: () => '/v1/field-data/webhook-targets',
   fieldDataWebhook: (id) => `/v1/field-data/webhooks/${id}`,

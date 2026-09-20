@@ -801,6 +801,18 @@ const routes = [
         }
       }),
       asyncRoute({
+        path: 'organizations',
+        component: 'FieldDataOrganizations',
+        loading: 'tab',
+        meta: {
+          validateData: {
+            currentUser: () => currentUser.can('config.read')
+          },
+          title: () => [i18n.t('fieldDataHome.tab.organizations'), i18n.t('fieldDataHome.title')],
+          fullWidth: true
+        }
+      }),
+      asyncRoute({
         path: 'webhooks',
         component: 'FieldDataWebhooks',
         loading: 'tab',

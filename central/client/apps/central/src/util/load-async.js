@@ -204,6 +204,10 @@ const loaders = new Map()
     /* webpackChunkName: "component-project-merged-datasets" */
     '../components/project/merged-datasets.vue'
   )))
+  .set('FieldDataOrganizations', loader(() => import(
+    /* webpackChunkName: "component-field-data-organizations" */
+    '../components/field-data/organizations.vue'
+  )))
   .set('NotFound', loader(() => import(
     /* webpackChunkName: "component-not-found" */
     '../components/not-found.vue'
