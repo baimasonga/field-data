@@ -18,6 +18,8 @@
       // A tab where several Forms are pooled into one table over the fields
       // they have in common.
       "mergedDatasets": "Merged Data",
+      // A tab for reusable Excel templates and generated project reports.
+      "reports": "Reports",
       // A tab of charts totalling up a Project's Submissions.
       "summary": "Summary",
 

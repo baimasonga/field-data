@@ -410,6 +410,22 @@ const routes = [
         }
       }),
       asyncRoute({
+        path: 'reports',
+        component: 'ProjectXlsReports',
+        props: true,
+        loading: 'tab',
+        meta: {
+          validateData: {
+            project: () => project.permits([
+              'submission.list',
+              'submission.read'
+            ])
+          },
+          title: () => [i18n.t('projectShow.tab.reports'), project.nameOrId],
+          fullWidth: true
+        }
+      }),
+      asyncRoute({
         path: 'summary',
         component: 'ProjectSummary',
         props: true,
@@ -996,6 +1012,7 @@ const routesByName = new Map();
     'ProjectOverview',
     'ProjectSummary',
     'ProjectMergedDatasets',
+    'ProjectXlsReports',
     'ProjectUserList',
     'FieldKeyList',
     'CustomPropertyList',
