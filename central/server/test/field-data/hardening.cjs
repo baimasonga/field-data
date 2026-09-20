@@ -98,6 +98,10 @@ test('dashboard submission queries exclude projects without both read and list p
   assert.equal(result.kpi.submissions, 0);
   assert.equal(submissionQueries.length, 4);
   for (const query of submissionQueries) assert.deepEqual(query.values.find(Array.isArray), [2]);
+  assert.equal(submissionQueries.some(query => query.sql.includes('forms.name')), false);
+  assert.equal(submissionQueries.filter(query => query.sql.includes('form_defs.name')).length, 2);
+  assert.equal(submissionQueries.filter(query =>
+    query.sql.includes('form_defs.id = forms."currentDefId"')).length, 2);
 });
 
 test('backup routes require backup.run rather than project creation rights', async () => {
