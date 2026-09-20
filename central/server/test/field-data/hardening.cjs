@@ -481,7 +481,11 @@ test('adopting a project into an organization requires rights on that project', 
     }),
     /insufficient rights/
   );
-  assert.ok(asked.includes('config.set'), 'still takes the site-wide right');
+  // Authority over the organization is no longer the site-wide config right:
+  // an owner administers their own tenant. The project half is unchanged, and
+  // is what stops an owner pulling somebody else's project into their org.
+  assert.ok(asked.includes('organization.update'), asked.join(', '));
+  assert.ok(asked.includes('project.update'), asked.join(', '));
   assert.ok(asked.includes('project.update'), 'and the project right');
 });
 
@@ -492,13 +496,16 @@ test('removing an organization member revokes only the organization grant', asyn
   const option = value => ({ isDefined: () => true, get: () => value });
   const deletes = [];
   await routes.get('delete /field-data/organizations/:slug/members/:actorId')({
+    // The route reads the owner role to see whether this is the last one.
+    Roles: { getBySystemName: async () => option({ id: 42, system: 'owner' }) },
     maybeOne: async () => option({ id: 1, slug: 'agency-a', acteeId: 'org-actee' }),
     db: {
+      oneFirst: async () => 0,
       query: async query => { deletes.push({ sql: query.sql, values: query.values }); }
     }
   }, {
     params: { slug: 'agency-a', actorId: '11' },
-    auth: { canOrReject: async () => {} }
+    auth: { canOrReject: async () => {}, can: async () => true }
   });
 
   assert.equal(deletes.length, 1);
@@ -698,4 +705,154 @@ test("a form's shares are listed to the form's administrator, wherever they serv
   assert.match(listed.sql, /where d\."formId" =/);
   assert.equal(/d\."projectId" = /.test(listed.sql), false);
   assert.deepEqual(shares, [{ id: 3, projectId: 9 }]);
+});
+
+// Organization verbs. The owner role has carried organization.read,
+// organization.update and organization.member.manage since 20260920-05, and
+// nothing checked them: every route demanded the site-wide config right, so
+// the role promised in the interface to run the organization while only an
+// administrator could do any of it.
+const orgContainer = (verbs, { calls = [], assignRole = true } = {}) => ({
+  container: {
+    Roles: {
+      // Echo what was asked for. A mock that hands back the same role whatever
+      // the name would have hidden which role the route actually granted.
+      getBySystemName: async (system) => ({
+        isDefined: () => true,
+        get: () => ({ id: system === 'owner' ? 42 : 43, system })
+      })
+    },
+    Actors: {
+      getById: async () => ({ isDefined: () => true, get: () => ({ id: 77, displayName: 'Aminata' }) })
+    },
+    Assignments: { grant: async (...args) => { calls.push(['grant', args[1].system]); } },
+    maybeOne: async () => ({
+      isDefined: () => true,
+      get: () => ({ id: 1, slug: 'bombali', name: 'Bombali', acteeId: 'org-actee', archivedAt: null })
+    }),
+    db: {
+      any: async () => [],
+      one: async () => ({ id: 1, slug: 'bombali', name: 'Bombali', acteeId: 'org-actee' }),
+      oneFirst: async () => 0,
+      query: async query => { calls.push(['sql', query.sql]); }
+    }
+  },
+  context: {
+    params: { slug: 'bombali', actorId: '77' },
+    body: { actorId: 77, role: 'manager', name: 'Renamed' },
+    auth: {
+      isAuthenticated: true,
+      can: async (verb) => verbs.includes(verb),
+      canOrReject: async (verb) => {
+        if (!verbs.includes(verb)) throw Object.assign(new Error('forbidden'), { problemCode: 403.1 });
+        return true;
+      },
+      canAssignRole: async () => assignRole,
+      verbsOn: async () => verbs,
+      actor: { isDefined: () => false, map: () => ({ orNull: () => null }) }
+    }
+  }
+});
+
+test('an organization owner can rename and manage members without the site-wide config right', async () => {
+  const owner = ['organization.read', 'organization.update', 'organization.member.manage'];
+  const calls = [];
+  const { container, context } = orgContainer(owner, { calls });
+
+  await routes.get('patch /field-data/organizations/:slug')(container, context);
+  await routes.get('post /field-data/organizations/:slug/members')(container, context);
+  assert.deepEqual(calls.filter(([kind]) => kind === 'grant'), [['grant', 'manager']]);
+});
+
+test('an organization manager, holding none of the three verbs, can do none of it', async () => {
+  // The project-manager verbs reach the organization's projects. They do not
+  // reach the organization itself, which is the distinction the owner role
+  // exists to draw.
+  const manager = ['project.update', 'form.update', 'assignment.create'];
+  for (const route of [
+    'patch /field-data/organizations/:slug',
+    'post /field-data/organizations/:slug/members',
+    'delete /field-data/organizations/:slug/members/:actorId',
+    'get /field-data/organizations/:slug/members'
+  ]) {
+    const { container, context } = orgContainer(manager);
+    // eslint-disable-next-line no-await-in-loop
+    await assert.rejects(routes.get(route)(container, context),
+      error => error.problemCode === 403.1, route);
+  }
+});
+
+test('nobody grants a role carrying more than they hold themselves', async () => {
+  // canAssignRole is Central's own check. Using it rather than a rule written
+  // here is what stops an organization owner being a way around the site's
+  // answer to that question.
+  const calls = [];
+  const { container, context } = orgContainer(
+    ['organization.member.manage'], { calls, assignRole: false });
+  await assert.rejects(
+    routes.get('post /field-data/organizations/:slug/members')(container, context),
+    error => error.problemCode === 403.1);
+  assert.deepEqual(calls.filter(([kind]) => kind === 'grant'), []);
+});
+
+test('the last owner is not removable by an owner, and is by a site administrator', async () => {
+  const withOwners = (verbs, { remaining, targetIsOwner }) => {
+    const made = orgContainer(verbs);
+    let call = 0;
+    made.container.db.oneFirst = async () => {
+      call += 1;
+      return call === 1 ? remaining : (targetIsOwner ? 1 : 0);
+    };
+    return made;
+  };
+
+  // Removing yourself as the only owner leaves an organization nobody but a
+  // site administrator can run, so it is refused with the remedy in the text.
+  const alone = withOwners(['organization.member.manage'],
+    { remaining: 0, targetIsOwner: true });
+  await assert.rejects(
+    routes.get('delete /field-data/organizations/:slug/members/:actorId')(
+      alone.container, alone.context),
+    error => /only owner/.test(error.problemDetails?.reason ?? error.message));
+
+  // A site administrator is the escape hatch. Blocking them is the one way
+  // this guard could do harm, so it does not.
+  const admin = withOwners(
+    ['organization.member.manage', 'config.set'], { remaining: 0, targetIsOwner: true });
+  await routes.get('delete /field-data/organizations/:slug/members/:actorId')(
+    admin.container, admin.context);
+
+  // Removing somebody who is not an owner is never the last-owner case.
+  const other = withOwners(['organization.member.manage'],
+    { remaining: 0, targetIsOwner: false });
+  await routes.get('delete /field-data/organizations/:slug/members/:actorId')(
+    other.container, other.context);
+});
+
+test('the organization list shows each caller only what they may read', async () => {
+  const rows = [
+    { id: 1, slug: 'bombali', acteeId: 'a' },
+    { id: 2, slug: 'kambia', acteeId: 'b' }
+  ];
+  const listFor = (verbsByActee) => routes.get('get /field-data/organizations')({
+    db: { any: async () => rows }
+  }, {
+    auth: { verbsOn: async (org) => verbsByActee[org.acteeId] ?? [] }
+  });
+
+  const owner = await listFor({ a: ['organization.read', 'organization.update'] });
+  assert.deepEqual(owner.map(org => org.slug), ['bombali']);
+  // The rights travel with the row, because the interface can no longer work
+  // them out from a site-wide permission that no longer governs.
+  assert.equal(owner[0].canUpdate, true);
+  assert.equal(owner[0].canManageMembers, false);
+
+  const admin = await listFor({
+    a: ['organization.read'], b: ['organization.read', 'organization.member.manage']
+  });
+  assert.deepEqual(admin.map(org => org.slug), ['bombali', 'kambia']);
+
+  // Somebody with a grant on no organization sees none of them, rather than
+  // the whole tenant list.
+  assert.deepEqual(await listFor({}), []);
 });

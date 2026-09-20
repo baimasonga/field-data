@@ -16,7 +16,7 @@ is hard to see the consequences of and easy to get wrong.
     <template v-if="!loading">
       <p class="section-lead">{{ $t('lead') }}</p>
 
-      <form v-if="canConfigure" class="org-form" @submit.prevent="create">
+      <form v-if="canCreate" class="org-form" @submit.prevent="create">
         <input v-model.trim="draft.name" class="form-control" type="text"
           :placeholder="$t('field.name')" :aria-label="$t('field.name')" required>
         <input v-model.trim="draft.slug" class="form-control" type="text"
@@ -50,7 +50,7 @@ is hard to see the consequences of and easy to get wrong.
             <button type="button" class="btn btn-link btn-sm" @click="open(org)">
               {{ openSlug === org.slug ? $t('action.close') : $t('action.members') }}
             </button>
-            <button v-if="canConfigure" type="button" class="btn btn-default btn-sm"
+            <button v-if="org.canUpdate" type="button" class="btn btn-default btn-sm"
               @click="setArchived(org, org.archivedAt == null)">
               {{ org.archivedAt == null ? $t('action.archive') : $t('action.restore') }}
             </button>
@@ -67,7 +67,7 @@ is hard to see the consequences of and easy to get wrong.
                 <tr>
                   <th>{{ $t('header.person') }}</th>
                   <th>{{ $t('header.role') }}</th>
-                  <th v-if="canConfigure"></th>
+                  <th v-if="openOrg?.canManageMembers"></th>
                 </tr>
               </thead>
               <tbody>
@@ -77,7 +77,7 @@ is hard to see the consequences of and easy to get wrong.
                     <span v-if="member.email" class="member-email">{{ member.email }}</span>
                   </td>
                   <td>{{ member.roleName }}</td>
-                  <td v-if="canConfigure">
+                  <td v-if="openOrg?.canManageMembers">
                     <button type="button" class="btn btn-danger btn-sm"
                       @click="removeMember(org, member)">{{ $t('action.remove') }}</button>
                   </td>
@@ -90,14 +90,32 @@ is hard to see the consequences of and easy to get wrong.
             <!-- The consequence of the choice, next to the choice. A role here
             reaches every Project the organization owns, which is not something
             a dropdown communicates on its own. -->
-            <form v-if="canConfigure" class="member-form" @submit.prevent="addMember(org)">
-              <select v-model="newMember.actorId" class="form-control"
-                :aria-label="$t('field.person')">
-                <option value="">{{ $t('field.person') }}</option>
-                <option v-for="user of users" :key="user.id" :value="user.id">
-                  {{ user.displayName }}
-                </option>
-              </select>
+            <!-- Search rather than a dropdown of everybody. Listing all
+            accounts takes user.list, which an organization owner does not
+            have, so a dropdown would be empty for exactly the people this
+            form is for. Searching by email is how Central adds somebody to a
+            Project, and it answers for both. -->
+            <form v-if="org.canManageMembers" class="member-form"
+              @submit.prevent="addMember(org)">
+              <div class="person-field">
+                <input v-model.trim="personSearch" class="form-control" type="search"
+                  :placeholder="$t('field.findPerson')" :aria-label="$t('field.findPerson')"
+                  @input="findPeople">
+                <p v-if="personSearch !== '' && !searching && candidates.length === 0"
+                  class="person-none">
+                  {{ $t('field.noPerson') }}
+                </p>
+                <ul v-else-if="candidates.length > 0" class="person-results">
+                  <li v-for="person of candidates" :key="person.id">
+                    <button type="button"
+                      :class="['btn', 'btn-link', { chosen: newMember.actorId === person.id }]"
+                      @click="choose(person)">
+                      {{ person.displayName }}
+                      <span v-if="person.email" class="member-email">{{ person.email }}</span>
+                    </button>
+                  </li>
+                </ul>
+              </div>
               <select v-model="newMember.role" class="form-control"
                 :aria-label="$t('field.role')">
                 <option value="">{{ $t('field.role') }}</option>
@@ -145,13 +163,21 @@ const loading = ref(true);
 const membersLoading = ref(false);
 const organizations = ref([]);
 const roles = ref([]);
-const users = ref([]);
 const members = ref([]);
 const openSlug = ref(null);
 const draft = reactive({ name: '', slug: '' });
 const newMember = reactive({ actorId: '', role: '' });
+const personSearch = ref('');
+const candidates = ref([]);
+const searching = ref(false);
+let searchTimer;
 
-const canConfigure = computed(() => currentUser.dataExists && currentUser.can('config.set'));
+// Creating a tenant is still site-wide: there is no organization yet to be
+// the owner of. Everything after that is decided per organization by the
+// server, which sends the answer with each row rather than leaving the
+// interface to infer it from a permission that no longer governs.
+const canCreate = computed(() => currentUser.dataExists && currentUser.can('config.set'));
+const openOrg = computed(() => organizations.value.find(org => org.slug === openSlug.value));
 const roleDescription = computed(() => roles.value
   .find(role => role.name === newMember.role)?.describe ?? '');
 
@@ -162,10 +188,27 @@ const loadOrganizations = () => request({
 Promise.all([
   loadOrganizations(),
   request({ method: 'GET', url: apiPaths.fieldDataOrganizationRoles() })
-    .then(({ data }) => { roles.value = data; }),
-  request({ method: 'GET', url: apiPaths.users() })
-    .then(({ data }) => { users.value = data; })
+    .then(({ data }) => { roles.value = data; })
 ]).catch(noop).finally(() => { loading.value = false; });
+
+// An exact email match comes back to anybody; a name match needs user.list.
+// Either way the server decides what this caller may see, so the same request
+// serves an administrator and an organization owner.
+const findPeople = () => {
+  clearTimeout(searchTimer);
+  newMember.actorId = '';
+  const term = personSearch.value;
+  if (term === '') { candidates.value = []; return; }
+  searchTimer = setTimeout(() => {
+    searching.value = true;
+    request({ method: 'GET', url: apiPaths.users({ q: term }) })
+      .then(({ data }) => { candidates.value = data.slice(0, 10); })
+      .catch(() => { candidates.value = []; })
+      .finally(() => { searching.value = false; });
+  }, 350);
+};
+
+const choose = (person) => { newMember.actorId = person.id; };
 
 const create = () => request({
   method: 'POST',
@@ -192,6 +235,8 @@ const open = (org) => {
   members.value = [];
   newMember.actorId = '';
   newMember.role = '';
+  personSearch.value = '';
+  candidates.value = [];
   membersLoading.value = true;
   request({ method: 'GET', url: apiPaths.fieldDataOrganizationMembers(org.slug) })
     .then(({ data }) => { members.value = data; })
@@ -207,6 +252,8 @@ const addMember = (org) => request({
   .then(() => {
     newMember.actorId = '';
     newMember.role = '';
+    personSearch.value = '';
+    candidates.value = [];
     return request({ method: 'GET', url: apiPaths.fieldDataOrganizationMembers(org.slug) })
       .then(({ data }) => { members.value = data; });
   })
@@ -239,6 +286,8 @@ const removeMember = (org, member) => {
       "name": "Organization name",
       "slug": "Short name for links (optional)",
       "person": "Person",
+      "findPerson": "Find somebody by email",
+      "noPerson": "No account matches that. An exact email address always works; searching by name needs permission to list users.",
       "role": "Role"
     },
     "header": { "person": "Person", "role": "Role" },
@@ -330,6 +379,36 @@ const removeMember = (org, member) => {
     gap: 8px;
 
     .form-control { flex: 0 1 220px; width: auto; }
+  }
+
+  .person-field { flex: 0 1 260px; }
+
+  .person-none {
+    color: $color-text-muted;
+    font-size: 12px;
+    margin: 4px 0 0;
+  }
+
+  .person-results {
+    border: 1px solid #e9e9f1;           // gradient --gray-150
+    border-radius: 4px;
+    list-style: none;
+    margin: 4px 0 0;
+    max-height: 180px;
+    overflow-y: auto;
+    padding: 2px;
+
+    .btn-link {
+      display: block;
+      padding: 4px 8px;
+      text-align: left;
+      width: 100%;
+
+      &.chosen {
+        background-color: #f1f1f6;       // gradient --gray-100
+        font-weight: 600;
+      }
+    }
   }
 
   .role-note {

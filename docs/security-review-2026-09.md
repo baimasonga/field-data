@@ -99,26 +99,70 @@ than by the permission system refusing. The new section is what makes that
 watching possible. Compare merged datasets, which re-check every source form
 on every read; they can afford to, because they never cross a project boundary.
 
-### 3. Organization owners cannot administer their organizations — NOT FIXED
+### 3. Organization owners could not administer their organizations — FIXED
 
 The migration creates an `owner` role carrying the manager verbs plus
 `organization.read`, `organization.update` and `organization.member.manage`.
-**Those three verbs are not checked anywhere.** Every organization route gates
-on `config.read` or `config.set`, and in Central those verbs belong to the
-`admin` role alone.
+**Those three verbs were checked nowhere.** Every organization route gated on
+`config.read` or `config.set`, which in Central belong to the `admin` role
+alone, so the tenancy was entirely site-admin-operated while the interface told
+each owner they "run the organization: its members, and every project it owns".
 
-This fails safe — an org owner gets no more than a manager — but it means the
-tenancy is entirely site-admin-operated, and `organizations.vue` shows each
-role beside the sentence "Runs the organization: its members, and every project
-it owns", which is not what the role does. Either wire the verbs up or change
-the copy; leaving three unchecked verbs in a role is how someone later assumes
-they mean something.
+The verbs are now the gate. An organization is an actee, so this is an
+ordinary `can()` question with the organization row as the target — not a
+second permission path: the migration gave the `organization` species a species
+of `*`, so a site administrator's grant on `*` still reaches every organization
+through the same recursive walk. One query, two kinds of caller.
 
-Worth stating plainly alongside it: because only site admins can adopt a
-project into an organization or grant a role on one, there is no tenant
-self-service and therefore no cross-tenant escalation path through these
-routes. The isolation property the skill asks for holds, but it holds because
-nothing below admin can reach the machinery, not because the machinery checks.
+| Route | Was | Now |
+|---|---|---|
+| list organizations | `config.read` (all of them) | only those you may read |
+| create | `config.set` | `config.set`, unchanged |
+| read one, list members | `config.read` | `organization.read` |
+| rename, archive | `config.set` | `organization.update` |
+| adopt, release a project | `config.set` + `project.update` | `organization.update` + `project.update` |
+| add, remove a member | `config.set` | `organization.member.manage` |
+
+Creating a tenant stays site-wide deliberately: there is no organization yet to
+be the owner of, and a new top-level container is not something one tenant
+should be able to conjure inside another's deployment. The creator is now
+granted `owner` on what they created, which is what stops every new
+organization arriving with nobody but an administrator able to run it.
+
+Three things worth naming, because each is where this could have gone wrong:
+
+- **Granting is bounded by what you hold.** Member grants go through
+  `auth.canAssignRole`, Central's own check that the caller has every verb of
+  the role being granted on that actee — the same one `assignments.js` uses.
+  Writing a new rule here is how an organization owner becomes a way around the
+  site's answer to that question.
+- **Adopting a project is not an escalation.** It takes `organization.update`
+  on the organization *and* `project.update` on the project. `project.update`
+  comes with the manager verbs, `assignment.create` among them, so anyone who
+  can adopt a project could already have granted those same people a role on it
+  directly. What adopting saves is doing it one by one.
+- **The last owner cannot be removed** by an owner, because the person doing it
+  is usually removing themselves and the result is an organization only a site
+  administrator can run. A site administrator is not stopped — blocking the
+  people who would have to fix it is the one way that guard could do harm.
+
+Two consequences of the change that are not defects but will surprise someone:
+
+- The Organizations route and tab lost their `config.read` guard, because an
+  owner holds no site-wide verb for it to test. The page is now scoped by the
+  server and shows somebody with no organizations an empty list, the same way
+  the Field Data dashboard shows them zeros.
+- The member form searches for a person by email instead of listing everyone,
+  because listing accounts takes `user.list` and an owner does not have it — a
+  dropdown would have been empty for exactly the people the form is for. This
+  is how Central adds somebody to a project.
+
+One latent trap, left as a comment at the grant: the owner role's verbs were
+copied from `manager` when `20260920-05` ran. If a later upstream migration
+adds a verb to `manager` without adding it to `owner`, an owner quietly stops
+being able to grant the manager role, because they would no longer hold all of
+it. That fails closed, which is the right direction, but it will read as a
+puzzling refusal until somebody re-syncs the two.
 
 ### 4. Health probes run on every dashboard load — NOT FIXED
 

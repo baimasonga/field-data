@@ -96,6 +96,63 @@ One trap: `roles.system` is `varchar(8)`, so the owner role's system name is
 either, so guard the insert with `NOT EXISTS` rather than `ON CONFLICT`,
 which without a conflict target silently does nothing.
 
+### A verb nothing checks is a promise nothing keeps
+
+The owner role shipped carrying `organization.read`, `organization.update` and
+`organization.member.manage` while every route still demanded the site-wide
+`config.set`. The role looked right in the database and in the interface, and
+did nothing: only administrators could administer anything. Creating the verbs
+and checking them are two jobs, and the second one is easy to believe you have
+already done.
+
+Check them the ordinary way. An organization is an actee and the row carries
+`acteeId`, so `auth.canOrReject('organization.update', org)` is the whole of
+it — `can()` reads `actee.acteeId || actee`. This is not a second path beside
+the site-wide one: because the `organization` species actee has species `'*'`,
+an administrator's grant on `'*'` reaches every organization through the same
+recursive walk. One query answers for both.
+
+Three rules that keep it from becoming an escalation:
+
+- **Grants go through `auth.canAssignRole(role, actee)`.** That is Central's
+  own check that the caller holds every verb of the role they are handing out,
+  on that actee, and `assignments.js` already uses it. Write your own rule here
+  and an org owner becomes a way around the site's answer.
+- **Anything that changes who can read a project takes authority over both
+  sides.** Adopting a project needs `organization.update` on the organization
+  and `project.update` on the project. That is not a new power: `project.update`
+  brings `assignment.create`, so somebody who can adopt could already have
+  granted those people a role directly, one at a time.
+- **Refuse to remove the last owner**, but never to a site administrator. The
+  person removing the last owner is usually removing themselves, and the result
+  is an organization only an administrator can run — so blocking the
+  administrator is the one way the guard could do harm.
+
+Grant the creator the owner role at creation, or every organization arrives
+with nobody but an administrator able to run it, which is the state the role
+exists to end.
+
+Two things the client needs that are easy to miss, and both of which make the
+feature useless if missed:
+
+- **An owner holds no site-wide verb**, so a route or tab guarded on
+  `currentUser.can('config.read')` hides the page from exactly the people it is
+  for. Scope the listing on the server instead and let it return only what the
+  caller may read; somebody with no organizations then sees an empty page
+  rather than a missing tab. Send the per-organization rights down with each
+  row (`verbsOn` answers in one query) so the interface stops guessing from a
+  site-wide permission that no longer governs.
+- **Listing accounts takes `user.list`, which an owner does not have.** A
+  dropdown of everybody is empty for them. Search by email, which is how
+  Central adds somebody to a project: an exact email match comes back to
+  anybody, a name match needs the verb.
+
+One latent trap worth a comment at the grant: the owner role's verbs are copied
+from `manager` when the migration runs. If a later upstream migration adds a
+verb to `manager` and not to `owner`, an owner quietly stops being able to
+grant the manager role, because they no longer hold all of it. It fails closed,
+which is the right direction, and it will read as a puzzling refusal.
+
 ## Schema
 
 ```

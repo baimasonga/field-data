@@ -970,48 +970,101 @@ module.exports = (service, endpoint) => {
     }
   };
 
+  /*
+  An organization is an actee, so authority over one is an ordinary can()
+  question with the organization row as the target -- can() reads
+  `actee.acteeId || actee`, and the row carries `acteeId`.
+
+  This is not a second permission path beside the site-wide one. The migration
+  gave the 'organization' species actee a species of '*', so a site
+  administrator's grant on '*' reaches every organization through the same
+  recursive walk that answers for everybody else. One query, two kinds of
+  caller.
+
+  The three verbs the owner role carries -- organization.read,
+  organization.update, organization.member.manage -- are checked here and
+  nowhere else. Until they were, the role promised in the interface to run the
+  organization and its members while every route still demanded the site-wide
+  config right, so only administrators could do any of it.
+  */
+  const organizationRole = (container) => container.Roles.getBySystemName('owner')
+    .then(getOrNotFound);
+
+  // What this caller may do with one organization, said plainly, because the
+  // interface can no longer work it out from a site-wide permission that no
+  // longer decides it. verbsOn answers the whole question in one query rather
+  // than one per verb.
+  const organizationRights = (verbs) => ({
+    canRead: verbs.includes('organization.read'),
+    canUpdate: verbs.includes('organization.update'),
+    canManageMembers: verbs.includes('organization.member.manage')
+  });
+
   service.get('/field-data/organization-roles', endpoint(async (container, { auth }) => {
-    await auth.canOrReject('config.read', Config.species);
+    // Four names and a sentence each, and the person choosing a role for
+    // somebody needs it. Any signed-in actor may read it; there is nothing in
+    // here about any particular organization.
+    if (!auth.isAuthenticated) return reject(Problem.user.insufficientRights());
     return describeRoles();
   }));
 
   service.get('/field-data/organizations', endpoint(async (container, { auth }) => {
-    // Listing tenants is a site-wide question, so it takes the site-wide read.
-    await auth.canOrReject('config.read', Config.species);
-    return container.db.any(sql`
+    const all = await container.db.any(sql`
       select o.*, count(op."projectId")::integer as "projectCount"
       from field_data_organizations o
       left join field_data_organization_projects op on op."organizationId" = o.id
       group by o.id
       order by o."archivedAt" nulls first, o.name`);
+
+    // The organizations this caller may read, which for a site administrator
+    // is all of them and for an owner is their own. Asked one at a time rather
+    // than compiled into the query, because a second expression of "who may
+    // see what" is how one tenant ends up reading another's.
+    const rights = await Promise.all(all.map(org =>
+      auth.verbsOn(org).then(organizationRights)));
+    return all
+      .map((org, index) => ({ ...org, ...rights[index] }))
+      .filter(org => org.canRead);
   }));
 
   service.post('/field-data/organizations', endpoint(async (container, { body, auth }) => {
+    // Creating a tenant stays site-wide: there is no organization yet to be an
+    // owner of, and a new top-level container is not something one tenant
+    // should be able to conjure inside another's deployment.
     await auth.canOrReject('config.set', Config.species);
     const { name, slug } = organizationOrProblem(body);
 
     // Provisioned through Actees so the row looks exactly like every other
     // actee, including its species, rather than being a special case.
     const actee = await container.Actees.provision('organization');
-    return container.db.one(sql`
+    const created = await container.db.one(sql`
       insert into field_data_organizations (name, slug, "acteeId", "createdBy")
       values (${name}, ${slug}, ${actee.id}, ${auth.actor.map(a => a.id).orNull()})
       returning *`).catch(postgresErrorToProblem);
+
+    // The creator owns what they created. Without this an organization arrives
+    // with nobody able to administer it but a site administrator, which is the
+    // state this whole change exists to end.
+    if (auth.actor.isDefined()) {
+      await container.Assignments.grant(auth.actor.get(), await organizationRole(container),
+        { acteeId: created.acteeId });
+    }
+    return created;
   }));
 
   service.get('/field-data/organizations/:slug', endpoint(async (container, { params, auth }) => {
-    await auth.canOrReject('config.read', Config.species);
     const org = await organizationBySlug(container, params.slug).then(getOrNotFound);
+    await auth.canOrReject('organization.read', org);
     const projects = await container.db.any(sql`
       select p.id, p.name from field_data_organization_projects op
       join projects p on p.id = op."projectId"
       where op."organizationId" = ${org.id} order by p.name`);
-    return { ...org, projects };
+    return { ...org, projects, ...organizationRights(await auth.verbsOn(org)) };
   }));
 
   service.patch('/field-data/organizations/:slug', endpoint(async (container, { params, body, auth }) => {
-    await auth.canOrReject('config.set', Config.species);
     const org = await organizationBySlug(container, params.slug).then(getOrNotFound);
+    await auth.canOrReject('organization.update', org);
 
     // Archived, never deleted. An organization owns projects that hold
     // submissions, and a delete button beside that is an accident waiting.
@@ -1031,11 +1084,15 @@ module.exports = (service, endpoint) => {
   // taken away by this -- a project actee's parent was null, and null implies
   // no actee -- so a grant somebody already held survives untouched.
   service.post('/field-data/organizations/:slug/projects', endpoint(async (container, { params, body, auth }) => {
-    await auth.canOrReject('config.set', Config.species);
     const org = await organizationBySlug(container, params.slug).then(getOrNotFound);
+    await auth.canOrReject('organization.update', org);
     const project = await container.Projects.getById(body?.projectId).then(getOrNotFound);
     // Moving a project between tenants changes who can read it, so it takes
-    // authority over the project and not only over the organization.
+    // authority over the project and not only over the organization. Holding
+    // both is not a way to gain anything: project.update comes with the
+    // manager verbs, assignment.create among them, so somebody who can adopt a
+    // project could already have granted those same people a role on it
+    // directly. What adopting saves is the doing of it one by one.
     await auth.canOrReject('project.update', project);
 
     await container.db.query(sql`
@@ -1048,8 +1105,8 @@ module.exports = (service, endpoint) => {
   }));
 
   service.delete('/field-data/organizations/:slug/projects/:projectId', endpoint(async (container, { params, auth }) => {
-    await auth.canOrReject('config.set', Config.species);
     const org = await organizationBySlug(container, params.slug).then(getOrNotFound);
+    await auth.canOrReject('organization.update', org);
     const project = await container.Projects.getById(params.projectId).then(getOrNotFound);
     await auth.canOrReject('project.update', project);
 
@@ -1065,8 +1122,8 @@ module.exports = (service, endpoint) => {
   }));
 
   service.get('/field-data/organizations/:slug/members', endpoint(async (container, { params, auth }) => {
-    await auth.canOrReject('config.read', Config.species);
     const org = await organizationBySlug(container, params.slug).then(getOrNotFound);
+    await auth.canOrReject('organization.read', org);
     return container.db.any(sql`
       select actors.id as "actorId", actors."displayName", users.email,
         roles.system as "roleSystem", roles.name as "roleName"
@@ -1079,8 +1136,8 @@ module.exports = (service, endpoint) => {
   }));
 
   service.post('/field-data/organizations/:slug/members', endpoint(async (container, { params, body, auth }) => {
-    await auth.canOrReject('config.set', Config.species);
     const org = await organizationBySlug(container, params.slug).then(getOrNotFound);
+    await auth.canOrReject('organization.member.manage', org);
     let mapped;
     try {
       mapped = roleForOrganization(body?.role);
@@ -1095,6 +1152,21 @@ module.exports = (service, endpoint) => {
     const actor = await container.Actors.getById(actorId).then(getOrNotFound);
     const role = await container.Roles.getBySystemName(mapped.system).then(getOrNotFound);
 
+    // Nobody hands out more than they hold. canAssignRole is Central's own
+    // check -- it asks whether the caller has every verb of the role being
+    // granted, on this actee -- and using it rather than writing a rule here
+    // is what keeps an organization owner from being a way around the site's
+    // own answer to that question.
+    //
+    // One consequence worth knowing: the owner role's verbs were copied from
+    // manager when 20260920-05 ran. If a later upstream migration adds a verb
+    // to manager without adding it to owner, an owner stops being able to
+    // grant the manager role, because they would no longer hold all of it.
+    // That fails closed, which is the right direction, but it will read as a
+    // puzzling refusal until somebody re-syncs the two.
+    if (!(await auth.canAssignRole(role, { acteeId: org.acteeId })))
+      return reject(Problem.user.insufficientRights());
+
     // Granted the ordinary way, on the organization's actee. One role per
     // person per organization: two would leave "what can they do" with two
     // answers and no way to revoke the one you meant.
@@ -1106,10 +1178,33 @@ module.exports = (service, endpoint) => {
   }));
 
   service.delete('/field-data/organizations/:slug/members/:actorId', endpoint(async (container, { params, auth }) => {
-    await auth.canOrReject('config.set', Config.species);
     const org = await organizationBySlug(container, params.slug).then(getOrNotFound);
+    await auth.canOrReject('organization.member.manage', org);
     const actorId = Number.parseInt(params.actorId, 10);
     if (!Number.isInteger(actorId)) return reject(Problem.user.notFound());
+
+    // Removing the last owner leaves an organization only a site administrator
+    // can administer, and the person who does it is usually removing
+    // themselves. Refused with the remedy in the message rather than done and
+    // regretted. A site administrator is the escape hatch, so they are not
+    // stopped -- blocking the people who would have to fix it is the one way
+    // this guard could do harm.
+    const owner = await organizationRole(container);
+    const remaining = await container.db.oneFirst(sql`
+      select count(*)::integer from assignments
+      where "acteeId" = ${org.acteeId} and "roleId" = ${owner.id}
+        and "actorId" <> ${actorId}`);
+    const isRemovingAnOwner = await container.db.oneFirst(sql`
+      select count(*)::integer from assignments
+      where "acteeId" = ${org.acteeId} and "roleId" = ${owner.id}
+        and "actorId" = ${actorId}`) > 0;
+    if (isRemovingAnOwner && remaining === 0
+      && !(await auth.can('config.set', Config.species))) {
+      return reject(Problem.user.unexpectedValue({
+        field: 'actorId', value: actorId,
+        reason: 'this is the organization\'s only owner. Give somebody else the owner role first, or the organization would be left with nobody able to administer it.'
+      }));
+    }
 
     // Only the grants made through this organization. A person may also hold
     // a grant directly on one of its projects, and removing them from the

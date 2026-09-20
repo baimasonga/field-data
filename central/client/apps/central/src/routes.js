@@ -805,9 +805,13 @@ const routes = [
         component: 'FieldDataOrganizations',
         loading: 'tab',
         meta: {
-          validateData: {
-            currentUser: () => currentUser.can('config.read')
-          },
+          // No site-wide guard. Authority over an organization is granted on
+          // the organization, so an owner holds nothing at the site level for
+          // this to test -- and the listing is scoped by the server, which
+          // returns only the organizations this caller may read. Somebody with
+          // none sees an empty page, the same way the Field Data dashboard
+          // shows them zeros.
+          validateData: {},
           title: () => [i18n.t('fieldDataHome.tab.organizations'), i18n.t('fieldDataHome.title')],
           fullWidth: true
         }
