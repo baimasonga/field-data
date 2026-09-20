@@ -598,3 +598,104 @@ test('backup worker cleans an interrupted upload before starting a pending job',
   assert.deepEqual(removed, ['interrupted']);
   assert.match(queries.at(-1).sql, /pg_advisory_unlock/);
 });
+
+// Revocation. Creating a share takes both sides -- form.update on the source
+// form, project.update on the destination project -- but before this, so did
+// ending one. A form's administrator whose form was being served into a
+// project they hold no rights in had no way to stop it short of deleting or
+// unpublishing the form. Deleting only ever takes access away, so either side
+// may do it, and neither side may be told which ids exist when they hold
+// nothing at all.
+const shareContainer = (deletes, { sourceFormAdmin, destinationAdmin }) => {
+  const option = value => ({ isDefined: () => true, get: () => value });
+  return {
+    container: {
+      Projects: { getById: async () => option({ id: 9 }) },
+      Forms: {
+        getByProjectAndXmlFormId: async () => option({ id: 7, projectId: 4, xmlFormId: 'survey' })
+      },
+      maybeOne: async () => option({
+        id: 3, projectId: 9, formId: 7, sourceProjectId: 4, xmlFormId: 'survey',
+        currentDefId: 12, columns: ['/district'], query: []
+      }),
+      db: { query: async query => { deletes.push(query.sql); } }
+    },
+    context: {
+      params: { projectId: '9', id: '3' },
+      auth: {
+        can: async (verb) => (verb === 'project.update' ? destinationAdmin : sourceFormAdmin)
+      }
+    }
+  };
+};
+
+test("a source form's administrator can revoke a share into a project they cannot read", async () => {
+  const deletes = [];
+  const { container, context } = shareContainer(deletes,
+    { sourceFormAdmin: true, destinationAdmin: false });
+  await routes.get('delete /projects/:projectId/filtered-datasets/:id')(container, context);
+  assert.equal(deletes.length, 1);
+  assert.match(deletes[0], /delete from field_data_filtered_datasets/);
+});
+
+test("a destination project's administrator can revoke a share of a form they cannot edit", async () => {
+  const deletes = [];
+  const { container, context } = shareContainer(deletes,
+    { sourceFormAdmin: false, destinationAdmin: true });
+  await routes.get('delete /projects/:projectId/filtered-datasets/:id')(container, context);
+  assert.equal(deletes.length, 1);
+});
+
+test('somebody with a stake in neither side gets notFound, not a refusal', async () => {
+  const deletes = [];
+  const { container, context } = shareContainer(deletes,
+    { sourceFormAdmin: false, destinationAdmin: false });
+  // notFound rather than insufficientRights: a refusal would confirm the id.
+  await assert.rejects(
+    routes.get('delete /projects/:projectId/filtered-datasets/:id')(container, context),
+    error => error.problemCode === 404.1
+  );
+  assert.equal(deletes.length, 0);
+});
+
+test("a source form's administrator can read what a share exposes", async () => {
+  const { container, context } = shareContainer([],
+    { sourceFormAdmin: true, destinationAdmin: false });
+  const definition = await routes.get(
+    'get /projects/:projectId/filtered-datasets/:id/definition')(container, context);
+  // The filter is the point: you cannot decide whether to revoke a share
+  // without seeing which columns and which rows it hands over.
+  assert.deepEqual(definition.columns, ['/district']);
+  assert.deepEqual(definition.query, []);
+});
+
+test('the definition is not readable by somebody with a stake in neither side', async () => {
+  const { container, context } = shareContainer([],
+    { sourceFormAdmin: false, destinationAdmin: false });
+  await assert.rejects(
+    routes.get('get /projects/:projectId/filtered-datasets/:id/definition')(container, context),
+    error => error.problemCode === 404.1
+  );
+});
+
+test("a form's shares are listed to the form's administrator, wherever they serve", async () => {
+  const option = value => ({ isDefined: () => true, get: () => value });
+  const permissions = [];
+  let listed;
+  const shares = await routes.get(
+    'get /projects/:projectId/forms/:xmlFormId/filtered-datasets')({
+      Forms: { getByProjectAndXmlFormId: async () => option({ id: 7 }) },
+      db: { any: async query => { listed = query; return [{ id: 3, projectId: 9 }]; } }
+    }, {
+      params: { projectId: '4', xmlFormId: 'survey' },
+      auth: { canOrReject: async (verb, target) => permissions.push([verb, target]) }
+    });
+  // The same right that authorises creating one. Anything weaker and this is
+  // a way to learn which projects hold a form's data.
+  assert.deepEqual(permissions.map(([verb]) => verb), ['form.update']);
+  // Keyed on the form, not on the project, or it would miss exactly the
+  // shares that are hard to find: the ones serving somewhere else.
+  assert.match(listed.sql, /where d\."formId" =/);
+  assert.equal(/d\."projectId" = /.test(listed.sql), false);
+  assert.deepEqual(shares, [{ id: 3, projectId: 9 }]);
+});

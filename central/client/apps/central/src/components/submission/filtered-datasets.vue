@@ -164,6 +164,69 @@ Build and inspect named, reusable subsets of a Form's Submissions.
           </div>
         </article>
       </section>
+
+      <!-- Where this Form's data goes. Datasets of this Form that serve a
+      different Project are invisible from that Project's own list, and their
+      readers hold no rights here -- so without this section a Form's
+      administrator could not find out a share existed, let alone end one. -->
+      <section v-if="elsewhere.length > 0" class="shared-out"
+        aria-labelledby="filtered-dataset-elsewhere-title">
+        <h2 id="filtered-dataset-elsewhere-title">{{ $t('elsewhere.title') }}</h2>
+        <p class="section-lead">{{ $t('elsewhere.lead') }}</p>
+
+        <article v-for="share of elsewhere" :key="share.id" class="dataset-card">
+          <div class="dataset-card-head">
+            <div>
+              <h3>{{ share.name }}</h3>
+              <p>
+                {{ $t('elsewhere.servesProject', { project: share.projectName }) }} ·
+                {{ $tc('saved.columns', share.columnCount, { count: share.columnCount }) }} ·
+                {{ $tc('saved.filters', share.filterCount, { count: share.filterCount }) }}
+              </p>
+              <p v-if="share.createdBy != null" class="share-origin">
+                {{ $t('elsewhere.createdBy', { name: share.createdBy }) }}
+              </p>
+            </div>
+            <div class="dataset-actions">
+              <button type="button" class="btn btn-default btn-sm"
+                @click="showShared(share)">
+                {{ openShareId === share.id ? $t('action.close') : $t('action.whatItExposes') }}
+              </button>
+              <button type="button" class="btn btn-danger btn-sm" @click="revoke(share)">
+                {{ $t('action.revoke') }}
+              </button>
+            </div>
+          </div>
+
+          <!-- The reach of the share, beside the button that ends it. Who can
+          read a Project is not something this page knows, so it says the rule
+          rather than inventing a number. -->
+          <p class="share-reach">
+            <span class="icon-info-circle" aria-hidden="true"></span>
+            {{ $t('elsewhere.reach', { project: share.projectName }) }}
+          </p>
+
+          <div v-if="openShareId === share.id" class="share-definition">
+            <Loading :state="shareLoading"/>
+            <template v-if="!shareLoading && shareDefinition != null">
+              <dl class="share-detail">
+                <dt>{{ $t('elsewhere.visibleFields') }}</dt>
+                <dd>
+                  <code v-for="column of shareDefinition.columns" :key="column">{{ column }}</code>
+                </dd>
+                <dt>{{ $t('elsewhere.rowFilters') }}</dt>
+                <dd>
+                  <span v-if="shareDefinition.query.length === 0">{{ $t('elsewhere.everyRow') }}</span>
+                  <code v-for="(filter, index) of shareDefinition.query" :key="index">
+                    {{ index > 0 ? filter.condition : '' }}
+                    {{ filter.column }} {{ filter.filter }} {{ filter.value }}
+                  </code>
+                </dd>
+              </dl>
+            </template>
+          </div>
+        </article>
+      </section>
     </template>
   </div>
 </template>
@@ -199,6 +262,16 @@ const preview = ref(null);
 const rows = ref(null);
 const openDatasetId = ref(null);
 const editingId = ref(null);
+const shares = ref([]);
+const openShareId = ref(null);
+const shareDefinition = ref(null);
+const shareLoading = ref(false);
+
+// Only the shares that serve somewhere else. The ones serving this Project are
+// already listed above, and showing them twice would suggest they are two
+// different things.
+const elsewhere = computed(() => shares.value
+  .filter(share => String(share.projectId) !== String(props.projectId)));
 let filterKey = 0;
 let previewTimer;
 
@@ -228,7 +301,12 @@ const load = () => Promise.all([
     url: apiPaths.filteredDatasets(props.projectId, {
       sourceProjectId: props.projectId, xmlFormId: props.xmlFormId
     })
-  }).then(({ data }) => { datasets.value = data; })
+  }).then(({ data }) => { datasets.value = data; }),
+  // Every dataset built on this Form, wherever it serves. Takes form.update,
+  // which this tab already requires.
+  request({
+    method: 'GET', url: apiPaths.formFilteredDatasets(props.projectId, props.xmlFormId)
+  }).then(({ data }) => { shares.value = data; })
 ]).catch(noop).finally(() => { loading.value = false; });
 load();
 
@@ -301,6 +379,36 @@ const remove = (dataset) => {
     }).catch(noop);
 };
 
+const showShared = (share) => {
+  if (openShareId.value === share.id) {
+    openShareId.value = null;
+    shareDefinition.value = null;
+    return;
+  }
+  openShareId.value = share.id;
+  shareDefinition.value = null;
+  shareLoading.value = true;
+  // The definition lives under the destination Project, which is where the
+  // dataset is. Readable from here because this Form's administrator can
+  // already read every value it names, at the source.
+  request({
+    method: 'GET', url: apiPaths.filteredDatasetDefinition(share.projectId, share.id)
+  }).then(({ data }) => { shareDefinition.value = data; })
+    .catch(noop).finally(() => { shareLoading.value = false; });
+};
+
+const revoke = (share) => {
+  // eslint-disable-next-line no-alert
+  if (!window.confirm(t('confirmRevoke', { name: share.name, project: share.projectName }))) return;
+  request({ method: 'DELETE', url: apiPaths.filteredDataset(share.projectId, share.id) })
+    .then(() => {
+      alert.success(t('alert.revoked', { project: share.projectName }));
+      openShareId.value = null;
+      shareDefinition.value = null;
+      return load();
+    }).catch(noop);
+};
+
 const showRows = (dataset) => {
   if (openDatasetId.value === dataset.id) {
     openDatasetId.value = null;
@@ -342,7 +450,8 @@ const showRows = (dataset) => {
     "action": {
       "addFilter": "Add filter", "removeFilter": "Remove filter", "save": "Save dataset",
       "update": "Save changes", "cancel": "Cancel edit", "previewRows": "Preview rows",
-      "edit": "Edit", "delete": "Delete"
+      "edit": "Edit", "delete": "Delete",
+      "whatItExposes": "What it exposes", "close": "Close", "revoke": "Stop sharing"
     },
     "preview": {
       "matching": "matching Submission | matching Submissions",
@@ -363,8 +472,28 @@ const showRows = (dataset) => {
       "allGone": "The Form no longer has any of the fields this dataset shows. Edit the dataset to choose fields it still has.",
       "columnsGone": "The Form no longer has {fields}, so that column is not shown. The rest of the dataset is unaffected."
     },
+    // Datasets of this Form that serve a different Project. Their readers were
+    // given access to that Project, not to this Form, so this is the only
+    // place a Form's administrator can see the arrangement or end it.
+    "elsewhere": {
+      "title": "Where this Form’s data goes",
+      "lead": "These filtered datasets serve this Form’s rows into other Projects. Anyone who can read Submissions in the Project named can read the fields listed, without being given access to this Form.",
+      "servesProject": "Serves {project}",
+      "createdBy": "Set up by {name}",
+      "reach": "Every person who can read Submissions in {project} can read these rows.",
+      "visibleFields": "Visible fields",
+      "rowFilters": "Row filters",
+      "everyRow": "None: every Submission of this Form is served."
+    },
     "confirmDelete": "Delete “{name}”? This cannot be undone.",
-    "alert": { "created": "Filtered dataset created.", "updated": "Filtered dataset updated.", "deleted": "Filtered dataset deleted." }
+    // Revoking is one-sided on purpose: it only ever takes access away, so
+    // this Form’s administrator does not need the other Project’s agreement.
+    "confirmRevoke": "Stop sharing “{name}” with {project}? Readers there lose access to this Form’s rows immediately. Any charts built on this dataset are removed with it.",
+    "alert": {
+      "created": "Filtered dataset created.", "updated": "Filtered dataset updated.",
+      "deleted": "Filtered dataset deleted.",
+      "revoked": "This Form is no longer shared with {project}."
+    }
   }
 }
 </i18n>
@@ -431,6 +560,51 @@ const showRows = (dataset) => {
   .dataset-card h3 { margin: 0; }
   .dataset-actions { display: flex; flex-wrap: wrap; gap: 8px; }
   .data-preview { border-top: 1px solid #e9e9f1; margin-top: 16px; padding-top: 16px; }
+
+  // Shares serving another Project. Marked apart from the Form's own saved
+  // datasets because the consequence is different: these reach people who
+  // were never given access to this Form.
+  .shared-out {
+    margin-top: 32px;
+
+    .section-lead {
+      color: $color-text-muted;
+      margin-bottom: 0;
+      max-width: 82ch;
+    }
+
+    .dataset-card { border-left: 3px solid #a86f14; }   // gradient --warning-text
+  }
+
+  .share-origin { font-size: 12px; margin-top: 2px; }
+
+  .share-reach {
+    background-color: #fdf6e7;                          // gradient --warning-bg
+    border-radius: 4px;
+    color: #a86f14;                                     // gradient --warning-text
+    font-size: 12px;
+    margin: 12px 0 0;
+    max-width: 82ch;
+    padding: 8px 10px;
+
+    // Icon class first, or [class^="icon-"] does not match and the glyph
+    // renders as tofu.
+    [class^="icon-"] { margin-right: 6px; }
+  }
+
+  .share-definition { border-top: 1px solid #e9e9f1; margin-top: 16px; padding-top: 16px; }
+
+  .share-detail {
+    margin-bottom: 0;
+
+    // app.scss gives dl > * a bottom rule and block padding, which reads as a
+    // table nobody asked for on a two-row list of facts.
+    > * { border-bottom: none; padding-block: 0; }
+
+    dt { color: $color-text-muted; font-size: 12px; font-weight: 600; }
+    dd { margin-bottom: 10px; }
+    code { display: inline-block; margin: 2px 4px 2px 0; }
+  }
   .dataset-stale {
     background-color: #fdf6e7;             // gradient --warning-bg
     border-left: 3px solid #a86f14;        // gradient --warning-text

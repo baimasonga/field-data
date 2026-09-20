@@ -217,6 +217,11 @@ export const apiPaths = {
     `/v1/projects/${projectId}/forms/${encodeURIComponent(xmlFormId)}/filter-fields`,
   filteredDatasetPreview: (projectId, xmlFormId) =>
     `/v1/projects/${projectId}/forms/${encodeURIComponent(xmlFormId)}/filtered-datasets/preview`,
+  // The shares of one Form, wherever they serve. Keyed on the Form rather than
+  // on a Project, because the ones worth finding are the ones serving
+  // somewhere else.
+  formFilteredDatasets: (projectId, xmlFormId) =>
+    `/v1/projects/${projectId}/forms/${encodeURIComponent(xmlFormId)}/filtered-datasets`,
   filteredDatasets: (projectId, query = undefined) =>
     `/v1/projects/${projectId}/filtered-datasets${queryString(query)}`,
   filteredDataset: (projectId, id) =>

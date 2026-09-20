@@ -99,6 +99,40 @@ Write a test that asserts a reader with dataset access and no form access
 gets exactly the declared columns. That test is the feature's real contract;
 everything else is plumbing.
 
+### Revocation is the half that gets forgotten
+
+Ask who can *end* a share before you write the delete, because the obvious
+answer is wrong. Requiring both sides to agree sounds symmetrical with
+creation and is not: it leaves a form's administrator unable to stop their own
+form being served into a project they hold no rights in, with nothing left but
+deleting or unpublishing the form.
+
+Deleting only ever takes access away, so it cannot be used to reach anything.
+Let **either** side do it. Editing is different -- an edit can widen a share as
+easily as narrow it -- so keep that requiring both.
+
+Two things that are part of revocation and do not look like it:
+
+- **A share you cannot see is a share you cannot end.** The destination
+  project's own list needs rights there, so the shares that most need ending
+  are exactly the ones invisible from the source. Give the source form a
+  listing of every dataset built on it, keyed on the form and not on a
+  project, and show it on the form.
+- **Let the source side read the definition.** You cannot decide whether to
+  revoke without seeing which columns and which rows are handed over, and the
+  form's administrator can already read every one of those values at the
+  source, so withholding it protects nothing.
+
+Return `notFound` rather than a refusal to somebody with a stake in neither
+side, or the route becomes a way to test which dataset ids exist.
+
+One consequence to state plainly rather than design around: the read path does
+not re-check the source, so if the destination project's membership widens
+later, the new members get the rows. That is the feature working -- they were
+given the project, not the form -- but it means the source side's control is
+watching and revoking, not the permission system refusing. Say so in the
+interface, next to the button, rather than leaving somebody to work it out.
+
 ## Endpoints
 
 Mirror what a form already offers, so anything built on forms works here:
@@ -110,7 +144,14 @@ GET    /projects/:projectId/filtered-datasets/:id
 PATCH  /projects/:projectId/filtered-datasets/:id
 DELETE /projects/:projectId/filtered-datasets/:id
 GET    /projects/:projectId/filtered-datasets/:id/data?offset=&limit=
+
+GET    /projects/:projectId/forms/:xmlFormId/filtered-datasets
 ```
+
+That last one is the source side's view: every dataset built on this form,
+wherever it serves. It takes `form.update`, the same right that authorises
+creating one, because anything weaker is a way to learn which projects hold a
+given form's data.
 
 Paginate `data` from the first commit. Photos already paginates and is the
 example to copy; evidence and integrity do not, and are the reason this note

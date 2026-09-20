@@ -517,6 +517,65 @@ module.exports = (service, endpoint) => {
   // the source form; readers need rights only on the destination project. The
   // data route deliberately performs no source-form permission fallback.
 
+  /*
+  Which side of a share the caller stands on, or null if neither.
+
+  Creating a filtered dataset takes agreement from both sides: form.update on
+  the source form, and project.update on the destination project. Ending one,
+  and reading what it exposes, takes either.
+
+  That asymmetry is deliberate. Deleting a dataset only ever takes access
+  away, so it cannot be used to reach anything, and a form's administrator has
+  to be able to stop their form being served into a project they hold no
+  rights in. Before this they could not: the delete demanded the destination's
+  project.update as well, so the only remedy left was to delete or unpublish
+  the form itself, which is not a proportionate answer to "stop sharing this".
+
+  Reading the definition follows the same rule for a plainer reason. Deciding
+  whether to revoke means seeing which columns and which filters are exposed,
+  and the source form's administrator can already read every one of those
+  values at the source. Withholding it from them protects nothing and leaves
+  the decision uninformed.
+
+  Editing still takes both sides, because an edit can widen a share as easily
+  as narrow it, and widening somebody else's dataset is not revocation.
+  */
+  const filteredDatasetSide = async (container, project, dataset, auth) => {
+    if (await auth.can('project.update', project)) return 'destination';
+    const form = await container.Forms
+      .getByProjectAndXmlFormId(dataset.sourceProjectId, dataset.xmlFormId, Form.PublishedVersion)
+      .then(getOrNotFound);
+    return (await auth.can('form.update', form)) ? 'source' : null;
+  };
+
+  // The shares of one form: every filtered dataset built on it, wherever it
+  // serves. A share you cannot see is a share you cannot end, so this is the
+  // half of revocation that is not the delete button -- the source side had no
+  // way to find out that a dataset of their form existed at all.
+  service.get('/projects/:projectId/forms/:xmlFormId/filtered-datasets', endpoint(async (container, { params, auth }) => {
+    const form = await container.Forms
+      .getByProjectAndXmlFormId(params.projectId, params.xmlFormId, Form.PublishedVersion)
+      .then(getOrNotFound);
+    // The same right that authorises creating one. Anything weaker and this
+    // becomes a way to learn which projects hold a given form's data.
+    await auth.canOrReject('form.update', form);
+
+    // Counts rather than the column and filter lists themselves: this is a
+    // list to act from, and the definition route serves the detail to the
+    // same people.
+    return container.db.any(sql`
+      select d.id, d.name, d."projectId", d."createdAt", d."updatedAt",
+        jsonb_array_length(d.columns) as "columnCount",
+        jsonb_array_length(d.query) as "filterCount",
+        p.name as "projectName",
+        actors."displayName" as "createdBy"
+      from field_data_filtered_datasets d
+      join projects p on p.id = d."projectId"
+      left join actors on actors.id = d."createdBy"
+      where d."formId" = ${form.id}
+      order by d."createdAt" desc`);
+  }));
+
   service.get('/projects/:projectId/forms/:xmlFormId/filter-fields', endpoint(async (container, { params, auth }) => {
     const form = await container.Forms
       .getByProjectAndXmlFormId(params.projectId, params.xmlFormId, Form.PublishedVersion)
@@ -593,12 +652,12 @@ module.exports = (service, endpoint) => {
     const id = Number.parseInt(params.id, 10);
     if (!Number.isInteger(id)) return reject(Problem.user.notFound());
     const project = await container.Projects.getById(params.projectId).then(getOrNotFound);
-    await auth.canOrReject('project.update', project);
     const dataset = await filteredDatasetRecord(container, project.id, id).then(getOrNotFound);
-    const form = await container.Forms
-      .getByProjectAndXmlFormId(dataset.sourceProjectId, dataset.xmlFormId, Form.PublishedVersion)
-      .then(getOrNotFound);
-    await auth.canOrReject('form.update', form);
+    const side = await filteredDatasetSide(container, project, dataset, auth);
+    // notFound rather than a refusal: to somebody with a stake in neither side
+    // this dataset does not exist, and answering otherwise would turn the
+    // route into a way to test which ids are real.
+    if (side == null) return reject(Problem.user.notFound());
     return dataset;
   }));
 
@@ -632,12 +691,14 @@ module.exports = (service, endpoint) => {
     const id = Number.parseInt(params.id, 10);
     if (!Number.isInteger(id)) return reject(Problem.user.notFound());
     const project = await container.Projects.getById(params.projectId).then(getOrNotFound);
-    await auth.canOrReject('project.update', project);
     const dataset = await filteredDatasetRecord(container, project.id, id).then(getOrNotFound);
-    const form = await container.Forms
-      .getByProjectAndXmlFormId(dataset.sourceProjectId, dataset.xmlFormId, Form.PublishedVersion)
-      .then(getOrNotFound);
-    await auth.canOrReject('form.update', form);
+    const side = await filteredDatasetSide(container, project, dataset, auth);
+    if (side == null) return reject(Problem.user.notFound());
+
+    // Widgets built on this dataset go with it, by the ON DELETE CASCADE on
+    // field_data_widgets."filteredDatasetId". That matters here: a widget
+    // reads its dataset's rows through its filter, so a chart left behind
+    // would be a chart of a share somebody just revoked.
     await container.db.query(sql`delete from field_data_filtered_datasets where id = ${dataset.id}`);
     return success();
   }));

@@ -52,36 +52,52 @@ person creating the share choose which fields it publishes, and show them what
 the link will contain before they send it. A threshold is a backstop; an
 explicit allowlist is a decision someone made.
 
-### 2. A shared source form cannot be un-shared by its owner — NOT FIXED
+### 2. A shared source form could not be un-shared by its owner — FIXED
 
 A filtered dataset reads a form in a *source* project and serves its rows to
 readers of a *destination* project, who may have no rights on the source at
 all. That delegation is the feature, and creating one is properly gated: it
 takes `form.update` on the source and `project.update` on the destination.
 
-Revoking it is the problem. `DELETE /projects/:projectId/filtered-datasets/:id`
-requires **both** `project.update` on the destination and `form.update` on the
-source. Someone who administers the source form but not the destination
-project cannot delete a dataset that exposes their form. They can unpublish or
-delete the form, which is not a proportionate response.
+Revoking it was the problem. The delete required **both** rights, so somebody
+who administers the source form but not the destination project could not
+delete a dataset exposing their form. They could unpublish or delete the form,
+which is not a proportionate response to "stop sharing this".
 
-Worse, the read path never re-checks the source. Compare merged datasets:
-`readMergedDataset` re-runs `mergedSourceForms` on every read, with the
-comment "a grant can be withdrawn after a merge is saved, and the merge must
-not outlive it". Filtered datasets deliberately do the opposite, and the
-comment at the top of the section says so. The consequence is that if the
-destination project's membership later widens — a new viewer is added — they
-get the source form's rows immediately, with no one on the source side in the
-loop.
+Worse, they could not find out the share existed. The only listing was the
+destination project's own, which needs rights there; a dataset serving a
+project you hold nothing in was invisible from the source side. A revocation
+you cannot discover is not a revocation.
 
-Two fixes, either of which closes it, neither of which I made without a
-decision from you:
+Both halves are fixed:
 
-- Let `form.update` on the source alone authorise the delete. Cheap, and it
-  gives the source owner a revocation path.
-- Re-check the source form's readability for the *dataset's creator* on each
-  read, the way merged datasets re-check for the caller. More faithful, and
-  it changes behaviour for existing datasets.
+- `GET /projects/:projectId/forms/:xmlFormId/filtered-datasets` lists every
+  dataset built on a form, wherever it serves, with the destination project
+  named. It takes `form.update` — the same right that authorises creating one,
+  because anything weaker turns it into a way to learn which projects hold a
+  given form's data.
+- The delete, and reading the definition, now take **either** side. Deleting
+  only ever takes access away, so it cannot be used to reach anything, and
+  reading the definition is what makes the revocation decision informed — the
+  source form's administrator can already read every value it names, at the
+  source. Editing still takes both sides, because an edit can widen a share as
+  easily as narrow it, and widening somebody else's dataset is not revocation.
+- A caller with a stake in neither side gets 404 rather than 403, so neither
+  route can be used to test which dataset ids exist.
+
+The form's Filtered Data tab now carries a "Where this Form's data goes"
+section listing the shares that serve elsewhere, each with what it exposes and
+a button that ends it. Six tests in `test/field-data/hardening.cjs` cover the
+authority rule from both sides and from neither.
+
+**What is still true and was not changed:** the read path does not re-check
+the source. If the destination project's membership widens later, the new
+members get the source form's rows immediately. That is the feature working as
+designed — readers were given the destination project, not the form — but it
+means the source side's control is exercised by watching and revoking rather
+than by the permission system refusing. The new section is what makes that
+watching possible. Compare merged datasets, which re-check every source form
+on every read; they can afford to, because they never cross a project boundary.
 
 ### 3. Organization owners cannot administer their organizations — NOT FIXED
 
