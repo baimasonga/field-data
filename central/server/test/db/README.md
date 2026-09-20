@@ -1,4 +1,7 @@
-# Permission tests that need a real database
+# Tests that need a real database
+
+Two kinds live here: the permission tests organizations rest on, and the
+end-to-end check that the Field Data queries return the right numbers.
 
 These exercise the one property organizations rest on: that a role granted on
 an organization reaches the projects it owns, that it reaches nothing else,
@@ -41,3 +44,44 @@ pointing them at the live one would be a poor idea. They were run by hand agains
 migrations, and all assertions passed -- including a before/after diff of
 every effective grant across the organizations migration's data path, with
 projects and grants already present. That diff was empty.
+
+
+## End-to-end: do the queries return the right numbers?
+
+`seed-real-form.js` builds a real form from `forms/avdp_tree_crops_survey.xml`
+using ODK's own XForm parser, so `form_fields` is exactly what an upload
+produces, and inserts 400 submissions with deterministic values. It writes
+every value it used to `expected-source.json`.
+
+The discipline that makes this worth anything: **compute the expected answers
+independently**, in a different language, from that source file — never by
+re-running the query under test. A query compared against itself proves
+nothing.
+
+```
+createdb realdata
+NODE_CONFIG_DIR=path/to/config npx knex migrate:latest --knexfile lib/model/knexfile.js
+NODE_PATH=node_modules SD=/tmp/scratch node test/db/seed-real-form.js
+# then compute expectations from expected-source.json in Python,
+# boot the server, and compare the endpoints against them.
+```
+
+Run on 2026-09-20 against PostgreSQL 16 with 400 submissions. It found four
+bugs that fixtures could not, all of them in code that had already shipped:
+
+- `jsonb_build_object` is variadic `"any"`, so a bare parameter as a key is
+  rejected with "could not determine data type of parameter". This broke
+  filtered datasets, widgets and merged datasets alike. Every parameter
+  reaching it now carries an explicit cast.
+- `container.db.maybeOne` returns a row; `container.maybeOne` returns an
+  Option. Four helpers paired the former with `getOrNotFound`, which needs
+  the latter, so every one of those routes threw whenever the row existed.
+  The hardening mocks had hidden it by returning an Option from `db.maybeOne`
+  — a mock that was wrong in exactly the way the code was.
+- A widget's coverage line counted non-empty answers while its rows counted
+  values that parsed as numbers, so the denominator disagreed with the chart
+  by one wherever somebody typed a word into a number field.
+- `mergedDatasetShape` passed a `{formId}` object where `{id}` was expected,
+  binding undefined.
+
+None of these were test failures. Three of them were 500s.

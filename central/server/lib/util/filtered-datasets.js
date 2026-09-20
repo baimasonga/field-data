@@ -96,14 +96,20 @@ const compileFilter = (query, fieldByPath) => {
   return result;
 };
 
+// jsonb_build_object is variadic "any", so Postgres cannot infer the type of a
+// bare parameter passed as a key and refuses the whole statement with "could
+// not determine data type of parameter". Every parameter reaching it is cast
+// explicitly. The xpath argument needs the same treatment for the same reason.
+// This only shows up against a real database; it cannot be reproduced against
+// a fixture server, which is how it survived three features.
 const extractObject = (paths) => sql`jsonb_build_object(${sql.join(paths.flatMap(path => [
-  sql`${path}`,
-  sql`btrim((xpath(${`/*${path}/text()`}, sd.xml::xml))[1]::text)`
+  sql`${path}::text`,
+  sql`btrim((xpath(${`/*${path}/text()`}::text, sd.xml::xml))[1]::text)`
 ]), sql`,`)})`;
 
 const projectObject = (columns) => sql`jsonb_build_object(${sql.join(columns.flatMap(path => [
-  sql`${path}`,
-  sql`extracted ->> ${path}`
+  sql`${path}::text`,
+  sql`extracted ->> ${path}::text`
 ]), sql`,`)})`;
 
 /*

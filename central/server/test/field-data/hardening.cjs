@@ -145,12 +145,13 @@ test('filtered dataset readers receive only declared columns without source-form
   const result = await routes.get('get /projects/:projectId/filtered-datasets/:id/data')({
     Projects: { getById: async () => option(project) },
     Forms: { getByProjectAndXmlFormId: async () => assert.fail('must not check source form') },
+    // container.maybeOne returns an Option; container.db.maybeOne returns a row.
+    maybeOne: async () => option({
+      id: 3, projectId: 9, formId: 7, currentDefId: 12,
+      columns: ['/data/district'],
+      query: [{ column: '/data/name', filter: '<>', value: '', condition: 'AND' }]
+    }),
     db: {
-      maybeOne: async () => option({
-        id: 3, projectId: 9, formId: 7, currentDefId: 12,
-        columns: ['/data/district'],
-        query: [{ column: '/data/name', filter: '<>', value: '', condition: 'AND' }]
-      }),
       any: async query => (query.sql.includes('from form_fields')
         ? [
           { path: '/data/district', name: 'district', type: 'string', binary: false, order: 1 },
@@ -175,12 +176,11 @@ test('filtered dataset readers receive only declared columns without source-form
   const definition = await routes.get('get /projects/:projectId/filtered-datasets/:id')({
     Projects: { getById: async () => option(project) },
     Forms: { getByProjectAndXmlFormId: async () => assert.fail('must not check source form') },
-    db: {
-      maybeOne: async () => option({
-        id: 3, projectId: 9, formId: 7, columns: ['/data/district'],
-        query: [{ column: '/data/name', filter: '<>', value: '', condition: 'AND' }]
-      })
-    }
+    maybeOne: async () => option({
+      id: 3, projectId: 9, formId: 7, columns: ['/data/district'],
+      query: [{ column: '/data/name', filter: '<>', value: '', condition: 'AND' }]
+    }),
+    db: {}
   }, {
     params: { projectId: '9', id: '3' },
     auth: { canOrReject: async (verb, target) => permissions.push([verb, target]) }
@@ -203,12 +203,12 @@ test('filtered dataset serves nothing when a republished form dropped its filter
   const result = await routes.get('get /projects/:projectId/filtered-datasets/:id/data')({
     Projects: { getById: async () => option({ id: 9 }) },
     Forms: { getByProjectAndXmlFormId: async () => assert.fail('must not check source form') },
+    maybeOne: async () => option({
+      id: 3, projectId: 9, formId: 7, currentDefId: 12,
+      columns: ['/data/district'],
+      query: [{ column: '/data/name', filter: '<>', value: '', condition: 'AND' }]
+    }),
     db: {
-      maybeOne: async () => option({
-        id: 3, projectId: 9, formId: 7, currentDefId: 12,
-        columns: ['/data/district'],
-        query: [{ column: '/data/name', filter: '<>', value: '', condition: 'AND' }]
-      }),
       // The form was republished without /data/name.
       any: async query => (query.sql.includes('from form_fields')
         ? [{ path: '/data/district', name: 'district', type: 'string', binary: false, order: 1 }]
@@ -234,12 +234,12 @@ test('filtered dataset keeps serving the columns that survive a republished form
   const result = await routes.get('get /projects/:projectId/filtered-datasets/:id/data')({
     Projects: { getById: async () => option({ id: 9 }) },
     Forms: { getByProjectAndXmlFormId: async () => assert.fail('must not check source form') },
+    maybeOne: async () => option({
+      id: 3, projectId: 9, formId: 7, currentDefId: 12,
+      columns: ['/data/district', '/data/hh_size'],
+      query: [{ column: '/data/district', filter: '=', value: 'Bombali', condition: 'AND' }]
+    }),
     db: {
-      maybeOne: async () => option({
-        id: 3, projectId: 9, formId: 7, currentDefId: 12,
-        columns: ['/data/district', '/data/hh_size'],
-        query: [{ column: '/data/district', filter: '=', value: 'Bombali', condition: 'AND' }]
-      }),
       any: async query => (query.sql.includes('from form_fields')
         ? [{ path: '/data/district', name: 'district', type: 'string', binary: false, order: 1 }]
         : [{ data: { '/data/district': 'Bombali' } }]),
@@ -269,12 +269,12 @@ test('widgets on a filtered dataset can only be built from its visible columns',
   const container = {
     Projects: { getById: async () => option({ id: 9 }) },
     Forms: { getByProjectAndXmlFormId: async () => assert.fail('dataset parent, not form') },
+    // The dataset shows district only; name is deliberately hidden.
+    maybeOne: async () => option({
+      id: 4, projectId: 9, formId: 7, currentDefId: 12,
+      columns: ['/data/district'], query: []
+    }),
     db: {
-      // The dataset shows district only; name is deliberately hidden.
-      maybeOne: async () => option({
-        id: 4, projectId: 9, formId: 7, currentDefId: 12,
-        columns: ['/data/district'], query: []
-      }),
       any: async () => allFields,
       one: async () => assert.fail('must not reach the data query')
     }
@@ -330,8 +330,8 @@ test('merged dataset data is refused when one source form is not readable', asyn
       getByProjectAndXmlFormId: async (projectId, xmlFormId) =>
         option({ id: xmlFormId === 'round1' ? 7 : 8, xmlFormId, currentDefId: 12 })
     },
+    maybeOne: async () => option({ id: 3, projectId: 9, name: 'Both rounds' }),
     db: {
-      maybeOne: async () => option({ id: 3, projectId: 9, name: 'Both rounds' }),
       any: async () => [
         { formId: 7, xmlFormId: 'round1', currentDefId: 12, formName: 'Round 1' },
         { formId: 8, xmlFormId: 'round2', currentDefId: 13, formName: 'Round 2' }
@@ -465,8 +465,8 @@ test('adopting a project into an organization requires rights on that project', 
   await assert.rejects(
     routes.get('post /field-data/organizations/:slug/projects')({
       Projects: { getById: async () => option({ id: 4, acteeId: 'proj-actee' }) },
+      maybeOne: async () => option({ id: 1, slug: 'agency-a', acteeId: 'org-actee' }),
       db: {
-        maybeOne: async () => option({ id: 1, slug: 'agency-a', acteeId: 'org-actee' }),
         query: async () => assert.fail('must not reparent without rights on the project')
       }
     }, {
@@ -492,8 +492,8 @@ test('removing an organization member revokes only the organization grant', asyn
   const option = value => ({ isDefined: () => true, get: () => value });
   const deletes = [];
   await routes.get('delete /field-data/organizations/:slug/members/:actorId')({
+    maybeOne: async () => option({ id: 1, slug: 'agency-a', acteeId: 'org-actee' }),
     db: {
-      maybeOne: async () => option({ id: 1, slug: 'agency-a', acteeId: 'org-actee' }),
       query: async query => { deletes.push({ sql: query.sql, values: query.values }); }
     }
   }, {

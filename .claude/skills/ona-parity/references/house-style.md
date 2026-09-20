@@ -107,6 +107,27 @@ border: 1px solid #e9e9f1;   // gradient --gray-150
 - `$color-text-muted` had to be added to `_variables.scss`; check a variable
   exists before using it.
 
+## Two traps that only a real database finds
+
+Both of these shipped in three features and were invisible to every fixture
+and every mock:
+
+- **`jsonb_build_object` is variadic `"any"`.** Postgres cannot infer the type
+  of a bare parameter passed to it and rejects the whole statement with
+  "could not determine data type of parameter". Cast every parameter that
+  reaches it: `sql`${path}::text``.
+- **`container.db.maybeOne` returns a row; `container.maybeOne` returns an
+  Option.** `getOrNotFound` needs the Option. Pairing it with the `db` form
+  throws on every row that exists. Worse, a mock that returns an Option from
+  `db.maybeOne` makes the test pass — so the mock has to be right about which
+  one the code calls, or it is testing a codebase that does not exist.
+
+The general lesson, which cost four bugs to learn: **a fixture server proves a
+component draws; it cannot prove a query runs.** `central/server/test/db/` has
+a recipe for standing up PostgreSQL, seeding a real form with ODK's own
+parser, and checking endpoint output against expectations computed
+independently in another language.
+
 ## Verifying before you commit
 
 The deploy cannot reach a browser and this environment cannot reach the

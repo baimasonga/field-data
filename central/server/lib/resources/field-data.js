@@ -259,7 +259,7 @@ const filteredDatasetFields = (db, form) => db.any(sql`
     and ff.path ~ '^(/[A-Za-z_][A-Za-z0-9_.-]*)+$'
   order by ff."order", ff.path`);
 
-const filteredDatasetRecord = (db, projectId, id) => db.maybeOne(sql`
+const filteredDatasetRecord = (container, projectId, id) => container.maybeOne(sql`
   select d.*, f."xmlFormId", f."projectId" as "sourceProjectId", f."currentDefId"
   from field_data_filtered_datasets d
   join forms f on f.id = d."formId" and f."deletedAt" is null
@@ -352,11 +352,19 @@ const widgetData = async (db, formId, normalized, filter) => {
   // reader is never shown a mean without its denominator.
   const key = normalized.groupBy ?? normalized.column;
   const value = normalized.column;
+  // "Answered" has to mean "contributed to the number shown", not "was not
+  // blank". A field somebody typed "about two" into is an answer, but it is not
+  // a value any mean was taken over, and counting it would make the coverage
+  // line disagree with the chart's own rows by one. Found against real data:
+  // 320 answers, 319 of them numbers.
+  const answered = normalized.aggregation === 'count'
+    ? sql`nullif(btrim(extracted ->> ${value}::text), '') is not null`
+    : sql`btrim(extracted ->> ${value}::text) ~ ${WIDGET_NUMERIC}`;
   const coverage = await db.one(sql`
     with rows as (${scoped})
     select count(*)::integer as total,
-      count(*) filter (where nullif(btrim(extracted ->> ${key}), '') is not null)::integer as grouped,
-      count(*) filter (where nullif(btrim(extracted ->> ${value}), '') is not null)::integer as answered
+      count(*) filter (where nullif(btrim(extracted ->> ${key}::text), '') is not null)::integer as grouped,
+      count(*) filter (where ${answered})::integer as answered
     from rows`);
 
   if (coverage.total === 0)
@@ -365,18 +373,18 @@ const widgetData = async (db, formId, normalized, filter) => {
   const grouped = normalized.aggregation === 'count'
     ? await db.any(sql`
         with rows as (${scoped})
-        select btrim(extracted ->> ${key}) as key, count(*)::integer as count
+        select btrim(extracted ->> ${key}::text) as key, count(*)::integer as count
         from rows
-        where nullif(btrim(extracted ->> ${key}), '') is not null
+        where nullif(btrim(extracted ->> ${key}::text), '') is not null
         group by 1 order by count(*) desc, 1`)
     : await db.any(sql`
         with rows as (${scoped}),
         numbers as (
-          select btrim(extracted ->> ${key}) as key,
-            case when btrim(extracted ->> ${value}) ~ ${WIDGET_NUMERIC}
-              then (btrim(extracted ->> ${value}))::numeric end as value
+          select btrim(extracted ->> ${key}::text) as key,
+            case when btrim(extracted ->> ${value}::text) ~ ${WIDGET_NUMERIC}
+              then (btrim(extracted ->> ${value}::text))::numeric end as value
           from rows
-          where nullif(btrim(extracted ->> ${key}), '') is not null
+          where nullif(btrim(extracted ->> ${key}::text), '') is not null
         )
         select key, count(value)::integer as count,
           ${normalized.aggregation === 'sum' ? sql`sum(value)`
@@ -405,7 +413,7 @@ const widgetData = async (db, formId, normalized, filter) => {
 // belongs to one of the source forms and editing it through the merge has no
 // good answer to whose validation applies.
 
-const mergedDatasetRecord = (db, projectId, id) => db.maybeOne(sql`
+const mergedDatasetRecord = (container, projectId, id) => container.maybeOne(sql`
   select * from field_data_merged_datasets
   where id = ${id} and "projectId" = ${projectId}`);
 
@@ -422,7 +430,10 @@ const mergedDatasetForms = (db, mergedDatasetId) => db.any(sql`
 const mergedDatasetShape = async (db, forms) => {
   const withFields = await Promise.all(forms.map(async (form) => ({
     ...form,
-    fields: await filteredDatasetFields(db, form)
+    // Both sources of `forms` here speak formId; filteredDatasetFields wants a
+    // form-shaped object with id. Passing the wrong one binds undefined, which
+    // slonik refuses -- and which only a real query ever surfaces.
+    fields: await filteredDatasetFields(db, { id: form.formId, currentDefId: form.currentDefId })
   })));
   return { forms: withFields, ...mergeFields(withFields) };
 };
@@ -565,7 +576,7 @@ module.exports = (service, endpoint) => {
     await auth.canOrReject('project.read', project);
     await auth.canOrReject('submission.list', project);
     await auth.canOrReject('submission.read', project);
-    const dataset = await filteredDatasetRecord(container.db, project.id, id).then(getOrNotFound);
+    const dataset = await filteredDatasetRecord(container, project.id, id).then(getOrNotFound);
     return publicFilteredDataset(dataset);
   }));
 
@@ -574,7 +585,7 @@ module.exports = (service, endpoint) => {
     if (!Number.isInteger(id)) return reject(Problem.user.notFound());
     const project = await container.Projects.getById(params.projectId).then(getOrNotFound);
     await auth.canOrReject('project.update', project);
-    const dataset = await filteredDatasetRecord(container.db, project.id, id).then(getOrNotFound);
+    const dataset = await filteredDatasetRecord(container, project.id, id).then(getOrNotFound);
     const form = await container.Forms
       .getByProjectAndXmlFormId(dataset.sourceProjectId, dataset.xmlFormId, Form.PublishedVersion)
       .then(getOrNotFound);
@@ -587,7 +598,7 @@ module.exports = (service, endpoint) => {
     if (!Number.isInteger(id)) return reject(Problem.user.notFound());
     const project = await container.Projects.getById(params.projectId).then(getOrNotFound);
     await auth.canOrReject('project.update', project);
-    const dataset = await filteredDatasetRecord(container.db, project.id, id).then(getOrNotFound);
+    const dataset = await filteredDatasetRecord(container, project.id, id).then(getOrNotFound);
     const form = await container.Forms
       .getByProjectAndXmlFormId(dataset.sourceProjectId, dataset.xmlFormId, Form.PublishedVersion)
       .then(getOrNotFound);
@@ -613,7 +624,7 @@ module.exports = (service, endpoint) => {
     if (!Number.isInteger(id)) return reject(Problem.user.notFound());
     const project = await container.Projects.getById(params.projectId).then(getOrNotFound);
     await auth.canOrReject('project.update', project);
-    const dataset = await filteredDatasetRecord(container.db, project.id, id).then(getOrNotFound);
+    const dataset = await filteredDatasetRecord(container, project.id, id).then(getOrNotFound);
     const form = await container.Forms
       .getByProjectAndXmlFormId(dataset.sourceProjectId, dataset.xmlFormId, Form.PublishedVersion)
       .then(getOrNotFound);
@@ -629,7 +640,7 @@ module.exports = (service, endpoint) => {
     await auth.canOrReject('project.read', project);
     await auth.canOrReject('submission.list', project);
     await auth.canOrReject('submission.read', project);
-    const dataset = await filteredDatasetRecord(container.db, project.id, id).then(getOrNotFound);
+    const dataset = await filteredDatasetRecord(container, project.id, id).then(getOrNotFound);
     const formShape = { id: dataset.formId, currentDefId: dataset.currentDefId };
     const fields = await filteredDatasetFields(container.db, formShape);
     const limit = Math.min(Math.max(Number.parseInt(query.limit, 10) || 50, 1), 200);
@@ -682,7 +693,7 @@ module.exports = (service, endpoint) => {
         await auth.canOrReject('submission.list', project);
         await auth.canOrReject('submission.read', project);
       }
-      const dataset = await filteredDatasetRecord(container.db, project.id, datasetId)
+      const dataset = await filteredDatasetRecord(container, project.id, datasetId)
         .then(getOrNotFound);
       const all = await filteredDatasetFields(container.db,
         { id: dataset.formId, currentDefId: dataset.currentDefId });
@@ -831,7 +842,7 @@ module.exports = (service, endpoint) => {
     const id = Number.parseInt(params.id, 10);
     if (!Number.isInteger(id)) return reject(Problem.user.notFound());
     const parent = await widgetParent(container, params.projectId, body, auth, { write: true });
-    const existing = await container.db.maybeOne(sql`
+    const existing = await container.maybeOne(sql`
       select * from field_data_widgets where id = ${id} and ${parentWhere(parent)}`)
       .then(getOrNotFound);
     const normalized = normalizeWidgetOrProblem({
@@ -873,7 +884,7 @@ module.exports = (service, endpoint) => {
   // and Central's can() already walks that parent chain. Every route below
   // either reads a table or grants a role the existing way.
 
-  const organizationBySlug = (db, slug) => db.maybeOne(sql`
+  const organizationBySlug = (container, slug) => container.maybeOne(sql`
     select * from field_data_organizations where slug = ${slug}`);
 
   const organizationOrProblem = (body) => {
@@ -920,7 +931,7 @@ module.exports = (service, endpoint) => {
 
   service.get('/field-data/organizations/:slug', endpoint(async (container, { params, auth }) => {
     await auth.canOrReject('config.read', Config.species);
-    const org = await organizationBySlug(container.db, params.slug).then(getOrNotFound);
+    const org = await organizationBySlug(container, params.slug).then(getOrNotFound);
     const projects = await container.db.any(sql`
       select p.id, p.name from field_data_organization_projects op
       join projects p on p.id = op."projectId"
@@ -930,7 +941,7 @@ module.exports = (service, endpoint) => {
 
   service.patch('/field-data/organizations/:slug', endpoint(async (container, { params, body, auth }) => {
     await auth.canOrReject('config.set', Config.species);
-    const org = await organizationBySlug(container.db, params.slug).then(getOrNotFound);
+    const org = await organizationBySlug(container, params.slug).then(getOrNotFound);
 
     // Archived, never deleted. An organization owns projects that hold
     // submissions, and a delete button beside that is an accident waiting.
@@ -951,7 +962,7 @@ module.exports = (service, endpoint) => {
   // no actee -- so a grant somebody already held survives untouched.
   service.post('/field-data/organizations/:slug/projects', endpoint(async (container, { params, body, auth }) => {
     await auth.canOrReject('config.set', Config.species);
-    const org = await organizationBySlug(container.db, params.slug).then(getOrNotFound);
+    const org = await organizationBySlug(container, params.slug).then(getOrNotFound);
     const project = await container.Projects.getById(body?.projectId).then(getOrNotFound);
     // Moving a project between tenants changes who can read it, so it takes
     // authority over the project and not only over the organization.
@@ -968,7 +979,7 @@ module.exports = (service, endpoint) => {
 
   service.delete('/field-data/organizations/:slug/projects/:projectId', endpoint(async (container, { params, auth }) => {
     await auth.canOrReject('config.set', Config.species);
-    const org = await organizationBySlug(container.db, params.slug).then(getOrNotFound);
+    const org = await organizationBySlug(container, params.slug).then(getOrNotFound);
     const project = await container.Projects.getById(params.projectId).then(getOrNotFound);
     await auth.canOrReject('project.update', project);
 
@@ -985,7 +996,7 @@ module.exports = (service, endpoint) => {
 
   service.get('/field-data/organizations/:slug/members', endpoint(async (container, { params, auth }) => {
     await auth.canOrReject('config.read', Config.species);
-    const org = await organizationBySlug(container.db, params.slug).then(getOrNotFound);
+    const org = await organizationBySlug(container, params.slug).then(getOrNotFound);
     return container.db.any(sql`
       select actors.id as "actorId", actors."displayName", users.email,
         roles.system as "roleSystem", roles.name as "roleName"
@@ -999,7 +1010,7 @@ module.exports = (service, endpoint) => {
 
   service.post('/field-data/organizations/:slug/members', endpoint(async (container, { params, body, auth }) => {
     await auth.canOrReject('config.set', Config.species);
-    const org = await organizationBySlug(container.db, params.slug).then(getOrNotFound);
+    const org = await organizationBySlug(container, params.slug).then(getOrNotFound);
     let mapped;
     try {
       mapped = roleForOrganization(body?.role);
@@ -1026,7 +1037,7 @@ module.exports = (service, endpoint) => {
 
   service.delete('/field-data/organizations/:slug/members/:actorId', endpoint(async (container, { params, auth }) => {
     await auth.canOrReject('config.set', Config.species);
-    const org = await organizationBySlug(container.db, params.slug).then(getOrNotFound);
+    const org = await organizationBySlug(container, params.slug).then(getOrNotFound);
     const actorId = Number.parseInt(params.actorId, 10);
     if (!Number.isInteger(actorId)) return reject(Problem.user.notFound());
 
@@ -1075,7 +1086,7 @@ module.exports = (service, endpoint) => {
     if (!Number.isInteger(id)) return reject(Problem.user.notFound());
     const project = await container.Projects.getById(params.projectId).then(getOrNotFound);
     await auth.canOrReject('project.read', project);
-    const dataset = await mergedDatasetRecord(container.db, project.id, id).then(getOrNotFound);
+    const dataset = await mergedDatasetRecord(container, project.id, id).then(getOrNotFound);
     const forms = await mergedDatasetForms(container.db, dataset.id);
     // Permission is re-checked on read, not only at creation: a grant can be
     // withdrawn after a merge is saved, and the merge must not outlive it.
@@ -1147,7 +1158,7 @@ module.exports = (service, endpoint) => {
     if (!Number.isInteger(id)) return reject(Problem.user.notFound());
     const project = await container.Projects.getById(params.projectId).then(getOrNotFound);
     await auth.canOrReject('project.update', project);
-    const dataset = await mergedDatasetRecord(container.db, project.id, id).then(getOrNotFound);
+    const dataset = await mergedDatasetRecord(container, project.id, id).then(getOrNotFound);
     await container.db.query(sql`
       delete from field_data_merged_datasets where id = ${dataset.id}`);
     return success();
