@@ -56,16 +56,23 @@ distribution and at https://www.apache.org/licenses/LICENSE-2.0.
         </div>
 
         <div class="dashboard-col">
-          <p class="page-body-heading">{{ $t('systemStatus') }}</p>
-          <ul class="status-list">
-            <li v-for="item of statusItems" :key="item.key">
-              <span class="status-dot" :class="item.ok ? 'up' : 'down'"></span>
-              {{ item.label }}
-              <span class="status-text">{{ item.ok ? $t('status.up') : $t('status.down') }}</span>
-            </li>
-          </ul>
+          <!-- Only administrators get this. The server returns no status at
+          all for anybody else rather than a row of false, which would read as
+          an outage instead of as a question that was not asked. -->
+          <template v-if="statusItems.length > 0">
+            <p class="page-body-heading">{{ $t('systemStatus') }}</p>
+            <ul class="status-list">
+              <li v-for="item of statusItems" :key="item.key">
+                <span class="status-dot" :class="item.ok ? 'up' : 'down'"></span>
+                {{ item.label }}
+                <span class="status-text">{{ item.ok ? $t('status.up') : $t('status.down') }}</span>
+              </li>
+            </ul>
+          </template>
 
-          <p class="page-body-heading top-forms-heading">{{ $t('topForms') }}</p>
+          <p class="page-body-heading" :class="{ 'top-forms-heading': statusItems.length > 0 }">
+            {{ $t('topForms') }}
+          </p>
           <table class="table">
             <thead>
               <tr>
@@ -111,7 +118,10 @@ stats.request({ url: apiPaths.fieldDataStats() }).catch(noop);
 
 const statusItems = computed(() => {
   if (!stats.dataExists) return [];
+  // Null means this reader is not an administrator and the probes were never
+  // run for them, which is different from every service being down.
   const s = stats.data.systemStatus;
+  if (s == null) return [];
   return [
     { key: 'database', label: t('status.database'), ok: s.database },
     { key: 'fileStorage', label: t('status.fileStorage'), ok: s.fileStorage },

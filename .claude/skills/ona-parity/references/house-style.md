@@ -169,6 +169,25 @@ require a session, so a route is public until it calls `auth.canOrReject`.
 Before adding anything to a response that a public route shares with an
 authenticated one, ask what the anonymous version of that response says.
 
+## A health probe is a side effect, not a read
+
+The Field Data dashboard's system-status block writes and deletes an object in
+object storage and makes an outbound request to Enketo and to pyxform. It sat
+on a route any project member could call, so every page load did real work
+against real infrastructure, and any of them could drive it as fast as they
+could refresh. Nothing in this deployment rate-limits anything.
+
+Before putting a reachability check on a route, ask who may call it and how
+often. The answer is usually: administrators, and cached. Cache the promise
+rather than the value so a burst shares one probe instead of starting one
+each, and drop a rejected probe rather than remembering a failure for the
+whole window.
+
+When somebody may not see a probe's result, send `null` and let the interface
+hide the panel. A row of `false` reads as an outage rather than as a question
+that was never asked — and hardcoding `true` so the panel looks healthy, which
+is what the zero-projects branch did, is worse than either.
+
 ## Honesty about what has been verified
 
 Much of the Field Data surface has never run against real submissions, and

@@ -856,3 +856,73 @@ test('the organization list shows each caller only what they may read', async ()
   // the whole tenant list.
   assert.deepEqual(await listFor({}), []);
 });
+
+// The system status block is the one part of the dashboard that does something
+// rather than counting something: it writes and deletes an object in storage
+// and makes an outbound request to Enketo and to pyxform. Running it for every
+// project member on every load handed them a map of what this deployment runs,
+// and let any of them drive real infrastructure as fast as they could refresh.
+const statsContainer = (isAdmin, probes) => ({
+  container: {
+    Projects: { getAllByAuth: async () => [{ id: 1, acteeId: 'one' }] },
+    db: {
+      oneFirst: async (query) => {
+        if (String(query.sql).trim() === 'select 1') probes.push('database');
+        return 0;
+      },
+      any: async () => []
+    }
+  },
+  context: {
+    auth: {
+      can: async (verb) => (verb === 'user.list' ? isAdmin : true)
+    }
+  }
+});
+
+test('the system status probes do not run for somebody who is not an administrator', async () => {
+  const probes = [];
+  const { container, context } = statsContainer(false, probes);
+  const result = await routes.get('get /field-data/stats')(container, context);
+
+  // Null, not a row of false: never asked is not the same as down, and a row
+  // of false would read as an outage.
+  assert.equal(result.systemStatus, null);
+  assert.deepEqual(probes, []);
+  // The rest of the dashboard is untouched -- this is about the probes, not
+  // about withholding somebody's own numbers.
+  assert.equal(result.kpi.projects, 1);
+});
+
+test('a project member with no projects is not a way to reach the probes either', async () => {
+  const probes = [];
+  const { container, context } = statsContainer(false, probes);
+  container.Projects.getAllByAuth = async () => [];
+  const result = await routes.get('get /field-data/stats')(container, context);
+  // This branch used to return five hardcoded values claiming the database and
+  // storage were up, without having asked either.
+  assert.equal(result.systemStatus, null);
+  assert.deepEqual(probes, []);
+});
+
+// Depends on being the first test in this file to reach the probe, because the
+// cache is module-level and its window is 30 seconds. Every other stats test
+// here is a non-administrator, which never probes. Add an administrator case
+// above this one and it will start measuring a warm cache instead.
+test('the probes run once for a burst of administrators, not once each', async () => {
+  const probes = [];
+  const made = [0, 1, 2, 3].map(() => statsContainer(true, probes));
+  const results = await Promise.all(made.map(({ container, context }) =>
+    routes.get('get /field-data/stats')(container, context)));
+
+  for (const result of results) assert.equal(typeof result.systemStatus.database, 'boolean');
+  // Four requests arriving together share one probe: the promise is cached,
+  // not the value, so the second caller waits on the first rather than
+  // starting a second write against storage.
+  assert.deepEqual(probes, ['database']);
+
+  // And a later request inside the window reuses it rather than probing again.
+  const { container, context } = statsContainer(true, probes);
+  await routes.get('get /field-data/stats')(container, context);
+  assert.deepEqual(probes, ['database']);
+});

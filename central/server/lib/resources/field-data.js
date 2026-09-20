@@ -223,6 +223,65 @@ const intParam = (value) => {
   return parsed;
 };
 
+/*
+The system status block, which is the one part of the dashboard that does
+something rather than counting something.
+
+It writes and deletes an object in the configured storage backend and makes an
+outbound request to each of Enketo and pyxform. Running that on every dashboard
+load meant any project member could drive real infrastructure as fast as they
+could refresh a page, and it answered "what does this deployment run, and is it
+reachable" for somebody whose question was "how many submissions came in".
+
+So it is administrators only now, and cached. The promise is what gets cached
+rather than the value, so requests arriving together share one probe instead of
+starting four, and a probe that somehow rejects is not remembered for the rest
+of the window -- the next reader finds out for themselves.
+
+Per worker process, deliberately: a probe is about this process's view of the
+world, and a shared cache would report somebody else's.
+*/
+const SYSTEM_STATUS_TTL = 30 * 1000;
+let systemStatusProbe = null;
+
+const probeSystemStatus = (db) => {
+  if (systemStatusProbe != null && Date.now() - systemStatusProbe.at < SYSTEM_STATUS_TTL)
+    return systemStatusProbe.value;
+
+  const value = (async () => {
+    let database = false;
+    try {
+      await db.oneFirst(sql`select 1`);
+      database = true;
+    } catch (e) { /* status probe is best-effort */ }
+
+    let fileStorage = false;
+    try {
+      const testKey = `health/${crypto.randomUUID()}`;
+      await storage.putBuffer(testKey, Buffer.from('ok'));
+      await storage.delete(testKey);
+      fileStorage = true;
+    } catch (e) { /* status probe is best-effort */ }
+
+    const enketoUrl = config.has('default.enketo.url') ? config.get('default.enketo.url') : null;
+    const enketo = enketoUrl ? await pingUrl(enketoUrl) : false;
+
+    const xlsConfig = config.has('default.xlsform') ? config.get('default.xlsform') : null;
+    const pyxform = xlsConfig
+      ? await pingUrl(`${xlsConfig.protocol || 'http'}://${xlsConfig.host}:${xlsConfig.port}/`)
+      : false;
+
+    const emailConfig = config.has('default.email') ? config.get('default.email') : null;
+    const emailService = Boolean(emailConfig && emailConfig.transport);
+
+    return { database, fileStorage, enketo, pyxform, emailService };
+  })();
+
+  systemStatusProbe = { at: Date.now(), value };
+  value.catch(() => { systemStatusProbe = null; });
+  return value;
+};
+
 const normalizeWidgetOrProblem = (body, fields) => {
   try {
     return normalizeWidget(body, fields);
@@ -1885,6 +1944,10 @@ module.exports = (service, endpoint) => {
         ? project.id : null)));
     const submissionProjectIds = readable.filter(id => id != null);
 
+    // Asked before the early return, because it decides the system status
+    // block and an administrator with no projects should still get it.
+    const isAdmin = await auth.can('user.list', User.species);
+
     if (projectIds.length === 0) {
       return {
         kpi: { projects: 0, forms: 0, submissions: 0, users: 0 },
@@ -1892,17 +1955,11 @@ module.exports = (service, endpoint) => {
         projects: [],
         submissionsTrend: [],
         topForms: [],
-        systemStatus: {
-          database: true,
-          fileStorage: true,
-          enketo: false,
-          pyxform: false,
-          emailService: false
-        }
+        // Was five hardcoded values claiming the database and storage were up
+        // without having asked either. A probe or nothing.
+        systemStatus: isAdmin ? await probeSystemStatus(dbPool) : null
       };
     }
-
-    const isAdmin = await auth.can('user.list', User.species);
 
     // 1. KPI Counts
     const formsCount = await dbPool.oneFirst(sql`
@@ -1965,37 +2022,6 @@ module.exports = (service, endpoint) => {
       limit 5
     `);
 
-    // 5. System Status Checkers
-    let dbStatus = false;
-    try {
-      await dbPool.oneFirst(sql`select 1`);
-      dbStatus = true;
-    } catch (e) { /* status probe is best-effort */ }
-
-    let fileStorageStatus = false;
-    try {
-      const testKey = `health/${crypto.randomUUID()}`;
-      await storage.putBuffer(testKey, Buffer.from('ok'));
-      await storage.delete(testKey);
-      fileStorageStatus = true;
-    } catch (e) { /* status probe is best-effort */ }
-
-    let enketoStatus = false;
-    const enketoUrl = config.has('default.enketo.url') ? config.get('default.enketo.url') : null;
-    if (enketoUrl) {
-      enketoStatus = await pingUrl(enketoUrl);
-    }
-
-    let pyxformStatus = false;
-    const xlsConfig = config.has('default.xlsform') ? config.get('default.xlsform') : null;
-    if (xlsConfig) {
-      pyxformStatus = await pingUrl(`${xlsConfig.protocol || 'http'}://${xlsConfig.host}:${xlsConfig.port}/`);
-    }
-
-    let emailServiceStatus = false;
-    const emailConfig = config.has('default.email') ? config.get('default.email') : null;
-    if (emailConfig && emailConfig.transport) emailServiceStatus = true;
-
     return {
       kpi: {
         projects: projectIds.length,
@@ -2012,13 +2038,7 @@ module.exports = (service, endpoint) => {
       })),
       submissionsTrend: trend,
       topForms,
-      systemStatus: {
-        database: dbStatus,
-        fileStorage: fileStorageStatus,
-        enketo: enketoStatus,
-        pyxform: pyxformStatus,
-        emailService: emailServiceStatus
-      }
+      systemStatus: isAdmin ? await probeSystemStatus(dbPool) : null
     };
   }));
 

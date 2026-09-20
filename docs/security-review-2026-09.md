@@ -8,9 +8,17 @@ them.
 
 The method was reading, not attacking. Nothing here was demonstrated against a
 running deployment; the database work in `central/server/test/db/` is what was
-available, and it exercises the permission model rather than these routes. Two
-findings below are marked as reasoned rather than reproduced, and are marked
-that way because it matters which is which.
+available, and it exercises the permission model rather than these routes.
+
+**All four findings are now fixed** (`4f297e7`, `4f87b73`, `9e33624`, and the
+commit carrying this sentence), each with tests and each rendered where it
+touched the interface. What that does *not* mean is that any of it has run
+against real users, real roles or real submissions. The fixes were verified the
+way the findings were found: by reading, by unit and route-level tests against
+mocks, and by rendering against canned fixtures. The permission work in
+particular — findings 2 and 3 — changes who may read what, and
+`central/server/test/db/` is where that should be confirmed against a real
+PostgreSQL before anybody relies on it.
 
 ## What was found, worst first
 
@@ -164,18 +172,32 @@ being able to grant the manager role, because they would no longer hold all of
 it. That fails closed, which is the right direction, but it will read as a
 puzzling refusal until somebody re-syncs the two.
 
-### 4. Health probes run on every dashboard load — NOT FIXED
+### 4. Health probes ran on every dashboard load — FIXED
 
-`GET /v1/field-data/stats` is available to any user with at least one readable
-project. Each call writes and deletes an object in the configured storage
-backend, makes outbound HTTP requests to the Enketo and pyxform URLs, and
-returns their reachability plus whether email is configured. That is internal
-infrastructure detail handed to every project member, and a per-request side
-effect on shared infrastructure that any of them can drive as fast as they can
-refresh.
+`GET /v1/field-data/stats` was available to any user with at least one
+readable project, and its `systemStatus` block is the one part of the
+dashboard that *does* something rather than counting something: it writes and
+deletes an object in the configured storage backend, and makes an outbound
+request to each of Enketo and pyxform.
 
-Suggested: move `systemStatus` behind `user.list` (the check the route already
-computes as `isAdmin`), or cache the probe for a minute or two.
+Two problems in one. It handed every project member a map of what this
+deployment runs and whether it is reachable, which is not their question. And
+it let any of them drive real infrastructure as fast as they could refresh a
+page — a write, a delete and two outbound requests per load, with no
+rate limit anywhere in this deployment to slow it down.
+
+Now: administrators only, decided by the `user.list` check the route already
+computed as `isAdmin`, and cached for thirty seconds. What is cached is the
+*promise*, not the value, so requests arriving together share one probe rather
+than starting four; a probe that rejects is not remembered for the rest of the
+window. The cache is per worker process deliberately — a probe is about this
+process's view of the world, and a shared one would report somebody else's.
+
+A non-administrator gets `systemStatus: null` and the client hides the panel.
+Null rather than a row of `false`, because never-asked and every-service-down
+should not look the same. The same change fixes a smaller untruth: the
+zero-projects branch used to return five hardcoded values claiming the
+database and storage were up without having asked either.
 
 ## What was examined and looks sound
 
