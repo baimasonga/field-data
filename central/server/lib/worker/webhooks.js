@@ -157,7 +157,17 @@ const statusLabel = (outcome) => (outcome.success
 // Turn the audited Submission version into one stable spreadsheet row. Paths,
 // rather than labels, are the headers: labels can repeat and can be translated,
 // while an XML path identifies the answer unambiguously.
-const googleSheetPayload = async ({ all }, event, hook) => {
+const googleSheetPayload = async (query, event, hook) => {
+  // An explicit query function rather than a destructured property. This took
+  // a container from the live dispatch path and a raw slonik connection from
+  // the backfill worker, and those disagree: the container's method is all(),
+  // slonik's is any(). Destructuring `all` off a connection quietly produced
+  // undefined, so every historical item failed with "all is not a function"
+  // and the sync reported every row as Failed. A parameter cannot be absent
+  // by accident, and this says so out loud if it is.
+  if (typeof query !== 'function')
+    throw new TypeError('googleSheetPayload needs a query function; a container exposes all(), a slonik connection any().');
+
   const submissionDefId = Number(event.details?.submissionDefId);
   if (!Number.isInteger(submissionDefId))
     throw new Error('This Submission event does not identify a version to synchronize.');
@@ -169,7 +179,7 @@ const googleSheetPayload = async ({ all }, event, hook) => {
   // submission of a fresh deployment, and for nothing after it, which is how
   // this passed every test and would have failed in front of the first person
   // to use it twice.
-  const fields = await all(sql`
+  const fields = await query(sql`
     select ff.path
     from form_fields ff
     join submission_defs sd on sd.id = ${submissionDefId}
@@ -181,7 +191,7 @@ const googleSheetPayload = async ({ all }, event, hook) => {
   const paths = fields.map(field => field.path);
   if (paths.length === 0)
     throw new Error('The Form has no fields that can be synchronized.');
-  const rows = await all(sql`
+  const rows = await query(sql`
     select sd."instanceId", sd."createdAt", ${extractObject(paths)} as answers
     from submission_defs sd
     join submissions s on s.id = sd."submissionId" and s."formId" = ${hook.formId}
@@ -311,7 +321,7 @@ const dispatchWebhooks = async (container, event) => {
       let targetContext = {};
 
       if (target.submissionRows === true) {
-        targetPayload = await googleSheetPayload(container, event, hook);
+        targetPayload = await googleSheetPayload(all, event, hook);
         const tokenRequest = target.buildTokenRequest(openedConfig);
         const tokenOutcome = await deliver(tokenRequest.url, tokenRequest.body,
           tokenRequest.headers, tokenRequest.method);

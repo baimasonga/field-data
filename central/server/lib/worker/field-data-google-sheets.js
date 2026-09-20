@@ -47,7 +47,9 @@ const deliverItem = async (connection, job, item, target, config, token) => {
     action: 'submission.backfill',
     details: { submissionDefId: item.submissionDefId }
   };
-  const payload = await googleSheetPayload(connection, event, job);
+  // A slonik connection answers to any(); the container the live dispatch path
+  // uses answers to all(). Adapting here rather than hoping they match.
+  const payload = await googleSheetPayload(s => connection.any(s), event, job);
   const found = await findSheetRow(target, config, token, payload.instanceId, { search: true });
   if (found.failure != null) return found.failure;
   const built = target.buildRequest(payload, config, { accessToken: token, lookup: found.lookup });

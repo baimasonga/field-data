@@ -94,4 +94,50 @@ describe('(util) XLS reports', () => {
     ]);
     await inspectTemplate(input).should.be.rejectedWith(/exactly one detail row/);
   });
+
+  /*
+  A Submission is allowed to contain braces, and the render used to run a
+  second substitution pass over the rows it had just filled with answers. An
+  unrecognised token resolves to nothing, so "Ward {{3}} clinic" came out as
+  "Ward  clinic"; a recognised one substituted report metadata, so an answer
+  of "{{report_name}}" came out as the report's own name. Silent both ways, in
+  the one artifact where silent corruption matters most.
+  */
+  describe('answers that look like template tokens', () => {
+    const templateWithBlock = async () => {
+      const workbook = new ExcelJS.Workbook();
+      const sheet = workbook.addWorksheet('R');
+      sheet.getCell('A1').value = '{{report_name}}';
+      sheet.getCell('A2').value = '{{#submissions}}';
+      sheet.getCell('A3').value = '{{/district}}';
+      sheet.getCell('B3').value = '{{_instance_id}}';
+      sheet.getCell('A4').value = '{{/submissions}}';
+      return Buffer.from(await workbook.xlsx.writeBuffer());
+    };
+    const render = async (answers) => {
+      const out = await renderTemplate(await templateWithBlock(),
+        { name: 'Q3 report', sourceName: 'Roster' },
+        answers.map((district, index) => ({
+          instanceId: `uuid:${index}`, submittedAt: new Date('2026-09-20T00:00:00Z'),
+          data: { '/district': district }
+        })));
+      const back = new ExcelJS.Workbook();
+      await back.xlsx.load(out);
+      const sheet = back.getWorksheet('R');
+      return answers.map((_, index) => sheet.getCell(2 + index, 1).value);
+    };
+
+    it('writes an answer containing braces exactly as it was given', async () => {
+      (await render(['Ward {{3}} clinic'])).should.eql(['Ward {{3}} clinic']);
+    });
+
+    it('does not let an answer pull in the report\'s own values', async () => {
+      (await render(['{{report_name}}'])).should.eql(['{{report_name}}']);
+    });
+
+    it('still fills ordinary answers, and the scalars outside the block', async () => {
+      const rows = await render(['Bombali', 'Kono']);
+      rows.should.eql(['Bombali', 'Kono']);
+    });
+  });
 });

@@ -6,9 +6,16 @@
 // styled detail row between explicit submission markers.
 
 const ExcelJS = require('exceljs');
+const { assertBoundedArchive } = require('./zip-bounds');
 
 const MIME_TYPE = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
 const MAX_TEMPLATE_BYTES = 10 * 1024 * 1024;
+// What the template is allowed to become once opened, which is the number that
+// costs memory. A template is a layout, not a data set: a real one inflates to
+// a fraction of this, and anything that does not is carrying data it should
+// not. See zip-bounds.js for why the compressed limit above is not enough.
+const MAX_TEMPLATE_INFLATED_BYTES = 32 * 1024 * 1024;
+const MAX_TEMPLATE_PARTS = 512;
 const MAX_REPORT_ROWS = 10000;
 const START = '{{#submissions}}';
 const END = '{{/submissions}}';
@@ -73,6 +80,11 @@ const loadWorkbook = async (buffer) => {
   // an actionable upload error instead of an opaque parser stack trace.
   if (buffer[0] !== 0x50 || buffer[1] !== 0x4b)
     throw invalid('The uploaded file is not an .xlsx workbook.');
+  // Measured before ExcelJS sees it, because ExcelJS decompresses the whole
+  // package into memory and a small upload can be a very large workbook.
+  await assertBoundedArchive(buffer, {
+    maxTotalBytes: MAX_TEMPLATE_INFLATED_BYTES, maxEntries: MAX_TEMPLATE_PARTS
+  });
   const workbook = new ExcelJS.Workbook();
   try {
     await workbook.xlsx.load(buffer);
@@ -136,6 +148,14 @@ const renderTemplate = async (buffer, report, rows) => {
 
   for (const worksheet of workbook.worksheets) {
     const block = markerRows(worksheet);
+    // Which rows now hold somebody's answers. The scalar pass below must not
+    // touch them: it would be a second substitution over data, and a
+    // Submission is allowed to contain braces. An answer of "Ward {{3}}
+    // clinic" came out as "Ward  clinic", because an unrecognised token
+    // resolves to nothing, and an answer of "{{report_name}}" came out as the
+    // report's own name. Silent either way, in the one artifact where silent
+    // corruption matters most.
+    let filled = null;
     if (block != null) {
       if (rows.length === 0) {
         worksheet.spliceRows(block.start, 3);
@@ -151,9 +171,15 @@ const renderTemplate = async (buffer, report, rows) => {
           _submitted_at: record.submittedAt,
           _source_form: record.sourceForm ?? ''
         }));
+        filled = { from: block.start, to: block.start + rows.length - 1 };
       }
     }
-    worksheet.eachRow(row => replaceRow(row, scalar));
+    // The detail rows already had the scalars available to them in the context
+    // above, so skipping them here costs nothing.
+    worksheet.eachRow((row) => {
+      if (filled != null && row.number >= filled.from && row.number <= filled.to) return;
+      replaceRow(row, scalar);
+    });
   }
 
   return Buffer.from(await workbook.xlsx.writeBuffer());
@@ -162,6 +188,8 @@ const renderTemplate = async (buffer, report, rows) => {
 module.exports = {
   MIME_TYPE,
   MAX_TEMPLATE_BYTES,
+  MAX_TEMPLATE_INFLATED_BYTES,
+  MAX_TEMPLATE_PARTS,
   MAX_REPORT_ROWS,
   inspectTemplate,
   validateTemplate,

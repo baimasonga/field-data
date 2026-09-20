@@ -6,7 +6,14 @@ Form, a filtered dataset, or a merged dataset in that Project.
 
 ## Prepare a template
 
-Create an `.xlsx` workbook no larger than 10 MB. Ordinary formatting, formulas,
+Create an `.xlsx` workbook no larger than 10 MB, and one that stays under 32 MB
+once opened. Both limits matter: an `.xlsx` is a ZIP, and the second is the one
+that costs memory — a third of a megabyte of the right kind of file expands to
+ninety, which is why the upload is measured before it is parsed rather than
+after. A template is a layout, so a real one is far inside both; a workbook
+refused for expanding too far is carrying data that belongs in the source.
+
+Ordinary formatting, formulas,
 merged cells, page setup, and additional worksheets remain part of the workbook.
 Field Data only replaces placeholders.
 

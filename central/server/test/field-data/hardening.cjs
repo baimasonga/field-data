@@ -1043,7 +1043,7 @@ test('Google Sheets resolves a form version through formDefId, not by id collisi
   // row. The second and third are the ones the shipped join lost.
   for (const submissionDefId of [11, 12, 13]) {
     // eslint-disable-next-line no-await-in-loop
-    const payload = await _googleSheetPayload({ all },
+    const payload = await _googleSheetPayload(all,
       { action: 'submission.create', details: { submissionDefId } }, hook);
     assert.deepEqual(payload.headers,
       ['_instance_id', '_submitted_at', '_event', '/district', '/hh_size']);
@@ -1056,7 +1056,7 @@ test('a Submission event with no version to synchronize is refused, not guessed 
   const all = sheetDatabase();
   await Promise.all([undefined, {}, { submissionDefId: 'not-a-number' }].map(details =>
     assert.rejects(
-      _googleSheetPayload({ all }, { action: 'submission.create', details }, { formId: 7 }),
+      _googleSheetPayload(all, { action: 'submission.create', details }, { formId: 7 }),
       /does not identify a version/)));
 });
 
@@ -1230,4 +1230,62 @@ test('an append that genuinely did not land is sent again', async () => {
     http.globalAgent = previousAgent;
     await srv.close();
   }
+});
+
+// googleSheetPayload used to destructure `all` off whatever it was handed.
+// The live dispatch path hands it a container, whose query method is all();
+// the backfill worker hands it a slonik connection, whose method is any().
+// So `all` came back undefined, every historical item failed with "all is not
+// a function", and the sync reported every row Failed with a message nobody
+// could act on. A parameter cannot go missing by accident the way a property
+// can, so it takes one now.
+test('the Sheets payload takes a query function, from either kind of caller', async () => {
+  const rows = [{ path: '/district' }];
+  const submission = [{
+    instanceId: 'uuid:1', createdAt: new Date('2026-09-20T00:00:00Z'),
+    answers: { '/district': 'Bombali' }
+  }];
+  const answer = async query => (query.sql.includes('from form_fields') ? rows : submission);
+  const event = { action: 'submission.backfill', details: { submissionDefId: 12 } };
+
+  // What the worker container offers.
+  const viaContainer = await _googleSheetPayload(answer, event, { formId: 7 });
+  assert.deepEqual(viaContainer.row.slice(3), ['Bombali']);
+
+  // What a slonik connection offers, adapted at the call site the way
+  // lib/worker/field-data-google-sheets.js does it.
+  const connection = { any: answer, one: async () => ({}), query: async () => ({}) };
+  assert.equal(typeof connection.all, 'undefined');
+  const viaConnection = await _googleSheetPayload(s => connection.any(s), event, { formId: 7 });
+  assert.deepEqual(viaConnection, viaContainer);
+
+  // And handing it an object, as both callers used to, says so rather than
+  // failing one row at a time inside a catch.
+  await assert.rejects(_googleSheetPayload(connection, event, { formId: 7 }),
+    error => error instanceof TypeError && /needs a query function/.test(error.message));
+});
+
+test('the backfill worker adapts the connection rather than hoping it matches', () => {
+  const source = fs.readFileSync(path.join(__dirname,
+    '../../lib/worker/field-data-google-sheets.js'), 'utf8');
+  assert.match(source, /googleSheetPayload\(s => connection\.any\(s\)/);
+  assert.equal(/googleSheetPayload\(connection,/.test(source), false);
+});
+
+// The template size limit counts compressed bytes, which is not what costs
+// memory: a valid 0.32 MB workbook expanded to 92.7 MB of XML and 735 MB of
+// resident memory, from three per cent of the allowance. Uploading takes
+// project.update, so this was a project manager away from an out-of-memory
+// server, with nothing to rate-limit it.
+test('a template is measured by what it becomes, not by what was uploaded', () => {
+  const reports = require('../../lib/util/xls-reports');
+  assert.ok(reports.MAX_TEMPLATE_INFLATED_BYTES > 0);
+  assert.ok(reports.MAX_TEMPLATE_INFLATED_BYTES <= 64 * 1024 * 1024);
+  assert.ok(reports.MAX_TEMPLATE_PARTS > 0 && reports.MAX_TEMPLATE_PARTS <= 4096);
+
+  // The bound runs before ExcelJS is given the buffer, which is the whole
+  // point: ExcelJS decompresses the package to decide it is too big.
+  const source = fs.readFileSync(path.join(__dirname,
+    '../../lib/util/xls-reports.js'), 'utf8');
+  assert.match(source, /await assertBoundedArchive\([\s\S]{0,200}?\n\s*const workbook = new ExcelJS\.Workbook\(\)/);
 });
