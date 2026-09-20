@@ -12,7 +12,7 @@ is not decoration.
 -->
 <template>
   <div id="submission-widgets">
-    <loading :state="loading"/>
+    <Loading :state="loading"/>
 
     <template v-if="!loading">
       <section class="widget-new">
@@ -117,7 +117,7 @@ is not decoration.
             <p v-if="widget.omitted" class="widget-omitted">
               {{ $t('saved.omitted', {
                 shown: widget.rows.length,
-                total: widget.rows.length + widget.omitted.groups
+                total: widget.rows.length + widget.omitted.groups,
               }) }}
             </p>
           </template>

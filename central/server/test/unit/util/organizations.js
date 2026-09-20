@@ -1,7 +1,6 @@
 const Should = require('should'); // eslint-disable-line no-unused-vars
-const {
-  ORG_ROLES, normalizeOrganization, roleForOrganization, describeRoles
-} = require('../../../lib/util/organizations');
+const { ORG_ROLES, normalizeOrganization, roleForOrganization, describeRoles } =
+  require('../../../lib/util/organizations');
 
 describe('(util) organizations', () => {
   describe('normalizeOrganization', () => {

@@ -12,7 +12,7 @@ before they trust it.
 -->
 <template>
   <div id="project-merged-datasets">
-    <loading :state="loading"/>
+    <Loading :state="loading"/>
 
     <template v-if="!loading">
       <section class="merge-new">
@@ -70,13 +70,13 @@ before they trust it.
           </header>
 
           <div v-if="openId === dataset.id" class="merge-detail">
-            <loading :state="detailLoading"/>
+            <Loading :state="detailLoading"/>
 
             <template v-if="!detailLoading && detail != null">
               <p class="merge-summary">
                 {{ $t('detail.summary', {
                   merged: detail.fields.length,
-                  excluded: detail.excluded.length
+                  excluded: detail.excluded.length,
                 }) }}
               </p>
 

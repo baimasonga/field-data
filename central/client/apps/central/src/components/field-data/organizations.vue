@@ -11,7 +11,7 @@ is hard to see the consequences of and easy to get wrong.
 -->
 <template>
   <div id="field-data-organizations">
-    <loading :state="loading"/>
+    <Loading :state="loading"/>
 
     <template v-if="!loading">
       <p class="section-lead">{{ $t('lead') }}</p>
@@ -58,7 +58,7 @@ is hard to see the consequences of and easy to get wrong.
         </header>
 
         <div v-if="openSlug === org.slug" class="org-members">
-          <loading :state="membersLoading"/>
+          <Loading :state="membersLoading"/>
 
           <template v-if="!membersLoading">
             <div v-if="members.length > 0" class="table-responsive">
@@ -79,7 +79,9 @@ is hard to see the consequences of and easy to get wrong.
                   <td>{{ member.roleName }}</td>
                   <td v-if="openOrg?.canManageMembers">
                     <button type="button" class="btn btn-danger btn-sm"
-                      @click="removeMember(org, member)">{{ $t('action.remove') }}</button>
+                      @click="removeMember(org, member)">
+                      {{ $t('action.remove') }}
+                    </button>
                   </td>
                 </tr>
               </tbody>
@@ -260,6 +262,7 @@ const addMember = (org) => request({
   .catch(noop);
 
 const removeMember = (org, member) => {
+  // eslint-disable-next-line no-alert
   if (!window.confirm(t('confirmRemove', { name: member.displayName, org: org.name }))) return;
   request({
     method: 'DELETE',
