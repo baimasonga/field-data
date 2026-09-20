@@ -93,6 +93,30 @@ const targetOrProblem = (target, targetConfig) => {
     throw error;
   }
 };
+
+const enqueueGoogleSheetSync = async (db, webhookId, formId) => {
+  // Serialize clicks for one integration. The partial unique index is still
+  // the final defence, but this lets both callers receive the same job rather
+  // than one receiving a database constraint error.
+  await db.query(sql`select pg_advisory_xact_lock(74124, ${webhookId})`);
+  const existing = await db.maybeOne(sql`
+    select * from field_data_google_sheet_syncs
+    where "webhookId"=${webhookId} and status in ('Pending', 'Running')
+    order by id desc limit 1`);
+  if (existing != null) return existing;
+  const sync = await db.one(sql`
+    insert into field_data_google_sheet_syncs ("webhookId") values (${webhookId}) returning *`);
+  await db.query(sql`
+    insert into field_data_google_sheet_sync_items ("syncId", "submissionId")
+    select ${sync.id}, s.id from submissions s
+    where s."formId"=${formId} and s."deletedAt" is null and s.draft=false
+    order by s.id`);
+  return db.one(sql`
+    update field_data_google_sheet_syncs set total=(
+      select count(*)::integer from field_data_google_sheet_sync_items where "syncId"=${sync.id}
+    ) where id=${sync.id} returning *`);
+};
+
 const validWebhookUrl = async (url) => {
   try {
     await resolveWebhookUrl(url);
@@ -2176,7 +2200,11 @@ module.exports = (service, endpoint) => {
         ${target.name}, ${JSON.stringify(storedConfig)}, ${formId})
       returning *
     `);
-    return secret == null ? publicWebhook(created) : { ...publicWebhook(created), secret };
+    const sync = target.name === 'google-sheets' && normalized.config.sendExisting === true
+      ? await enqueueGoogleSheetSync(container.db, created.id, formId)
+      : null;
+    const result = secret == null ? publicWebhook(created) : { ...publicWebhook(created), secret };
+    return sync == null ? result : { ...result, sync };
   }));
 
   service.get('/field-data/webhook-targets', endpoint(async (container, { auth }) => {
@@ -2192,6 +2220,56 @@ module.exports = (service, endpoint) => {
       order by "createdAt" desc
       limit 50
     `);
+  }));
+
+  service.get('/field-data/webhooks/:id/syncs', endpoint(async (container, { params, auth }) => {
+    await auth.canOrReject('config.set', Config.species);
+    const webhookId = intParam(params.id);
+    await container.maybeOne(sql`
+      select id from field_data_webhooks where id=${webhookId} and target='google-sheets'`)
+      .then(getOrNotFound);
+    return container.db.any(sql`
+      select * from field_data_google_sheet_syncs where "webhookId"=${webhookId}
+      order by id desc limit 10`);
+  }));
+
+  service.post('/field-data/webhooks/:id/syncs', endpoint(async (container, { params, auth }, _, response) => {
+    await auth.canOrReject('config.set', Config.species);
+    const webhookId = intParam(params.id);
+    const webhook = await container.maybeOne(sql`
+      select id, "formId" from field_data_webhooks
+      where id=${webhookId} and target='google-sheets'`)
+      .then(getOrNotFound);
+    response.status(202);
+    return enqueueGoogleSheetSync(container.db, webhook.id, webhook.formId);
+  }));
+
+  service.post('/field-data/webhooks/:id/syncs/:syncId/retry', endpoint(async (container, { params, auth }, _, response) => {
+    await auth.canOrReject('config.set', Config.species);
+    const webhookId = intParam(params.id);
+    const syncId = intParam(params.syncId);
+    const sync = await container.maybeOne(sql`
+      select * from field_data_google_sheet_syncs
+      where id=${syncId} and "webhookId"=${webhookId} and status in ('Partial', 'Failed')`)
+      .then(getOrNotFound);
+    await container.db.query(sql`
+      update field_data_google_sheet_sync_items
+      set status='Pending', error=null, "completedAt"=null
+      where "syncId"=${sync.id} and status='Failed'`);
+    response.status(202);
+    return container.db.one(sql`
+      update field_data_google_sheet_syncs set status='Pending', "lastError"=null,
+        "completedAt"=null where id=${sync.id} returning *`);
+  }));
+
+  service.post('/field-data/webhooks/:id/syncs/:syncId/cancel', endpoint(async (container, { params, auth }) => {
+    await auth.canOrReject('config.set', Config.species);
+    return container.maybeOne(sql`
+      update field_data_google_sheet_syncs set status='Cancelled',
+        "completedAt"=clock_timestamp()
+      where id=${intParam(params.syncId)} and "webhookId"=${intParam(params.id)}
+        and status in ('Pending', 'Running') returning *`)
+      .then(getOrNotFound);
   }));
 
   service.patch('/field-data/webhooks/:id', endpoint(async (container, { params, body, auth }) => {

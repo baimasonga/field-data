@@ -114,6 +114,75 @@ distribution and at https://www.apache.org/licenses/LICENSE-2.0.
                 <p class="help-block">{{ $t('detail.secretHelp') }}</p>
               </div>
 
+              <section v-else class="sheet-recovery">
+                <div v-if="needsReauthorization(hook)" class="alert alert-danger" role="alert">
+                  {{ $t('sheet.reauthorization') }}
+                </div>
+                <div class="sheet-actions">
+                  <button type="button" class="btn btn-primary btn-xs"
+                    :aria-disabled="awaitingResponse" @click="startSync(hook)">
+                    {{ $t('action.syncNow') }}
+                  </button>
+                  <button type="button" class="btn btn-default btn-xs"
+                    @click="loadSyncs(hook)">
+                    {{ $t('action.refresh') }}
+                  </button>
+                  <button type="button" class="btn btn-default btn-xs"
+                    @click="showCredentials = !showCredentials">
+                    {{ $t('action.replaceCredentials') }}
+                  </button>
+                </div>
+
+                <form v-if="showCredentials" class="credential-form"
+                  @submit.prevent="replaceCredentials(hook)">
+                  <input v-model.trim="credentials.clientSecret" class="form-control"
+                    type="password" :placeholder="$t('field.clientSecret')"
+                    :aria-label="$t('field.clientSecret')" required>
+                  <input v-model.trim="credentials.refreshToken" class="form-control"
+                    type="password" :placeholder="$t('field.refreshToken')"
+                    :aria-label="$t('field.refreshToken')" required>
+                  <button type="submit" class="btn btn-primary btn-xs"
+                    :aria-disabled="awaitingResponse">
+                    {{ $t('action.saveCredentials') }}
+                  </button>
+                </form>
+
+                <div class="detail-label">{{ $t('sheet.history') }}</div>
+                <Loading :state="loadingSyncs"/>
+                <table v-show="!loadingSyncs && syncs.length > 0" class="table sync-table">
+                  <thead>
+                    <tr>
+                      <th>{{ $t('sheet.status') }}</th>
+                      <th>{{ $t('sheet.progress') }}</th>
+                      <th>{{ $t('sheet.results') }}</th>
+                      <th>{{ $t('header.actions') }}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr v-for="sync of syncs" :key="sync.id">
+                      <td>{{ sync.status }}</td>
+                      <td>{{ sync.processed }} / {{ sync.total }}</td>
+                      <td>{{ $t('sheet.counts', sync) }}</td>
+                      <td>
+                        <button v-if="sync.status === 'Partial' || sync.status === 'Failed'"
+                          type="button" class="btn btn-default btn-xs"
+                          @click="retrySync(hook, sync)">
+                          {{ $t('action.retryFailed') }}
+                        </button>
+                        <button v-if="sync.status === 'Pending' || sync.status === 'Running'"
+                          type="button" class="btn btn-default btn-xs"
+                          @click="cancelSync(hook, sync)">
+                          {{ $t('action.cancel') }}
+                        </button>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+                <p v-show="!loadingSyncs && syncs.length === 0" class="empty-table-message">
+                  {{ $t('sheet.noHistory') }}
+                </p>
+              </section>
+
               <div class="detail-label">{{ $t('detail.deliveries') }}</div>
               <loading :state="loadingDeliveries"/>
               <table v-show="!loadingDeliveries" class="table deliveries-table">
@@ -212,6 +281,10 @@ const formKey = form => JSON.stringify([form.projectId, form.xmlFormId]);
 const expandedId = ref(null);
 const deliveries = ref([]);
 const loadingDeliveries = ref(false);
+const syncs = ref([]);
+const loadingSyncs = ref(false);
+const showCredentials = ref(false);
+const credentials = reactive({ clientSecret: '', refreshToken: '' });
 const latestSecret = ref('');
 
 const create = () => {
@@ -233,7 +306,9 @@ const create = () => {
   })
     .then(({ data }) => {
       latestSecret.value = data.secret ?? '';
-      alert.success(t('alert.created', { name: newHook.name }));
+      alert.success(data.sync == null
+        ? t('alert.created', { name: newHook.name })
+        : t('alert.createdAndQueued', { name: newHook.name, count: data.sync.total }));
       newHook.name = '';
       newHook.url = '';
       newHook.events = '';
@@ -281,6 +356,16 @@ const del = (hook) => {
     .catch(noop);
 };
 
+const loadSyncs = (hook) => {
+  loadingSyncs.value = true;
+  return request({ method: 'GET', url: apiPaths.fieldDataWebhookSyncs(hook.id) })
+    .then(({ data }) => {
+      if (expandedId.value === hook.id) syncs.value = data;
+    })
+    .catch(noop)
+    .finally(() => { loadingSyncs.value = false; });
+};
+
 const toggleDetails = (hook) => {
   if (expandedId.value === hook.id) {
     expandedId.value = null;
@@ -288,6 +373,8 @@ const toggleDetails = (hook) => {
   }
   expandedId.value = hook.id;
   deliveries.value = [];
+  syncs.value = [];
+  showCredentials.value = false;
   loadingDeliveries.value = true;
   request({ method: 'GET', url: apiPaths.fieldDataWebhookDeliveries(hook.id) })
     .then(({ data }) => {
@@ -296,7 +383,56 @@ const toggleDetails = (hook) => {
     })
     .catch(noop)
     .finally(() => { loadingDeliveries.value = false; });
+  if (hook.target === 'google-sheets') loadSyncs(hook);
 };
+
+const needsReauthorization = hook =>
+  typeof hook.lastStatus === 'string' && hook.lastStatus.includes('Google authorization');
+
+const startSync = (hook) => {
+  // Backfill is intentionally explicit: it may write thousands of rows.
+  // eslint-disable-next-line no-alert
+  if (!window.confirm(t('sheet.confirmSync'))) return;
+  request({ method: 'POST', url: apiPaths.fieldDataWebhookSyncs(hook.id), data: {} })
+    .then(({ data }) => {
+      alert.success(t('alert.syncQueued', { count: data.total }));
+      loadSyncs(hook);
+    })
+    .catch(noop);
+};
+
+const retrySync = (hook, sync) => request({
+  method: 'POST', url: apiPaths.fieldDataWebhookSyncRetry(hook.id, sync.id), data: {}
+}).then(() => {
+  alert.success(t('alert.retryQueued'));
+  loadSyncs(hook);
+}).catch(noop);
+
+const cancelSync = (hook, sync) => request({
+  method: 'POST', url: apiPaths.fieldDataWebhookSyncCancel(hook.id, sync.id), data: {}
+}).then(() => loadSyncs(hook)).catch(noop);
+
+const replaceCredentials = (hook) => request({
+  method: 'PATCH',
+  url: apiPaths.fieldDataWebhook(hook.id),
+  data: {
+    config: {
+      spreadsheetId: hook.config.spreadsheetId,
+      sheetName: hook.config.sheetName,
+      clientId: hook.config.clientId,
+      clientSecret: credentials.clientSecret,
+      refreshToken: credentials.refreshToken,
+      syncUpdates: hook.config.syncUpdates === true,
+      sendExisting: false
+    }
+  }
+}).then(() => {
+  credentials.clientSecret = '';
+  credentials.refreshToken = '';
+  showCredentials.value = false;
+  alert.success(t('alert.credentialsReplaced'));
+  fetchData();
+}).catch(noop);
 </script>
 
 <i18n lang="json5">
@@ -310,7 +446,9 @@ const toggleDetails = (hook) => {
       "url": "URL (https://…)",
       "events": "Events (comma-separated)",
       "target": "Integration type",
-      "form": "Choose a Form"
+      "form": "Choose a Form",
+      "clientSecret": "New OAuth client secret",
+      "refreshToken": "New OAuth refresh token"
     },
     "action": {
       "add": "Add integration",
@@ -318,7 +456,13 @@ const toggleDetails = (hook) => {
       "details": "Details",
       "hide": "Hide",
       "rotateSecret": "Rotate secret",
-      "dismiss": "I saved it"
+      "dismiss": "I saved it",
+      "syncNow": "Sync existing submissions",
+      "refresh": "Refresh",
+      "retryFailed": "Retry failed",
+      "cancel": "Cancel",
+      "replaceCredentials": "Replace Google credentials",
+      "saveCredentials": "Save credentials"
     },
     "header": {
       "name": "Name",
@@ -337,8 +481,22 @@ const toggleDetails = (hook) => {
     "confirmDelete": "Are you sure you want to delete the integration “{name}”?",
     "alert": {
       "created": "Integration “{name}” has been created.",
+      "createdAndQueued": "Integration “{name}” was created and {count} existing submissions were queued.",
       "deleted": "Integration “{name}” has been deleted.",
-      "rotated": "The signing secret for “{name}” has been rotated."
+      "rotated": "The signing secret for “{name}” has been rotated.",
+      "syncQueued": "{count} submissions are queued for background synchronization.",
+      "retryQueued": "Failed rows have been queued again.",
+      "credentialsReplaced": "Google credentials have been replaced."
+    },
+    "sheet": {
+      "reauthorization": "Google authorization has expired. Replace the credentials, then retry the failed synchronization.",
+      "history": "Historical synchronization",
+      "status": "Status",
+      "progress": "Progress",
+      "results": "Results",
+      "counts": "{synced} new · {updated} updated · {failed} failed",
+      "noHistory": "No historical synchronization has been requested.",
+      "confirmSync": "Synchronize every current Submission to this worksheet? The work will continue in the background."
     },
     "detail": {
       "secret": "Signing secret",
@@ -400,5 +558,16 @@ const toggleDetails = (hook) => {
     code { word-break: break-all; }
   }
   .deliveries-table { margin-bottom: 5px; background-color: transparent; }
+  .sheet-recovery { margin-bottom: 18px; }
+  .sheet-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+  .credential-form {
+    align-items: center;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 12px;
+    .form-control { max-width: 320px; }
+  }
+  .sync-table { background-color: transparent; margin-bottom: 5px; }
 }
 </style>

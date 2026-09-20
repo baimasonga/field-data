@@ -273,6 +273,11 @@ export const apiPaths = {
   fieldDataWebhook: (id) => `/v1/field-data/webhooks/${id}`,
   fieldDataWebhookDeliveries: (id) => `/v1/field-data/webhooks/${id}/deliveries`,
   fieldDataWebhookRotateSecret: (id) => `/v1/field-data/webhooks/${id}/rotate-secret`,
+  fieldDataWebhookSyncs: (id) => `/v1/field-data/webhooks/${id}/syncs`,
+  fieldDataWebhookSyncRetry: (id, syncId) =>
+    `/v1/field-data/webhooks/${id}/syncs/${syncId}/retry`,
+  fieldDataWebhookSyncCancel: (id, syncId) =>
+    `/v1/field-data/webhooks/${id}/syncs/${syncId}/cancel`,
   fieldDataBackups: () => '/v1/field-data/backups',
   fieldDataBackupDownload: (id) => `/v1/field-data/backups/${id}/download`
 };
