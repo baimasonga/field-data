@@ -235,6 +235,18 @@ export const apiPaths = {
     `/v1/projects/${projectId}/merged-datasets/${id}${queryString(query)}`,
   mergedDatasetData: (projectId, id, query = undefined) =>
     `/v1/projects/${projectId}/merged-datasets/${id}/data${queryString(query)}`,
+  xlsReportSources: (projectId) => `/v1/projects/${projectId}/xls-report-sources`,
+  xlsReportTemplates: (projectId) => `/v1/projects/${projectId}/xls-report-templates`,
+  xlsReportTemplate: (projectId, id) =>
+    `/v1/projects/${projectId}/xls-report-templates/${id}`,
+  xlsReportTemplateDownload: (projectId, id) =>
+    `/v1/projects/${projectId}/xls-report-templates/${id}/download`,
+  xlsReportRuns: (projectId, id) =>
+    `/v1/projects/${projectId}/xls-report-templates/${id}/runs`,
+  xlsReportRunCancel: (projectId, id, runId) =>
+    `/v1/projects/${projectId}/xls-report-templates/${id}/runs/${runId}/cancel`,
+  xlsReportRunDownload: (projectId, id, runId) =>
+    `/v1/projects/${projectId}/xls-report-templates/${id}/runs/${runId}/download`,
   widgets: (projectId, query = undefined) =>
     `/v1/projects/${projectId}/widgets${queryString(query)}`,
   widget: (projectId, id, query = undefined) =>

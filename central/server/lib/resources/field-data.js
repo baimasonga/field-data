@@ -26,6 +26,9 @@ const { chartableFields } = require('../util/summary-fields');
 const { mergeFields, codingDivergence } = require('../util/merged-datasets');
 const { getTarget, normalizeConfig, redactConfig, sealConfig, describeTargets } = require('../util/rest-targets');
 const { normalizeOrganization, roleForOrganization, describeRoles } = require('../util/organizations');
+const { inspectTemplate, validateTemplate, MIME_TYPE,
+  MAX_TEMPLATE_BYTES } = require('../util/xls-reports');
+const { resolveReportSource } = require('../util/xls-report-data');
 
 const pingUrl = (urlStr) => new Promise((resolve) => {
   try {
@@ -244,6 +247,24 @@ const intParam = (value) => {
   if (!Number.isInteger(parsed)) throw Problem.user.notFound();
   return parsed;
 };
+
+const reportSourceColumns = (sourceType, sourceId) => {
+  const id = intParam(sourceId);
+  if (sourceType === 'form')
+    return { formId: id, filteredDatasetId: null, mergedDatasetId: null };
+  if (sourceType === 'filtered')
+    return { formId: null, filteredDatasetId: id, mergedDatasetId: null };
+  if (sourceType === 'merged')
+    return { formId: null, filteredDatasetId: null, mergedDatasetId: id };
+  throw Problem.user.unexpectedValue({
+    field: 'sourceType', value: sourceType,
+    reason: 'must be form, filtered, or merged'
+  });
+};
+
+const xlsProblem = (error) => Problem.user.unexpectedValue({
+  field: 'file', value: '[workbook]', reason: error.reason ?? 'could not read this workbook'
+});
 
 /*
 The system status block, which is the one part of the dashboard that does
@@ -1443,6 +1464,185 @@ module.exports = (service, endpoint) => {
         sourceForm: row.sourceForm, instanceId: row.instanceId, ...row.data
       }))
     };
+  }));
+
+  ////////////////////////////////////////////////////////////////////////////////
+  // XLS REPORTS
+  //
+  // Templates belong to one Project and exactly one data source. Project-level
+  // rights are intentional: a report can contain every row its source exposes,
+  // so it must never become a shortcut around submission.read.
+
+  const reportProject = async (container, projectId, auth, write = false) => {
+    const project = await container.Projects.getById(projectId).then(getOrNotFound);
+    await auth.canOrReject('project.read', project);
+    await auth.canOrReject('submission.list', project);
+    await auth.canOrReject('submission.read', project);
+    if (write) await auth.canOrReject('project.update', project);
+    return project;
+  };
+
+  const reportTemplate = (container, projectId, templateId) => container.maybeOne(sql`
+    select * from field_data_xls_report_templates
+    where id=${intParam(templateId)} and "projectId"=${intParam(projectId)}`);
+
+  const publicReportTemplates = async (db, projectId) => {
+    const templates = await db.any(sql`
+      select t.id, t.name, t.filename, t."sizeBytes", t.placeholders,
+        t."formId", t."filteredDatasetId", t."mergedDatasetId",
+        t."createdAt", t."updatedAt",
+        coalesce(fd.name, f."xmlFormId", filtered.name, merged.name) as "sourceName",
+        case when t."formId" is not null then 'form'
+          when t."filteredDatasetId" is not null then 'filtered' else 'merged' end as "sourceType"
+      from field_data_xls_report_templates t
+      left join forms f on f.id=t."formId"
+      left join form_defs fd on fd.id=f."currentDefId"
+      left join field_data_filtered_datasets filtered on filtered.id=t."filteredDatasetId"
+      left join field_data_merged_datasets merged on merged.id=t."mergedDatasetId"
+      where t."projectId"=${projectId}
+      order by t."createdAt" desc`);
+    if (templates.length === 0) return [];
+    const runs = await db.any(sql`
+      select id, "templateId", status, "sizeBytes", "rowCount", error,
+        "createdAt", "startedAt", "completedAt", downloadable
+      from (
+        select id, "templateId", status, "sizeBytes", "rowCount", error,
+          "createdAt", "startedAt", "completedAt",
+          (status='Success' and "storageKey" is not null) as downloadable,
+          row_number() over (partition by "templateId" order by "createdAt" desc) as position
+        from field_data_xls_report_runs
+        where "templateId" in (${sql.join(templates.map(row => row.id), sql`,`)})
+      ) ranked where position <= 10
+      order by "createdAt" desc`);
+    return templates.map(template => ({
+      ...template,
+      runs: runs.filter(run => run.templateId === template.id)
+    }));
+  };
+
+  service.get('/projects/:projectId/xls-report-sources', endpoint(async (container, { params, auth }) => {
+    const project = await reportProject(container, params.projectId, auth);
+    const [forms, filtered, merged] = await Promise.all([
+      container.db.any(sql`
+        select f.id, coalesce(fd.name, f."xmlFormId") as name, f."xmlFormId"
+        from forms f left join form_defs fd on fd.id=f."currentDefId"
+        where f."projectId"=${project.id} and f."deletedAt" is null
+          and f."currentDefId" is not null order by name`),
+      container.db.any(sql`
+        select id, name from field_data_filtered_datasets
+        where "projectId"=${project.id} order by name`),
+      container.db.any(sql`
+        select id, name from field_data_merged_datasets
+        where "projectId"=${project.id} order by name`)
+    ]);
+    return { forms, filtered, merged };
+  }));
+
+  service.get('/projects/:projectId/xls-report-templates', endpoint(async (container, { params, auth }) => {
+    const project = await reportProject(container, params.projectId, auth);
+    return publicReportTemplates(container.db, project.id);
+  }));
+
+  service.post('/projects/:projectId/xls-report-templates', upload.single('file'), uploadErrorHandler,
+    endpoint(async (container, { params, auth }, request) => {
+      const project = await reportProject(container, params.projectId, auth, true);
+      const { file } = request;
+      if (file == null) return reject(Problem.user.missingMultipartField({ field: 'file' }));
+      if (file.size > MAX_TEMPLATE_BYTES || path.extname(file.originalname).toLowerCase() !== '.xlsx')
+        return reject(Problem.user.unexpectedValue({
+          field: 'file', value: file.originalname,
+          reason: 'choose an .xlsx workbook no larger than 10 MB'
+        }));
+
+      const name = String(request.body?.name ?? '').trim().slice(0, 255);
+      if (name === '') throw Problem.user.missingParameter({ field: 'name' });
+      const columns = reportSourceColumns(request.body?.sourceType, request.body?.sourceId);
+      const source = await resolveReportSource(container.db, { projectId: project.id, ...columns });
+      if (source == null) return reject(Problem.user.notFound());
+      let inspection;
+      try {
+        inspection = validateTemplate(await inspectTemplate(file.buffer), source.fields);
+      } catch (error) {
+        return reject(xlsProblem(error));
+      }
+
+      const storageKey = `xls-reports/templates/${crypto.randomUUID()}.xlsx`;
+      await storage.putBuffer(storageKey, file.buffer, { 'Content-Type': MIME_TYPE });
+      try {
+        await container.db.one(sql`
+          insert into field_data_xls_report_templates
+            (name, "projectId", "formId", "filteredDatasetId", "mergedDatasetId",
+              "storageKey", filename, "sizeBytes", placeholders, "createdBy")
+          values (${name}, ${project.id}, ${columns.formId}, ${columns.filteredDatasetId},
+            ${columns.mergedDatasetId}, ${storageKey}, ${path.basename(file.originalname)},
+            ${file.size}, ${JSON.stringify(inspection.placeholders.map(row => row.token))},
+            ${auth.actor.map(actor => actor.id).orNull()}) returning id`);
+      } catch (error) {
+        await storage.delete(storageKey);
+        throw error;
+      }
+      return publicReportTemplates(container.db, project.id);
+    }));
+
+  service.get('/projects/:projectId/xls-report-templates/:id/download', endpoint(async (container, { params, auth }, _, response) => {
+    await reportProject(container, params.projectId, auth);
+    const template = await reportTemplate(container, params.projectId, params.id).then(getOrNotFound);
+    response.set('Content-Disposition', contentDisposition(template.filename));
+    response.set('Content-Type', MIME_TYPE);
+    return storage.getStream(template.storageKey);
+  }));
+
+  service.delete('/projects/:projectId/xls-report-templates/:id', endpoint(async (container, { params, auth }) => {
+    await reportProject(container, params.projectId, auth, true);
+    const template = await reportTemplate(container, params.projectId, params.id).then(getOrNotFound);
+    const keys = await container.db.any(sql`
+      select "storageKey" from field_data_xls_report_runs
+      where "templateId"=${template.id} and "storageKey" is not null`);
+    await storage.delete(template.storageKey);
+    for (const row of keys) {
+      // eslint-disable-next-line no-await-in-loop
+      await storage.delete(row.storageKey);
+    }
+    await container.db.query(sql`
+      delete from field_data_xls_report_templates where id=${template.id}`);
+    return success();
+  }));
+
+  service.post('/projects/:projectId/xls-report-templates/:id/runs', endpoint(async (container, { params, auth }, _, response) => {
+    await reportProject(container, params.projectId, auth);
+    const template = await reportTemplate(container, params.projectId, params.id).then(getOrNotFound);
+    await container.db.query(sql`select pg_advisory_xact_lock(74126, ${template.id})`);
+    const existing = await container.db.maybeOne(sql`
+      select * from field_data_xls_report_runs
+      where "templateId"=${template.id} and status in ('Pending', 'Running')
+      order by id desc limit 1`);
+    response.status(202);
+    if (existing != null) return existing;
+    return container.db.one(sql`
+      insert into field_data_xls_report_runs ("templateId", "requestedBy")
+      values (${template.id}, ${auth.actor.map(actor => actor.id).orNull()}) returning *`);
+  }));
+
+  service.post('/projects/:projectId/xls-report-templates/:id/runs/:runId/cancel', endpoint(async (container, { params, auth }) => {
+    await reportProject(container, params.projectId, auth);
+    const template = await reportTemplate(container, params.projectId, params.id).then(getOrNotFound);
+    return container.db.maybeOne(sql`
+      update field_data_xls_report_runs set status='Cancelled', "completedAt"=clock_timestamp()
+      where id=${intParam(params.runId)} and "templateId"=${template.id}
+        and status in ('Pending', 'Running') returning *`).then(getOrNotFound);
+  }));
+
+  service.get('/projects/:projectId/xls-report-templates/:id/runs/:runId/download', endpoint(async (container, { params, auth }, _, response) => {
+    await reportProject(container, params.projectId, auth);
+    const template = await reportTemplate(container, params.projectId, params.id).then(getOrNotFound);
+    const run = await container.db.maybeOne(sql`
+      select * from field_data_xls_report_runs
+      where id=${intParam(params.runId)} and "templateId"=${template.id}
+        and status='Success' and "storageKey" is not null`).then(getOrNotFound);
+    const base = path.basename(template.filename, '.xlsx').replace(/[^A-Za-z0-9_.-]+/g, '-');
+    response.set('Content-Disposition', contentDisposition(`${base}-report-${run.id}.xlsx`));
+    response.set('Content-Type', MIME_TYPE);
+    return storage.getStream(run.storageKey);
   }));
 
   ////////////////////////////////////////////////////////////////////////////////

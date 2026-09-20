@@ -204,6 +204,10 @@ const loaders = new Map()
     /* webpackChunkName: "component-project-merged-datasets" */
     '../components/project/merged-datasets.vue'
   )))
+  .set('ProjectXlsReports', loader(() => import(
+    /* webpackChunkName: "component-project-xls-reports" */
+    '../components/project/xls-reports.vue'
+  )))
   .set('FieldDataOrganizations', loader(() => import(
     /* webpackChunkName: "component-field-data-organizations" */
     '../components/field-data/organizations.vue'

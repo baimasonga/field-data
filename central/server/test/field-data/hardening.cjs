@@ -28,6 +28,24 @@ test('historical Sheet synchronization is bounded to a small resumable batch', (
   assert.match(migration, /WHERE status IN \('Pending', 'Running'\)/);
 });
 
+test('XLS reports have one source, one active run, and bounded output', () => {
+  const migration = fs.readFileSync(path.join(__dirname,
+    '../../lib/model/migrations/20260920-08-add-xls-reports.js'), 'utf8');
+  assert.match(migration,
+    /num_nonnulls\("formId", "filteredDatasetId", "mergedDatasetId"\) = 1/);
+  assert.match(migration, /WHERE status IN \('Pending', 'Running'\)/);
+
+  const reports = require('../../lib/util/xls-reports');
+  assert.ok(reports.MAX_TEMPLATE_BYTES <= 10 * 1024 * 1024);
+  assert.ok(reports.MAX_REPORT_ROWS > 0 && reports.MAX_REPORT_ROWS <= 10000);
+
+  const resource = fs.readFileSync(path.join(__dirname,
+    '../../lib/resources/field-data.js'), 'utf8');
+  assert.match(resource,
+    /const reportProject[\s\S]*?'project\.read'[\s\S]*?'submission\.list'[\s\S]*?'submission\.read'/);
+  assert.match(resource, /if \(write\) await auth\.canOrReject\('project\.update'/);
+});
+
 test('rejects private addresses in dotted, compressed and expanded mapped IPv6', async () => {
   for (const ip of ['127.0.0.1', '10.1.2.3', '::1', '::ffff:127.0.0.1',
     '::ffff:7f00:1', '0:0:0:0:0:ffff:0a00:0001', '::ffff:a9fe:a9fe']) {
