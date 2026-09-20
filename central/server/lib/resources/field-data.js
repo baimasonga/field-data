@@ -140,9 +140,11 @@ const summarizeForm = async (db, formId) => {
       order by ff.path, ff."order" desc
     ),
     current_defs as (
+      -- The current version of a submission is the submission_defs row flagged
+      -- current; submissions has no currentDefId column.
       select sd.id, sd.xml
       from submissions s
-      join submission_defs sd on sd.id = s."currentDefId"
+      join submission_defs sd on sd."submissionId" = s.id and sd.current = true
       where s."formId" = ${formId} and s."deletedAt" is null and s.draft = false
     ),
     answered as (
@@ -228,9 +230,13 @@ module.exports = (service, endpoint) => {
     // for offline work can be days later and is never used as a capture time.
     const rows = await db.any(sql`
       with live as (
+        -- A submission has no currentDefId column; the current version is the
+        -- submission_defs row flagged current. Everything below joins through
+        -- that def, so it is resolved once here.
         select s.id, s."instanceId", s."createdAt", s."submitterId",
-               s."deviceId", s."reviewState", s."currentDefId"
+               s."deviceId", s."reviewState", sd.id as "currentDefId"
         from submissions s
+        join submission_defs sd on sd."submissionId" = s.id and sd.current = true
         where s."formId" = ${formId} and s."deletedAt" is null and s.draft = false
       ),
       device_time as (
@@ -517,11 +523,20 @@ module.exports = (service, endpoint) => {
     // Which forms the submissions came from. A form nobody has used does not
     // appear: a row of zero tells a reader nothing they cannot see from the
     // forms list, and it would push the forms that are working off the chart.
+    // Not ${live}: this one needs the form's title, which lives on the form's
+    // current definition rather than on the form row -- forms.name was dropped
+    // in 20210423-02. Left joined so a form without a published definition
+    // still appears, falling back to its id.
     const byForm = await db.any(sql`
-      select f."xmlFormId" as "xmlFormId", coalesce(f.name, f."xmlFormId") as name,
+      select f."xmlFormId" as "xmlFormId",
+             coalesce(fd.name, f."xmlFormId") as name,
              count(*)::integer as count
-      ${live}
-      group by f."xmlFormId", f.name
+      from submissions s
+      join forms f on f.id = s."formId"
+      left join form_defs fd on fd.id = f."currentDefId"
+      where f."projectId" = ${project.id} and f."deletedAt" is null
+        and s."deletedAt" is null and s.draft = false
+      group by f."xmlFormId", fd.name
       order by count(*) desc`);
 
     return { ...totals, forms, overTime, reviewStates, byForm };
@@ -616,9 +631,12 @@ module.exports = (service, endpoint) => {
     if (!/^[A-Za-z0-9_-]{43}$/.test(token)) return reject(Problem.user.notFound());
 
     const share = await container.db.maybeOne(sql`
-      select d.*, f."xmlFormId", f.name as "formName", p.name as "projectName"
+      select d.*, f."xmlFormId", coalesce(fd.name, f."xmlFormId") as "formName",
+             p.name as "projectName"
       from field_data_dashboards d
       join forms f on f.id = d."formId"
+      -- The title is on the current definition; forms.name no longer exists.
+      left join form_defs fd on fd.id = f."currentDefId"
       join projects p on p.id = d."projectId"
       where d."tokenSha" = ${tokenSha(token)}
         and d."revokedAt" is null
@@ -670,7 +688,7 @@ module.exports = (service, endpoint) => {
 
     const images = sql`
       from submissions s
-      join submission_defs sd on sd.id = s."currentDefId"
+      join submission_defs sd on sd."submissionId" = s.id and sd.current = true
       join submission_attachments sa on sa."submissionDefId" = sd.id
       join blobs b on b.id = sa."blobId"
       left join actors on actors.id = s."submitterId"

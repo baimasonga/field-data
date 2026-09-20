@@ -104,6 +104,31 @@ test('dashboard submission queries exclude projects without both read and list p
     query.sql.includes('form_defs.id = forms."currentDefId"')).length, 2);
 });
 
+// Three separate 500s shipped because a query named a column that the schema
+// does not have, and none of them could fail until a real database saw them.
+// A source scan is crude, but it catches the whole class in the one file where
+// this project writes raw SQL, and it costs nothing to run.
+test('field-data queries do not name columns the schema dropped or never had', () => {
+  // Comments in that file explain these very mistakes, so strip both comment
+  // styles before scanning or the explanation trips the test.
+  const source = fs.readFileSync(
+    path.join(__dirname, '..', '..', 'lib', 'resources', 'field-data.js'), 'utf8')
+    .split('\n')
+    .filter(line => !/^\s*(\/\/|--)/.test(line))
+    .join('\n');
+
+  // forms.name was dropped in migration 20210423-02. A form's title lives on
+  // its current definition, so these have to go through form_defs.
+  const formsName = source.match(/\b(?:forms|f)\.name\b/g) || [];
+  assert.deepEqual(formsName, [], `forms has no name column: ${formsName.join(', ')}`);
+
+  // submissions has no currentDefId. The current version of a submission is
+  // the submission_defs row flagged current.
+  const submissionDef = source.match(/\bs\."currentDefId"/g) || [];
+  assert.deepEqual(submissionDef, [],
+    `submissions has no currentDefId; join submission_defs on current = true`);
+});
+
 test('backup routes require backup.run rather than project creation rights', async () => {
   for (const route of ['get /field-data/backups', 'post /field-data/backups', 'get /field-data/backups/:id/download']) {
     await assert.rejects(routes.get(route)({}, { auth: { canOrReject: async verb => {
