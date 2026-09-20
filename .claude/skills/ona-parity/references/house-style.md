@@ -84,6 +84,19 @@ border: 1px solid #e9e9f1;   // gradient --gray-150
 
 ## Gotchas that have already cost time here
 
+- `forms` has no `name` column (dropped in `20210423-02`); the title is on
+  `form_defs`. `submissions` has no `currentDefId` either — the current
+  version is the `submission_defs` row flagged `current`. `form_fields` keys
+  on `schemaId`, not `formDefId`, so join through `form_defs.schemaId`.
+  `test/field-data/hardening.cjs` guards all three.
+- Icon classes must exist in `apps/central/src/assets/css/icomoon.css`.
+  `icon-arrow-up` and `icon-arrow-down` do **not**; `icon-angle-up` and
+  `icon-angle-down` do. A missing one renders an empty span, so the control
+  is invisible rather than broken — only a render catches it.
+- `chart/bars.vue` shows a share column. That reads naturally for counts and
+  is nonsense for averages, so pass `:show-share="false"` for anything
+  aggregated.
+
 - `[class^="icon-"]` selectors need the icon class **first** in the
   attribute, or you get tofu.
 - `app.scss` styles `dl > *` with a bottom rule and block padding. A `<dl>`

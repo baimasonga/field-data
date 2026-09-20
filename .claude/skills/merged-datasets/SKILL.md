@@ -39,13 +39,25 @@ Two forms both have a `district` field. Are they the same field?
   quietly wrong. Exclude it and say why.
 - **Same path, same type, different choice lists** — the hardest case. `1`
   meaning "yes" in one form and "male" in the other will merge without
-  complaint and produce nonsense. You cannot detect intent, but you can
-  detect *divergent choice lists for the same path* and warn.
+  complaint and produce nonsense. **You cannot detect this from the schema.**
+  ODK stores no queryable choice list; choices live in the secondary
+  instances of the form XML. An earlier version of this skill said to detect
+  divergent choice lists and warn, which the data does not support — the
+  implementation in `lib/util/merged-datasets.js` does the honest thing
+  instead and compares the values submissions actually carry, surfacing paths
+  where two forms share no vocabulary at all. That is evidence, not proof, in
+  both directions: forms can legitimately share no values (different
+  districts, different rounds), and a real coding clash can still overlap. So
+  it is shown to a person, never used to exclude a field automatically.
+- **Same path, same type, one takes several answers** — a select-multiple in
+  one form and a single select in the other is not the same question. This
+  one *is* detectable: `form_fields.selectMultiple`.
 - **Different path, obviously the same question** — do not guess. Field
   mapping is a feature somebody must do deliberately, not something to infer
   from labels.
 
-So the merge is an intersection over `(path, type)` from `form_fields`, and
+So the merge is an intersection over `(path, type, selectMultiple)` from
+`form_fields`, and
 the interesting output is not just the merged field list but **what was left
 out and why**. Return that. A merged dataset that says "18 fields merged, 4
 excluded: `hh_income` differs in type, `consent` has divergent choice lists…"
