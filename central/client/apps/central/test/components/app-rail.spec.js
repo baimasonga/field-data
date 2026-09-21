@@ -28,7 +28,7 @@ describe('AppRail', () => {
       .map(link => link.props().to);
     // Administration leads to the first of its own destinations. Those are
     // listed under it only while the section is open, which it is not here.
-    to.should.eql(['/', '/projects', '/forms', '/submissions',
+    to.should.eql(['/', '/projects', '/forms', '/submissions', '/maps',
       '/field-data/media', '/users']);
   });
 
@@ -42,7 +42,7 @@ describe('AppRail', () => {
     // administration destination anybody can open, and the section leads
     // there rather than disappearing.
     component.findAllComponents(RouterLinkStub).map(link => link.props().to)
-      .should.eql(['/', '/projects', '/forms', '/submissions',
+      .should.eql(['/', '/projects', '/forms', '/submissions', '/maps',
         '/field-data/organizations']);
   });
 
@@ -66,6 +66,7 @@ describe('AppRail', () => {
       ['/projects/1/forms/f/submissions', '/projects'],
       ['/forms', '/forms'],
       ['/submissions', '/submissions'],
+      ['/maps', '/maps'],
       ['/field-data/media', '/field-data/media']
     ];
     for (const [location, activeLink] of cases) {

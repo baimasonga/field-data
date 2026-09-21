@@ -227,9 +227,40 @@ the one administration destination anybody can open, exactly as it was under
 the old Field Data menu, and the section leads there for a user with no
 sitewide role rather than disappearing.
 
+## Maps across every Project
+
+A Form's own map answers the question one Form at a time, which is no help
+when the question is which district has gone quiet. `/v1/field-data/map`
+returns one GeoJSON collection across every Project the caller can see, and
+`/maps` draws it with the same `GeojsonMap` component the per-Form map uses.
+
+The geometry comes from `GeoExtracts.getSubmissionFeatureCollectionGeoJson`,
+the query behind the per-Form map, called once per Form and merged --
+deliberately not a second reading of the submission XML. That extraction knows
+about repeat groups, edit lineages and its own cache, and a reimplementation
+would have quietly disagreed with the map people already trust. Each feature
+carries its Project and Form in `properties` so the page can label and link it.
+
+Only Forms with a default geo field and at least one Submission are queried:
+asking about the rest costs a query each and returns an empty collection. Both
+the feature count and the number of Forms queried are bounded, and the page
+says "Showing the first N" when it filled that budget -- a map that has drawn
+part of the data looks exactly like one that has drawn all of it.
+
+Verified against 240 seeded Submissions carrying real coordinates across ten
+Sierra Leone districts: 240 features with correct lon/lat ordering, the
+Project and Form filters narrowing them, the limit capping them, a
+Project-scoped viewer and an organization member seeing none of them, and an
+anonymous request getting 401. In the browser the points cluster by district;
+the basemap tiles are blank here only because this sandbox's proxy blocks the
+tile server.
+
+The first version reported `truncated: false` when a single Form filled the
+whole budget, because it only noticed truncation between Forms. It now reports
+truncation whenever the budget is full, wherever that happened.
+
 ## Known gaps
 
-- There is no cross-project Maps page, so the rail does not offer one.
 - Administration is a link to the audit log rather than a section gathering
   Organizations, Backups, Configuration and Analytics.
 - Strings added here are English only; the ten other locales fall back.

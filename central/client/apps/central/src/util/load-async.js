@@ -180,6 +180,10 @@ const loaders = new Map()
     /* webpackChunkName: "component-submissions-page" */
     '../components/submissions.vue'
   )))
+  .set('MapsPage', loader(() => import(
+    /* webpackChunkName: "component-maps-page" */
+    '../components/maps.vue'
+  )))
   .set('ProjectsPage', loader(() => import(
     /* webpackChunkName: "component-projects-page" */
     '../components/projects.vue'

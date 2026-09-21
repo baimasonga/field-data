@@ -45,6 +45,7 @@ const SECTIONS = [
   { path: '/projects', labelKey: 'resource.projects', icon: 'icon-folder-open' },
   { path: '/forms', labelKey: 'resource.forms', icon: 'icon-file-text' },
   { path: '/submissions', labelKey: 'resource.submissions', icon: 'icon-database' },
+  { path: '/maps', labelKey: 'fieldDataHome.tab.maps', icon: 'icon-map-marker' },
   { path: '/field-data/media', labelKey: 'nav.media', icon: 'icon-image', gated: true }
 ];
 

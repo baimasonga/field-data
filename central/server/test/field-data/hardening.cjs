@@ -1508,7 +1508,7 @@ test('the cross-project listings are filtered by permission, not by hope', () =>
   // between one organization and another's data is the join to `visible`.
   // Deleting it would still return rows, and every test that only checks the
   // shape of a response would still pass.
-  for (const route of ['/field-data/forms', '/field-data/submissions']) {
+  for (const route of ['/field-data/forms', '/field-data/submissions', '/field-data/map']) {
     const start = resource.indexOf(`service.get('${route}'`);
     assert.ok(start !== -1, `${route} is missing`);
     const body = resource.slice(start, resource.indexOf('service.', start + 20));
@@ -1561,4 +1561,31 @@ test('the project listing walks the actee chain rather than matching it flatly',
     'the project listing no longer walks the actee chain');
   assert.match(projects, /@> array\['project\.read', 'form\.list'\]/,
     'the listing no longer requires the verbs it used to');
+});
+
+test('the cross-project map reads geometry through GeoExtracts', () => {
+  const resource = fs.readFileSync(
+    path.join(__dirname, '../../lib/resources/field-data.js'), 'utf8');
+  const start = resource.indexOf("service.get('/field-data/map'");
+  assert.ok(start !== -1, 'the map endpoint is missing');
+  const body = resource.slice(start, resource.indexOf('service.', start + 20));
+
+  // The per-Form map's extraction knows about repeat groups, edit lineages
+  // and its own cache. A second reading of the submission XML here would
+  // quietly disagree with the map people already trust.
+  assert.match(body, /GeoExtracts\.getSubmissionFeatureCollectionGeoJson/,
+    'the map endpoint extracts geometry itself');
+  assert.doesNotMatch(body, /submission_defs/,
+    'the map endpoint reads submission XML directly');
+
+  // A map the browser has to draw: the page size is bounded whatever the
+  // caller asks for, and so is the number of Forms queried.
+  assert.match(body, /Math\.min\(\s*Math\.max\(intParam\(query\.limit/,
+    'the feature count is not clamped');
+  assert.match(body, /limit \$\{MAP_MAX_FORMS\}/,
+    'the number of Forms queried is not bounded');
+  // Only Forms that have somewhere to put a coordinate: asking about the rest
+  // costs a query each and returns nothing.
+  assert.match(body, /form_field_geo/,
+    'the map endpoint queries Forms with no geo field');
 });

@@ -64,6 +64,8 @@
       "dashboard": "Dashboard",
       "media": "Media Library",
       "integrations": "Integrations",
+      // A page showing where collection is happening across every Project.
+      "maps": "Maps",
       "backups": "Backups"
     }
   },

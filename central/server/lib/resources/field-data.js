@@ -245,6 +245,11 @@ const summarizeForm = async (db, formId, { minValueCount = 1 } = {}) => {
 // reaches Postgres as one, and "abc" comes back a 500 rather than the 404 the
 // route means. Throws the Problem rather than returning it, so it can be used
 // inline in a query template.
+// A map the browser has to draw, so the page size is about what a map can
+// usefully show rather than about what the database can return.
+const MAP_MAX_FEATURES = 2000;
+const MAP_MAX_FORMS = 100;
+
 const intParam = (value) => {
   const parsed = Number.parseInt(value, 10);
   if (!Number.isInteger(parsed)) throw Problem.user.notFound();
@@ -2324,6 +2329,85 @@ module.exports = (service, endpoint) => {
       order by s."createdAt" desc, s.id desc
       limit ${limit} offset ${offset}`);
     return { total, limit, offset, submissions };
+  }));
+
+  // Where collection is happening, across every Project at once. The per-Form
+  // map answers this one Form at a time, which is no help when the question is
+  // which district has gone quiet.
+  //
+  // The geometry comes from GeoExtracts, the same query the per-Form map uses,
+  // rather than a second reading of the submission XML: the extraction knows
+  // about repeat groups, edit lineages and its own cache, and a reimplementation
+  // here would quietly disagree with the map people already trust.
+  service.get('/field-data/map', endpoint(async (container, { auth, query }) => {
+    const limit = Math.min(
+      Math.max(intParam(query.limit ?? String(MAP_MAX_FEATURES)), 1),
+      MAP_MAX_FEATURES
+    );
+
+    const conditions = [sql`f."deletedAt" is null`];
+    if (query.projectId != null)
+      conditions.push(sql`p.id = ${intParam(query.projectId)}`);
+    if (query.xmlFormId != null)
+      conditions.push(sql`f."xmlFormId" = ${query.xmlFormId}`);
+
+    // Only Forms that have a default geo field and at least one Submission:
+    // asking GeoExtracts about the rest returns an empty collection at the
+    // cost of a query each.
+    const forms = await container.db.any(sql`
+      ${visibleProjects(actorIdOf(auth),
+    ['project.read', 'form.list', 'submission.list', 'submission.read'])}
+      select f.id, f."xmlFormId", coalesce(fd.name, f."xmlFormId") as "formName",
+        p.id as "projectId", p.name as "projectName",
+        count(s.*)::integer as submissions,
+        max(s."createdAt") as "lastSubmission"
+      from forms f
+      join visible on visible.id = f."projectId"
+      join projects p on p.id = f."projectId"
+      join form_defs fd on fd.id = f."currentDefId"
+      join submissions s on s."formId" = f.id
+        and s."deletedAt" is null and s.draft = false
+      where ${sql.join(conditions, sql` and `)}
+        and exists (
+          select 1 from form_field_geo g
+          where g.formschema_id = fd."schemaId" and g.is_default
+        )
+      group by f.id, f."xmlFormId", fd.name, p.id, p.name
+      order by max(s."createdAt") desc
+      limit ${MAP_MAX_FORMS}`);
+
+    const features = [];
+    for (const form of forms) {
+      if (features.length >= limit) break;
+      // Deliberately serial: each Form's budget is what the ones before it
+      // left, so there is nothing to run in parallel.
+      // eslint-disable-next-line no-await-in-loop
+      const collection = await container.GeoExtracts.getSubmissionFeatureCollectionGeoJson(
+        form.id, query.$filter ?? null, [], limit - features.length
+      );
+      for (const feature of JSON.parse(collection).features) {
+        features.push({
+          ...feature,
+          properties: {
+            ...(feature.properties ?? {}),
+            projectId: form.projectId,
+            projectName: form.projectName,
+            xmlFormId: form.xmlFormId,
+            formName: form.formName
+          }
+        });
+      }
+    }
+
+    return {
+      type: 'FeatureCollection',
+      features: features.slice(0, limit),
+      // Filling the budget means there may be more, whether that happened
+      // across several Forms or inside one: the page says it is showing the
+      // first so many rather than implying it has drawn everything.
+      truncated: features.length >= limit,
+      forms: forms.map(({ id, ...rest }) => rest)
+    };
   }));
 
   ////////////////////////////////////////////////////////////////////////////////

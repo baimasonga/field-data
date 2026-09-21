@@ -280,6 +280,9 @@ export const apiPaths = {
   fieldDataForms: () => '/v1/field-data/forms',
   fieldDataSubmissions: (query = undefined) =>
     `/v1/field-data/submissions${queryString(query)}`,
+  // Located Submissions across every Project, as one GeoJSON collection.
+  fieldDataMap: (query = undefined) =>
+    `/v1/field-data/map${queryString(query)}`,
   fieldDataStats: () => '/v1/field-data/stats',
   fieldDataMedia: () => '/v1/field-data/media',
   fieldDataMediaItem: (id) => `/v1/field-data/media/${id}`,

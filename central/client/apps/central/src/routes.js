@@ -318,6 +318,15 @@ const routes = [
     }
   }),
   asyncRoute({
+    path: '/maps',
+    component: 'MapsPage',
+    loading: 'page',
+    meta: {
+      title: () => [i18n.t('fieldDataHome.tab.maps')],
+      fullWidth: true
+    }
+  }),
+  asyncRoute({
     path: '/submissions',
     component: 'SubmissionsPage',
     loading: 'page',
