@@ -305,7 +305,8 @@ const routes = [
     component: 'Home',
     loading: 'page',
     meta: {
-      title: () => [i18n.t('resource.projects')]
+      title: () => [i18n.t('fieldDataHome.tab.dashboard')],
+      fullWidth: true
     }
   }),
   asyncRoute({
