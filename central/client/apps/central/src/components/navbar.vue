@@ -116,6 +116,10 @@ export default {
     height: var(--space-16);
     letter-spacing: var(--tracking-title);
     padding-inline: 0;
+    // Eight destinations crowd the bar; without this the product name is the
+    // thing that wraps, which looks like a rendering fault rather than a
+    // narrow window.
+    white-space: nowrap;
 
     &, &:hover, &:focus { color: var(--gray-0); }
     &:focus { background-color: transparent; text-decoration: none; }

@@ -1499,3 +1499,48 @@ test('an expired refresh token is reported as that, and not retried', async () =
     http.globalAgent.destroy(); http.globalAgent = previousAgent; await google.close();
   }
 });
+
+test('the cross-project listings are filtered by permission, not by hope', () => {
+  const resource = fs.readFileSync(
+    path.join(__dirname, '../../lib/resources/field-data.js'), 'utf8');
+
+  // Both listings read across every project, so the only thing standing
+  // between one organization and another's data is the join to `visible`.
+  // Deleting it would still return rows, and every test that only checks the
+  // shape of a response would still pass.
+  for (const route of ['/field-data/forms', '/field-data/submissions']) {
+    const start = resource.indexOf(`service.get('${route}'`);
+    assert.ok(start !== -1, `${route} is missing`);
+    const body = resource.slice(start, resource.indexOf('service.', start + 20));
+    assert.match(body, /visibleProjects\(actorIdOf\(auth\)/,
+      `${route} does not scope to the projects the actor can see`);
+    assert.match(body, /join visible on visible\.id = f\."projectId"/,
+      `${route} does not join the visible-project filter`);
+    assert.match(body, /'project\.read'/, `${route} does not require project.read`);
+  }
+
+  const crossProject = fs.readFileSync(
+    path.join(__dirname, '../../lib/util/cross-project.js'), 'utf8');
+  // The walk up actees.parent is what makes a grant on an organization reach
+  // its projects; a flat match on projects."acteeId" shows an organization
+  // member nothing. See test/db/cross-project-visibility.sql.
+  assert.match(crossProject, /unnest\(ARRAY\[actees\.parent, actees\.species\]\)/);
+  // Containment, not overlap: one role supplying project.read must not let a
+  // listing through that also needs submission.read.
+  assert.match(crossProject, /array_agg\(distinct granted\.verb\) @>/);
+  // An unauthenticated request must match no project rather than every one.
+  assert.match(crossProject, /orElse\(-1\)/);
+});
+
+test('the submission listing cannot be asked for an unbounded page', () => {
+  const resource = fs.readFileSync(
+    path.join(__dirname, '../../lib/resources/field-data.js'), 'utf8');
+  const start = resource.indexOf("service.get('/field-data/submissions'");
+  const body = resource.slice(start, resource.indexOf('service.', start + 20));
+  const cap = /Math\.min\(Math\.max\(intParam\(query\.limit \?\? '(\d+)'\), 1\), (\d+)\)/.exec(body);
+  assert.ok(cap != null, 'the page size is not clamped');
+  assert.ok(Number(cap[1]) <= 500 && Number(cap[2]) <= 500,
+    'a caller could ask for more rows than the server should serialise at once');
+  assert.match(body, /offset = Math\.max\(intParam\(query\.offset \?\? '0'\), 0\)/,
+    'a negative offset would reach past the start of the result set');
+});

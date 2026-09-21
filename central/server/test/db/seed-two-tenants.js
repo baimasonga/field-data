@@ -12,7 +12,15 @@
 const crypto = require('crypto');
 const { Client } = require('pg');
 
-const db = new Client({ host: '/var/tmp', port: 55432, user: 'postgres', database: 'odktest' });
+// Defaults match the repository's own throwaway cluster; the environment
+// overrides let the same seed run against any database a checkout has.
+const db = new Client({
+  host: process.env.PGHOST ?? '/var/tmp',
+  port: Number(process.env.PGPORT ?? 55432),
+  user: process.env.PGUSER ?? 'postgres',
+  password: process.env.PGPASSWORD,
+  database: process.env.PGDATABASE ?? 'odktest'
+});
 
 const one = async (text, values) => (await db.query(text, values)).rows[0];
 
@@ -35,7 +43,10 @@ const person = async (displayName, email) => {
   const token = `tok${displayName.replace(/[^a-z]/gi, '')}`.padEnd(64, 'x');
   await db.query(
     `insert into sessions ("actorId", token, "expiresAt", "createdAt", csrf)
-     values ($1,$2, now() + interval '1 day', now(), $3)`, [actor.id, token, `csrf-${token}`]);
+     values ($1,$2, now() + interval '1 day', now(), $3)`,
+    // sessions.csrf is varchar(64), and so is the token: prefixing one with
+    // the other overflows the column and the seed dies half-written.
+    [actor.id, token, `csrf${displayName.replace(/[^a-z]/gi, '')}`.padEnd(64, 'y')]);
   return { ...actor, acteeId: id, token, displayName };
 };
 

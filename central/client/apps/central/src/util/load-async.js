@@ -172,6 +172,14 @@ const loaders = new Map()
     /* webpackChunkName: "component-hover-cards" */
     '../components/hover-cards.vue'
   )))
+  .set('FormsPage', loader(() => import(
+    /* webpackChunkName: "component-forms-page" */
+    '../components/forms.vue'
+  )))
+  .set('SubmissionsPage', loader(() => import(
+    /* webpackChunkName: "component-submissions-page" */
+    '../components/submissions.vue'
+  )))
   .set('ProjectsPage', loader(() => import(
     /* webpackChunkName: "component-projects-page" */
     '../components/projects.vue'

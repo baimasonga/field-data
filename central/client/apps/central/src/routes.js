@@ -310,6 +310,22 @@ const routes = [
     }
   }),
   asyncRoute({
+    path: '/forms',
+    component: 'FormsPage',
+    loading: 'page',
+    meta: {
+      title: () => [i18n.t('resource.forms')]
+    }
+  }),
+  asyncRoute({
+    path: '/submissions',
+    component: 'SubmissionsPage',
+    loading: 'page',
+    meta: {
+      title: () => [i18n.t('resource.submissions')]
+    }
+  }),
+  asyncRoute({
     path: '/projects',
     component: 'ProjectsPage',
     loading: 'page',

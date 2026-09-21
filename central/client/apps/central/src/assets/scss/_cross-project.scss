@@ -1,0 +1,124 @@
+// Copyright 2026 Field Data Developers
+// Licensed under the Apache License, Version 2.0.
+//
+// Shared by the two cross-project listings, which are the same page with
+// different columns. Kept next to the dashboard's palette so the three read as
+// one product rather than three.
+
+.cross-head {
+  align-items: flex-start;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  padding: 24px 0 18px;
+
+  h1 { color: #20202b; font-size: 26px; font-weight: 700; letter-spacing: -.015em; margin: 0; }
+}
+.cross-sub { color: #68687a; font-size: 14px; margin: 2px 0 0; }
+
+.cross-filters {
+  align-items: flex-end;
+  background: #fff;
+  border: 1px solid #e0e0ea;
+  border-radius: 10px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  margin-bottom: 14px;
+  padding: 14px 16px;
+}
+.cross-field {
+  display: flex;
+  flex-direction: column;
+  font-weight: 400;
+  gap: 4px;
+  margin: 0;
+  min-width: 170px;
+
+  > span {
+    color: #68687a;
+    font-size: 10.5px;
+    font-weight: 500;
+    letter-spacing: .07em;
+    text-transform: uppercase;
+  }
+  .form-control { border-radius: 6px; font-size: 13px; height: 34px; }
+}
+.cross-count { color: #68687a; font-size: 12.5px; margin: 0 0 8px auto; }
+
+.cross-table-wrap {
+  background: #fff;
+  border: 1px solid #e0e0ea;
+  border-radius: 10px;
+  overflow-x: auto;
+}
+.cross-table {
+  border-collapse: collapse;
+  min-width: 760px;
+  width: 100%;
+
+  th {
+    background: #f8f8fb;
+    color: #4d4d5c;
+    font-size: 10px;
+    font-weight: 650;
+    letter-spacing: .06em;
+    padding: 11px 14px;
+    text-align: left;
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+  td {
+    border-top: 1px solid #ededf3;
+    color: #4d4d5c;
+    font-size: 13px;
+    padding: 13px 14px;
+    vertical-align: middle;
+  }
+  td.num, th.num { font-variant-numeric: tabular-nums; text-align: right; }
+  td a { font-weight: 600; }
+  tbody tr:hover { background: #fbfbfe; }
+}
+.cross-id {
+  color: #8a8a9c;
+  display: block;
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 11px;
+  margin-top: 2px;
+}
+
+.cross-chip {
+  border-radius: 99px;
+  display: inline-block;
+  font-size: 10.5px;
+  font-weight: 600;
+  padding: 3px 9px;
+  white-space: nowrap;
+}
+.chip-published, .chip-approved { background: #e6f6ee; color: #1f7a4c; }
+.chip-draft, .chip-received { background: #eeebff; color: #4b3ccb; }
+.chip-closed, .chip-edited, .chip-quiet { background: #fcf3e0; color: #8b5d13; }
+.chip-hasIssues, .chip-rejected { background: #fdeaea; color: #b42a2f; }
+
+.cross-empty {
+  background: #fff;
+  border: 1px solid #e0e0ea;
+  border-radius: 10px;
+  color: #68687a;
+  padding: 40px 20px;
+  text-align: center;
+}
+
+.cross-pager {
+  align-items: center;
+  display: flex;
+  gap: 12px;
+  padding: 14px 2px 30px;
+
+  .cross-range { color: #68687a; font-size: 12.5px; margin-right: auto; }
+}
+
+@media (max-width: 620px) {
+  .cross-field { min-width: 0; width: 100%; }
+  .cross-count { margin-left: 0; }
+}

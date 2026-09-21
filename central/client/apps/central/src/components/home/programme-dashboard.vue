@@ -17,6 +17,14 @@ shown when the server has no data for them.
         <span class="icon-folder-open" aria-hidden="true"></span>
         <span>{{ $t('resource.projects') }}</span>
       </router-link>
+      <router-link class="sidebar-link" to="/forms">
+        <span class="icon-file-text" aria-hidden="true"></span>
+        <span>{{ $t('resource.forms') }}</span>
+      </router-link>
+      <router-link class="sidebar-link" to="/submissions">
+        <span class="icon-database" aria-hidden="true"></span>
+        <span>{{ $t('resource.submissions') }}</span>
+      </router-link>
       <router-link v-if="reportsPath != null" class="sidebar-link"
         :to="reportsPath">
         <span class="icon-bar-chart" aria-hidden="true"></span>

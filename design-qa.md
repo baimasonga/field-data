@@ -56,12 +56,31 @@ resolve the SVG as a module. Both are fixed, so `npm test` runs again.
 The 282 that remain are pre-existing: specs that still assert the product is
 called ODK Central. They are not touched here.
 
+## Cross-project Forms and Submissions
+
+The rail used to leave these two out because the API could only ever be asked
+about one Project at a time. `/v1/field-data/forms` and
+`/v1/field-data/submissions` answer across all of them, filtered by what the
+caller may see.
+
+The filter walks `actees.parent` the way `Auth.can()` does, rather than
+matching assignments flatly against `projects."acteeId"`. Driven against a
+real database, an actor whose only grant is on an organization sees that
+organization's 8 Forms through the new listing and an empty array from
+`/v1/projects`, which still matches flatly. `test/db/cross-project-visibility.sql`
+holds that case and eleven others.
+
+Verified against the seeded programme: 39 Forms across 8 Projects, 12,491
+Submissions; a Project-scoped viewer sees 6 and 4,231; an anonymous request
+gets 401. Filters, the 500-row cap and paging were exercised through the
+browser, including that changing a filter returns to the first page and that
+paging keeps the filter.
+
 ## Known gaps
 
-- Cross-project Forms and Submissions pages do not exist, so the rail does not
-  offer them.
 - `src/components/landing-photos.js` and `src/styles.js` carry ESLint errors
   that predate this branch.
+- The server has no local ESLint install, so only the client is linted here.
 
 ## Result
 

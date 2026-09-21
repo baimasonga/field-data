@@ -137,3 +137,25 @@ bugs that fixtures could not, all of them in code that had already shipped:
   binding undefined.
 
 None of these were test failures. Three of them were 500s.
+
+## cross-project-visibility.sql
+
+`/v1/field-data/forms` and `/v1/field-data/submissions` list across every
+Project, so the join that scopes them to what the caller may see is the only
+thing between one organization and another's data. This copies that CTE from
+`lib/util/cross-project.js` verbatim, for the same reason `can.sql` does:
+reimplementing the recursive walk in a mock would test the reimplementation.
+
+Run it after `seed-two-tenants.js`. The seed takes `PGHOST`, `PGPORT`,
+`PGUSER`, `PGPASSWORD` and `PGDATABASE`, defaulting to the throwaway cluster
+the other files here assume, so against a local checkout:
+
+    createdb odktest
+    NODE_CONFIG_DIR=../../config npx knex migrate:latest --knexfile lib/model/knexfile.js
+    PGDATABASE=odktest node test/db/seed-two-tenants.js
+    psql -d odktest -f test/db/cross-project-visibility.sql
+
+Every row must read `ok`. The case worth keeping an eye on is the organization
+member: they hold no grant on the Project itself, only on the organization
+above it, and a listing that matched assignments flatly would show them
+nothing at all.

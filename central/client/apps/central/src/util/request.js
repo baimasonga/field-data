@@ -274,6 +274,12 @@ export const apiPaths = {
     `/v1/projects/${projectId}/forms/${encodeURIComponent(xmlFormId)}/integrity/${id}`,
   formPhotos: (projectId, xmlFormId, offset, limit) =>
     `/v1/projects/${projectId}/forms/${encodeURIComponent(xmlFormId)}/photos?offset=${offset}&limit=${limit}`,
+  // Forms and Submissions across every Project the user can see. The rest of
+  // the API is scoped to one Project, which is no help to somebody who wants
+  // to know which of eight has gone quiet.
+  fieldDataForms: () => '/v1/field-data/forms',
+  fieldDataSubmissions: (query = undefined) =>
+    `/v1/field-data/submissions${queryString(query)}`,
   fieldDataStats: () => '/v1/field-data/stats',
   fieldDataMedia: () => '/v1/field-data/media',
   fieldDataMediaItem: (id) => `/v1/field-data/media/${id}`,

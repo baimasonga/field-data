@@ -21,6 +21,16 @@ except according to the terms contained in the LICENSE file.
         {{ $t('resource.projects') }} <span class="sr-only">{{ $t('current') }}</span>
       </router-link>
     </li>
+    <li :class="{ active: routePathStartsWith('/forms') }">
+      <router-link to="/forms">
+        {{ $t('resource.forms') }} <span class="sr-only">{{ $t('current') }}</span>
+      </router-link>
+    </li>
+    <li :class="{ active: routePathStartsWith('/submissions') }">
+      <router-link to="/submissions">
+        {{ $t('resource.submissions') }} <span class="sr-only">{{ $t('current') }}</span>
+      </router-link>
+    </li>
     <li v-if="canRoute('/field-data/media')"
       :class="{ active: routePathStartsWith('/field-data/media') }">
       <router-link to="/field-data/media">
@@ -82,7 +92,7 @@ export default {
     margin-left: 30px;
 
     > li + li { margin-left: 10px; }
-    #navbar-links-users { margin-left: 40px; }
+    #navbar-links-users { margin-left: 22px; }
   }
 }
 </style>
