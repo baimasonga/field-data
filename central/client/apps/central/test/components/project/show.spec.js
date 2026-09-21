@@ -192,13 +192,13 @@ describe('ProjectShow', () => {
       testData.extendedForms.createPast(1);
       const app = await load('/projects/1', { attachTo: document.body });
       const li = app.findAll('#page-head-tabs li');
+      // Four groups, not nine tabs. The views inside the open one are in the
+      // row below.
       li.map(wrapper => wrapper.get('a').text()).should.eql([
         'Forms 1',
+        'Data',
         'Entity Lists 1',
-        'Project Roles',
-        'App Users',
-        'Custom Properties',
-        'Form Access',
+        'People',
         'Settings'
       ]);
       li[0].should.be.visible(true);
@@ -220,7 +220,9 @@ describe('ProjectShow', () => {
         });
         const li = app.findAll('#page-head-tabs li');
         const text = li.map(wrapper => wrapper.get('a').text());
-        text.should.eql(['Forms 1', 'Entity Lists 1']);
+        // A viewer reads Submissions, so the Data group is open to them; the
+        // spec expected neither it nor the other views the fork added.
+        text.should.eql(['Forms 1', 'Data', 'Entity Lists 1']);
         li[0].should.be.visible(true);
       });
     });

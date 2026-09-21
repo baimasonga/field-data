@@ -178,6 +178,41 @@ This also fixed three tests that were already failing: the spec still expected
 the five tabs the page had before the fork added Summary, Charts, Photos,
 Filtered Data and Verification.
 
+## Nine Project tabs, and five
+
+The Project page carried Forms, Summary, Merged Data, Reports, Entity Lists,
+Project Roles, App Users, Custom Properties, Form Access and Settings. Grouped
+by what somebody came to the Project to do:
+
+| Tab | Views |
+| --- | --- |
+| Forms | the Project's Form list (and New Form) |
+| Data | Summary, Merged Data, Reports |
+| Entity Lists | Entity Lists |
+| People | Project Roles, App Users, Form Access, Custom Properties |
+| Settings | Settings |
+
+Form Access and Custom Properties moved to People rather than Settings: Custom
+Properties controls which Entities an App User or Public Link can reach, and
+Form Access is which Forms they get, so both are about people rather than
+about the Project.
+
+Entity Lists did not join Data. It went in there first, and three tests then
+failed for the same reason -- the entity-list count disappeared from the tab
+bar, because a group only draws its row of views when it holds more than one.
+That count is a signal people were relying on, and Entity Lists is reference
+data the Forms read and write rather than something produced by analysing
+them, so it stayed a tab of its own.
+
+A group holding a single view is that view, so its count sits on the tab.
+
+Driven through a browser across all eleven Project paths: the right group is
+marked on each, /new-form marks Forms, and the row beneath lists the open
+group's views with the right one active.
+
+This also fixed two more stale tests: the spec expected the tabs the page had
+before the fork added Summary, Merged Data and Reports.
+
 ## Administration as a section
 
 Users and Integrations were top-level destinations competing with Projects,
@@ -194,7 +229,6 @@ sitewide role rather than disappearing.
 
 ## Known gaps
 
-- Project pages still carry eleven tabs; only the Form page has been grouped.
 - There is no cross-project Maps page, so the rail does not offer one.
 - Administration is a link to the audit log rather than a section gathering
   Organizations, Backups, Configuration and Analytics.

@@ -979,3 +979,37 @@ becomes more complicated.
     margin-left: 10px;
   }
 }
+
+// The views inside an open tab group, on the Form page and the Project page.
+// Quieter than the tabs above it: this is a choice of lens on one thing, not a
+// choice of what to look at.
+.page-subtabs {
+  background: #fff;
+  border-bottom: 1px solid #e0e0ea;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 8px 15px;
+
+  a {
+    align-items: center;
+    border-radius: 6px;
+    color: #4d4d5c;
+    column-gap: 5px;
+    display: flex;
+    font-size: 13px;
+    padding: 5px 11px;
+    text-decoration: none;
+
+    &:hover, &:focus { background: #f1f1f6; color: #303047; }
+    &.active { background: #eeebff; color: #4b3ccb; font-weight: 600; }
+    &.disabled {
+      color: #9a9aad;
+      cursor: not-allowed;
+      pointer-events: none;
+    }
+  }
+
+  .badge { margin-left: 2px; }
+  .icon-pencil { font-size: 14px; }
+}

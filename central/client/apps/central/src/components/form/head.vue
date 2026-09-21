@@ -54,7 +54,8 @@ except according to the terms contained in the LICENSE file.
         </li>
       </template>
     </page-head>
-    <nav v-if="subtabs.length > 1" id="form-subtabs" :aria-label="$t('subnav.label')">
+    <nav v-if="subtabs.length > 1" id="form-subtabs" class="page-subtabs"
+      :aria-label="$t('subnav.label')">
       <router-link v-for="view in subtabs" :key="view.path" :to="tabPath(view.path)"
         :class="{ active: $route.path === tabPath(view.path), disabled: view.disabled }"
         v-tooltip.aria-describedby="view.disabled ? formTabDescription : null">
@@ -216,39 +217,7 @@ export default {
 };
 </script>
 
-<style lang="scss">
-// The views inside the open group. Quieter than the tabs above it: this is a
-// choice of lens on one thing, not a choice of what to look at.
-#form-subtabs {
-  background: #fff;
-  border-bottom: 1px solid #e0e0ea;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-  padding: 8px 15px;
 
-  a {
-    align-items: center;
-    border-radius: 6px;
-    color: #4d4d5c;
-    column-gap: 5px;
-    display: flex;
-    font-size: 13px;
-    padding: 5px 11px;
-    text-decoration: none;
-
-    &:hover, &:focus { background: #f1f1f6; color: #303047; }
-    &.active { background: #eeebff; color: #4b3ccb; font-weight: 600; }
-    &.disabled {
-      color: #9a9aad;
-      cursor: not-allowed;
-      pointer-events: none;
-    }
-  }
-
-  .icon-pencil { font-size: 14px; }
-}
-</style>
 
 <i18n lang="json5">
 {
