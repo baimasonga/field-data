@@ -30,7 +30,6 @@ except according to the terms contained in the LICENSE file.
           </router-link>
         </div>
         <div class="collapse navbar-collapse">
-          <navbar-links v-if="visiblyLoggedIn"/>
           <div class="navbar-right">
             <a v-show="showsAnalyticsNotice" id="navbar-analytics-notice"
               href="#" @click.prevent="analyticsIntroduction.show()">
@@ -55,7 +54,6 @@ import { defineAsyncComponent } from 'vue';
 
 import NavbarActions from './navbar/actions.vue';
 import NavbarHelpDropdown from './navbar/help-dropdown.vue';
-import NavbarLinks from './navbar/links.vue';
 import NavbarLocaleDropdown from './navbar/locale-dropdown.vue';
 
 import useRoutes from '../composables/routes';
@@ -69,7 +67,6 @@ export default {
     AnalyticsIntroduction: defineAsyncComponent(loadAsync('AnalyticsIntroduction')),
     NavbarActions,
     NavbarHelpDropdown,
-    NavbarLinks,
     NavbarLocaleDropdown
   },
   inject: ['config', 'visiblyLoggedIn'],
@@ -187,7 +184,6 @@ export default {
       padding-inline: 0;
     }
 
-    #navbar-links { flex: 0 0 auto; }
 
     .navbar-right {
       align-items: center;

@@ -124,10 +124,41 @@ then `createdb jubilant_test`, `CREATE EXTENSION pgrowlocks`, and
 `NODE_CONFIG_DIR=../../config NODE_CONFIG_ENV=test npx knex migrate:latest
 --knexfile lib/model/knexfile.js`.
 
+## One shell, not two
+
+The rail lived inside the programme dashboard, so it appeared on one screen
+and every other page fell back to a row of links in the purple top bar: two
+navigations for one product, disagreeing about what the product contains. It
+is now `components/app-rail.vue`, rendered by the application frame, and the
+row of links is gone -- `navbar/links.vue` deleted, its spec carried over to
+`app-rail.spec.js`.
+
+The rail appears once somebody is inside the application: not on the login
+screen, and not on a standalone route such as a public link, which has no
+application around it. It is sticky, because stretched to the content
+Administration sat thousands of pixels below the fold on the dashboard. Below
+992px it becomes a scrolling row above the page.
+
+Driven through a browser, all nine destinations render one rail with the right
+item marked current, including `/projects/1/forms/f/submissions` marking
+Projects; the login screen renders none; there is no horizontal overflow at
+400px; and no page still carries the old link row.
+
+Reports is deliberately not on the rail. Reports belong to a Project and are
+reached from it; a rail entry had to pick a Project on the user's behalf,
+which is the kind of small lie the rest of this work removed.
+
 ## Known gaps
 
+- Form pages still carry ten tabs and Project pages eleven; grouping them is
+  the next stage.
+- There is no cross-project Maps page, so the rail does not offer one.
+- Administration is a link to the audit log rather than a section gathering
+  Organizations, Backups, Configuration and Analytics.
+- Strings added here are English only; the ten other locales fall back.
 - `src/components/landing-photos.js` and `src/styles.js` carry ESLint errors
-  that predate this branch.
+  that predate this branch, and `npm run transifex:lint` has been failing
+  since before it (6079 diff lines, unchanged by this work).
 - The server has no local ESLint install, so only the client is linted here.
 
 ## Result

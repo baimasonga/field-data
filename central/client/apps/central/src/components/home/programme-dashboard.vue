@@ -8,51 +8,7 @@ shown when the server has no data for them.
 -->
 <template>
   <div id="programme-dashboard">
-    <aside class="programme-sidebar" aria-label="Dashboard navigation">
-      <router-link class="sidebar-link" :class="{ active: $route.path === '/' }" to="/">
-        <span class="icon-bar-chart" aria-hidden="true"></span>
-        <span>{{ $t('nav.dashboard') }}</span>
-      </router-link>
-      <router-link class="sidebar-link" to="/projects">
-        <span class="icon-folder-open" aria-hidden="true"></span>
-        <span>{{ $t('resource.projects') }}</span>
-      </router-link>
-      <router-link class="sidebar-link" to="/forms">
-        <span class="icon-file-text" aria-hidden="true"></span>
-        <span>{{ $t('resource.forms') }}</span>
-      </router-link>
-      <router-link class="sidebar-link" to="/submissions">
-        <span class="icon-database" aria-hidden="true"></span>
-        <span>{{ $t('resource.submissions') }}</span>
-      </router-link>
-      <router-link v-if="reportsPath != null" class="sidebar-link"
-        :to="reportsPath">
-        <span class="icon-bar-chart" aria-hidden="true"></span>
-        <span>{{ $t('nav.reports') }}</span>
-      </router-link>
-      <router-link v-if="canRoute('/field-data/media')" class="sidebar-link"
-        to="/field-data/media">
-        <span class="icon-image" aria-hidden="true"></span>
-        <span>{{ $t('nav.media') }}</span>
-      </router-link>
-      <router-link v-if="canRoute('/field-data/integrations')" class="sidebar-link"
-        to="/field-data/integrations">
-        <span class="icon-exchange" aria-hidden="true"></span>
-        <span>{{ $t('nav.integrations') }}</span>
-      </router-link>
-      <router-link v-if="canRoute('/users')" class="sidebar-link"
-        to="/users">
-        <span class="icon-user-circle" aria-hidden="true"></span>
-        <span>{{ $t('resource.users') }}</span>
-      </router-link>
-      <router-link v-if="canRoute('/system/audits')" class="sidebar-link sidebar-admin"
-        to="/system/audits">
-        <span class="icon-cog" aria-hidden="true"></span>
-        <span>{{ $t('nav.administration') }}</span>
-      </router-link>
-    </aside>
-
-    <main class="programme-main">
+<div class="programme-main">
       <header class="dashboard-header">
         <div>
           <p class="dashboard-date">{{ todayLabel }}</p>
@@ -218,7 +174,7 @@ shown when the server has no data for them.
           </section>
         </div>
       </template>
-    </main>
+    </div>
   </div>
 </template>
 
@@ -230,7 +186,6 @@ import { useI18n } from 'vue-i18n';
 import Loading from '../loading.vue';
 
 import useRequest from '../../composables/request';
-import useRoutes from '../../composables/routes';
 import { useRequestData } from '../../request-data';
 import { apiPaths } from '../../util/request';
 
@@ -240,7 +195,6 @@ const PERIODS = [7, 21, 90];
 const days = ref(21);
 const { locale, n, t } = useI18n();
 const { request } = useRequest();
-const { canRoute } = useRoutes();
 const { projects } = useRequestData();
 const summaries = reactive(new Map());
 const summaryLoading = ref(true);
@@ -382,13 +336,6 @@ const reviewPath = computed(() => {
   return null;
 });
 
-const reportsPath = computed(() => {
-  const project = activeProjects.value.find(item => item.permits([
-    'submission.list', 'submission.read'
-  ]));
-  return project == null ? null : `/projects/${project.id}/reports`;
-});
-
 const actionItems = computed(() => {
   const items = [];
   for (const row of projectRows.value) {
@@ -475,59 +422,7 @@ const exportSummary = () => {
 
 #programme-dashboard {
   background: #f8f9fc;
-  display: flex;
   min-height: calc(100vh - var(--space-16));
-}
-
-// The dashboard owns primary navigation, so its top bar becomes a quiet
-// utility bar rather than competing with the left rail.
-body:has(#programme-dashboard) .navbar-default {
-  background: #fff;
-  border-bottom: 1px solid #e0e0ea;
-  box-shadow: none;
-
-  .navbar-brand {
-    &, &:hover, &:focus { color: #20202b; }
-  }
-  .navbar-mark { color: #5d4ee0; }
-  #navbar-links { display: none !important; }
-  .navbar-nav > li > a {
-    &, &:hover, &:focus { color: #303047; }
-    &:hover { background: #f1f1f6; }
-  }
-  .navbar-nav .open > a {
-    &, &:hover, &:focus { background: #eeebff; color: #4b3ccb; }
-  }
-}
-
-.programme-sidebar {
-  background: #fff;
-  border-right: 1px solid #e0e0ea;
-  display: flex;
-  flex: 0 0 196px;
-  flex-direction: column;
-  gap: 4px;
-  padding: 28px 12px 18px;
-
-  .sidebar-link {
-    align-items: center;
-    border-radius: 8px;
-    color: #303047;
-    display: flex;
-    font-size: 14px;
-    font-weight: 500;
-    gap: 14px;
-    min-height: 46px;
-    padding: 0 16px;
-    text-decoration: none;
-    transition: background-color 120ms ease, color 120ms ease;
-
-    > span:first-child { font-size: 18px; width: 20px; }
-    &:hover, &:focus { background: #f4f2ff; color: #4b3ccb; }
-    &:focus-visible { box-shadow: var(--ring-focus); outline: none; }
-    &.active { background: #eeebff; color: #513ee8; font-weight: 650; }
-  }
-  .sidebar-admin { border-top: 1px solid #e9e9f1; margin-top: auto; padding-top: 4px; }
 }
 
 .programme-main { flex: 1; min-width: 0; padding: 28px 24px 48px; }
@@ -656,10 +551,6 @@ body:has(#programme-dashboard) .navbar-default {
   .dashboard-grid-primary, .dashboard-grid-secondary { grid-template-columns: 1fr; }
 }
 @media (max-width: 767px) {
-  #programme-dashboard { display: block; }
-  .programme-sidebar { border-bottom: 1px solid #e0e0ea; border-right: 0; flex-direction: row; overflow-x: auto; padding: 8px 12px; }
-  .programme-sidebar .sidebar-link { flex: 0 0 auto; min-height: 42px; padding-inline: 12px; }
-  .programme-sidebar .sidebar-admin { border: 0; margin: 0; }
   .programme-main { padding: 20px 15px 36px; }
   .dashboard-header h1 { font-size: 29px; }
   .dashboard-actions { align-items: stretch; display: grid; grid-template-columns: 1fr 1fr; }
@@ -685,7 +576,6 @@ body:has(#programme-dashboard) .navbar-default {
   "en": {
     "title": "Programme dashboard",
     "intro": "Which projects and forms are performing well, and what requires management action?",
-    "nav": { "dashboard": "Dashboard", "reports": "Reports", "media": "Media", "integrations": "Integrations", "administration": "Administration" },
     "section": { "keyMetrics": "Key programme metrics" },
     "kpi": { "activeProjects": "Active projects", "formsDeployed": "Forms deployed", "submissions": "Submissions", "approvalRate": "Approval rate", "change": "{value}% vs the period before" },
     "action": { "export": "Export summary", "review": "Review submissions", "open": "Open", "openItem": "Open {item}", "period": "Reporting period", "lastDays": "Last {count} days" },

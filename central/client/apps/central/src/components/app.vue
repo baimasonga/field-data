@@ -16,8 +16,11 @@ except according to the terms contained in the LICENSE file.
     <navbar v-show="routerReady && !$route.meta.standalone"/>
     <alerts/>
     <feedback-button v-if="showsFeedbackButton"/>
-    <div ref="containerEl" class="container-fluid">
-      <router-view/>
+    <div class="app-body">
+      <app-rail v-if="showsRail"/>
+      <div ref="containerEl" class="container-fluid">
+        <router-view/>
+      </div>
     </div>
 
     <div id="modals"></div>
@@ -32,6 +35,7 @@ import { defineAsyncComponent, inject, useTemplateRef } from 'vue';
 import { START_LOCATION } from 'vue-router';
 
 import Alerts from './alerts.vue';
+import AppRail from './app-rail.vue';
 import Navbar from './navbar.vue';
 
 import useCallWait from '../composables/call-wait';
@@ -45,6 +49,7 @@ export default {
   name: 'App',
   components: {
     Alerts,
+    AppRail,
     HoverCards: defineAsyncComponent(loadAsync('HoverCards')),
     Navbar,
     FeedbackButton: defineAsyncComponent(loadAsync('FeedbackButton'))
@@ -70,6 +75,13 @@ export default {
     showsFeedbackButton() {
       return this.config.loaded && this.config.showsFeedbackButton &&
         this.visiblyLoggedIn;
+    },
+    // The rail names destinations inside the application, so it appears once
+    // the user is in it: not on the login screen, and not on a standalone
+    // route like a public link, which has no application around it.
+    showsRail() {
+      return this.routerReady && this.visiblyLoggedIn &&
+        this.$route.meta.standalone !== true;
     },
   },
   created() {
@@ -109,3 +121,42 @@ export default {
   }
 };
 </script>
+
+<style lang="scss">
+// The rail and the page beside it. Rail first in the source so it comes first
+// for a screen reader and for the keyboard, and first on the screen when the
+// two stack at narrow widths.
+.app-body {
+  align-items: stretch;
+  display: flex;
+  min-height: calc(100vh - var(--space-16));
+
+  > .container-fluid { flex: 1 1 auto; min-width: 0; }
+}
+
+// With the rail carrying the destinations, the top bar is left holding the
+// name, help, locale and account: a quiet strip rather than a second
+// navigation competing with the first.
+body:has(#app-rail) .navbar-default {
+  background: #fff;
+  border-bottom: 1px solid #e0e0ea;
+  box-shadow: none;
+
+  .navbar-brand {
+    &, &:hover, &:focus { color: #20202b; }
+  }
+  .navbar-mark { color: #5d4ee0; }
+  .navbar-nav > li > a {
+    &, &:hover, &:focus { color: #303047; }
+    &:hover { background: #f1f1f6; }
+  }
+  .navbar-nav .open > a {
+    &, &:hover, &:focus { background: #eeebff; color: #4b3ccb; }
+  }
+  .navbar-toggle .navbar-icon-bar { background: #303047; }
+}
+
+@media (max-width: 991px) {
+  .app-body { display: block; }
+}
+</style>
