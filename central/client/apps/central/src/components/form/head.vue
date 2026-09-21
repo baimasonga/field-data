@@ -86,7 +86,7 @@ const TAB_GROUPS = [
     // submission.list, so it belongs with the data rather than under
     // Settings, where a Project viewer would have been shown a tab full of
     // settings they cannot change.
-    members: ['submissions', 'summary', 'charts', 'photos', 'verification']
+    members: ['submissions', 'import', 'summary', 'charts', 'photos', 'verification']
   },
   {
     key: 'share', labelKey: 'group.share', local: true,
@@ -104,6 +104,7 @@ const TAB_GROUPS = [
 
 const MEMBER_LABELS = {
   submissions: 'resource.submissions',
+  import: 'formHead.tab.importCsv',
   summary: 'formHead.tab.summary',
   charts: 'formHead.tab.charts',
   photos: 'formHead.tab.photos',

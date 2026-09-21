@@ -568,6 +568,20 @@ const routes = [
         }
       }),
       asyncRoute({
+        path: 'import',
+        component: 'SubmissionCsvImport',
+        props: true,
+        loading: 'tab',
+        meta: {
+          validateData: {
+            project: () => project.permits(['form.read', 'submission.create']),
+            form: () => form.publishedAt != null
+          },
+          title: () => [i18n.t('formHead.tab.importCsv'), form.nameOrId],
+          fullWidth: true
+        }
+      }),
+      asyncRoute({
         path: 'photos',
         component: 'SubmissionPhotos',
         props: true,
@@ -1057,6 +1071,7 @@ const routesByName = new Map();
   ];
   const formRoutes = [
     'FormSubmissions',
+    'SubmissionCsvImport',
     'SubmissionSummary',
     'SubmissionFilteredDatasets',
     'SubmissionPhotos',

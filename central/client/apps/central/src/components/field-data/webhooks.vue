@@ -36,6 +36,10 @@ distribution and at https://www.apache.org/licenses/LICENSE-2.0.
           <input v-model="newHook.config[setting.key]" type="checkbox">
           {{ setting.describe }}
         </label>
+        <textarea v-else-if="setting.key === 'mapping'"
+          v-model.trim="newHook.config[setting.key]" class="form-control config-mapping"
+          :placeholder="setting.describe" :aria-label="setting.describe"
+          :required="setting.required"></textarea>
         <input v-else v-model.trim="newHook.config[setting.key]" class="form-control"
           :type="setting.secret ? 'password' : 'text'"
           :placeholder="setting.describe" :aria-label="setting.describe"
@@ -46,6 +50,9 @@ distribution and at https://www.apache.org/licenses/LICENSE-2.0.
       </button>
       <p v-if="newHook.target === 'google-sheets'" class="help-block google-help">
         {{ $t('googleHelp') }}
+      </p>
+      <p v-if="newHook.target === 'dhis2'" class="help-block target-help">
+        {{ $t('dhis2Help') }}
       </p>
     </form>
 
@@ -75,7 +82,7 @@ distribution and at https://www.apache.org/licenses/LICENSE-2.0.
           <tr>
             <td>{{ hook.name }}</td>
             <td class="url-cell">
-              {{ hook.target === 'google-sheets' ? $t('managed') : hook.url }}
+              {{ hookManaged(hook) ? $t('managed') : hook.url }}
             </td>
             <td>{{ (hook.events || []).join(', ') || $t('allEvents') }}</td>
             <td class="target-cell">
@@ -104,7 +111,8 @@ distribution and at https://www.apache.org/licenses/LICENSE-2.0.
           </tr>
           <tr v-if="expandedId === hook.id" class="details-row">
             <td colspan="7">
-              <div v-if="hook.target !== 'google-sheets'" class="webhook-secret">
+              <div v-if="hook.target !== 'google-sheets' && hook.target !== 'dhis2'"
+                class="webhook-secret">
                 <span class="detail-label">{{ $t('detail.secret') }}</span>
                 <span>{{ hook.hasSecret ? $t('detail.configured') : $t('detail.noSecret') }}</span>
                 <button type="button" class="btn btn-default btn-xs"
@@ -114,7 +122,7 @@ distribution and at https://www.apache.org/licenses/LICENSE-2.0.
                 <p class="help-block">{{ $t('detail.secretHelp') }}</p>
               </div>
 
-              <section v-else class="sheet-recovery">
+              <section v-else-if="hook.target === 'google-sheets'" class="sheet-recovery">
                 <div v-if="needsReauthorization(hook)" class="alert alert-danger" role="alert">
                   {{ $t('sheet.reauthorization') }}
                 </div>
@@ -182,6 +190,19 @@ distribution and at https://www.apache.org/licenses/LICENSE-2.0.
                   {{ $t('sheet.noHistory') }}
                 </p>
               </section>
+
+              <div v-else class="managed-target-help">
+                <p>{{ $t('dhis2Configured') }}</p>
+                <form class="credential-form" @submit.prevent="replaceDhis2Password(hook)">
+                  <input v-model.trim="dhis2Password" class="form-control"
+                    type="password" :placeholder="$t('field.dhis2Password')"
+                    :aria-label="$t('field.dhis2Password')" required>
+                  <button type="submit" class="btn btn-primary btn-xs"
+                    :aria-disabled="awaitingResponse">
+                    {{ $t('action.replaceDhis2Password') }}
+                  </button>
+                </form>
+              </div>
 
               <div class="detail-label">{{ $t('detail.deliveries') }}</div>
               <loading :state="loadingDeliveries"/>
@@ -268,6 +289,8 @@ const managedTarget = computed(() => selectedTarget.value?.managesUrl === true);
 const requiresForm = computed(() => selectedTarget.value?.requiresForm === true);
 const targetLabel = (name) => targets.value
   .find(target => target.name === name)?.label ?? name ?? 'json';
+const hookManaged = hook => targets.value
+  .find(target => target.name === hook.target)?.managesUrl === true;
 
 request({ method: 'GET', url: apiPaths.fieldDataWebhookTargets() })
   .then(({ data }) => { targets.value = data; })
@@ -285,6 +308,7 @@ const syncs = ref([]);
 const loadingSyncs = ref(false);
 const showCredentials = ref(false);
 const credentials = reactive({ clientSecret: '', refreshToken: '' });
+const dhis2Password = ref('');
 const latestSecret = ref('');
 
 const create = () => {
@@ -375,6 +399,7 @@ const toggleDetails = (hook) => {
   deliveries.value = [];
   syncs.value = [];
   showCredentials.value = false;
+  dhis2Password.value = '';
   loadingDeliveries.value = true;
   request({ method: 'GET', url: apiPaths.fieldDataWebhookDeliveries(hook.id) })
     .then(({ data }) => {
@@ -433,6 +458,26 @@ const replaceCredentials = (hook) => request({
   alert.success(t('alert.credentialsReplaced'));
   fetchData();
 }).catch(noop);
+
+const replaceDhis2Password = (hook) => request({
+  method: 'PATCH',
+  url: apiPaths.fieldDataWebhook(hook.id),
+  data: {
+    config: {
+      serverUrl: hook.config.serverUrl,
+      username: hook.config.username,
+      password: dhis2Password.value,
+      dataSet: hook.config.dataSet,
+      orgUnit: hook.config.orgUnit,
+      period: hook.config.period,
+      mapping: hook.config.mapping
+    }
+  }
+}).then(() => {
+  dhis2Password.value = '';
+  alert.success(t('alert.dhis2PasswordReplaced'));
+  fetchData();
+}).catch(noop);
 </script>
 
 <i18n lang="json5">
@@ -440,6 +485,8 @@ const replaceCredentials = (hook) => request({
   "en": {
     "intro": "Send submission data to Google Sheets or notify another system with a webhook.",
     "googleHelp": "Use an OAuth refresh token authorized for the Google Sheets API. New submissions are appended; enabling updates replaces the row with the same instance ID.",
+    "dhis2Help": "Send mapped Form answers to a DHIS2 data set. Map each Form path to its DHIS2 data element ID.",
+    "dhis2Configured": "The DHIS2 password is encrypted and hidden. New and updated Submission versions are sent using the configured field mapping.",
     "managed": "Managed by Field Data",
     "field": {
       "name": "Name",
@@ -448,7 +495,8 @@ const replaceCredentials = (hook) => request({
       "target": "Integration type",
       "form": "Choose a Form",
       "clientSecret": "New OAuth client secret",
-      "refreshToken": "New OAuth refresh token"
+      "refreshToken": "New OAuth refresh token",
+      "dhis2Password": "New DHIS2 password"
     },
     "action": {
       "add": "Add integration",
@@ -462,6 +510,7 @@ const replaceCredentials = (hook) => request({
       "retryFailed": "Retry failed",
       "cancel": "Cancel",
       "replaceCredentials": "Replace Google credentials",
+      "replaceDhis2Password": "Replace DHIS2 password",
       "saveCredentials": "Save credentials"
     },
     "header": {
@@ -486,7 +535,8 @@ const replaceCredentials = (hook) => request({
       "rotated": "The signing secret for “{name}” has been rotated.",
       "syncQueued": "{count} submissions are queued for background synchronization.",
       "retryQueued": "Failed rows have been queued again.",
-      "credentialsReplaced": "Google credentials have been replaced."
+      "credentialsReplaced": "Google credentials have been replaced.",
+      "dhis2PasswordReplaced": "The DHIS2 password has been replaced."
     },
     "sheet": {
       "reauthorization": "Google authorization has expired. Replace the credentials, then retry the failed synchronization.",
@@ -525,7 +575,8 @@ const replaceCredentials = (hook) => request({
     margin-bottom: 20px;
     .form-control { width: auto; flex: 1 1 180px; }
     .config-checkbox { align-self: center; flex: 1 1 100%; margin: 0; }
-    .google-help { flex: 1 1 100%; margin: 0; }
+    .google-help, .target-help { flex: 1 1 100%; margin: 0; }
+    .config-mapping { min-height: 76px; flex-basis: 100%; }
   }
   .url-cell { max-width: 320px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
@@ -559,6 +610,7 @@ const replaceCredentials = (hook) => request({
   }
   .deliveries-table { margin-bottom: 5px; background-color: transparent; }
   .sheet-recovery { margin-bottom: 18px; }
+  .managed-target-help { margin-bottom: 15px; }
   .sheet-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
   .credential-form {
     align-items: center;

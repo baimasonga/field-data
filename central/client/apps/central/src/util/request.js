@@ -213,6 +213,12 @@ export const apiPaths = {
   projectSummary: (projectId) => `/v1/projects/${projectId}/summary`,
   formSummary: (projectId, xmlFormId) =>
     `/v1/projects/${projectId}/forms/${encodeURIComponent(xmlFormId)}/summary`,
+  submissionCsvImportTemplate: (projectId, xmlFormId) =>
+    `/v1/projects/${projectId}/forms/${encodeURIComponent(xmlFormId)}/submission-import/template.csv`,
+  submissionCsvImportDryRun: (projectId, xmlFormId) =>
+    `/v1/projects/${projectId}/forms/${encodeURIComponent(xmlFormId)}/submission-import/dry-run`,
+  submissionCsvImportCommit: (projectId, xmlFormId) =>
+    `/v1/projects/${projectId}/forms/${encodeURIComponent(xmlFormId)}/submission-import/commit`,
   formFilterFields: (projectId, xmlFormId) =>
     `/v1/projects/${projectId}/forms/${encodeURIComponent(xmlFormId)}/filter-fields`,
   filteredDatasetPreview: (projectId, xmlFormId) =>
@@ -239,6 +245,8 @@ export const apiPaths = {
     `/v1/projects/${projectId}/filtered-datasets/${id}/definition`,
   filteredDatasetData: (projectId, id, query = undefined) =>
     `/v1/projects/${projectId}/filtered-datasets/${id}/data${queryString(query)}`,
+  filteredDatasetExport: (projectId, id, format) =>
+    `/v1/projects/${projectId}/filtered-datasets/${id}/export.${format}`,
   mergedDatasets: (projectId) => `/v1/projects/${projectId}/merged-datasets`,
   mergedDataset: (projectId, id, query = undefined) =>
     `/v1/projects/${projectId}/merged-datasets/${id}${queryString(query)}`,

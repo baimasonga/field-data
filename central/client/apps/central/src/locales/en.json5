@@ -22,6 +22,8 @@
       "reports": "Reports",
       // A tab of charts totalling up a Project's Submissions.
       "summary": "Summary",
+      // A tab for safely creating the first Submissions from a CSV file.
+      "importCsv": "Import CSV",
 
       "formAccess": "Form Access",
       "customProperties": "Custom Properties",
