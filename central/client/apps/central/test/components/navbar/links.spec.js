@@ -22,7 +22,8 @@ describe('NavbarLinks', () => {
     });
     const links = component.findAllComponents(RouterLinkStub);
     const to = links.map(link => link.props().to);
-    to.should.eql(['/', '/users', '/system/audits']);
+    to.should.eql(['/', '/projects', '/field-data/media',
+      '/field-data/integrations', '/users', '/system/audits']);
   });
 
   it('renders the correct links for a user without a sitewide role', () => {
@@ -31,7 +32,7 @@ describe('NavbarLinks', () => {
       container: { router: mockRouter('/') }
     });
     const links = component.findAllComponents(RouterLinkStub);
-    links.map(link => link.props().to).should.eql(['/']);
+    links.map(link => link.props().to).should.eql(['/', '/projects']);
   });
 
   describe('active link', () => {
@@ -40,7 +41,8 @@ describe('NavbarLinks', () => {
     // Array of test cases
     const cases = [
       ['/', '/'],
-      ['/projects/1', '/'],
+      ['/projects', '/projects'],
+      ['/projects/1', '/projects'],
       ['/users', '/users'],
       ['/users/1/edit', '/users'],
       ['/system/analytics', '/system/audits']

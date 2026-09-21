@@ -172,6 +172,10 @@ const loaders = new Map()
     /* webpackChunkName: "component-hover-cards" */
     '../components/hover-cards.vue'
   )))
+  .set('ProjectsPage', loader(() => import(
+    /* webpackChunkName: "component-projects-page" */
+    '../components/projects.vue'
+  )))
   .set('ProjectSummary', loader(() => import(
     /* webpackChunkName: "component-project-summary" */
     '../components/project/summary.vue'

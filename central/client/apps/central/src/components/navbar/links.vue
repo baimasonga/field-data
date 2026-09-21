@@ -11,9 +11,26 @@ except according to the terms contained in the LICENSE file.
 -->
 <template>
   <ul id="navbar-links" class="nav navbar-nav">
-    <li :class="{ active: projectsLinkIsActive }">
+    <li :class="{ active: $route.path === '/' }">
       <router-link to="/">
+        {{ $t('nav.dashboard') }} <span class="sr-only">{{ $t('current') }}</span>
+      </router-link>
+    </li>
+    <li :class="{ active: projectsLinkIsActive }">
+      <router-link to="/projects">
         {{ $t('resource.projects') }} <span class="sr-only">{{ $t('current') }}</span>
+      </router-link>
+    </li>
+    <li v-if="canRoute('/field-data/media')"
+      :class="{ active: routePathStartsWith('/field-data/media') }">
+      <router-link to="/field-data/media">
+        {{ $t('nav.media') }} <span class="sr-only">{{ $t('current') }}</span>
+      </router-link>
+    </li>
+    <li v-if="canRoute('/field-data/integrations')"
+      :class="{ active: routePathStartsWith('/field-data/integrations') }">
+      <router-link to="/field-data/integrations">
+        {{ $t('nav.integrations') }} <span class="sr-only">{{ $t('current') }}</span>
       </router-link>
     </li>
     <li v-if="canRoute('/users')" id="navbar-links-users"
@@ -23,15 +40,9 @@ except according to the terms contained in the LICENSE file.
       </router-link>
     </li>
     <li v-if="canRoute('/system/audits')"
-      :class="{ active: routePathStartsWith('/system') }">
+      :class="{ active: routePathStartsWith('/system') || routePathStartsWith('/field-data/organizations') }">
       <router-link to="/system/audits">
-        {{ $t('common.system') }} <span class="sr-only">{{ $t('current') }}</span>
-      </router-link>
-    </li>
-    <li v-if="canRoute('/field-data')" id="navbar-links-field-data"
-      :class="{ active: routePathStartsWith('/field-data') }">
-      <router-link to="/field-data">
-        {{ $t('fieldDataHome.title') }} <span class="sr-only">{{ $t('current') }}</span>
+        {{ $t('nav.administration') }} <span class="sr-only">{{ $t('current') }}</span>
       </router-link>
     </li>
   </ul>
@@ -48,7 +59,7 @@ export default {
   },
   computed: {
     projectsLinkIsActive() {
-      return this.$route.path === '/' || this.routePathStartsWith('/projects');
+      return this.routePathStartsWith('/projects');
     }
   },
   methods: {
@@ -80,7 +91,13 @@ export default {
 {
   "en": {
     // Used by screen readers to identify the currently-selected navigation tab
-    "current": "current"
+    "current": "current",
+    "nav": {
+      "dashboard": "Dashboard",
+      "media": "Media",
+      "integrations": "Integrations",
+      "administration": "Administration"
+    }
   }
 }
 </i18n>

@@ -77,8 +77,10 @@ const responsesByComponent = {
   AccountClaim: [],
 
   Home: componentResponses({
-    projects: () => testData.extendedProjects.sorted(),
-    users: true
+    projects: () => testData.extendedProjects.sorted()
+  }),
+  ProjectsPage: componentResponses({
+    projects: () => testData.extendedProjects.sorted()
   }),
   ProjectShow: componentResponses({ project: true }),
   ProjectOverview: componentResponses({ forms: true, deletedForms: () => [] }),

@@ -310,6 +310,14 @@ const routes = [
     }
   }),
   asyncRoute({
+    path: '/projects',
+    component: 'ProjectsPage',
+    loading: 'page',
+    meta: {
+      title: () => [i18n.t('resource.projects')]
+    }
+  }),
+  asyncRoute({
     path: '/projects/:projectId([1-9]\\d*)',
     component: 'ProjectShow',
     props: true,
