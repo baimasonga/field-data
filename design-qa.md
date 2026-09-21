@@ -261,9 +261,8 @@ truncation whenever the budget is full, wherever that happened.
 
 ## Known gaps
 
-- Administration is a link to the audit log rather than a section gathering
-  Organizations, Backups, Configuration and Analytics.
-- Strings added here are English only; the ten other locales fall back.
+- Strings added here are English only, by decision rather than oversight: the
+  ten other locales fall back to English until somebody asks for them.
 - `src/components/landing-photos.js` and `src/styles.js` carry ESLint errors
   that predate this branch, and `npm run transifex:lint` has been failing
   since before it (6079 diff lines, unchanged by this work).
