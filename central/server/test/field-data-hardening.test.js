@@ -88,7 +88,7 @@ test('permanent webhook errors are not retried', async () => {
 
 test('global webhook and backup endpoints reject project-only managers before data access', async () => {
   const routes = [];
-  const service = Object.fromEntries(['get', 'post', 'patch', 'delete'].map(method => [method, (path, ...handlers) => routes.push({ path, handler: handlers.at(-1) })]));
+  const service = Object.fromEntries(['get', 'post', 'put', 'patch', 'delete'].map(method => [method, (path, ...handlers) => routes.push({ path, handler: handlers.at(-1) })]));
   require('../lib/resources/field-data')(service, handler => handler);
   for (const route of routes.filter(r => /\/field-data\/(backups|webhooks)/.test(r.path))) {
     const verb = route.path.includes('/backups') ? 'backup.run' : 'config.set';
