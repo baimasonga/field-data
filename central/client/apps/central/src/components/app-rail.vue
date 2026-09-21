@@ -12,58 +12,54 @@ from it. A rail entry would have to pick a Project on the user's behalf.
 -->
 <template>
   <nav id="app-rail" :aria-label="$t('label')">
-    <router-link class="rail-link" :class="{ active: $route.path === '/' }" to="/">
-      <span class="icon-bar-chart" aria-hidden="true"></span>
-      <span>{{ $t('nav.dashboard') }}</span>
-      <span v-if="$route.path === '/'" class="sr-only">{{ $t('current') }}</span>
+    <router-link v-for="item in sections" :key="item.path" class="rail-link"
+      :class="{ active: isActive(item) }" :to="item.path">
+      <span :class="item.icon" aria-hidden="true"></span>
+      <span>{{ item.label }}</span>
+      <span v-if="isActive(item)" class="sr-only">{{ $t('current') }}</span>
     </router-link>
-    <router-link class="rail-link" :class="{ active: startsWith('/projects') }"
-      to="/projects">
-      <span class="icon-folder-open" aria-hidden="true"></span>
-      <span>{{ $t('resource.projects') }}</span>
-      <span v-if="startsWith('/projects')" class="sr-only">{{ $t('current') }}</span>
-    </router-link>
-    <router-link class="rail-link" :class="{ active: startsWith('/forms') }" to="/forms">
-      <span class="icon-file-text" aria-hidden="true"></span>
-      <span>{{ $t('resource.forms') }}</span>
-      <span v-if="startsWith('/forms')" class="sr-only">{{ $t('current') }}</span>
-    </router-link>
-    <router-link class="rail-link" :class="{ active: startsWith('/submissions') }"
-      to="/submissions">
-      <span class="icon-database" aria-hidden="true"></span>
-      <span>{{ $t('resource.submissions') }}</span>
-      <span v-if="startsWith('/submissions')" class="sr-only">{{ $t('current') }}</span>
-    </router-link>
-    <router-link v-if="canRoute('/field-data/media')" class="rail-link"
-      :class="{ active: startsWith('/field-data/media') }" to="/field-data/media">
-      <span class="icon-image" aria-hidden="true"></span>
-      <span>{{ $t('nav.media') }}</span>
-      <span v-if="startsWith('/field-data/media')" class="sr-only">{{ $t('current') }}</span>
-    </router-link>
-    <router-link v-if="canRoute('/field-data/integrations')" class="rail-link"
-      :class="{ active: startsWith('/field-data/integrations') }"
-      to="/field-data/integrations">
-      <span class="icon-exchange" aria-hidden="true"></span>
-      <span>{{ $t('nav.integrations') }}</span>
-      <span v-if="startsWith('/field-data/integrations')" class="sr-only">{{ $t('current') }}</span>
-    </router-link>
-    <router-link v-if="canRoute('/users')" class="rail-link"
-      :class="{ active: startsWith('/users') }" to="/users">
-      <span class="icon-user-circle" aria-hidden="true"></span>
-      <span>{{ $t('resource.users') }}</span>
-      <span v-if="startsWith('/users')" class="sr-only">{{ $t('current') }}</span>
-    </router-link>
-    <router-link v-if="canRoute('/system/audits')" class="rail-link rail-admin"
-      :class="{ active: adminIsActive }" to="/system/audits">
-      <span class="icon-cog" aria-hidden="true"></span>
-      <span>{{ $t('nav.administration') }}</span>
-      <span v-if="adminIsActive" class="sr-only">{{ $t('current') }}</span>
-    </router-link>
+    <template v-if="admin != null">
+      <router-link class="rail-link rail-admin" :class="{ active: adminIsActive }"
+        :to="admin.path">
+        <span class="icon-cog" aria-hidden="true"></span>
+        <span>{{ $t('nav.administration') }}</span>
+        <span v-if="adminIsActive" class="sr-only">{{ $t('current') }}</span>
+      </router-link>
+      <router-link v-for="child in adminIsActive ? adminChildren : []"
+        :key="child.path" class="rail-child" :class="{ active: isActive(child) }"
+        :to="child.path">
+        {{ child.label }}
+        <span v-if="isActive(child)" class="sr-only">{{ $t('current') }}</span>
+      </router-link>
+    </template>
   </nav>
 </template>
 
 <script>
 import useRoutes from '../composables/routes';
+
+// The work, in the order somebody meets it. Everything below the line is set
+// up once and then left alone.
+const SECTIONS = [
+  { path: '/', labelKey: 'nav.dashboard', icon: 'icon-bar-chart', exact: true },
+  { path: '/projects', labelKey: 'resource.projects', icon: 'icon-folder-open' },
+  { path: '/forms', labelKey: 'resource.forms', icon: 'icon-file-text' },
+  { path: '/submissions', labelKey: 'resource.submissions', icon: 'icon-database' },
+  { path: '/field-data/media', labelKey: 'nav.media', icon: 'icon-image', gated: true }
+];
+
+// Administration is a section, not a destination: Users and Integrations are
+// administering the deployment rather than doing fieldwork with it, and they
+// were competing with Projects for attention at the top level.
+const ADMIN_CHILDREN = [
+  { path: '/users', labelKey: 'resource.users' },
+  { path: '/field-data/integrations', labelKey: 'nav.integrations' },
+  { path: '/field-data/organizations', labelKey: 'nav.organizations' },
+  { path: '/field-data/backups', labelKey: 'nav.backups' },
+  // Audit log, customization and analytics are all one destination as far as
+  // the rail is concerned; the page itself tabs between them.
+  { path: '/system/audits', labelKey: 'nav.system', prefix: '/system' }
+];
 
 export default {
   name: 'AppRail',
@@ -72,14 +68,29 @@ export default {
     return { canRoute };
   },
   computed: {
+    sections() {
+      return SECTIONS
+        .filter(item => !item.gated || this.canRoute(item.path))
+        .map(item => ({ ...item, label: this.$t(item.labelKey) }));
+    },
+    adminChildren() {
+      return ADMIN_CHILDREN
+        .filter(child => this.canRoute(child.path))
+        .map(child => ({ ...child, label: this.$t(child.labelKey) }));
+    },
+    // The section leads to its first reachable child, and disappears for
+    // somebody who can reach none of them.
+    admin() {
+      return this.adminChildren.length === 0 ? null : this.adminChildren[0];
+    },
     adminIsActive() {
-      return this.startsWith('/system') ||
-        this.startsWith('/field-data/organizations') ||
-        this.startsWith('/field-data/backups');
+      return this.adminChildren.some(child => this.isActive(child));
     }
   },
   methods: {
-    startsWith(path) {
+    isActive(item) {
+      if (item.exact === true) return this.$route.path === item.path;
+      const path = item.prefix ?? item.path;
       return this.$route.path === path || this.$route.path.startsWith(`${path}/`);
     }
   }
@@ -124,7 +135,22 @@ export default {
   }
   // Administration is set up once and then left alone, so it sits away from
   // the work rather than in the middle of it.
-  .rail-admin { border-top: 1px solid #e9e9f1; margin-top: auto; padding-top: 4px; }
+  .rail-admin { border-top: 1px solid #e9e9f1; margin-top: auto; padding-top: 12px; }
+
+  // Its destinations, shown while the section is open. Indented to the width
+  // of the icons above so the labels line up with them.
+  .rail-child {
+    border-radius: 6px;
+    color: #4d4d5c;
+    display: block;
+    font-size: 13px;
+    padding: 6px 16px 6px 50px;
+    text-decoration: none;
+
+    &:hover, &:focus { background: #f4f2ff; color: #4b3ccb; }
+    &:focus-visible { box-shadow: var(--ring-focus); outline: none; }
+    &.active { background: #eeebff; color: #513ee8; font-weight: 600; }
+  }
   .sr-only { display: none; }
   .active .sr-only { display: block; }
 }
@@ -144,6 +170,7 @@ export default {
 
     .rail-link { flex: 0 0 auto; min-height: 40px; padding-inline: 12px; }
     .rail-admin { border: 0; margin: 0; padding-top: 0; }
+    .rail-child { flex: 0 0 auto; padding: 6px 12px; }
   }
 }
 @media (prefers-reduced-motion: reduce) {
@@ -161,6 +188,10 @@ export default {
       "dashboard": "Dashboard",
       "media": "Media",
       "integrations": "Integrations",
+      "organizations": "Organizations",
+      "backups": "Backups",
+      // The server itself: audit log and customization.
+      "system": "System",
       "administration": "Administration"
     }
   }

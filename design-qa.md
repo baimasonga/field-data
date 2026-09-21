@@ -148,10 +148,53 @@ Reports is deliberately not on the rail. Reports belong to a Project and are
 reached from it; a rail entry had to pick a Project on the user's behalf,
 which is the kind of small lie the rest of this work removed.
 
+## Ten Form tabs, and four
+
+The Form page asked somebody to choose between ten tabs before they had read a
+row: Submissions, Summary, Filtered Data, Photos, Charts, Verification, Public
+Access, Edit Form, Versions, Settings. They are four groups, with the views
+inside the open one in a quieter row beneath:
+
+| Tab | Views |
+| --- | --- |
+| Data | Submissions, Summary, Charts, Photos, Verification |
+| Share | Public Access, Filtered Data |
+| Versions | Versions, Edit Form |
+| Settings | Settings |
+
+Every view keeps its own route and its own URL; nothing was moved or removed,
+so existing links still work. Verification moved out of Settings and into Data:
+it reads the evidence behind Submissions and takes `submission.list`, so under
+Settings a Project viewer was shown a tab holding settings they cannot change.
+
+A Form with no published version has every view disabled except Edit Form, so
+the Versions tab leads with Edit Form while that is the case -- otherwise the
+draft editor would sit behind a disabled tab.
+
+Driven through a browser across all ten views: the right group is marked on
+each, and the row beneath lists that group's views with the right one active.
+
+This also fixed three tests that were already failing: the spec still expected
+the five tabs the page had before the fork added Summary, Charts, Photos,
+Filtered Data and Verification.
+
+## Administration as a section
+
+Users and Integrations were top-level destinations competing with Projects,
+and Organizations and Backups could only be reached by typing a URL. They are
+now the Administration section: the rail entry opens to Users, Integrations,
+Organizations, Backups and System, listed under it while that section is the
+one you are in.
+
+Nobody's reach changed. Organizations carries no site-wide guard on purpose --
+authority over an organization is granted on the organization -- so it stays
+the one administration destination anybody can open, exactly as it was under
+the old Field Data menu, and the section leads there for a user with no
+sitewide role rather than disappearing.
+
 ## Known gaps
 
-- Form pages still carry ten tabs and Project pages eleven; grouping them is
-  the next stage.
+- Project pages still carry eleven tabs; only the Form page has been grouped.
 - There is no cross-project Maps page, so the rail does not offer one.
 - Administration is a link to the audit log rather than a section gathering
   Organizations, Backups, Configuration and Analytics.

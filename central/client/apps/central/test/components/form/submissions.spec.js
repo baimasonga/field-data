@@ -35,14 +35,14 @@ describe('FormSubmissions', () => {
       testData.extendedSubmissions.createPast(11);
       return load('/projects/1/forms/f/settings')
         .afterResponses(app => {
-          findTab(app, 'Submissions').get('.badge').text().should.equal('10');
+          findTab(app, 'Data').get('.badge').text().should.equal('10');
         })
         .route('/projects/1/forms/f/submissions')
         .respondForComponent('FormSubmissions')
         .complete()
         .route('/projects/1/forms/f/settings')
         .then(app => {
-          findTab(app, 'Submissions').get('.badge').text().should.equal('11');
+          findTab(app, 'Data').get('.badge').text().should.equal('11');
         });
     });
 
@@ -52,7 +52,7 @@ describe('FormSubmissions', () => {
       testData.extendedSubmissions.createPast(2, { deletedAt: new Date().toISOString() });
       return load('/projects/1/forms/f/submissions')
         .afterResponses(app => {
-          findTab(app, 'Submissions').get('.badge').text().should.equal('5');
+          findTab(app, 'Data').get('.badge').text().should.equal('5');
         })
         .complete()
         .request(app => {
@@ -61,7 +61,7 @@ describe('FormSubmissions', () => {
         })
         .respondWithData(() => testData.submissionDeletedOData())
         .afterResponses(app => {
-          findTab(app, 'Submissions').get('.badge').text().should.equal('5');
+          findTab(app, 'Data').get('.badge').text().should.equal('5');
         });
     });
 
@@ -72,7 +72,7 @@ describe('FormSubmissions', () => {
 
       return load('/projects/1/forms/f/submissions')
         .afterResponses(app => {
-          findTab(app, 'Submissions').get('.badge').text().should.equal('5');
+          findTab(app, 'Data').get('.badge').text().should.equal('5');
           app.find('.toggle-deleted-submissions').text().should.equal('2 deleted Submissions');
         })
         .complete()
@@ -82,7 +82,7 @@ describe('FormSubmissions', () => {
         })
         .respondWithSuccess()
         .afterResponse(app => {
-          findTab(app, 'Submissions').get('.badge').text().should.equal('4');
+          findTab(app, 'Data').get('.badge').text().should.equal('4');
           app.find('.toggle-deleted-submissions').text().should.equal('3 deleted Submissions');
         })
         .request(async app => {
@@ -91,12 +91,12 @@ describe('FormSubmissions', () => {
         })
         .respondWithSuccess()
         .afterResponse(app => {
-          findTab(app, 'Submissions').get('.badge').text().should.equal('3');
+          findTab(app, 'Data').get('.badge').text().should.equal('3');
         })
         .request(app => app.get('.toggle-deleted-submissions').trigger('click'))
         .respondWithData(() => testData.submissionDeletedOData())
         .afterResponse(app => {
-          findTab(app, 'Submissions').get('.badge').text().should.equal('3');
+          findTab(app, 'Data').get('.badge').text().should.equal('3');
         })
         .request(async app => {
           await app.get('.submission-metadata-row .restore-button').trigger('click');
@@ -104,7 +104,7 @@ describe('FormSubmissions', () => {
         })
         .respondWithSuccess()
         .afterResponse(app => {
-          findTab(app, 'Submissions').get('.badge').text().should.equal('4');
+          findTab(app, 'Data').get('.badge').text().should.equal('4');
         });
     });
   });
