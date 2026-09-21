@@ -8,6 +8,7 @@
 // except according to the terms contained in the LICENSE file.
 
 const { sql } = require('slonik');
+const { impliedProjectActees } = require('../../util/cross-project');
 const { Form, Key, Project } = require('../frames');
 const { extender, sqlEquals, insert, updater, markDeleted, QueryOptions } = require('../../util/db');
 const { generateManagedKey, generateVersionSuffix, stripPemEnvelope } = require('../../util/crypto');
@@ -105,14 +106,22 @@ ${extend|| sql`
     on projects.id=dataset_stats."projectId"`}
 ${(actorId == null) ? sql`` : sql`
 inner join
-  (select id, array_agg(distinct verb) as verbs from projects
+  (select projects.id, array_agg(distinct verb) as verbs from projects
+    inner join ${impliedProjectActees} as implied
+      on implied.root=projects."acteeId"
     inner join
       (select "acteeId", jsonb_array_elements_text(role.verbs) as verb from assignments
         inner join roles as role
           on role.id=assignments."roleId"
         where "actorId"=${actorId}) as assignment
-      on assignment."acteeId" in ('*', 'project', projects."acteeId")
-    group by id
+      -- Walking the actee chain rather than matching ('*', 'project',
+      -- projects."acteeId") flatly. The flat list names the two species that
+      -- happen to sit above a Project and stops, so a role granted on
+      -- anything in between -- an organization that owns Projects -- reached
+      -- nothing, and its members' Project list came back empty. Auth.can()
+      -- has always walked the chain; this is the same walk.
+      on assignment."acteeId"=implied.id
+    group by projects.id
     having array_agg(distinct verb) @> array['project.read', 'form.list'] or array_agg(distinct verb) @> array['project.read', 'open_form.list']
   ) as filtered
 on filtered.id=projects.id

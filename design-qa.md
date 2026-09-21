@@ -76,6 +76,54 @@ gets 401. Filters, the 500-row cap and paging were exercised through the
 browser, including that changing a filter returns to the first page and that
 paging keeps the filter.
 
+## The flat actee match behind /v1/projects
+
+`Projects.getAllByAuth` matched assignments against
+`('*', 'project', projects."acteeId")`: the two species that happen to sit
+above a Project, and nothing in between. A role granted on an organization
+reached none of that organization's Projects, so its members got an empty
+Project list while `Auth.can()` -- which has always walked the chain -- let
+them open each Project by URL. It now walks the same chain, sharing the
+fragment with the cross-project listings.
+
+Against a running server, the actor whose only grant is on an organization
+goes from `[]` to that organization's Project. A site administrator still sees
+all 8 and a Project-scoped viewer still sees exactly 1; an anonymous request
+is still 401, and the `verbs` array the client reads for `project.permits()`
+is unchanged.
+
+The walk costs something. At 2,002 Projects, measured with `EXPLAIN ANALYZE`
+against a site administrator -- the worst case, because a grant on `'*'`
+matches every Project -- the flat match ran in 85 ms and the walk in 124 ms.
+Both are dominated by aggregating the verb list, and this deployment has 8
+Projects.
+
+## Running the server's integration tests
+
+They could not run at all: `test/integration/fixtures/02-forms.js` deleted the
+`formview` assignment that `Forms.createNew()` used to make, and the native
+Web Forms change removed it, so the fixture threw before the first test. With
+that gone the suite runs, and this change is a no-op against it.
+
+| | Passing | Failing | Pending |
+| --- | --- | --- | --- |
+| Before this change | 2467 | 59 | 5 |
+| After | 2467 | 59 | 5 |
+
+The failure sets are identical line for line. The 59 are the same Enketo drift
+that broke the fixture: the fork replaced external Enketo with native Web
+Forms and the tests still expect Enketo ids.
+
+`make test-integration` needs `config/test.json` naming a database, which is
+gitignored like `config/development.json`:
+
+    {"default":{"database":{"host":"127.0.0.1","user":"jubilant",
+      "password":"jubilant","database":"jubilant_test"}}}
+
+then `createdb jubilant_test`, `CREATE EXTENSION pgrowlocks`, and
+`NODE_CONFIG_DIR=../../config NODE_CONFIG_ENV=test npx knex migrate:latest
+--knexfile lib/model/knexfile.js`.
+
 ## Known gaps
 
 - `src/components/landing-photos.js` and `src/styles.js` carry ESLint errors

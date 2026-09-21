@@ -15,19 +15,25 @@ const { sql } = require('slonik');
 // Projects.getAllByAuth still does -- sees neither, and an organization member
 // would get an empty list rather than their own projects.
 //
-// Returns the WITH prefix of a statement: append the query that joins
-// `visible` to whatever is being listed.
-const visibleProjects = (actorId, verbs) => sql`
-with recursive implied(root, id) as (
+// Every actee id each Project's actee implies: itself, whatever owns it, and
+// the species at each step, which is how a grant on '*' or on 'project'
+// reaches a Project it never names. A derived table rather than a correlated
+// subquery, so it can be joined from anywhere.
+const impliedProjectActees = sql`
+(with recursive implied(root, id) as (
   (select p."acteeId"::text, p."acteeId"::text from projects p where p."deletedAt" is null)
   union
   (select implied.root, unnest(ARRAY[actees.parent, actees.species])::text
     from actees join implied on implied.id = actees.id)
-),
-visible as (
+) select root, id from implied)`;
+
+// Returns the WITH prefix of a statement: append the query that joins
+// `visible` to whatever is being listed.
+const visibleProjects = (actorId, verbs) => sql`
+with visible as (
   select p.id
   from projects p
-  join implied on implied.root = p."acteeId"
+  join ${impliedProjectActees} as implied on implied.root = p."acteeId"
   join assignments on assignments."acteeId" = implied.id
     and assignments."actorId" = ${actorId}
   join roles on roles.id = assignments."roleId"
@@ -43,4 +49,4 @@ visible as (
 // request must list nothing rather than everything.
 const actorIdOf = (auth) => auth.actor.map((actor) => actor.id).orElse(-1);
 
-module.exports = { visibleProjects, actorIdOf };
+module.exports = { impliedProjectActees, visibleProjects, actorIdOf };

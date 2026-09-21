@@ -4,13 +4,15 @@
 --
 -- Run seed-two-tenants.js first, then this. Every row must read 'ok'.
 --
--- lib/util/cross-project.js builds this CTE for /v1/field-data/forms and
--- /v1/field-data/submissions. It is copied here verbatim, parameterised by
--- actor and verb list, because the property under test is the recursive walk
--- over actees.parent and actees.species: a role granted on an organization has
--- to reach the Projects that organization owns. Projects.getAllByAuth matches
--- assignments flatly against projects."acteeId" and so does not, which is why
--- an organization member's Project list comes back empty.
+-- lib/util/cross-project.js builds this walk for /v1/field-data/forms,
+-- /v1/field-data/submissions and, since the flat match was replaced,
+-- Projects.getAllByAuth behind /v1/projects. It is copied here verbatim,
+-- parameterised by actor and verb list, because the property under test is the
+-- recursive walk over actees.parent and actees.species: a role granted on an
+-- organization has to reach the Projects that organization owns. The flat
+-- match it replaced named the two species that happen to sit above a Project
+-- and stopped there, so an organization member's Project list came back
+-- empty.
 
 create or replace function visible_projects(actor_id integer, required_verbs text[])
 returns table (id integer) as $$

@@ -1544,3 +1544,21 @@ test('the submission listing cannot be asked for an unbounded page', () => {
   assert.match(body, /offset = Math\.max\(intParam\(query\.offset \?\? '0'\), 0\)/,
     'a negative offset would reach past the start of the result set');
 });
+
+test('the project listing walks the actee chain rather than matching it flatly', () => {
+  const projects = fs.readFileSync(
+    path.join(__dirname, '../../lib/model/query/projects.js'), 'utf8');
+
+  // The listing used to match assignments against
+  // ('*', 'project', projects."acteeId"): the two species that happen to sit
+  // above a Project, and nothing in between. A role granted on an organization
+  // reached none of its Projects, so its members saw an empty list while
+  // Auth.can() -- which has always walked the chain -- let them open each
+  // Project by URL.
+  assert.doesNotMatch(projects, /in \('\*', 'project', projects\."acteeId"\)/,
+    'the flat actee match is back');
+  assert.match(projects, /impliedProjectActees/,
+    'the project listing no longer walks the actee chain');
+  assert.match(projects, /@> array\['project\.read', 'form\.list'\]/,
+    'the listing no longer requires the verbs it used to');
+});
