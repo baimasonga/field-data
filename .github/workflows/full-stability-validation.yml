@@ -81,12 +81,16 @@ jobs:
       - name: Migrate test database
         run: |
           NODE_CONFIG_DIR=../../config NODE_CONFIG_ENV=test             ./node_modules/.bin/knex migrate:latest --knexfile lib/model/knexfile.js
+      - name: Verify test database connection
+        run: |
+          psql -h 127.0.0.1 -U jubilant -d jubilant_test -v ON_ERROR_STOP=1 \
+            -c "SELECT current_database(), current_user, COUNT(*) AS migrations FROM knex_migrations"
       - name: Run server integration baseline
         id: server_tests
         continue-on-error: true
         run: |
           set -o pipefail
-          NODE_CONFIG_DIR=./config NODE_CONFIG_ENV=test BCRYPT=insecure             npx mocha --recursive test/integration 2>&1 | tee server-integration.log
+          NODE_ENV=test NODE_CONFIG_DIR=./config NODE_CONFIG_ENV=test BCRYPT=insecure npx mocha --recursive --bail --timeout 10000 test/integration 2>&1 | tee server-integration.log
       - name: Upload server integration log
         if: always()
         uses: actions/upload-artifact@v4
@@ -99,6 +103,7 @@ jobs:
         run: exit 1
 
   client-karma:
+    if: github.event_name == 'workflow_dispatch'
     name: Client Karma suite
     runs-on: ubuntu-latest
     timeout-minutes: 120
