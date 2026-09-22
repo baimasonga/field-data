@@ -1,0 +1,14 @@
+interface:
+  display_name: Build Geospatial Field Intelligence
+  short_description: Fuse field records, maps, and satellite evidence
+  default_prompt: Use $build-geospatial-field-intelligence to implement a geospatial
+    or satellite-assisted field-data feature.
+  icon_small: assets/icon.svg
+  icon_large: assets/icon.svg
+policy:
+  products:
+  - chatgpt
+  - codex
+  - api
+  - atlas
+  allow_implicit_invocation: true

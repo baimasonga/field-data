@@ -1,0 +1,14 @@
+interface:
+  display_name: Orchestrate Field Operations
+  short_description: Optimize sampling, missions, and field assignments
+  default_prompt: Use $orchestrate-field-operations to implement adaptive sampling,
+    routing, or machine-generated assignments.
+  icon_small: assets/icon.svg
+  icon_large: assets/icon.svg
+policy:
+  products:
+  - chatgpt
+  - codex
+  - api
+  - atlas
+  allow_implicit_invocation: true

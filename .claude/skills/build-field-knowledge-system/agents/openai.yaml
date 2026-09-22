@@ -1,0 +1,14 @@
+interface:
+  display_name: Build Field Knowledge System
+  short_description: Create living assets, memory, and decision intelligence
+  default_prompt: Use $build-field-knowledge-system to implement persistent asset
+    histories, freshness, or decision intelligence.
+  icon_small: assets/icon.svg
+  icon_large: assets/icon.svg
+policy:
+  products:
+  - chatgpt
+  - codex
+  - api
+  - atlas
+  allow_implicit_invocation: true
