@@ -44,12 +44,22 @@ describe('(util) filtered datasets', () => {
     token.sql.should.containEql('::numeric');
   });
 
-  it('builds XML extraction and visible projection with parameters', () => {
+  it('passes the paths as one array parameter, not two per field', () => {
+    // The paths used to be spread into jsonb_build_object as a key and a value
+    // each, which Postgres refuses past 100 arguments -- a ceiling of 50
+    // fields. Binding one array keeps the statement a fixed size, so the guard
+    // that matters is the parameter count, not its contents.
     const extraction = extractObject(['/data/district', '/data/hh_size']);
-    extraction.values.should.containEql('/*/data/district/text()');
-    extraction.values.should.containEql('/*/data/hh_size/text()');
+    extraction.values.should.eql([['/data/district', '/data/hh_size']]);
+    extraction.sql.should.containEql('jsonb_object_agg');
+    extraction.sql.should.not.containEql('jsonb_build_object');
+
     const projection = projectObject(['/data/district']);
-    projection.values.should.eql(['/data/district', '/data/district']);
+    projection.values.should.eql([['/data/district']]);
+
+    // A wide Form binds exactly as many parameters as a narrow one.
+    const wide = extractObject(Array.from({ length: 200 }, (unused, i) => `/data/q${i}`));
+    wide.values.length.should.equal(1);
   });
 
   describe('resolveStoredDefinition', () => {

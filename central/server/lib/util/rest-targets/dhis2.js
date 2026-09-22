@@ -5,8 +5,17 @@
 // explicit: XLSForm paths never become DHIS2 data-element identifiers by
 // accident, and values for unmapped questions are never transmitted.
 
-const dataValueSetUrl = (serverUrl) =>
-  `${String(serverUrl).replace(/\/+$/, '')}/api/dataValueSets`;
+// Built from the parsed URL rather than by concatenation. Appending to the raw
+// string puts the endpoint after any query or fragment, so a serverUrl of
+// "https://dhis.example.org/?x=1" would be delivered to "/?x=1/api/dataValueSets"
+// and a fragment would drop the endpoint from the request altogether.
+const dataValueSetUrl = (serverUrl) => {
+  const url = new URL(String(serverUrl));
+  url.pathname = `${url.pathname.replace(/\/+$/, '')}/api/dataValueSets`;
+  url.search = '';
+  url.hash = '';
+  return url.toString();
+};
 
 const parseMapping = (value) => {
   let parsed;
@@ -37,6 +46,8 @@ const validateConfig = (config) => {
     throw new Error('DHIS2 server URL must be a valid HTTPS URL.');
   }
   if (url.protocol !== 'https:') throw new Error('DHIS2 server URL must use HTTPS.');
+  if (url.search !== '' || url.hash !== '')
+    throw new Error('DHIS2 server URL must not contain a query string or fragment.');
   if (!/^[A-Za-z][A-Za-z0-9]{10}$/.test(config.dataSet))
     throw new Error('DHIS2 data set must be an 11-character UID.');
   if (!/^[A-Za-z][A-Za-z0-9]{10}$/.test(config.orgUnit))

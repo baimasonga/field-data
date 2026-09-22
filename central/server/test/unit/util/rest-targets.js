@@ -207,6 +207,31 @@ describe('(util) rest targets', () => {
       });
     });
 
+    it('builds the endpoint from the parsed URL, not by concatenation', () => {
+      const { deliveryUrl } = getTarget('dhis2');
+      deliveryUrl({ serverUrl: 'https://dhis.example.org' })
+        .should.equal('https://dhis.example.org/api/dataValueSets');
+      deliveryUrl({ serverUrl: 'https://dhis.example.org/' })
+        .should.equal('https://dhis.example.org/api/dataValueSets');
+      // A server behind a path prefix keeps it.
+      deliveryUrl({ serverUrl: 'https://example.org/dhis' })
+        .should.equal('https://example.org/dhis/api/dataValueSets');
+    });
+
+    it('refuses a server URL carrying a query string or a fragment', () => {
+      // Appended to the raw string these land after the query or fragment, so
+      // the request never reaches the endpoint.
+      const config = (serverUrl) => ({
+        serverUrl, username: 'u', password: 'p',
+        dataSet: 'aBcDeFgHiJk', orgUnit: 'lMnOpQrStUv', period: '202609',
+        mapping: JSON.stringify({ '/age': 'wXyZaBcDeFg' })
+      });
+      (() => normalizeConfig('dhis2', config('https://dhis.example.org/?x=1')))
+        .should.throw(/query string or fragment/);
+      (() => normalizeConfig('dhis2', config('https://dhis.example.org/#frag')))
+        .should.throw(/query string or fragment/);
+    });
+
     it('refuses to send a Submission with no mapped values', () => {
       (() => dhis2.buildRequest({
         submittedAt: '2026-09-21T12:00:00.000Z', answers: {}

@@ -156,3 +156,43 @@ describe('api: submission CSV import', () => {
             .then(({ body }) => { body.length.should.equal(1); })))));
   });
 });
+
+// The 100-argument ceiling on jsonb_build_object put a hard limit of 50 fields
+// on every path that extracts Submission values. A survey instrument crosses
+// that routinely, so this pins the behaviour past it.
+describe('api: wide Form extraction', () => {
+  it('extracts values from a Form with more than fifty fields', testService((service) =>
+    service.login('alice', (asAlice) => {
+      const paths = Array.from({ length: 60 }, (unused, i) => `/q${i}`);
+      const binds = paths.map(path =>
+        `<bind nodeset="/data${path}" type="string"/>`).join('');
+      const fields = paths.map(path => `<${path.slice(1)}/>`).join('');
+      const xml = `<?xml version="1.0"?>
+        <h:html xmlns="http://www.w3.org/2002/xforms" xmlns:h="http://www.w3.org/1999/xhtml" xmlns:jr="http://openrosa.org/javarosa">
+          <h:head><h:title>Wide</h:title><model><instance><data id="wide">
+            <meta><instanceID/></meta>${fields}
+          </data></instance>
+          <bind nodeset="/data/meta/instanceID" type="string" readonly="true()" calculate="concat('uuid:', uuid())"/>
+          ${binds}
+          </model></h:head><h:body/></h:html>`;
+      return asAlice.post('/v1/projects/1/forms?publish=true')
+        .send(xml).set('Content-Type', 'application/xml').expect(200)
+        .then(() => asAlice.post('/v1/projects/1/forms/wide/submissions')
+          .send(`<data id="wide"><meta><instanceID>uuid:wide-1</instanceID></meta>` +
+            paths.map((path, i) => `<q${i}>v${i}</q${i}>`).join('') + `</data>`)
+          .set('Content-Type', 'application/xml').expect(200))
+        // filter-fields and the dataset preview both run the extractor over
+        // every field, which is where the ceiling used to be hit.
+        .then(() => asAlice.post('/v1/projects/1/forms/wide/filtered-datasets/preview')
+          .send({ columns: paths, query: [] })
+          .expect(200)
+          .then(({ body }) => {
+            // Reaching a 200 at all is the point: the preview runs the
+            // extractor across all sixty paths, which is the statement that
+            // used to be rejected outright.
+            body.total.should.equal(1);
+            body.matching.should.equal(1);
+            body.fields.should.equal(60);
+          }));
+    })));
+});

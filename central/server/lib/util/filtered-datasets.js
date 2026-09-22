@@ -96,21 +96,25 @@ const compileFilter = (query, fieldByPath) => {
   return result;
 };
 
-// jsonb_build_object is variadic "any", so Postgres cannot infer the type of a
-// bare parameter passed as a key and refuses the whole statement with "could
-// not determine data type of parameter". Every parameter reaching it is cast
-// explicitly. The xpath argument needs the same treatment for the same reason.
-// This only shows up against a real database; it cannot be reproduced against
-// a fixture server, which is how it survived three features.
-const extractObject = (paths) => sql`jsonb_build_object(${sql.join(paths.flatMap(path => [
-  sql`${path}::text`,
-  sql`btrim((xpath(${`/*${path}/text()`}::text, sd.xml::xml))[1]::text)`
-]), sql`,`)})`;
+// Aggregated over a parameter array rather than passed to the variadic
+// jsonb_build_object, which takes a key and a value per field and so stops at
+// Postgres's hard limit of 100 arguments to a function. That ceiling is 50
+// fields -- ordinary for a survey instrument -- and it does not degrade: the
+// statement is rejected outright, so a Form crossing it loses its filtered
+// datasets, its reports and its integrations at once.
+//
+// The xpath argument is built by concatenation for the same reason the old
+// parameters were cast: Postgres must be able to infer the type. This only
+// shows up against a real database; it cannot be reproduced against a fixture
+// server, which is how the earlier form of it survived three features.
+const extractObject = (paths) => sql`(
+  select coalesce(jsonb_object_agg(p.path,
+    btrim((xpath('/*' || p.path || '/text()', sd.xml::xml))[1]::text)), '{}'::jsonb)
+  from unnest(${sql.array(paths, 'text')}) as p(path))`;
 
-const projectObject = (columns) => sql`jsonb_build_object(${sql.join(columns.flatMap(path => [
-  sql`${path}::text`,
-  sql`extracted ->> ${path}::text`
-]), sql`,`)})`;
+const projectObject = (columns) => sql`(
+  select coalesce(jsonb_object_agg(c.path, extracted ->> c.path), '{}'::jsonb)
+  from unnest(${sql.array(columns, 'text')}) as c(path))`;
 
 /*
 Resolve a stored definition against the form as it is now, without throwing.

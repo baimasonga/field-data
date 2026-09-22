@@ -67,9 +67,11 @@ Licensed under the Apache License, Version 2.0.
 <script setup>
 import { computed, inject, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
+import { useRouter } from 'vue-router';
 
 import Spinner from '../spinner.vue';
 import useRequest from '../../composables/request';
+import { useRequestData } from '../../request-data';
 import { apiPaths } from '../../util/request';
 import { noop } from '../../util/util';
 
@@ -82,6 +84,8 @@ const props = defineProps({
 const { t } = useI18n();
 const alert = inject('alert');
 const { request } = useRequest();
+const router = useRouter();
+const { form } = useRequestData();
 const fileInput = ref(null);
 const file = ref(null);
 const result = ref(null);
@@ -129,6 +133,16 @@ const commit = () => {
       // Clearing the ref alone leaves the chosen filename sitting in the
       // control, which reads as though the file is still queued.
       if (fileInput.value != null) fileInput.value.value = '';
+      // The Form resource still reports no Submissions, so without refetching
+      // it this tab stays on screen and offers a second import the server will
+      // refuse. Refresh it, then show the rows that were just created.
+      form.request({
+        url: apiPaths.form(props.projectId, props.xmlFormId),
+        extended: true,
+        resend: true
+      }).catch(noop);
+      router.push(`/projects/${props.projectId}/forms/${encodeURIComponent(props.xmlFormId)}/submissions`)
+        .catch(noop);
     }).catch(noop).finally(() => { committing.value = false; });
 };
 </script>

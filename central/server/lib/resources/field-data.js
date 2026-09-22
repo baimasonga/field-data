@@ -807,6 +807,22 @@ module.exports = (service, endpoint) => {
         await container.SubmissionAttachments.create(submission, form, binaryFields);
         created += 1;
       }
+      // The advisory lock serializes imports against each other, but an
+      // ordinary Submission upload never takes it, so one can commit between
+      // the blank-Form check above and these inserts. Counting again here
+      // catches that: this statement takes a fresh snapshot, so a Submission
+      // committed in the meantime is visible, and the mismatch rolls the whole
+      // import back rather than leaving it mixed with collected data. A
+      // Submission arriving after this commits is simply a Submission after
+      // the import, which is allowed.
+      const total = await container.db.oneFirst(sql`
+        select count(*)::integer from submissions where "formId"=${form.id}`);
+      if (total !== created) {
+        throw Problem.user.unexpectedValue({
+          field: 'form', value: form.xmlFormId,
+          reason: 'a Submission arrived while the import was running, so nothing was imported'
+        });
+      }
       return { created };
     }));
 
