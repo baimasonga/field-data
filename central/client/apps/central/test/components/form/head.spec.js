@@ -174,6 +174,7 @@ describe('FormHead', () => {
     it('hides Import CSV once the form has submissions', () => {
       mockLogin();
       testData.extendedForms.createPast(1, { submissions: 1 });
+      testData.extendedSubmissions.createPast(1);
       return load('/projects/1/forms/f/submissions').then(app => {
         const views = app.findAll('#form-subtabs a').map(view => view.text());
         views.should.not.contain('Import CSV');
