@@ -196,6 +196,15 @@ export default {
     tabVisible(path) {
       if (path === 'submissions' || path === 'versions') return true;
       if (path === 'public-links' || path === 'settings') return this.rendersFormTabs;
+      // Import is a one-time operation on an empty Form, so its tab goes away
+      // as soon as the Form holds anything. canRoute() cannot carry this on
+      // its own: it only consults a route's validateData for resources that
+      // are preserved across the navigation, so it answers true here whatever
+      // the Submission count is. The route keeps the same condition, which is
+      // what stops somebody typing the URL.
+      if (path === 'import')
+        return this.form.dataExists && this.form.submissions === 0 &&
+          this.canRoute(this.tabPath(path));
       return this.canRoute(this.tabPath(path));
     },
     tabDisabled(path) {

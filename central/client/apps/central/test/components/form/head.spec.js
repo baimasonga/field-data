@@ -176,8 +176,8 @@ describe('FormHead', () => {
       testData.extendedForms.createPast(1, { submissions: 1 });
       return load('/projects/1/forms/f/submissions').then(app => {
         const views = app.findAll('#form-subtabs a').map(view => view.text());
-        views.should.not.containEql('Import CSV');
-        views.should.containEql('Submissions');
+        views.should.not.contain('Import CSV');
+        views.should.contain('Submissions');
       });
     });
 
