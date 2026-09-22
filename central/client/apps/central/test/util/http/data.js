@@ -76,9 +76,19 @@ const responsesByComponent = {
   AccountResetPassword: [],
   AccountClaim: [],
 
-  Home: componentResponses({
-    projects: () => testData.extendedProjects.sorted()
-  }),
+  // A function, not an array, because the number of responses depends on the
+  // test data: the programme dashboard asks for one summary per unarchived
+  // Project after the list arrives. Declaring only the list left every spec
+  // that renders Home one response short per Project, which MockHttp reports
+  // as "request without response" without naming the request.
+  Home: () => [
+    ...componentResponses({ projects: () => testData.extendedProjects.sorted() }),
+    ...testData.extendedProjects.sorted()
+      .filter(project => !project.archived)
+      .map(() => ['projectSummary', () => ({
+        submissions: 0, submissionsOverTime: [], overTime: [], forms: 0, lastSubmission: null
+      })])
+  ],
   ProjectsPage: componentResponses({
     projects: () => testData.extendedProjects.sorted()
   }),
@@ -304,8 +314,11 @@ const composablesByParent = {
 };
 
 export default (name) => {
-  const responses = responsesByComponent[name];
-  if (responses == null) throw new Error(`unknown component ${name}`);
+  const declared = responsesByComponent[name];
+  if (declared == null) throw new Error(`unknown component ${name}`);
+  // An entry may be a function so that it can be evaluated against the test
+  // data of the spec that is running, rather than once at module load.
+  const responses = typeof declared === 'function' ? declared() : declared;
   const composables = composablesByParent[name] != null
     ? composablesByParent[name]
     : [];

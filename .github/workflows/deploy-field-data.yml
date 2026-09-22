@@ -375,6 +375,14 @@ jobs:
             payload=${response%$'\n'*}
 
             if [[ "$status" == 200 ]]; then
+              # Kept for the smoke test below, which needs a real session to
+              # ask whether anything works beyond the login itself. Masked so
+              # it cannot be read out of the log.
+              token=$(printf '%s\n' "$payload" | jq -r '.token // empty')
+              if [[ -n "$token" ]]; then
+                echo "::add-mask::$token"
+                echo "FIELD_DATA_SESSION_TOKEN=$token" >> "$GITHUB_ENV"
+              fi
               echo "The administrator can log in (after $attempt attempt(s))."
               exit 0
             fi
@@ -394,6 +402,88 @@ jobs:
           echo "The last answer was $status:" >&2
           printf '%s\n' "$payload" >&2
           exit 1
+
+      # Logging in proves the front door opens. It says nothing about whether
+      # anything inside works, and a deploy that authenticates but cannot list
+      # a Project is broken in a way nobody notices until a person tries to
+      # work. This walks the path a person actually takes on their first visit
+      # and names the step that broke.
+      #
+      # An empty deployment passes: a Project list that is legitimately empty
+      # answers 200 with [], which is the thing being checked. The walk stops
+      # going deeper when there is nothing to go deeper into.
+      - name: Walk the critical path with that session
+        if: env.FIELD_DATA_SESSION_TOKEN != ''
+        env:
+          BASE: https://field-data.mohamedbangura.workers.dev
+        run: |
+          set -o pipefail
+          auth="Authorization: Bearer $FIELD_DATA_SESSION_TOKEN"
+          failed=0
+
+          # Prints the step, keeps going, and records whether it worked, so one
+          # run reports every broken thing rather than only the first.
+          get() {
+            local label=$1 path=$2
+            local out status
+            out=$(curl --silent --show-error --max-time 45 --write-out '\n%{http_code}' \
+              --header "$auth" "$BASE$path") || out=$'\n000'
+            status=${out##*$'\n'}
+            body=${out%$'\n'*}
+            if [[ "$status" == 200 ]]; then
+              echo "  ok   $label ($path)"
+              return 0
+            fi
+            echo "  FAIL $label ($path) answered $status" >&2
+            printf '%s\n' "$body" | head -c 400 >&2; echo >&2
+            failed=1
+            return 1
+          }
+
+          echo "Walking the critical path:"
+
+          get "current user"   "/v1/users/current" || true
+          get "Project list"   "/v1/projects" || true
+
+          project=$(printf '%s' "$body" | jq -r '.[0].id // empty' 2>/dev/null || true)
+          if [[ -z "$project" ]]; then
+            echo "  --   no Projects yet, so there is nothing further to open."
+          else
+            if get "Forms in Project $project" "/v1/projects/$project/forms"; then
+              form=$(printf '%s' "$body" | jq -r '[.[] | select(.publishedAt != null)][0].xmlFormId // empty' 2>/dev/null || true)
+              if [[ -z "$form" ]]; then
+                echo "  --   no published Form, so Submissions are not reachable yet."
+              else
+                encoded=$(jq -rn --arg f "$form" '$f|@uri')
+                get "Submissions of $form" \
+                  "/v1/projects/$project/forms/$encoded/submissions" || true
+              fi
+            fi
+          fi
+
+          # Fork-specific, and the reason this smoke test exists: these routes
+          # are not covered by anything upstream.
+          get "cross-project Forms"       "/v1/field-data/forms?limit=1" || true
+          get "cross-project Submissions" "/v1/field-data/submissions?limit=1" || true
+          get "cross-project Map"         "/v1/field-data/map?limit=1" || true
+
+          if [[ "$failed" != 0 ]]; then
+            echo "The deployment authenticates but part of the critical path is broken." >&2
+            exit 1
+          fi
+          echo "Every step of the critical path answered."
+
+      # Best effort: a session left open is harmless but untidy, and this must
+      # never be the thing that fails a deploy.
+      - name: Close the smoke-test session
+        if: always() && env.FIELD_DATA_SESSION_TOKEN != ''
+        continue-on-error: true
+        run: |
+          curl --silent --show-error --max-time 30 --request DELETE \
+            --header "Authorization: Bearer $FIELD_DATA_SESSION_TOKEN" \
+            https://field-data.mohamedbangura.workers.dev/v1/sessions/current \
+            >/dev/null && echo "Session closed." || echo "Could not close the session; it will expire."
+
 
       # Runs whether the login worked or not, because the interesting case is
       # the one where it did not. Says who exists and what the container's
