@@ -133,8 +133,14 @@ jobs:
 
   server-integration-report:
     name: Server integration suite (report only)
+    # Deliberately not on pull requests. The suite takes the better part of an
+    # hour against a stack with no Enketo and no pyxform, so running it on
+    # every push bought one artefact nobody reads while it is happening and
+    # left several runs going at once, each holding a runner for as long as it
+    # was allowed. Its value is periodic, so it is asked for on purpose.
+    if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
-    timeout-minutes: 120
+    timeout-minutes: 90
     services:
       postgres:
         image: postgres:16
