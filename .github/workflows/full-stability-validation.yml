@@ -89,20 +89,28 @@ jobs:
           CHROME_BIN="$(command -v google-chrome || command -v chromium || command -v chromium-browser)" \
             NODE_ENV=test npx karma start karma.nosandbox.js 2>&1 \
             | tee ../../client-karma.log || true
+      # Karma colours its summary and puts an escape between the count and
+      # "(N FAILED)", and a suite with nothing failing says SUCCESS and gives
+      # no count at all. Match a de-coloured copy, and read both shapes.
       - name: Compare against the failure baseline
         run: |
-          line=$(grep -oE 'Executed [0-9]+ of [0-9]+ \([0-9]+ FAILED\)' client-karma.log | tail -1 || true)
+          plain=$(sed -r 's/\x1b\[[0-9;]*m//g' client-karma.log)
+          line=$(printf '%s\n' "$plain" \
+            | grep -oE 'Executed [0-9]+ of [0-9]+ (\([0-9]+ FAILED\)|SUCCESS)' | tail -1 || true)
           if [ -z "$line" ]; then
             echo "::error::The client suite produced no result line; it did not finish."
-            tail -40 client-karma.log
+            printf '%s\n' "$plain" | tail -40
             exit 1
           fi
-          failed=$(echo "$line" | grep -oE '[0-9]+ FAILED' | grep -oE '[0-9]+')
+          case "$line" in
+            *FAILED*) failed=$(printf '%s' "$line" | grep -oE '[0-9]+ FAILED' | grep -oE '[0-9]+') ;;
+            *)        failed=0 ;;
+          esac
           echo "$line"
           echo "baseline is $CLIENT_FAILURE_BASELINE"
           if [ "$failed" -gt "$CLIENT_FAILURE_BASELINE" ]; then
             echo "::error::$failed failures, above the baseline of $CLIENT_FAILURE_BASELINE. This pull request added at least one."
-            grep -E '✗' client-karma.log | tail -40
+            printf '%s\n' "$plain" | grep -E '✗' | tail -40
             exit 1
           fi
           if [ "$failed" -lt "$CLIENT_FAILURE_BASELINE" ]; then
