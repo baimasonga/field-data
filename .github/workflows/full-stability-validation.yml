@@ -23,6 +23,13 @@ on:
 permissions:
   contents: read
 
+# The report job runs the whole integration suite, so a run outlives several
+# pushes. Without this, superseded runs keep burning minutes and the checks on
+# a pull request describe commits nobody is looking at any more.
+concurrency:
+  group: stability-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 env:
   # Measured on main at bdbfbe5. Lower it whenever the tail gets shorter; it
   # is a ceiling, never a target.
