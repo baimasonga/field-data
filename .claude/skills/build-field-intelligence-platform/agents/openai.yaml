@@ -1,0 +1,14 @@
+interface:
+  display_name: Build Field Intelligence Platform
+  short_description: Architect and deliver trusted field intelligence
+  default_prompt: Use $build-field-intelligence-platform to plan and implement the
+    next field-intelligence capability in this repository.
+  icon_small: assets/icon.svg
+  icon_large: assets/icon.svg
+policy:
+  products:
+  - chatgpt
+  - codex
+  - api
+  - atlas
+  allow_implicit_invocation: true
