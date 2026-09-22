@@ -32,9 +32,11 @@ concurrency:
 
 env:
   # Measured on main. Lower it whenever the tail gets shorter; it is a ceiling,
-  # never a target. It came down from 277 when the detached-scope fix stopped
-  # one failing spec from taking 197 others with it.
-  CLIENT_FAILURE_BASELINE: '80'
+  # never a target. 277 before the detached-scope fix, 80 after it, 60 once the
+  # dashboard's Project summaries were declared. It sits one above the measured
+  # 60 because SubmissionList's paging specs time out intermittently: 7 of 7 on
+  # their own, occasionally one short in a full run.
+  CLIENT_FAILURE_BASELINE: '61'
 
 jobs:
   server-checks:
