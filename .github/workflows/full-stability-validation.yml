@@ -31,9 +31,10 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  # Measured on main at bdbfbe5. Lower it whenever the tail gets shorter; it
-  # is a ceiling, never a target.
-  CLIENT_FAILURE_BASELINE: '277'
+  # Measured on main. Lower it whenever the tail gets shorter; it is a ceiling,
+  # never a target. It came down from 277 when the detached-scope fix stopped
+  # one failing spec from taking 197 others with it.
+  CLIENT_FAILURE_BASELINE: '80'
 
 jobs:
   server-checks:

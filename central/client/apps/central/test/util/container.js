@@ -1,3 +1,5 @@
+import { effectScope } from 'vue';
+
 import createContainer from '../../src/container';
 
 import { mockAxios } from './axios';
@@ -23,7 +25,16 @@ export default ({
   location = {},
   ...options
 } = {}) => {
-  const container = createContainer({
+  const scope = effectScope(true);
+  // Built inside a detached effect scope. Vue's EffectScope constructor gives a
+  // new, non-detached scope `_active = false` when the currently active scope
+  // has been stopped, and vue-i18n's createI18n() throws its generic
+  // UNEXPECTED_ERROR when the scope it just made will not run. So one spec that
+  // leaves a stopped scope behind -- which a spec failing inside a navigation
+  // does -- made every later container construction fail with an error that
+  // named none of that. A detached scope ignores the active one, so a genuine
+  // failure stops costing every test after it.
+  const container = scope.run(() => createContainer({
     router: null,
     requestData: typeof requestData === 'function'
       ? requestData
@@ -33,7 +44,7 @@ export default ({
     logger: mockLogger(),
     buildMode: 'test',
     ...options
-  });
+  }));
   if (config !== false)
     container.requestData.config.setFromResponse({ status: 200, data: config });
   if (container.requestData.seed != null) container.requestData.seed();
