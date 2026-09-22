@@ -268,7 +268,7 @@ delivery is over and succeeded, whatever the connection did.
 */
 const appendWithVerification = async (target, config, accessToken, instanceId, built) => {
   let outcome = await deliver(built.url, built.body, built.headers, built.method, 1);
-  let attempts = outcome.attempts;
+  let { attempts } = outcome;
 
   for (let attempt = 1; attempt < 3 && !outcome.success && retryable(outcome); attempt += 1) {
     // eslint-disable-next-line no-await-in-loop
