@@ -38,6 +38,7 @@ Licensed under the Apache License, Version 2.0.
         <template v-else>
           <div class="alert alert-danger">
             {{ $tc('invalid', result.errors.length, { count: result.errors.length }) }}
+            {{ $t('allOrNothing') }}
           </div>
           <div class="table-responsive">
             <table class="table">
@@ -81,6 +82,7 @@ const props = defineProps({
 const { t } = useI18n();
 const alert = inject('alert');
 const { request } = useRequest();
+const fileInput = ref(null);
 const file = ref(null);
 const result = ref(null);
 const validating = ref(false);
@@ -124,6 +126,9 @@ const commit = () => {
       alert.success(t('complete', { count: response.created }));
       file.value = null;
       result.value = null;
+      // Clearing the ref alone leaves the chosen filename sitting in the
+      // control, which reads as though the file is still queued.
+      if (fileInput.value != null) fileInput.value.value = '';
     }).catch(noop).finally(() => { committing.value = false; });
 };
 </script>
@@ -150,6 +155,7 @@ const commit = () => {
     "validate": "Validate File",
     "valid": "One row is ready to import. | {count} rows are ready to import.",
     "invalid": "One validation error must be fixed. | {count} validation errors must be fixed.",
+    "allOrNothing": "The whole file is imported or none of it is, so no rows are imported until every error is fixed.",
     "row": "Row",
     "field": "Field",
     "problem": "Problem",

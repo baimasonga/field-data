@@ -158,13 +158,26 @@ describe('FormHead', () => {
         // The Data group's views. This spec expected ten top-level tabs
         // before the fork added Summary, Charts, Photos, Filtered Data and
         // Verification without updating it, which is why it was failing.
+        // Import CSV is here because this Form has no Submissions yet; the
+        // spec below covers the case where it does.
         app.findAll('#form-subtabs a').map(view => view.text()).should.eql([
           'Submissions',
+          'Import CSV',
           'Summary',
           'Charts',
           'Photos',
           'Verification'
         ]);
+      });
+    });
+
+    it('hides Import CSV once the form has submissions', () => {
+      mockLogin();
+      testData.extendedForms.createPast(1, { submissions: 1 });
+      return load('/projects/1/forms/f/submissions').then(app => {
+        const views = app.findAll('#form-subtabs a').map(view => view.text());
+        views.should.not.containEql('Import CSV');
+        views.should.containEql('Submissions');
       });
     });
 

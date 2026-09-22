@@ -740,9 +740,12 @@ module.exports = (service, endpoint) => {
     }
   };
 
-  const csvFileOrProblem = (file) => {
-    if (file == null) throw Problem.user.missingMultipartField({ field: 'file' });
-    return file.buffer;
+  // multer's .single() puts the upload on the raw Express request as `file`.
+  // The endpoint context copies `files` but not `file`, so reading it off the
+  // context yields undefined and every upload looks like a missing field.
+  const csvFileOrProblem = (request) => {
+    if (request.file == null) throw Problem.user.missingMultipartField({ field: 'file' });
+    return request.file.buffer;
   };
 
   service.get('/projects/:projectId/forms/:xmlFormId/submission-import/template.csv',
@@ -757,18 +760,18 @@ module.exports = (service, endpoint) => {
 
   service.post('/projects/:projectId/forms/:xmlFormId/submission-import/dry-run',
     csvImportUpload.single('file'), uploadErrorHandler,
-    endpoint(async (container, { params, auth, file }) => {
+    endpoint(async (container, { params, auth }, request) => {
       const form = await csvImportForm(container, params, auth);
       await assertBlankForm(container, form);
       const fields = await container.Forms.getFields(form.def.id);
-      const result = inspectCsv(csvFileOrProblem(file), fields, form.def.id);
+      const result = inspectCsv(csvFileOrProblem(request), fields, form.def.id);
       return { hash: result.hash, rows: result.rows, validRows: result.validRows,
         errors: result.errors };
     }));
 
   service.post('/projects/:projectId/forms/:xmlFormId/submission-import/commit',
     csvImportUpload.single('file'), uploadErrorHandler,
-    endpoint(async (container, { params, body, auth, file, userAgent, headers }) => {
+    endpoint(async (container, { params, body, auth, userAgent, headers }, request) => {
       const form = await csvImportForm(container, params, auth);
       // Serialize two import commits for one Form. This also makes a double
       // click deterministic: the second transaction sees the first one's rows.
@@ -777,13 +780,13 @@ module.exports = (service, endpoint) => {
       // between dry-run and commit makes this fail closed.
       await assertBlankForm(container, form);
       const fields = await container.Forms.getFields(form.def.id);
-      const result = inspectCsv(csvFileOrProblem(file), fields, form.def.id);
+      const result = inspectCsv(csvFileOrProblem(request), fields, form.def.id);
       if (typeof body?.validationHash !== 'string' || body.validationHash !== result.hash) {
         throw Problem.user.unexpectedValue({ field: 'validationHash', value: '[redacted]',
           reason: 'the committed file must be the exact file that passed dry-run validation' });
       }
       if (result.errors.length !== 0) {
-        throw Problem.user.unexpectedValue({ field: 'file', value: file.originalname,
+        throw Problem.user.unexpectedValue({ field: 'file', value: request.file.originalname,
           reason: `dry-run validation found ${result.errors.length} error(s)` });
       }
 
