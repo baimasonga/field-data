@@ -32,6 +32,8 @@
       "publicAccess": "Public Access",
       "versions": "Versions",
       "editForm": "Edit Form",
+      // A tab for safely creating the first Submissions from a CSV file.
+      "importCsv": "Import CSV",
       // A tab of charts totalling up a Form's Submissions.
       "summary": "Summary",
       // A tab for named, reusable subsets of a Form's Submissions.

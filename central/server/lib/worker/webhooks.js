@@ -154,10 +154,10 @@ const statusLabel = (outcome) => (outcome.success
   ? (outcome.verified === true ? 'Delivered (confirmed in sheet)' : `Delivered (${outcome.statusCode})`)
   : `Failed (${outcome.statusCode != null ? outcome.statusCode : outcome.error})`).slice(0, 50);
 
-// Turn the audited Submission version into one stable spreadsheet row. Paths,
-// rather than labels, are the headers: labels can repeat and can be translated,
-// while an XML path identifies the answer unambiguously.
-const googleSheetPayload = async (query, event, hook) => {
+// Resolve one audited Submission version into path-keyed values. Managed
+// integrations share this database boundary; each target decides how those
+// values become its own wire format.
+const submissionValuePayload = async (query, event, hook) => {
   // An explicit query function rather than a destructured property. This took
   // a container from the live dispatch path and a raw slonik connection from
   // the backfill worker, and those disagree: the container's method is all(),
@@ -166,7 +166,7 @@ const googleSheetPayload = async (query, event, hook) => {
   // and the sync reported every row as Failed. A parameter cannot be absent
   // by accident, and this says so out loud if it is.
   if (typeof query !== 'function')
-    throw new TypeError('googleSheetPayload needs a query function; a container exposes all(), a slonik connection any().');
+    throw new TypeError('submissionValuePayload needs a query function; a container exposes all(), a slonik connection any().');
 
   const submissionDefId = Number(event.details?.submissionDefId);
   if (!Number.isInteger(submissionDefId))
@@ -200,9 +200,22 @@ const googleSheetPayload = async (query, event, hook) => {
   const submission = rows[0];
   return {
     instanceId: submission.instanceId,
-    headers: ['_instance_id', '_submitted_at', '_event', ...paths],
-    row: [submission.instanceId, submission.createdAt?.toISOString?.() ?? submission.createdAt,
-      event.action, ...paths.map(path => submission.answers?.[path] ?? '')]
+    submittedAt: submission.createdAt?.toISOString?.() ?? String(submission.createdAt),
+    paths,
+    answers: submission.answers ?? {}
+  };
+};
+
+// Turn the common Submission payload into one stable spreadsheet row. Paths,
+// rather than labels, are the headers: labels can repeat and can be translated,
+// while an XML path identifies the answer unambiguously.
+const googleSheetPayload = async (query, event, hook) => {
+  const submission = await submissionValuePayload(query, event, hook);
+  return {
+    instanceId: submission.instanceId,
+    headers: ['_instance_id', '_submitted_at', '_event', ...submission.paths],
+    row: [submission.instanceId, submission.submittedAt,
+      event.action, ...submission.paths.map(path => submission.answers[path] ?? '')]
   };
 };
 
@@ -255,7 +268,7 @@ delivery is over and succeeded, whatever the connection did.
 */
 const appendWithVerification = async (target, config, accessToken, instanceId, built) => {
   let outcome = await deliver(built.url, built.body, built.headers, built.method, 1);
-  let attempts = outcome.attempts;
+  let { attempts } = outcome;
 
   for (let attempt = 1; attempt < 3 && !outcome.success && retryable(outcome); attempt += 1) {
     // eslint-disable-next-line no-await-in-loop
@@ -348,6 +361,8 @@ const dispatchWebhooks = async (container, event) => {
           if (found.failure != null) outcome = found.failure;
           else targetContext = { accessToken, lookup: found.lookup };
         }
+      } else if (target.submissionValues === true) {
+        targetPayload = await submissionValuePayload(all, event, hook);
       }
 
       if (outcome != null) {
@@ -363,7 +378,7 @@ const dispatchWebhooks = async (container, event) => {
         };
         // Signed over the bytes actually sent, so a receiver verifies what it
         // got rather than what a JSON-shaped version of it would have been.
-        if (hook.secret != null && hook.secret !== '') {
+        if (target.signsDeliveries !== false && hook.secret != null && hook.secret !== '') {
           const secret = decryptSecret(hook.secret);
           const signature = crypto.createHmac('sha256', secret).update(rawBody).digest('hex');
           headers['X-FieldData-Signature'] = `sha256=${signature}`;
@@ -402,6 +417,7 @@ module.exports = {
   // Exported for their own tests; not part of the worker's interface. The
   // two loops are target-agnostic, so a test drives them with a stub target
   // pointing at a local server rather than at Google.
+  _submissionValuePayload: submissionValuePayload,
   _googleSheetPayload: googleSheetPayload,
   _findSheetRow: findSheetRow,
   _appendWithVerification: appendWithVerification

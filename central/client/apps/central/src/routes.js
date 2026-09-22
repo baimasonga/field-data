@@ -568,6 +568,24 @@ const routes = [
         }
       }),
       asyncRoute({
+        path: 'import',
+        component: 'SubmissionCsvImport',
+        props: true,
+        loading: 'tab',
+        meta: {
+          validateData: {
+            project: () => project.permits(['form.read', 'submission.create']),
+            // Import is a one-time operation on an empty Form, so the tab
+            // disappears once the Form holds anything. Without the second
+            // clause the tab stays for the life of the Form and every visit
+            // after the first import is answered with an error from the server.
+            form: () => form.publishedAt != null && form.submissions === 0
+          },
+          title: () => [i18n.t('formHead.tab.importCsv'), form.nameOrId],
+          fullWidth: true
+        }
+      }),
+      asyncRoute({
         path: 'photos',
         component: 'SubmissionPhotos',
         props: true,
@@ -1057,6 +1075,7 @@ const routesByName = new Map();
   ];
   const formRoutes = [
     'FormSubmissions',
+    'SubmissionCsvImport',
     'SubmissionSummary',
     'SubmissionFilteredDatasets',
     'SubmissionPhotos',

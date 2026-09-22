@@ -2,6 +2,7 @@ const Should = require('should'); // eslint-disable-line no-unused-vars
 const { getTarget, normalizeConfig, redactConfig, sealConfig, openConfig, describeTargets } =
   require('../../../lib/util/rest-targets');
 const xml = require('../../../lib/util/rest-targets/xml');
+const dhis2 = require('../../../lib/util/rest-targets/dhis2');
 
 // A recorded event, the shape the worker actually builds.
 const event = {
@@ -99,6 +100,19 @@ describe('(util) rest targets', () => {
       normalizeConfig(undefined, null).target.name.should.equal('json');
     });
 
+    it('validates DHIS2 identifiers and field mappings before storing them', () => {
+      const config = {
+        serverUrl: 'https://dhis.example.org', username: 'field-data', password: 'secret',
+        dataSet: 'Abcdef12345', orgUnit: 'Orgunit1234', period: '202609',
+        mapping: JSON.stringify({ '/data/cases': 'Element1234' })
+      };
+      normalizeConfig('dhis2', config).config.should.eql(config);
+      (() => normalizeConfig('dhis2', { ...config, mapping: '{bad' }))
+        .should.throw(/valid JSON/);
+      (() => normalizeConfig('dhis2', { ...config, serverUrl: 'http://dhis.example.org' }))
+        .should.throw(/HTTPS/);
+    });
+
     // A typo sitting in the database looking like it configures something is
     // worse than a rejected request.
     it('drops keys the target does not declare', () => {
@@ -153,19 +167,92 @@ describe('(util) rest targets', () => {
         else process.env.FIELD_DATA_WEBHOOK_ENCRYPTION_KEY = previous;
       }
     });
+
+    it('encrypts and redacts the DHIS2 password', () => {
+      const previous = process.env.FIELD_DATA_WEBHOOK_ENCRYPTION_KEY;
+      process.env.FIELD_DATA_WEBHOOK_ENCRYPTION_KEY = '22'.repeat(32);
+      try {
+        const sealed = sealConfig('dhis2', { username: 'sync', password: 'password-1234' });
+        JSON.stringify(sealed).should.not.containEql('password-1234');
+        openConfig('dhis2', sealed).should.eql({ username: 'sync', password: 'password-1234' });
+        redactConfig('dhis2', sealed).password.should.eql({ set: true, hint: '…1234' });
+      } finally {
+        if (previous == null) delete process.env.FIELD_DATA_WEBHOOK_ENCRYPTION_KEY;
+        else process.env.FIELD_DATA_WEBHOOK_ENCRYPTION_KEY = previous;
+      }
+    });
+  });
+
+  describe('dhis2', () => {
+    const config = {
+      serverUrl: 'https://dhis.example.org/', username: 'sync', password: 'secret',
+      dataSet: 'Abcdef12345', orgUnit: 'Orgunit1234', period: '202609',
+      mapping: JSON.stringify({
+        '/data/cases': 'Element1234',
+        '/data/blank': 'Element5678'
+      })
+    };
+
+    it('builds a bounded Data Value Set containing only mapped nonblank answers', () => {
+      const built = dhis2.buildRequest({
+        submittedAt: '2026-09-21T12:00:00.000Z',
+        answers: { '/data/cases': '17', '/data/blank': '', '/data/name': 'not sent' }
+      }, config);
+      built.url.should.equal('https://dhis.example.org/api/dataValueSets');
+      built.headers.Authorization.should.equal(`Basic ${Buffer.from('sync:secret').toString('base64')}`);
+      built.headers['Content-Length'].should.equal(built.body.length);
+      JSON.parse(built.body.toString()).should.eql({
+        dataSet: 'Abcdef12345', completeDate: '2026-09-21', period: '202609',
+        orgUnit: 'Orgunit1234', dataValues: [{ dataElement: 'Element1234', value: '17' }]
+      });
+    });
+
+    it('builds the endpoint from the parsed URL, not by concatenation', () => {
+      const { deliveryUrl } = getTarget('dhis2');
+      deliveryUrl({ serverUrl: 'https://dhis.example.org' })
+        .should.equal('https://dhis.example.org/api/dataValueSets');
+      deliveryUrl({ serverUrl: 'https://dhis.example.org/' })
+        .should.equal('https://dhis.example.org/api/dataValueSets');
+      // A server behind a path prefix keeps it.
+      deliveryUrl({ serverUrl: 'https://example.org/dhis' })
+        .should.equal('https://example.org/dhis/api/dataValueSets');
+    });
+
+    it('refuses a server URL carrying a query string or a fragment', () => {
+      // Appended to the raw string these land after the query or fragment, so
+      // the request never reaches the endpoint.
+      const config = (serverUrl) => ({
+        serverUrl, username: 'u', password: 'p',
+        dataSet: 'aBcDeFgHiJk', orgUnit: 'lMnOpQrStUv', period: '202609',
+        mapping: JSON.stringify({ '/age': 'wXyZaBcDeFg' })
+      });
+      (() => normalizeConfig('dhis2', config('https://dhis.example.org/?x=1')))
+        .should.throw(/query string or fragment/);
+      (() => normalizeConfig('dhis2', config('https://dhis.example.org/#frag')))
+        .should.throw(/query string or fragment/);
+    });
+
+    it('refuses to send a Submission with no mapped values', () => {
+      (() => dhis2.buildRequest({
+        submittedAt: '2026-09-21T12:00:00.000Z', answers: {}
+      }, config)).should.throw(/no values/);
+    });
   });
 
   describe('describeTargets', () => {
     // The form and the validator read the same schema, so they cannot drift.
     it('describes each target from the schema the validator uses', () => {
       const described = describeTargets();
-      described.map(t => t.name).sort().should.eql(['google-sheets', 'json', 'xml']);
+      described.map(t => t.name).sort().should.eql(['dhis2', 'google-sheets', 'json', 'xml']);
       const xmlTarget = described.find(t => t.name === 'xml');
       xmlTarget.config.map(c => c.key).should.eql(['rootElement']);
       xmlTarget.config[0].describe.should.be.a.String();
       const google = described.find(t => t.name === 'google-sheets');
       google.requiresForm.should.equal(true);
       google.managesUrl.should.equal(true);
+      const dhis = described.find(t => t.name === 'dhis2');
+      dhis.requiresForm.should.equal(true);
+      dhis.config.find(c => c.key === 'password').secret.should.equal(true);
     });
   });
 });

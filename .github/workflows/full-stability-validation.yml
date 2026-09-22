@@ -1,0 +1,222 @@
+name: Full stability validation
+
+# Two kinds of job, deliberately separated.
+#
+# The GATE jobs are checks that pass on main today, so a red one means this
+# pull request broke something. The client suite still carries a long tail of
+# failures inherited from the fork, so it is gated on "no more than the
+# baseline" rather than on zero -- a number that ratchets down as the tail is
+# cleared, and that catches a new failure the moment it appears.
+#
+# The REPORT job is the server integration suite. It cannot pass here yet: it
+# needs Enketo and pyxform, and neither is stood up in this workflow. Running
+# it anyway, in full and without --bail, produces the failure list that the
+# work of standing those services up will be driven from. It does not fail the
+# build, because a check that can never go green teaches a reviewer to ignore
+# every check.
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# The report job runs the whole integration suite, so a run outlives several
+# pushes. Without this, superseded runs keep burning minutes and the checks on
+# a pull request describe commits nobody is looking at any more.
+concurrency:
+  group: stability-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  # Measured on main at bdbfbe5. Lower it whenever the tail gets shorter; it
+  # is a ceiling, never a target.
+  CLIENT_FAILURE_BASELINE: '277'
+
+jobs:
+  server-checks:
+    name: Server unit, hardening and lint (gate)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: central/server
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24.16.0'
+          cache: npm
+          cache-dependency-path: central/server/package-lock.json
+      - name: Install server dependencies
+        run: npm install --include=dev --no-audit --no-fund --ignore-scripts --engine-strict=false --force
+      - name: Unit tests
+        run: NODE_CONFIG_ENV=test BCRYPT=insecure npx mocha --recursive test/unit
+      - name: Field data hardening suite
+        run: NODE_CONFIG_ENV=test npx mocha test/field-data/hardening.cjs
+      - name: Lint
+        run: npx eslint --ext .js lib
+
+  client-checks:
+    name: Client suite and lint (gate)
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    defaults:
+      run:
+        working-directory: central/client
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24.16.0'
+          cache: npm
+          cache-dependency-path: central/client/package-lock.json
+      - name: Install client dependencies
+        run: npm ci --no-audit --no-fund
+      # src/styles.js and src/components/landing-photos.js carry 20 lint errors
+      # inherited from the rebranding work. styles.js needs @fontsource moved
+      # out of devDependencies and two cross-package imports rewritten, which
+      # is a build change and not this gate's business. They are excluded by
+      # name so that everything else is linted; clear them and drop the
+      # exclusions.
+      - name: Lint
+        working-directory: central/client/apps/central
+        run: |
+          ESLINT_USE_FLAT_CONFIG=false npx eslint src \
+            --ignore-pattern src/styles.js \
+            --ignore-pattern src/components/landing-photos.js
+      - name: Run client suite
+        id: client
+        run: |
+          set -o pipefail
+          cp index.html public/
+          cd apps/central
+          CHROME_BIN="$(command -v google-chrome || command -v chromium || command -v chromium-browser)" \
+            NODE_ENV=test npx karma start karma.nosandbox.js 2>&1 \
+            | tee ../../client-karma.log || true
+      # Karma colours its summary and puts an escape between the count and
+      # "(N FAILED)", and a suite with nothing failing says SUCCESS and gives
+      # no count at all. Match a de-coloured copy, and read both shapes.
+      - name: Compare against the failure baseline
+        run: |
+          plain=$(sed -r 's/\x1b\[[0-9;]*m//g' client-karma.log)
+          line=$(printf '%s\n' "$plain" \
+            | grep -oE 'Executed [0-9]+ of [0-9]+ (\([0-9]+ FAILED\)|SUCCESS)' | tail -1 || true)
+          if [ -z "$line" ]; then
+            echo "::error::The client suite produced no result line; it did not finish."
+            printf '%s\n' "$plain" | tail -40
+            exit 1
+          fi
+          case "$line" in
+            *FAILED*) failed=$(printf '%s' "$line" | grep -oE '[0-9]+ FAILED' | grep -oE '[0-9]+') ;;
+            *)        failed=0 ;;
+          esac
+          echo "$line"
+          echo "baseline is $CLIENT_FAILURE_BASELINE"
+          if [ "$failed" -gt "$CLIENT_FAILURE_BASELINE" ]; then
+            echo "::error::$failed failures, above the baseline of $CLIENT_FAILURE_BASELINE. This pull request added at least one."
+            printf '%s\n' "$plain" | grep -E '✗' | tail -40
+            exit 1
+          fi
+          if [ "$failed" -lt "$CLIENT_FAILURE_BASELINE" ]; then
+            echo "::notice::$failed failures, below the baseline of $CLIENT_FAILURE_BASELINE. Lower CLIENT_FAILURE_BASELINE to $failed to hold the gain."
+          fi
+      - name: Upload client log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: client-karma-log
+          path: central/client/client-karma.log
+          if-no-files-found: error
+
+  server-integration-report:
+    name: Server integration suite (report only)
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_USER: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    defaults:
+      run:
+        working-directory: central/server
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24.16.0'
+          cache: npm
+          cache-dependency-path: central/server/package-lock.json
+      - name: Install server dependencies
+        run: npm install --include=dev --no-audit --no-fund --ignore-scripts --engine-strict=false --force
+      - name: Create test database
+        run: |
+          PGPASSWORD=postgres psql -h 127.0.0.1 -U postgres -d postgres -v ON_ERROR_STOP=1 <<'SQL'
+          CREATE USER jubilant WITH PASSWORD 'jubilant' SUPERUSER;
+          CREATE DATABASE jubilant_test OWNER jubilant;
+          SQL
+          PGPASSWORD=jubilant psql -h 127.0.0.1 -U jubilant -d jubilant_test -v ON_ERROR_STOP=1 \
+            -c "CREATE EXTENSION IF NOT EXISTS pgrowlocks"
+      - name: Write test configuration
+        run: |
+          mkdir -p config
+          cat > config/test.json <<'JSON'
+          {
+            "default": {
+              "database": {
+                "host": "127.0.0.1",
+                "port": 5432,
+                "user": "jubilant",
+                "password": "jubilant",
+                "database": "jubilant_test"
+              },
+              "server": { "port": 8383 },
+              "email": {
+                "serviceAccount": "no-reply@fielddata.local",
+                "transport": "json"
+              },
+              "xlsform": { "host": "localhost", "port": 5001 },
+              "enketo": {
+                "url": "http://localhost:8005/-",
+                "apiKey": "enketorules"
+              },
+              "env": {
+                "domain": "http://localhost:8383",
+                "sysadminAccount": "admin@fielddata.quantixsl.com"
+              },
+              "external": { "sentry": {}, "analytics": {} }
+            }
+          }
+          JSON
+      - name: Migrate test database
+        run: |
+          NODE_CONFIG_DIR=../../config NODE_CONFIG_ENV=test \
+            ./node_modules/.bin/knex migrate:latest --knexfile lib/model/knexfile.js
+      # No --bail. The whole point of this job is the count and the list; a run
+      # that stops at the first failure produces neither.
+      - name: Run the whole integration suite
+        run: |
+          set -o pipefail
+          NODE_ENV=test NODE_CONFIG_DIR=./config NODE_CONFIG_ENV=test BCRYPT=insecure \
+            npx mocha --recursive test/integration 2>&1 | tee server-integration.log || true
+          echo "### Server integration suite" >> "$GITHUB_STEP_SUMMARY"
+          grep -E '^\s+[0-9]+ (passing|failing|pending)' server-integration.log \
+            >> "$GITHUB_STEP_SUMMARY" || echo "no result line" >> "$GITHUB_STEP_SUMMARY"
+      - name: Upload server integration log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: server-integration-log
+          path: central/server/server-integration.log
+          if-no-files-found: error

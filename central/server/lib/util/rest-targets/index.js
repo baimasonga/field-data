@@ -20,9 +20,10 @@
 const json = require('./json');
 const xml = require('./xml');
 const googleSheets = require('./google-sheets');
+const dhis2 = require('./dhis2');
 const { decryptSecret, encryptSecret } = require('../field-data-secret');
 
-const TARGETS = new Map([json, xml, googleSheets].map(target => [target.name, target]));
+const TARGETS = new Map([json, xml, googleSheets, dhis2].map(target => [target.name, target]));
 
 const invalid = (field, value, reason) => Object.assign(new Error(reason), {
   field, value, reason
@@ -59,6 +60,11 @@ const normalizeConfig = (targetName, config) => {
     }
   }
 
+  try {
+    target.validateConfig?.(normalized);
+  } catch (error) {
+    throw invalid('config', '[redacted]', error.message);
+  }
   return { target, config: normalized };
 };
 

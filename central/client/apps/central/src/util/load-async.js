@@ -146,6 +146,10 @@ const loaders = new Map()
     /* webpackChunkName: "component-form-submissions" */
     '../components/form/submissions.vue'
   )))
+  .set('SubmissionCsvImport', loader(() => import(
+    /* webpackChunkName: "component-submission-csv-import" */
+    '../components/submission/csv-import.vue'
+  )))
   .set('GeojsonMap', loader(() => import(
     '../components/geojson-map.vue'
   )))

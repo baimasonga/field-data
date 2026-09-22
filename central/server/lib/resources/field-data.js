@@ -11,7 +11,7 @@ const path = require('path');
 const http = require('http');
 const https = require('https');
 const { Readable } = require('node:stream');
-const { User, Project, Config, Form } = require('../model/frames');
+const { User, Project, Config, Form, Submission } = require('../model/frames');
 const Problem = require('../util/problem');
 const { postgresErrorToProblem } = require('../util/db');
 const { getOrNotFound, reject } = require('../util/promise');
@@ -29,9 +29,11 @@ const { getTarget, normalizeConfig, redactConfig, sealConfig, describeTargets } 
 const { normalizeOrganization, roleForOrganization, describeRoles } = require('../util/organizations');
 const { normalizeFormDefinition, buildWorkbook, QUESTION_TYPES } = require('../util/xlsform-builder');
 const { inspectTemplate, validateTemplate, MIME_TYPE,
-  MAX_TEMPLATE_BYTES } = require('../util/xls-reports');
-const { resolveReportSource } = require('../util/xls-report-data');
+  MAX_TEMPLATE_BYTES, MAX_REPORT_ROWS } = require('../util/xls-reports');
+const { resolveReportSource, rowsForSource } = require('../util/xls-report-data');
+const { CSV_MIME, XLSX_MIME, csvExport, xlsxExport } = require('../util/filtered-dataset-export');
 const { visibleProjects, actorIdOf } = require('../util/cross-project');
+const { MAX_IMPORT_BYTES, templateCsv, inspectCsv, submissionXml } = require('../util/submission-csv-import');
 
 const pingUrl = (urlStr) => new Promise((resolve) => {
   try {
@@ -67,6 +69,10 @@ const allowedMediaTypes = new Map([
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: uploadLimit, files: 1, fields: 5 }
+});
+const csvImportUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: MAX_IMPORT_BYTES, files: 1, fields: 2 }
 });
 const uploadErrorHandler = (error, request, response, next) => {
   if (error instanceof multer.MulterError && error.code === 'LIMIT_FILE_SIZE') {
@@ -705,6 +711,122 @@ module.exports = (service, endpoint) => {
   }));
 
   ////////////////////////////////////////////////////////////////////////////////
+  // CONTROLLED SUBMISSION CSV IMPORT
+  //
+  // Imports only into a Form that has never received a Submission. The caller
+  // first validates a file, then commits the exact same bytes and validation
+  // hash. There is intentionally no update, overwrite, or delete mode.
+  const csvImportForm = async (container, params, auth) => {
+    const form = await container.Forms
+      .getByProjectAndXmlFormId(params.projectId, params.xmlFormId, Form.PublishedVersion)
+      .then(getOrNotFound);
+    await auth.canOrReject('form.read', form);
+    await auth.canOrReject('submission.create', form);
+    if (!form.acceptsSubmissions()) {
+      throw Problem.user.unexpectedValue({ field: 'form', value: form.xmlFormId,
+        reason: 'the Form is not accepting Submissions' });
+    }
+    return form;
+  };
+
+  const assertBlankForm = async (container, form) => {
+    const count = await container.db.oneFirst(sql`
+      select count(*)::integer from submissions where "formId"=${form.id}`);
+    if (count !== 0) {
+      throw Problem.user.unexpectedValue({
+        field: 'form', value: form.xmlFormId,
+        reason: 'CSV import is only available before the Form has received any Submissions'
+      });
+    }
+  };
+
+  // multer's .single() puts the upload on the raw Express request as `file`.
+  // The endpoint context copies `files` but not `file`, so reading it off the
+  // context yields undefined and every upload looks like a missing field.
+  const csvFileOrProblem = (request) => {
+    if (request.file == null) throw Problem.user.missingMultipartField({ field: 'file' });
+    return request.file.buffer;
+  };
+
+  service.get('/projects/:projectId/forms/:xmlFormId/submission-import/template.csv',
+    endpoint(async (container, { params, auth }, _, response) => {
+      const form = await csvImportForm(container, params, auth);
+      await assertBlankForm(container, form);
+      const fields = await container.Forms.getFields(form.def.id);
+      response.set('Content-Disposition', contentDisposition(`${form.xmlFormId}-submission-import.csv`));
+      response.set('Content-Type', 'text/csv; charset=utf-8');
+      return templateCsv(fields);
+    }));
+
+  service.post('/projects/:projectId/forms/:xmlFormId/submission-import/dry-run',
+    csvImportUpload.single('file'), uploadErrorHandler,
+    endpoint(async (container, { params, auth }, request) => {
+      const form = await csvImportForm(container, params, auth);
+      await assertBlankForm(container, form);
+      const fields = await container.Forms.getFields(form.def.id);
+      const result = inspectCsv(csvFileOrProblem(request), fields, form.def.id);
+      return { hash: result.hash, rows: result.rows, validRows: result.validRows,
+        errors: result.errors };
+    }));
+
+  service.post('/projects/:projectId/forms/:xmlFormId/submission-import/commit',
+    csvImportUpload.single('file'), uploadErrorHandler,
+    endpoint(async (container, { params, body, auth, userAgent, headers }, request) => {
+      const form = await csvImportForm(container, params, auth);
+      // Serialize two import commits for one Form. This also makes a double
+      // click deterministic: the second transaction sees the first one's rows.
+      await container.db.query(sql`select pg_advisory_xact_lock(74128, ${form.id})`);
+      // Rechecked inside this request's transaction, so a collection upload
+      // between dry-run and commit makes this fail closed.
+      await assertBlankForm(container, form);
+      const fields = await container.Forms.getFields(form.def.id);
+      const result = inspectCsv(csvFileOrProblem(request), fields, form.def.id);
+      if (typeof body?.validationHash !== 'string' || body.validationHash !== result.hash) {
+        throw Problem.user.unexpectedValue({ field: 'validationHash', value: '[redacted]',
+          reason: 'the committed file must be the exact file that passed dry-run validation' });
+      }
+      if (result.errors.length !== 0) {
+        throw Problem.user.unexpectedValue({ field: 'file', value: request.file.originalname,
+          reason: `dry-run validation found ${result.errors.length} error(s)` });
+      }
+
+      const binaryFields = await container.Forms.getBinaryFields(form.def.id);
+      let created = 0;
+      for (const data of result.submissions) {
+        // Sequential writes keep a maximum-size import from opening hundreds
+        // of concurrent queries within one transaction.
+        // eslint-disable-next-line no-await-in-loop
+        const partial = await Submission.fromXml(Buffer.from(submissionXml(form, data)));
+        // eslint-disable-next-line no-await-in-loop
+        const submission = await container.Submissions.createNew(
+          partial, form, null, userAgent, headers['odk-client']
+        );
+        // No binary fields are importable, but this call preserves the normal
+        // Submission attachment bookkeeping and its invariants.
+        // eslint-disable-next-line no-await-in-loop
+        await container.SubmissionAttachments.create(submission, form, binaryFields);
+        created += 1;
+      }
+      // The advisory lock serializes imports against each other, but an
+      // ordinary Submission upload never takes it, so one can commit between
+      // the blank-Form check above and these inserts. Counting again here
+      // catches that: this statement takes a fresh snapshot, so a Submission
+      // committed in the meantime is visible, and the mismatch rolls the whole
+      // import back rather than leaving it mixed with collected data. A
+      // Submission arriving after this commits is simply a Submission after
+      // the import, which is allowed.
+      const total = await container.db.oneFirst(sql`
+        select count(*)::integer from submissions where "formId"=${form.id}`);
+      if (total !== created) {
+        throw Problem.user.unexpectedValue({
+          field: 'form', value: form.xmlFormId,
+          reason: 'a Submission arrived while the import was running, so nothing was imported'
+        });
+      }
+      return { created };
+    }));
+
+  ////////////////////////////////////////////////////////////////////////////////
   // FILTERED DATASETS
   //
   // A filtered dataset exposes selected answer paths and matching rows from a
@@ -936,6 +1058,52 @@ module.exports = (service, endpoint) => {
     return { total: stats.matching, limit, offset, excludedMalformed: stats.excludedMalformed,
       columns: normalized.columns, data, usable: true, ...stale };
   }));
+
+  const exportFilteredDataset = async (container, params, auth, response, format) => {
+    const id = Number.parseInt(params.id, 10);
+    if (!Number.isInteger(id)) return reject(Problem.user.notFound());
+    const project = await container.Projects.getById(params.projectId).then(getOrNotFound);
+    await auth.canOrReject('project.read', project);
+    await auth.canOrReject('submission.list', project);
+    await auth.canOrReject('submission.read', project);
+    // Resolve through the same source abstraction XLS Reports use. It applies
+    // the saved filters, returns only visible columns, and fails closed when a
+    // republished Form removed a filter field.
+    const source = await resolveReportSource(container.db, {
+      projectId: project.id, formId: null, filteredDatasetId: id, mergedDatasetId: null
+    });
+    if (source == null) return reject(Problem.user.notFound());
+    if (!source.definition.usable) {
+      throw Problem.user.unexpectedValue({
+        field: 'dataset', value: id,
+        reason: 'the dataset cannot be exported because its source Form fields changed'
+      });
+    }
+    const rows = await rowsForSource(container.db, source);
+    if (rows.length > MAX_REPORT_ROWS) {
+      throw Problem.user.unexpectedValue({
+        field: 'dataset', value: id,
+        reason: `the dataset has more than ${MAX_REPORT_ROWS.toLocaleString('en')} rows; add filters before exporting it`
+      });
+    }
+    const base = String(source.name || `filtered-dataset-${id}`)
+      .replace(/[^A-Za-z0-9_.-]+/g, '-').replace(/^-+|-+$/g, '') || `filtered-dataset-${id}`;
+    response.set('Content-Disposition', contentDisposition(`${base}.${format}`));
+    if (format === 'csv') {
+      response.set('Content-Type', CSV_MIME);
+      return csvExport(source, rows);
+    }
+    response.set('Content-Type', XLSX_MIME);
+    return xlsxExport(source, rows);
+  };
+
+  service.get('/projects/:projectId/filtered-datasets/:id/export.csv',
+    endpoint((container, { params, auth }, _, response) =>
+      exportFilteredDataset(container, params, auth, response, 'csv')));
+
+  service.get('/projects/:projectId/filtered-datasets/:id/export.xlsx',
+    endpoint((container, { params, auth }, _, response) =>
+      exportFilteredDataset(container, params, auth, response, 'xlsx')));
 
 
   ////////////////////////////////////////////////////////////////////////////////
@@ -2621,27 +2789,29 @@ module.exports = (service, endpoint) => {
     const normalized = targetOrProblem(body.target ?? 'json', body.config);
     const { target } = normalized;
     const deliveryUrl = target.managesUrl
-      ? 'https://sheets.googleapis.com/'
+      ? target.deliveryUrl(normalized.config)
       : body.url;
     if (!deliveryUrl) return reject(Problem.user.missingParameter({ field: 'url' }));
     await validWebhookUrl(deliveryUrl);
     // Generate a signing secret so receivers can verify the HMAC-SHA256
     // signature sent with each delivery (X-FieldData-Signature header).
-    const events = target.name === 'google-sheets'
-      ? ['submission.create', ...(normalized.config.syncUpdates ? ['submission.update.version'] : [])]
+    const events = target.submissionRows === true || target.submissionValues === true
+      ? ['submission.create', ...((target.name !== 'google-sheets' || normalized.config.syncUpdates)
+        ? ['submission.update.version'] : [])]
       : validateEvents(body.events === undefined ? [] : body.events);
     const storedConfig = sealConfig(target.name, normalized.config);
 
     // Scoping to a form takes permission on that form, not only the site-wide
     // config right: pointing a service at a form is a way to read it.
     let formId = null;
+    let selectedForm = null;
     if (body.xmlFormId != null && body.projectId != null) {
-      const form = await container.Forms
+      selectedForm = await container.Forms
         .getByProjectAndXmlFormId(body.projectId, body.xmlFormId, Form.PublishedVersion)
         .then(getOrNotFound);
-      await auth.canOrReject('submission.list', form);
-      await auth.canOrReject('submission.read', form);
-      formId = form.id;
+      await auth.canOrReject('submission.list', selectedForm);
+      await auth.canOrReject('submission.read', selectedForm);
+      formId = selectedForm.id;
     }
     if (target.requiresForm && formId == null) {
       throw Problem.user.unexpectedValue({
@@ -2649,8 +2819,20 @@ module.exports = (service, endpoint) => {
         reason: 'choose the Form whose Submissions should be synchronized'
       });
     }
+    if (typeof target.mappedPaths === 'function') {
+      const available = new Set((await filteredDatasetFields(container.db, selectedForm))
+        .map(field => field.path));
+      const missing = target.mappedPaths(normalized.config)
+        .filter(fieldPath => !available.has(fieldPath));
+      if (missing.length !== 0) {
+        throw Problem.user.unexpectedValue({
+          field: 'config.mapping', value: '[redacted]',
+          reason: `these paths do not exist in the selected Form: ${missing.join(', ')}`
+        });
+      }
+    }
 
-    const secret = target.name === 'google-sheets'
+    const secret = target.signsDeliveries === false
       ? null
       : crypto.randomBytes(24).toString('hex');
     const created = await container.db.one(sql`
@@ -2742,10 +2924,13 @@ module.exports = (service, endpoint) => {
     const requestedTarget = body.target ?? webhook.target;
     const target = getTarget(requestedTarget);
     if (target == null) targetOrProblem(requestedTarget, {});
+    const normalizedUpdate = body.config === undefined && requestedTarget === webhook.target
+      ? null
+      : targetOrProblem(requestedTarget, body.config);
     const updated = {
       name: body.name !== undefined ? body.name : webhook.name,
       url: target.managesUrl
-        ? 'https://sheets.googleapis.com/'
+        ? target.deliveryUrl(normalizedUpdate?.config ?? webhook.config)
         : (body.url !== undefined ? body.url : webhook.url),
       events: body.events !== undefined ? JSON.stringify(validateEvents(body.events)) : JSON.stringify(validateEvents(webhook.events)),
       active: body.active !== undefined ? body.active : webhook.active
@@ -2755,17 +2940,33 @@ module.exports = (service, endpoint) => {
     // it would stringify encrypted credential envelopes as "[object Object]".
     const storedConfig = body.config === undefined && requestedTarget === webhook.target
       ? webhook.config
-      : sealConfig(requestedTarget, targetOrProblem(requestedTarget, body.config).config);
+      : sealConfig(requestedTarget, normalizedUpdate.config);
     if (target.requiresForm && webhook.formId == null) {
       throw Problem.user.unexpectedValue({
         field: 'target', value: requestedTarget,
         reason: 'this integration must be created for a specific Form'
       });
     }
-    if (target.name === 'google-sheets' && body.config !== undefined) {
+    if (body.config !== undefined && typeof target.mappedPaths === 'function') {
+      const form = await container.maybeOne(sql`
+        select id, "currentDefId" from forms
+        where id=${webhook.formId} and "deletedAt" is null`).then(getOrNotFound);
+      const available = new Set((await filteredDatasetFields(container.db, form))
+        .map(field => field.path));
+      const missing = target.mappedPaths(normalizedUpdate.config)
+        .filter(fieldPath => !available.has(fieldPath));
+      if (missing.length !== 0) {
+        throw Problem.user.unexpectedValue({
+          field: 'config.mapping', value: '[redacted]',
+          reason: `these paths do not exist in the selected Form: ${missing.join(', ')}`
+        });
+      }
+    }
+    if ((target.submissionRows === true || target.submissionValues === true)
+      && body.config !== undefined) {
       updated.events = JSON.stringify([
         'submission.create',
-        ...(targetOrProblem(requestedTarget, body.config).config.syncUpdates
+        ...(target.name !== 'google-sheets' || normalizedUpdate.config.syncUpdates
           ? ['submission.update.version'] : [])
       ]);
     }

@@ -193,6 +193,10 @@ const initFileStore = () => {
       await fs.promises.writeFile(temporary, buffer, { flag: 'wx' });
       await fs.promises.rename(temporary, filename);
     },
+    // The metadata argument is unused by the filesystem backend but has to
+    // keep its place, because the S3 backend behind the same interface reads
+    // it and `signal` follows it positionally.
+    // eslint-disable-next-line no-unused-vars
     putStream: async (key, input, _metadata = {}, { signal } = {}) => {
       const filename = target(key);
       await fs.promises.mkdir(path.dirname(filename), { recursive: true });

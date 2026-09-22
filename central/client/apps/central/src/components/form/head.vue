@@ -86,7 +86,7 @@ const TAB_GROUPS = [
     // submission.list, so it belongs with the data rather than under
     // Settings, where a Project viewer would have been shown a tab full of
     // settings they cannot change.
-    members: ['submissions', 'summary', 'charts', 'photos', 'verification']
+    members: ['submissions', 'import', 'summary', 'charts', 'photos', 'verification']
   },
   {
     key: 'share', labelKey: 'group.share', local: true,
@@ -104,6 +104,7 @@ const TAB_GROUPS = [
 
 const MEMBER_LABELS = {
   submissions: 'resource.submissions',
+  import: 'formHead.tab.importCsv',
   summary: 'formHead.tab.summary',
   charts: 'formHead.tab.charts',
   photos: 'formHead.tab.photos',
@@ -195,6 +196,15 @@ export default {
     tabVisible(path) {
       if (path === 'submissions' || path === 'versions') return true;
       if (path === 'public-links' || path === 'settings') return this.rendersFormTabs;
+      // Import is a one-time operation on an empty Form, so its tab goes away
+      // as soon as the Form holds anything. canRoute() cannot carry this on
+      // its own: it only consults a route's validateData for resources that
+      // are preserved across the navigation, so it answers true here whatever
+      // the Submission count is. The route keeps the same condition, which is
+      // what stops somebody typing the URL.
+      if (path === 'import')
+        return this.form.dataExists && this.form.submissions === 0 &&
+          this.canRoute(this.tabPath(path));
       return this.canRoute(this.tabPath(path));
     },
     tabDisabled(path) {

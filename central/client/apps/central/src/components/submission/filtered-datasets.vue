@@ -112,6 +112,16 @@ Build and inspect named, reusable subsets of a Form's Submissions.
               </p>
             </div>
             <div class="dataset-actions">
+              <a class="btn btn-default btn-sm"
+                :href="apiPaths.filteredDatasetExport(projectId, dataset.id, 'csv')">
+                <span class="icon-download" aria-hidden="true"></span>
+                {{ $t('action.exportCsv') }}
+              </a>
+              <a class="btn btn-default btn-sm"
+                :href="apiPaths.filteredDatasetExport(projectId, dataset.id, 'xlsx')">
+                <span class="icon-download" aria-hidden="true"></span>
+                {{ $t('action.exportXlsx') }}
+              </a>
               <button type="button" class="btn btn-default btn-sm" @click="showRows(dataset)">
                 {{ $t('action.previewRows') }}
               </button>
@@ -450,7 +460,7 @@ const showRows = (dataset) => {
     "action": {
       "addFilter": "Add filter", "removeFilter": "Remove filter", "save": "Save dataset",
       "update": "Save changes", "cancel": "Cancel edit", "previewRows": "Preview rows",
-      "edit": "Edit", "delete": "Delete",
+      "edit": "Edit", "delete": "Delete", "exportCsv": "CSV", "exportXlsx": "Excel",
       "whatItExposes": "What it exposes", "close": "Close", "revoke": "Stop sharing"
     },
     "preview": {

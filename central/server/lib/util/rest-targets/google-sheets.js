@@ -112,6 +112,7 @@ module.exports = {
   requiresForm: true,
   managesUrl: true,
   submissionRows: true,
+  signsDeliveries: false,
   configSchema: {
     spreadsheetId: {
       type: 'string', required: true, secret: false,
@@ -143,6 +144,7 @@ module.exports = {
     }
   },
   buildTokenRequest,
+  deliveryUrl: () => `${API}/`,
   buildLookupRequest,
   analyseLookup,
   buildRequest,
