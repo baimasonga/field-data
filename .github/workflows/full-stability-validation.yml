@@ -30,7 +30,7 @@ jobs:
       run:
         working-directory: central/server
     env:
-      PGPASSWORD: postgres
+      PGPASSWORD: jubilant
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -42,11 +42,11 @@ jobs:
         run: npm install --include=dev --no-audit --no-fund --ignore-scripts --engine-strict=false --force
       - name: Create test database
         run: |
-          psql -h 127.0.0.1 -U postgres -d postgres -v ON_ERROR_STOP=1 <<'SQL'
+          PGPASSWORD=postgres psql -h 127.0.0.1 -U postgres -d postgres -v ON_ERROR_STOP=1 <<'SQL'
           CREATE USER jubilant WITH PASSWORD 'jubilant' SUPERUSER;
           CREATE DATABASE jubilant_test OWNER jubilant;
           SQL
-          PGPASSWORD=jubilant psql -h 127.0.0.1 -U jubilant -d jubilant_test -v ON_ERROR_STOP=1             -c "CREATE EXTENSION IF NOT EXISTS pgrowlocks"
+          psql -h 127.0.0.1 -U jubilant -d jubilant_test -v ON_ERROR_STOP=1             -c "CREATE EXTENSION IF NOT EXISTS pgrowlocks"
       - name: Write test configuration
         run: |
           mkdir -p config
