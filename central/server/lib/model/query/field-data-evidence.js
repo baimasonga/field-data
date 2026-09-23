@@ -6,8 +6,12 @@ const { sql } = require('slonik');
 // Recompute from stored XML on every read so a stale digest cannot masquerade
 // as verified evidence. XML is text in Central's submission_defs table.
 const select = (condition, includeXml = false) => ({ all }) => all(sql`
-  SELECT e.id, e."sourceKind", e."contentHash", e."mimeType", e."byteSize",
+  SELECT e.id, e."sourceKind", COALESCE(e."contentHash", verification."contentHash") AS "contentHash",
+    e."mimeType", CASE WHEN e."contentHash" IS NULL THEN verification."byteSize"
+      ELSE e."byteSize" END AS "byteSize",
     e."receivedAt", e.degraded, e."attachmentName", e."blobId", link.relation,
+    verification."verifiedAt", verification."basis" AS "verificationBasis",
+    verification."legacySha1Matched",
     CASE WHEN e."sourceKind" = 'submission-xml' THEN
       e."contentHash" = 'sha256:' || encode(sha256(convert_to(sd.xml, 'UTF8')), 'hex')
     WHEN e."blobId" IS NULL OR e."contentHash" IS NULL OR b.content IS NULL THEN NULL
@@ -22,6 +26,7 @@ const select = (condition, includeXml = false) => ({ all }) => all(sql`
   JOIN field_data_claim_versions v ON v.id = link."claimVersionId"
   JOIN submission_defs sd ON sd.id = e."submissionDefId" AND sd.id = v."submissionDefId"
   LEFT JOIN blobs b ON b.id = e."blobId"
+  LEFT JOIN field_data_evidence_verifications verification ON verification."evidenceId" = e.id
   JOIN submissions s ON s.id = sd."submissionId" AND s."deletedAt" IS NULL
   JOIN forms ON forms.id = s."formId"
   WHERE ${condition}

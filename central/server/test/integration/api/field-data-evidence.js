@@ -1,5 +1,7 @@
 require('should');
 const { sql } = require('slonik');
+const { Blob } = require('../../../lib/model/frames');
+const { verifyEvidenceBatch } = require('../../../lib/worker/field-data-evidence-verifications');
 const { testService } = require('../setup');
 const testData = require('../../data/xml');
 
@@ -72,5 +74,39 @@ describe('api: P0.3 XML evidence', () => {
       (await alice.get(path).expect(200)).body.items.find((item) => item.id === received.id)
         .integrityStatus.should.equal('mismatch');
       await alice.get(received.downloadUrl).expect(409);
+    }));
+
+  it('anchors historical object-store bytes to their upload hash and allows verified reads',
+    testService(async (service, container) => {
+      const { Blobs, run, s3 } = container;
+      const alice = await service.login('alice');
+      s3.enableMock();
+      await alice.post('/v1/projects/1/forms?publish=true')
+        .set('Content-Type', 'application/xml').send(testData.forms.binaryType).expect(200);
+      await alice.post('/v1/projects/1/forms/binaryType/submissions')
+        .set('Content-Type', 'application/xml').send(testData.instances.binaryType.both).expect(200);
+      const payload = Buffer.from('historical-object');
+      const blob = Blob.fromBuffer(payload, 'image/jpeg');
+      const blobId = await Blobs.ensure(blob);
+      s3.mockExistingBlobs([{ id: blobId, sha: blob.sha, content: payload }]);
+      await run(sql`UPDATE blobs SET content = NULL, s3_status = 'uploaded' WHERE id = ${blobId}`);
+      await run(sql`UPDATE submission_attachments SET "blobId" = ${blobId}
+        WHERE name = 'my_file1.mp4'`);
+      const claim = await alice.get('/v1/projects/1/forms/binaryType/submissions/both/claim')
+        .expect(200);
+      const path = `/v1/field-data/claim-versions/${claim.body.currentVersionId}/evidence`;
+      const getRecord = async () => (await alice.get(path).expect(200)).body.items
+        .find((item) => item.name === 'my_file1.mp4' && item.integrityStatus !== 'missing');
+      (await getRecord()).integrityStatus.should.equal('unverified');
+      const result = await verifyEvidenceBatch(container);
+      result.should.containEql({ processed: 1, matched: 1, mismatched: 0 });
+      (await verifyEvidenceBatch(container)).processed.should.equal(0);
+      const verified = await getRecord();
+      verified.integrityStatus.should.equal('verified');
+      verified.verificationBasis.should.equal('object-store-vs-upload-sha1');
+      (await alice.get(verified.downloadUrl).expect(200)).body.toString()
+        .should.equal('historical-object');
+      s3.mockExistingBlobs([{ id: blobId, sha: blob.sha, content: Buffer.from('modified-object') }]);
+      await alice.get(verified.downloadUrl).expect(409);
     }));
 });
