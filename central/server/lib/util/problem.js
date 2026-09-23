@@ -155,6 +155,9 @@ const problems = {
 
     claimVersionIdInvalid: problem(400.44, ({ value }) =>
       `Claim version ID '${value}' is not a valid UUID.`),
+    idempotencyKeyRequired: problem(400.45, () => 'Idempotency-Key is required.'),
+    idempotencyKeyInvalid: problem(400.46, () => 'Idempotency-Key is invalid.'),
+    evidenceLinkInvalid: problem(400.47, () => 'Evidence link identifiers or relation are invalid.'),
 
     // no detail information for security reasons.
     authenticationFailed: problem(401.2, () => 'Could not authenticate with the provided credentials.'),
@@ -267,6 +270,12 @@ const problems = {
       'The original evidence bytes are missing.'),
     evidenceUnverified: problem(409.28, () =>
       'This evidence has no verified digest; the original cannot be served yet.'),
+    idempotencyKeyReused: problem(409.29, () =>
+      'This Idempotency-Key was used for different work.'),
+    idempotencyInProgress: problem(409.30, () =>
+      'This Idempotency-Key is still in progress. Retry shortly.'),
+    evidenceScopeInvalid: problem(422.1, () =>
+      'The evidence link must refer to this claim version and a valid predecessor.'),
   },
   internal: {
     // no detail information, as this is only called when we don't know what happened.

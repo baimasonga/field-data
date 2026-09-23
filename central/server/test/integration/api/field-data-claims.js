@@ -7,6 +7,7 @@ const evidenceMigration = require('../../../lib/model/migrations/20260923-02-add
 const attachmentEvidenceMigration = require('../../../lib/model/migrations/20260923-03-add-attachment-evidence');
 const verificationMigration = require('../../../lib/model/migrations/20260923-04-add-evidence-verifications');
 const derivationMigration = require('../../../lib/model/migrations/20260923-05-add-evidence-derivations');
+const idempotencyMigration = require('../../../lib/model/migrations/20260923-06-add-evidence-link-idempotency');
 const { testService, testServiceFullTrx } = require('../setup');
 const testData = require('../../data/xml');
 
@@ -122,6 +123,7 @@ describe('api: P0.2 claim versioning', () => {
       const db = knexConnect(config.get('test.database'));
       try {
         await db.transaction(async (trx) => {
+          await idempotencyMigration.down(trx);
           await derivationMigration.down(trx);
           await verificationMigration.down(trx);
           await attachmentEvidenceMigration.down(trx);
@@ -132,6 +134,7 @@ describe('api: P0.2 claim versioning', () => {
           await attachmentEvidenceMigration.up(trx);
           await verificationMigration.up(trx);
           await derivationMigration.up(trx);
+          await idempotencyMigration.up(trx);
         });
       } finally {
         await db.destroy();
