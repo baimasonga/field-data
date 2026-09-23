@@ -43,12 +43,12 @@ const listByVersionId = (versionId) => select(sql`v.id = ${versionId}`);
 const getById = (evidenceId, includeXml = false) => (container) =>
   select(sql`e.id = ${evidenceId}`, includeXml)(container).then((rows) => rows[0] ?? null);
 
-const getDerivation = (evidenceId, derivationId) => ({ maybeOne }) => maybeOne(sql`
+const getDerivation = (evidenceId, derivationId) => ({ all }) => all(sql`
   SELECT id, "evidenceId", kind, algorithm, "algorithmVersion", "outputJson",
     "contentHash", "createdAt",
     ("contentHash" = 'sha256:' || encode(sha256(convert_to("outputJson"::text, 'UTF8')), 'hex'))
       AS "hashMatches"
   FROM field_data_evidence_derivations WHERE id = ${derivationId}
-    AND "evidenceId" = ${evidenceId}`);
+    AND "evidenceId" = ${evidenceId}`).then((rows) => rows[0] ?? null);
 
 module.exports = { listByVersionId, getById, getDerivation };
