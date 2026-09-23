@@ -1,4 +1,5 @@
 require('should');
+const { sql } = require('slonik');
 const { testService } = require('../setup');
 
 // The import routes write Submissions, so the guarantees worth proving are the
@@ -195,4 +196,33 @@ describe('api: wide Form extraction', () => {
             body.fields.should.equal(60);
           }));
     })));
+});
+
+// P0.1. The import writes Submissions that were, until this package,
+// indistinguishable from ones collected on a phone.
+describe('api: import provenance', () => {
+  it('records where an imported Submission came from', testService((service, container) =>
+    service.login('alice', (asAlice) =>
+      dryRun(asAlice, csv('/name,/age\nAmina,42\n'))
+        .expect(200)
+        .then(({ body }) => commit(asAlice, csv('/name,/age\nAmina,42\n'), body.hash)
+          .expect(200))
+        .then(() => asAlice.get('/v1/projects/1/forms/simple/submissions')
+          .expect(200))
+        .then(() => container.all(sql`
+          select * from field_data_submission_provenance
+          order by "submissionDefId" desc limit 1`))
+        .then((rows) => {
+          rows.length.should.equal(1);
+          const row = rows[0];
+          row.origin.should.equal('imported');
+          row.sourceRef.should.startWith('csv-import:');
+          row.transformVersion.should.equal('csv-import@1');
+          row.policyVersion.should.equal('p0.1');
+          row.integrityHash.should.match(/^[0-9a-f]{64}$/);
+          // A CSV says nothing about when the interview happened. Null, and
+          // the marker says why, rather than the upload time standing in.
+          (row.capturedAt === null).should.equal(true);
+          row.degraded.should.eql({ capturedAt: 'unknown' });
+        }))));
 });

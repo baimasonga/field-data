@@ -9,55 +9,21 @@ Work on your own branch. Open a pull request per task.
 
 ---
 
-## Task 1 — P0.1 pure functions
+## Task 1 — withdrawn
 
-Build exactly two files.
+P0.1 is being done end-to-end by the other agent, including the pure functions
+first assigned here.
 
-**`central/server/lib/util/provenance.js`**
+The reason is worth recording, because it is a lesson about the split rather
+than about either agent. P0.1's write paths call `buildEnvelope`, so assigning
+that function to one agent and the paths that call it to the other made the
+package sequential: one side waiting on the other's handoff while the plan
+called it concurrent. The same mistake had already been made once in this
+package with the migration and corrected.
 
-```js
-canonicalHash(xml)          // lowercase hex sha256 over the exact stored bytes
-buildEnvelope({ origin, sourceRef, capturedAt, xml, transformVersion })
-validateEnvelope(envelope)  // throws, per the error table in the contract
-```
-
-The table already exists in the database and the schema in the contract is
-authoritative. Match its column names exactly; they are quoted camelCase in
-Postgres.
-
-Rules that are not negotiable, because they are the point of the feature:
-
-- `capturedAt` stays null when it is not known. Never substitute the receipt
-  time. An invented timestamp is worse than an absent one.
-- A `capturedAt` in the future beyond clock skew is accepted and marked
-  `degraded.capturedAt = "implausible"`. Do not silently correct it.
-- `degraded` records what was unavailable. Absence is not evidence.
-- `origin` is a closed vocabulary: `collected`, `imported`, `migrated`, `api`.
-
-**`central/server/test/unit/util/provenance.js`**
-
-Cover every row of the contract's error table, plus: a null `capturedAt`, an
-implausible `capturedAt`, a hash over non-ASCII XML, and a hash that is stable
-across two calls on the same input.
-
-### Do not
-
-Do not write migrations. Do not wire routes. Do not touch
-`central/server/lib/resources/field-data.js`, the submission routes, or
-anything under `central/client/`. Those are being changed concurrently and a
-conflict there is expensive — that resource file is 2,900 lines.
-
-### Done when
-
-`npx mocha test/unit/util/provenance.js` passes and `npx eslint lib/util/provenance.js test/unit/util/provenance.js` is clean.
-
-**Passing unit tests is not the same as working.** They will be re-verified
-through the real routes before merge. On the last review, four defects passed
-every unit test and only appeared when the code ran: a route that never
-received its upload, a tab rendering a raw translation key, a tab that never
-disappeared, and a workflow that could not go green. This is a property of
-testing pure functions in isolation, not a criticism — it is why the split is
-drawn where it is.
+**A package this small should not be divided.** The real parallelism is two
+packages in flight, not two agents inside one. Task 2 is that parallel work:
+it shares no file with P0.1.
 
 ---
 

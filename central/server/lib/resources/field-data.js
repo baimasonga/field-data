@@ -34,6 +34,20 @@ const { resolveReportSource, rowsForSource } = require('../util/xls-report-data'
 const { CSV_MIME, XLSX_MIME, csvExport, xlsxExport } = require('../util/filtered-dataset-export');
 const { visibleProjects, actorIdOf } = require('../util/cross-project');
 const { MAX_IMPORT_BYTES, templateCsv, inspectCsv, submissionXml } = require('../util/submission-csv-import');
+const { buildEnvelope, validateEnvelope } = require('../util/provenance');
+
+// Records where a Submission version came from, beside the version rather than
+// on it. See docs/field-intelligence/P0.1-provenance-envelope.md.
+const recordProvenance = (db, submissionDefId, envelope) => db.query(sql`
+  insert into field_data_submission_provenance
+    ("submissionDefId", origin, "sourceRef", "capturedAt", "receivedAt",
+     "integrityHash", "transformVersion", "policyVersion", degraded)
+  values (${submissionDefId}, ${envelope.origin}, ${envelope.sourceRef},
+    ${envelope.capturedAt == null ? null : envelope.capturedAt.toISOString()},
+    ${envelope.receivedAt.toISOString()}, ${envelope.integrityHash},
+    ${envelope.transformVersion}, ${envelope.policyVersion},
+    ${envelope.degraded == null ? null : JSON.stringify(envelope.degraded)})
+  on conflict ("submissionDefId") do nothing`);
 
 const pingUrl = (urlStr) => new Promise((resolve) => {
   try {
@@ -791,16 +805,29 @@ module.exports = (service, endpoint) => {
       }
 
       const binaryFields = await container.Forms.getBinaryFields(form.def.id);
+      // One reference for the whole file, so every row an import created can be
+      // found from any one of them.
+      const sourceRef = `csv-import:${result.hash.slice(0, 16)}`;
       let created = 0;
       for (const data of result.submissions) {
         // Sequential writes keep a maximum-size import from opening hundreds
         // of concurrent queries within one transaction.
         // eslint-disable-next-line no-await-in-loop
-        const partial = await Submission.fromXml(Buffer.from(submissionXml(form, data)));
+        const xml = submissionXml(form, data);
+        // eslint-disable-next-line no-await-in-loop
+        const partial = await Submission.fromXml(Buffer.from(xml));
         // eslint-disable-next-line no-await-in-loop
         const submission = await container.Submissions.createNew(
           partial, form, null, userAgent, headers['odk-client']
         );
+        // A CSV says nothing about when the interview happened, so capturedAt
+        // stays null and the envelope records that it is unknown rather than
+        // letting the upload time stand in for it.
+        const envelope = validateEnvelope(buildEnvelope({
+          origin: 'imported', sourceRef, xml, transformVersion: 'csv-import@1'
+        }));
+        // eslint-disable-next-line no-await-in-loop
+        await recordProvenance(container.db, submission.def.id, envelope);
         // No binary fields are importable, but this call preserves the normal
         // Submission attachment bookkeeping and its invariants.
         // eslint-disable-next-line no-await-in-loop
