@@ -2,6 +2,7 @@ require('should');
 const { sql } = require('slonik');
 const { Blob } = require('../../../lib/model/frames');
 const { verifyEvidenceBatch } = require('../../../lib/worker/field-data-evidence-verifications');
+const { deriveImageMetadataBatch } = require('../../../lib/worker/field-data-image-metadata');
 const { testService } = require('../setup');
 const testData = require('../../data/xml');
 
@@ -108,5 +109,38 @@ describe('api: P0.3 XML evidence', () => {
         .should.equal('historical-object');
       s3.mockExistingBlobs([{ id: blobId, sha: blob.sha, content: Buffer.from('modified-object') }]);
       await alice.get(verified.downloadUrl).expect(409);
+    }));
+
+  it('keeps image metadata as a separate, authorized, immutable derivation',
+    testService(async (service, container) => {
+      const { Blobs, run } = container;
+      const alice = await service.login('alice');
+      const chelsea = await service.login('chelsea');
+      await alice.post('/v1/projects/1/forms?publish=true')
+        .set('Content-Type', 'application/xml').send(testData.forms.binaryType).expect(200);
+      await alice.post('/v1/projects/1/forms/binaryType/submissions')
+        .set('Content-Type', 'application/xml').send(testData.instances.binaryType.both).expect(200);
+      const png = Buffer.from('89504e470d0a1a0a0000000d494844520000000300000002', 'hex');
+      const id = await Blobs.ensure(Blob.fromBuffer(png, 'image/png'));
+      await run(sql`UPDATE submission_attachments SET "blobId" = ${id}
+        WHERE name = 'here_is_file2.jpg'`);
+      const claim = await alice.get('/v1/projects/1/forms/binaryType/submissions/both/claim')
+        .expect(200);
+      const path = `/v1/field-data/claim-versions/${claim.body.currentVersionId}/evidence`;
+      const before = (await alice.get(path).expect(200)).body;
+      before.summary.should.containEql({ verified: 2, missing: 2 });
+      const result = await deriveImageMetadataBatch(container);
+      result.should.containEql({ examined: 1, produced: 1 });
+      (await deriveImageMetadataBatch(container)).produced.should.equal(0);
+      const evidence = (await alice.get(path).expect(200)).body.items
+        .find((item) => item.name === 'here_is_file2.jpg' && item.integrityStatus === 'verified');
+      evidence.derivations.should.have.length(1);
+      const derivativePath = `/v1/field-data/evidence/${evidence.id}/derivations/${evidence.derivations[0].id}/content`;
+      (await alice.get(derivativePath).expect(200)).body.output
+        .should.containEql({ format: 'png', parseStatus: 'parsed', width: 3, height: 2 });
+      await chelsea.get(derivativePath).expect(404);
+      await run(sql`UPDATE blobs SET content = decode('74616d7065726564', 'hex') WHERE id = ${id}`);
+      (await alice.get(path).expect(200)).body.items.find((item) => item.id === evidence.id)
+        .integrityStatus.should.equal('mismatch');
     }));
 });

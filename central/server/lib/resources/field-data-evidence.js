@@ -25,7 +25,7 @@ const metadata = (row) => ({
         : row.hashMatches == null ? 'unverified' : row.hashMatches ? 'verified' : 'mismatch',
   degraded: row.degraded,
   downloadUrl: `/v1/field-data/evidence/${row.id}/content`,
-  derivations: []
+  derivations: row.derivations
 });
 
 const authorize = async (row, Forms, auth) => {
@@ -59,7 +59,10 @@ module.exports = (service, endpoint) => {
         throw error;
       }
       const rows = await FieldDataEvidence.listByVersionId(params.claimVersionId);
-      return { items: rows.map(metadata), nextCursor: null };
+      const items = rows.map(metadata);
+      const summary = { verified: 0, missing: 0, unverified: 0, mismatch: 0 };
+      for (const item of items) summary[item.integrityStatus] += 1;
+      return { items, summary, nextCursor: null };
     }));
 
   const getEvidence = async ({ FieldDataEvidence, Forms }, { params, auth }, includeXml) => {
@@ -72,6 +75,21 @@ module.exports = (service, endpoint) => {
 
   service.get('/field-data/evidence/:evidenceId',
     endpoint(async (container, context) => metadata(await getEvidence(container, context, false))));
+
+  service.get('/field-data/evidence/:evidenceId/derivations/:derivationId/content',
+    endpoint(async (container, context) => {
+      await getEvidence(container, context, false);
+      if (!UUID_PATTERN.test(context.params.derivationId)) throw Problem.user.notFound();
+      const derivative = await container.FieldDataEvidence.getDerivation(
+        context.params.evidenceId, context.params.derivationId
+      );
+      if (derivative == null) throw Problem.user.notFound();
+      if (!derivative.hashMatches) throw Problem.user.evidenceHashMismatch();
+      return { id: derivative.id, evidenceId: derivative.evidenceId,
+        kind: derivative.kind, algorithm: derivative.algorithm,
+        algorithmVersion: derivative.algorithmVersion, output: derivative.outputJson,
+        contentHash: derivative.contentHash, createdAt: derivative.createdAt };
+    }));
 
   service.get('/field-data/evidence/:evidenceId/content',
     endpoint(async (container, context, request, response) => {

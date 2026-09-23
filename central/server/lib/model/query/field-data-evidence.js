@@ -10,6 +10,7 @@ const select = (condition, includeXml = false) => ({ all }) => all(sql`
     e."mimeType", CASE WHEN e."contentHash" IS NULL THEN verification."byteSize"
       ELSE e."byteSize" END AS "byteSize",
     e."receivedAt", e.degraded, e."attachmentName", e."blobId", link.relation,
+    COALESCE(derivations.items, '[]'::jsonb) AS derivations,
     verification."verifiedAt", verification."basis" AS "verificationBasis",
     verification."legacySha1Matched",
     CASE WHEN e."sourceKind" = 'submission-xml' THEN
@@ -27,6 +28,12 @@ const select = (condition, includeXml = false) => ({ all }) => all(sql`
   JOIN submission_defs sd ON sd.id = e."submissionDefId" AND sd.id = v."submissionDefId"
   LEFT JOIN blobs b ON b.id = e."blobId"
   LEFT JOIN field_data_evidence_verifications verification ON verification."evidenceId" = e.id
+  LEFT JOIN LATERAL (
+    SELECT jsonb_agg(jsonb_build_object('id', d.id, 'kind', d.kind,
+      'algorithm', d.algorithm, 'algorithmVersion', d."algorithmVersion",
+      'createdAt', d."createdAt") ORDER BY d."createdAt", d.id) AS items
+    FROM field_data_evidence_derivations d WHERE d."evidenceId" = e.id
+  ) derivations ON TRUE
   JOIN submissions s ON s.id = sd."submissionId" AND s."deletedAt" IS NULL
   JOIN forms ON forms.id = s."formId"
   WHERE ${condition}
@@ -36,4 +43,12 @@ const listByVersionId = (versionId) => select(sql`v.id = ${versionId}`);
 const getById = (evidenceId, includeXml = false) => (container) =>
   select(sql`e.id = ${evidenceId}`, includeXml)(container).then((rows) => rows[0] ?? null);
 
-module.exports = { listByVersionId, getById };
+const getDerivation = (evidenceId, derivationId) => ({ maybeOne }) => maybeOne(sql`
+  SELECT id, "evidenceId", kind, algorithm, "algorithmVersion", "outputJson",
+    "contentHash", "createdAt",
+    ("contentHash" = 'sha256:' || encode(sha256(convert_to("outputJson"::text, 'UTF8')), 'hex'))
+      AS "hashMatches"
+  FROM field_data_evidence_derivations WHERE id = ${derivationId}
+    AND "evidenceId" = ${evidenceId}`);
+
+module.exports = { listByVersionId, getById, getDerivation };
