@@ -1,5 +1,8 @@
 require('should');
+const config = require('config');
 const { sql } = require('slonik');
+const { knexConnect } = require('../../../lib/model/knex-migrator');
+const claimMigration = require('../../../lib/model/migrations/20260923-01-add-claim-versioning');
 const { testService, testServiceFullTrx } = require('../setup');
 const testData = require('../../data/xml');
 
@@ -90,4 +93,38 @@ describe('api: P0.2 claim versioning', () => {
     const { body } = await asAlice.get(claimPath).expect(200);
     body.versions.should.have.length(2);
   }));
+
+  it('backfills a stored multi-version Submission and continues the chain',
+    testServiceFullTrx(async (service) => {
+      const asAlice = await service.login('alice');
+      await createSubmission(asAlice);
+      await asAlice.put('/v1/projects/1/forms/simple/submissions/one')
+        .send(withSimpleIds('one', 'two'))
+        .set('Content-Type', 'application/xml').expect(200);
+
+      const db = knexConnect(config.get('test.database'));
+      try {
+        await db.transaction(async (trx) => {
+          await claimMigration.down(trx);
+          await claimMigration.up(trx);
+        });
+      } finally {
+        await db.destroy();
+      }
+
+      const { body } = await asAlice.get(claimPath).expect(200);
+      body.versions.map((version) => version.ordinal).should.eql([1, 2]);
+      body.versions[0].lineageBasis.should.equal('backfill-id-order');
+      body.versions[1].previousVersionId.should.equal(body.versions[0].id);
+      body.versions[1].degraded.reason.should.equal('historical-lineage-inferred');
+
+      await asAlice.put('/v1/projects/1/forms/simple/submissions/one')
+        .send(withSimpleIds('two', 'three'))
+        .set('Content-Type', 'application/xml').expect(200);
+      const continued = await asAlice.get(claimPath).expect(200);
+      continued.body.id.should.equal(body.id);
+      continued.body.versions.map((version) => version.ordinal).should.eql([1, 2, 3]);
+      continued.body.versions[2].previousVersionId.should.equal(body.versions[1].id);
+      continued.body.versions[2].lineageBasis.should.equal('created');
+    }));
 });
