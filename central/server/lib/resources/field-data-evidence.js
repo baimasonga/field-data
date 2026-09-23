@@ -17,8 +17,12 @@ const metadata = (row) => ({
   contentHash: row.contentHash,
   name: row.attachmentName ?? null,
   receivedAt: row.receivedAt,
+  verifiedAt: row.verifiedAt ?? null,
+  verificationBasis: row.verificationBasis ?? null,
   integrityStatus: row.blobId == null && row.sourceKind !== 'submission-xml' ? 'missing'
-    : row.hashMatches == null ? 'unverified' : row.hashMatches ? 'verified' : 'mismatch',
+    : row.legacySha1Matched === false ? 'mismatch'
+      : row.legacySha1Matched === true ? 'verified'
+        : row.hashMatches == null ? 'unverified' : row.hashMatches ? 'verified' : 'mismatch',
   degraded: row.degraded,
   downloadUrl: `/v1/field-data/evidence/${row.id}/content`,
   derivations: []
@@ -76,6 +80,7 @@ module.exports = (service, endpoint) => {
         if (row.blobId == null || (row.content == null && row.s3Status !== 'uploaded'))
           throw Problem.user.evidenceBytesMissing();
         if (row.contentHash == null) throw Problem.user.evidenceUnverified();
+        if (row.legacySha1Matched === false) throw Problem.user.evidenceHashMismatch();
         const bytes = await blobContent(container.s3, {
           id: row.blobId, sha: row.blobSha, s3_status: row.s3Status, content: row.content
         });
