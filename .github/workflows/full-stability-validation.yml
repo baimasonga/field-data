@@ -200,7 +200,8 @@ jobs:
           NODE_ENV=test NODE_CONFIG_DIR=./config NODE_CONFIG_ENV=test BCRYPT=insecure \
             FIELD_DATA_STORAGE_DIR="${{ runner.temp }}" \
             npx mocha --timeout 30000 test/integration/api/field-data-claims.js \
-              test/integration/api/field-data-evidence.js
+              test/integration/api/field-data-evidence.js \
+              test/integration/api/field-data-idempotency.js
 
   server-integration-report:
     name: Server integration suite (report only)

@@ -7,6 +7,7 @@ const { UUID_PATTERN } = require('../util/claim-versioning');
 const { getOrNotFound } = require('../util/promise');
 const { blobContent } = require('../util/blob');
 const Problem = require('../util/problem');
+const { validateKey, hashEvidenceLink } = require('../util/idempotency');
 
 const metadata = (row) => ({
   id: row.id,
@@ -42,6 +43,46 @@ const authorize = async (row, Forms, auth) => {
 };
 
 module.exports = (service, endpoint) => {
+  service.post('/field-data/claim-versions/:claimVersionId/evidence-links',
+    endpoint(async ({ FieldDataClaims, FieldDataEvidence, Forms, Audits },
+      { params, auth, body, headers }, request, response) => {
+      let key;
+      try { key = validateKey(headers['idempotency-key']); } catch (error) {
+        throw error.code === 'IDEMPOTENCY_KEY_REQUIRED'
+          ? Problem.user.idempotencyKeyRequired() : Problem.user.idempotencyKeyInvalid();
+      }
+      if (!UUID_PATTERN.test(params.claimVersionId))
+        throw Problem.user.claimVersionIdInvalid({ value: params.claimVersionId });
+      const claim = await FieldDataClaims.getByVersionId(params.claimVersionId);
+      if (claim == null) throw Problem.user.notFound();
+      const form = await Forms.getByProjectAndXmlFormId(
+        claim.scope.projectId, claim.scope.xmlFormId, Form.WithoutDef, Form.WithoutXml
+      ).then(getOrNotFound);
+      try { await auth.canOrReject('submission.update', form); } catch (error) {
+        if (error?.problemCode === Problem.user.insufficientRights.code)
+          throw Problem.user.notFound();
+        throw error;
+      }
+      const { evidenceId, relation, supersedesLinkId = null } = body ?? {};
+      let requestHash;
+      try {
+        requestHash = hashEvidenceLink({ claimVersionId: params.claimVersionId,
+          evidenceId, relation, supersedesLinkId });
+      } catch (error) { throw Problem.user.evidenceLinkInvalid(); }
+      const result = await FieldDataEvidence.createLink({
+        projectId: claim.scope.projectId, claimVersionId: params.claimVersionId,
+        evidenceId, relation, supersedesLinkId, key, requestHash,
+        actorId: auth.actor.map((actor) => actor.id).orNull()
+      });
+      if (result.created) await Audits.log(auth.actor.orNull(),
+        'field_data.evidence.link.create', form,
+        { claimVersionId: params.claimVersionId, evidenceId, relation, linkId: result.id });
+      response.set('Idempotency-Key', key);
+      response.set('Idempotency-Status', result.replayed ? 'replayed' : 'created');
+      response.status(201);
+      return { id: result.id, claimVersionId: params.claimVersionId,
+        evidenceId, relation, supersedesLinkId };
+    }));
   service.get('/field-data/claim-versions/:claimVersionId/evidence',
     endpoint(async ({ FieldDataClaims, FieldDataEvidence, Forms }, { params, auth }) => {
       if (!UUID_PATTERN.test(params.claimVersionId))
