@@ -84,4 +84,18 @@ const getByVersionId = (claimVersionId) => (container) =>
     };
   });
 
-module.exports = { getBySubmissionId, getByVersionId, rowsToClaim };
+const health = () => ({ one }) => one(sql`
+  SELECT
+    (SELECT count(*)::integer FROM submissions s
+      LEFT JOIN field_data_claims c ON c."submissionId" = s.id
+      WHERE c.id IS NULL) AS "missingClaims",
+    (SELECT count(*)::integer FROM submission_defs sd
+      LEFT JOIN field_data_claim_versions v ON v."submissionDefId" = sd.id
+      WHERE v.id IS NULL) AS "missingVersions",
+    (SELECT count(*)::integer FROM field_data_claim_versions v
+      LEFT JOIN field_data_claim_versions p ON p.id = v."previousVersionId"
+      WHERE (v.ordinal = 1 AND v."previousVersionId" IS NOT NULL)
+        OR (v.ordinal > 1 AND (p.id IS NULL OR p."claimId" <> v."claimId"
+          OR p.ordinal <> v.ordinal - 1))) AS "lineageConflicts"`);
+
+module.exports = { getBySubmissionId, getByVersionId, health, rowsToClaim };

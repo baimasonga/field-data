@@ -1,7 +1,7 @@
 // Copyright 2026 Field Data Developers
 // Licensed under the Apache License, Version 2.0.
 
-const { Form } = require('../model/frames');
+const { Config, Form } = require('../model/frames');
 const { UUID_PATTERN } = require('../util/claim-versioning');
 const { getOrNotFound } = require('../util/promise');
 const Problem = require('../util/problem');
@@ -28,6 +28,12 @@ const authorizeWithoutDisclosure = async (auth, form) => {
 };
 
 module.exports = (service, endpoint) => {
+  service.get('/field-data/claim-health',
+    endpoint(async ({ FieldDataClaims }, { auth }) => {
+      await auth.canOrReject('analytics.read', Config.species);
+      return FieldDataClaims.health();
+    }));
+
   service.get('/projects/:projectId/forms/:xmlFormId/submissions/:instanceId/claim',
     endpoint(async ({ FieldDataClaims, Forms, Submissions }, { auth, params }) => {
       const form = await Forms.getByProjectAndXmlFormId(

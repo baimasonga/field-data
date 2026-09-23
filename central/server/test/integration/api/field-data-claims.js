@@ -73,6 +73,19 @@ describe('api: P0.2 claim versioning', () => {
       .expect(404);
   }));
 
+  it('reports missing mappings to analytics readers', testService(async (service, { oneFirst }) => {
+    const asAlice = await service.login('alice');
+    const asChelsea = await service.login('chelsea');
+    await createSubmission(asAlice);
+    await asChelsea.get('/v1/field-data/claim-health').expect(403);
+    const healthy = await asAlice.get('/v1/field-data/claim-health').expect(200);
+    healthy.body.should.eql({ missingClaims: 0, missingVersions: 0, lineageConflicts: 0 });
+
+    await oneFirst(sql`delete from field_data_claim_versions returning 1`);
+    const missing = await asAlice.get('/v1/field-data/claim-health').expect(200);
+    missing.body.should.eql({ missingClaims: 0, missingVersions: 1, lineageConflicts: 0 });
+  }));
+
   it('cascades versions when a deleted Submission is purged', testService(async (service,
     { Submissions, oneFirst }) => {
     const asAlice = await service.login('alice');
