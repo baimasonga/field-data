@@ -272,7 +272,7 @@ const problems = {
       'This evidence has no verified digest; the original cannot be served yet.'),
     idempotencyKeyReused: problem(409.29, () =>
       'This Idempotency-Key was used for different work.'),
-    idempotencyInProgress: problem(409.30, () =>
+    idempotencyInProgress: problem(409.31, () =>
       'This Idempotency-Key is still in progress. Retry shortly.'),
     evidenceScopeInvalid: problem(422.1, () =>
       'The evidence link must refer to this claim version and a valid predecessor.'),
