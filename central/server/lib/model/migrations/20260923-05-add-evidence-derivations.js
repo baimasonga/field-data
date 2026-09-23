@@ -8,7 +8,8 @@ const up = async (db) => db.raw(`CREATE TABLE field_data_evidence_derivations (
   algorithm TEXT NOT NULL,
   "algorithmVersion" TEXT NOT NULL,
   "outputJson" JSONB NOT NULL,
-  "contentHash" TEXT NOT NULL CHECK ("contentHash" ~ '^sha256:[0-9a-f]{64}$'),
+  "contentHash" TEXT GENERATED ALWAYS AS
+    ('sha256:' || encode(sha256(convert_to("outputJson"::text, 'UTF8')), 'hex')) STORED,
   "createdAt" TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp(),
   UNIQUE ("evidenceId", kind, algorithm, "algorithmVersion")
 );

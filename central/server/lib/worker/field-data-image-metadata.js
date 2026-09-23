@@ -49,12 +49,11 @@ const deriveImageMetadataBatch = async ({ all, run, s3 }, limit = 25) => {
     const digest = `sha256:${createHash('sha256').update(bytes).digest('hex')}`;
     if (digest !== (row.contentHash ?? row.observedHash)) continue;
     const output = JSON.stringify(describePng(bytes));
-    // Hash the stored JSONB rendering so the read API can verify it exactly.
+    // PostgreSQL hashes the stored JSONB rendering in its generated column.
     // eslint-disable-next-line no-await-in-loop
     await run(sql`INSERT INTO field_data_evidence_derivations
-      ("evidenceId", kind, algorithm, "algorithmVersion", "outputJson", "contentHash")
-      VALUES (${row.id}, 'image-metadata', 'png-header', '1', ${output}::jsonb,
-        'sha256:' || encode(sha256(convert_to((${output}::jsonb)::text, 'UTF8')), 'hex'))
+      ("evidenceId", kind, algorithm, "algorithmVersion", "outputJson")
+      VALUES (${row.id}, 'image-metadata', 'png-header', '1', ${output}::jsonb)
       ON CONFLICT ("evidenceId", kind, algorithm, "algorithmVersion") DO NOTHING`);
     produced += 1;
   }
