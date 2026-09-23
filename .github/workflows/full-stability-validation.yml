@@ -198,7 +198,8 @@ jobs:
       - name: Exercise claim migration and API
         run: |
           NODE_ENV=test NODE_CONFIG_DIR=./config NODE_CONFIG_ENV=test BCRYPT=insecure \
-            npx mocha test/integration/api/field-data-claims.js
+            FIELD_DATA_STORAGE_DIR="${{ runner.temp }}" \
+            npx mocha --timeout 30000 test/integration/api/field-data-claims.js
 
   server-integration-report:
     name: Server integration suite (report only)
