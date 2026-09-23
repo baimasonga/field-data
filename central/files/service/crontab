@@ -6,3 +6,4 @@
 * * * * * root /usr/bin/with-pgenvblock.pl /dev/shm/docker-envblock /usr/odk/run-field-data-backups.sh
 * * * * * root /usr/bin/with-pgenvblock.pl /dev/shm/docker-envblock /usr/odk/run-field-data-google-sheets.sh
 * * * * * root /usr/bin/with-pgenvblock.pl /dev/shm/docker-envblock /usr/odk/run-field-data-xls-reports.sh
+*/10 * * * * root /usr/bin/with-pgenvblock.pl /dev/shm/docker-envblock /usr/odk/run-field-data-evidence.sh
