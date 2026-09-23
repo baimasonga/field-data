@@ -263,6 +263,10 @@ const problems = {
       `The proposed claim version does not extend its claim lineage. ${reason}`),
     evidenceHashMismatch: problem(409.26, () =>
       'The stored evidence bytes no longer match their recorded SHA-256 digest.'),
+    evidenceBytesMissing: problem(409.27, () =>
+      'The original evidence bytes are missing.'),
+    evidenceUnverified: problem(409.28, () =>
+      'This evidence has no verified digest; the original cannot be served yet.'),
   },
   internal: {
     // no detail information, as this is only called when we don't know what happened.

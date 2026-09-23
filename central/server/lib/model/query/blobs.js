@@ -104,11 +104,13 @@ const _getOnePending = () => ({ maybeOne }) => maybeOne(sql`
 const unattachedClause = sql`
   LEFT JOIN client_audits          AS ca ON ca."blobId" = b.id
   LEFT JOIN submission_attachments AS sa ON sa."blobId" = b.id
+  LEFT JOIN field_data_evidence_records AS evidence ON evidence."blobId" = b.id
   LEFT JOIN form_attachments       AS fa ON fa."blobId" = b.id
   LEFT JOIN form_defs              AS fd ON fd."xlsBlobId" = b.id
   LEFT JOIN config                 AS c  ON c."blobId" = b.id
   WHERE ca."blobId" IS NULL
     AND sa."blobId" IS NULL
+    AND evidence."blobId" IS NULL
     AND fa."blobId" IS NULL
     AND fd."xlsBlobId" IS NULL
     AND c."blobId" IS NULL
@@ -220,4 +222,3 @@ module.exports = {
   s3CountByStatus, s3SetFailedToPending, s3UploadPending,
   _purgeAllUnattached, _purgeUnattachedUploadedBatch, _purgeUnattachedNotUploaded,
 };
-
