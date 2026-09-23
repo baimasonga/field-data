@@ -1,6 +1,7 @@
 require('should');
 const { sql } = require('slonik');
 const { testService } = require('../setup');
+const { canonicalHash } = require('../../../lib/util/provenance');
 
 // The import routes write Submissions, so the guarantees worth proving are the
 // ones that stop them writing: the blank-Form gate, the hash that binds a
@@ -224,5 +225,47 @@ describe('api: import provenance', () => {
           // the marker says why, rather than the upload time standing in.
           (row.capturedAt === null).should.equal(true);
           row.degraded.should.eql({ capturedAt: 'unknown' });
+        }))));
+});
+
+describe('api: collected provenance', () => {
+  it('gives an ordinary Submission provenance without being asked', testService((service, container) =>
+    service.login('alice', (asAlice) =>
+      asAlice.post('/v1/projects/1/forms/simple/submissions')
+        .send('<data id="simple"><meta><instanceID>uuid:collected-1</instanceID></meta>' +
+          '<name>Field</name><age>30</age></data>')
+        .set('Content-Type', 'application/xml')
+        .expect(200)
+        .then(() => container.all(sql`
+          select * from field_data_submission_provenance
+          order by "submissionDefId" desc limit 1`))
+        .then((rows) => {
+          rows.length.should.equal(1);
+          rows[0].origin.should.equal('collected');
+          rows[0].transformVersion.should.equal('odk-submission@1');
+          // ODK records receipt, not observation. Saying "not-reported" is
+          // the honest answer; copying createdAt across would assert the
+          // interview happened when the upload did.
+          (rows[0].capturedAt === null).should.equal(true);
+          rows[0].degraded.should.eql({ capturedAt: 'not-reported' });
+        }))));
+
+  it('hashes in the database exactly as the module hashes in Node', testService((service, container) =>
+    service.login('alice', (asAlice) =>
+      asAlice.post('/v1/projects/1/forms/simple/submissions')
+        .send('<data id="simple"><meta><instanceID>uuid:hash-1</instanceID></meta>' +
+          '<name>Zoë</name><age>7</age></data>')
+        .set('Content-Type', 'application/xml')
+        .expect(200)
+        .then(() => container.all(sql`
+          select p."integrityHash", sd.xml from field_data_submission_provenance p
+            join submission_defs sd on sd.id = p."submissionDefId"
+          order by p."submissionDefId" desc limit 1`))
+        .then((rows) => {
+          // Two implementations of "the hash" now exist: the trigger's SQL and
+          // canonicalHash in Node. They have to agree or the field means
+          // different things depending on which wrote it, and a non-ASCII name
+          // is where an encoding difference would show.
+          rows[0].integrityHash.should.equal(canonicalHash(rows[0].xml));
         }))));
 });

@@ -36,18 +36,21 @@ const { visibleProjects, actorIdOf } = require('../util/cross-project');
 const { MAX_IMPORT_BYTES, templateCsv, inspectCsv, submissionXml } = require('../util/submission-csv-import');
 const { buildEnvelope, validateEnvelope } = require('../util/provenance');
 
-// Records where a Submission version came from, beside the version rather than
-// on it. See docs/field-intelligence/P0.1-provenance-envelope.md.
+// A trigger on submission_defs has already written a 'collected' row by the
+// time this runs, because that is what a Submission version is unless a path
+// knows better. This one does, so it corrects the row it just caused, in the
+// same transaction. See docs/field-intelligence/P0.1-provenance-envelope.md.
 const recordProvenance = (db, submissionDefId, envelope) => db.query(sql`
-  insert into field_data_submission_provenance
-    ("submissionDefId", origin, "sourceRef", "capturedAt", "receivedAt",
-     "integrityHash", "transformVersion", "policyVersion", degraded)
-  values (${submissionDefId}, ${envelope.origin}, ${envelope.sourceRef},
-    ${envelope.capturedAt == null ? null : envelope.capturedAt.toISOString()},
-    ${envelope.receivedAt.toISOString()}, ${envelope.integrityHash},
-    ${envelope.transformVersion}, ${envelope.policyVersion},
-    ${envelope.degraded == null ? null : JSON.stringify(envelope.degraded)})
-  on conflict ("submissionDefId") do nothing`);
+  update field_data_submission_provenance set
+    origin = ${envelope.origin},
+    "sourceRef" = ${envelope.sourceRef},
+    "capturedAt" = ${envelope.capturedAt == null ? null : envelope.capturedAt.toISOString()},
+    "receivedAt" = ${envelope.receivedAt.toISOString()},
+    "integrityHash" = ${envelope.integrityHash},
+    "transformVersion" = ${envelope.transformVersion},
+    "policyVersion" = ${envelope.policyVersion},
+    degraded = ${envelope.degraded == null ? null : JSON.stringify(envelope.degraded)}
+  where "submissionDefId" = ${submissionDefId}`);
 
 const pingUrl = (urlStr) => new Promise((resolve) => {
   try {
