@@ -135,7 +135,7 @@ jobs:
           if-no-files-found: error
 
   claim-versioning:
-    name: P0.2 PostgreSQL integration (gate)
+    name: Claim and evidence PostgreSQL integration (gate)
     runs-on: ubuntu-latest
     timeout-minutes: 20
     services:
@@ -195,11 +195,12 @@ jobs:
             }
           }
           JSON
-      - name: Exercise claim migration and API
+      - name: Exercise claim and evidence migrations and APIs
         run: |
           NODE_ENV=test NODE_CONFIG_DIR=./config NODE_CONFIG_ENV=test BCRYPT=insecure \
             FIELD_DATA_STORAGE_DIR="${{ runner.temp }}" \
-            npx mocha --timeout 30000 test/integration/api/field-data-claims.js
+            npx mocha --timeout 30000 test/integration/api/field-data-claims.js \
+              test/integration/api/field-data-evidence.js
 
   server-integration-report:
     name: Server integration suite (report only)
