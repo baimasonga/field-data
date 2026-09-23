@@ -101,6 +101,7 @@ const withDefaults = (base, queries) => {
     Configs: require('./query/configs'),
     FieldKeys: require('./query/field-keys'),
     FieldDataClaims: require('./query/field-data-claims'),
+    FieldDataEvidence: require('./query/field-data-evidence'),
     Forms: require('./query/forms'),
     FormAttachments: require('./query/form-attachments'),
     Keys: require('./query/keys'),
