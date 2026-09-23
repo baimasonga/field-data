@@ -11,6 +11,7 @@
 
 const { always, equals, identity, ifElse, map, pick, without } = require('ramda');
 const { sql } = require('slonik');
+const { v4: uuid } = require('uuid');
 const { Frame, table } = require('../frame');
 const { Actor, Form, Submission } = require('../frames');
 const { odataFilter, odataOrderBy, odataExcludeDeleted } = require('../../data/odata-filter');
@@ -21,19 +22,39 @@ const Problem = require('../../util/problem');
 const { streamEncBlobs } = require('../../util/blob');
 const { PURGE_DAY_RANGE } = require('../../util/constants');
 const { isTrue } = require('../../util/http');
+const { buildEnvelope, validateEnvelope } = require('../../util/provenance');
 
 const DEFAULT_ORDER_BY = sql`ORDER BY submissions."createdAt" DESC, submissions.id DESC`;
 const EVENTHASH_FORMAT = 'eventhash:%s';
+
+const provenanceFor = (partial, transformVersion, supplied) => validateEnvelope(supplied ?? buildEnvelope({
+  origin: 'collected', xml: partial.xml, transformVersion
+}));
+
+const translateClaimWriteError = (error) => {
+  const databaseError = error?.originalError ?? error;
+  if (databaseError?.code === '23505' && [
+    'field_data_claim_versions_claim_ordinal_unique',
+    'field_data_claim_versions_previous_unique'
+  ].includes(databaseError.constraint)) throw Problem.user.claimVersionConflict();
+  if (databaseError?.code === '23514' && /CLAIM_LINEAGE_INVALID/.test(databaseError.message))
+    throw Problem.user.claimLineageInvalid({ reason: databaseError.message });
+  throw error;
+};
 
 
 ////////////////////////////////////////////////////////////////////////////////
 // SUBMISSION CREATE
 
 // creates both the submission and its initial submission def in one go.
-const createNew = (partial, form, deviceIdIn = null, userAgentIn = null, odkClient = null) => ({ one, context }) => {
+const createNew = (partial, form, deviceIdIn = null, userAgentIn = null, odkClient = null,
+  suppliedProvenance = null) => ({ one, context }) => {
   const actorId = context.auth.actor.map((actor) => actor.id).orNull();
   const deviceId = applyPipe(deviceIdIn, truncateString(255), blankStringToNull);
   const userAgent = applyPipe(userAgentIn, prependString(odkClient), truncateString(255), blankStringToNull);
+  const provenance = provenanceFor(partial, 'odk-submit@1', suppliedProvenance);
+  const claimId = uuid();
+  const claimVersionId = uuid();
 
   return one(sql`
     WITH
@@ -47,12 +68,38 @@ const createNew = (partial, form, deviceIdIn = null, userAgentIn = null, odkClie
           SELECT newSubmission.id AS "submissionId", ${sql.binary(partial.xml)}, ${form.def.id}, "instanceId", ${partial.def.instanceName}, "submitterId", ${partial.def.localKey}, ${partial.def.encDataAttachmentName}, ${partial.def.signature}, "createdAt", true, true, "deviceId", ${userAgent}
             FROM newSubmission
         RETURNING id
+      ),
+      newProvenance AS (
+        INSERT INTO field_data_submission_provenance
+          ("submissionDefId", origin, "sourceRef", "capturedAt", "receivedAt",
+           "integrityHash", "transformVersion", "policyVersion", degraded)
+          SELECT newDef.id, ${provenance.origin}, ${provenance.sourceRef},
+            ${provenance.capturedAt == null ? null : provenance.capturedAt.toISOString()},
+            ${provenance.receivedAt.toISOString()}, ${provenance.integrityHash},
+            ${provenance.transformVersion}, ${provenance.policyVersion},
+            ${provenance.degraded == null ? null : JSON.stringify(provenance.degraded)}
+          FROM newDef
+        RETURNING "submissionDefId"
+      ),
+      newClaim AS (
+        INSERT INTO field_data_claims (id, "submissionId")
+          SELECT ${claimId}, newSubmission.id FROM newSubmission
+        RETURNING id
+      ),
+      newClaimVersion AS (
+        INSERT INTO field_data_claim_versions
+          (id, "claimId", "submissionDefId", ordinal, "previousVersionId", "lineageBasis")
+          SELECT ${claimVersionId}, newClaim.id, newDef.id, 1, NULL, 'created'
+          FROM newClaim CROSS JOIN newDef
+        RETURNING id
       )
     SELECT newSubmission.id
          , newSubmission."createdAt"
          , newDef.id AS "submissionDefId"
       FROM newSubmission
       CROSS JOIN newDef
+      CROSS JOIN newProvenance
+      CROSS JOIN newClaimVersion
   `)
     .then(({ id, createdAt, submissionDefId }) =>
       new Submission({
@@ -97,31 +144,69 @@ createNew.audit = (submission, _, form) => (log) =>
 createNew.audit.withResult = true;
 createNew.audit.logEvenIfAnonymous = true; // so that test submissions are fully logged.
 
-const createVersion = (partial, deprecated, form, deviceIdIn = null, userAgentIn = null, odkClient = null) => ({ one, context }) => {
+const createVersion = (partial, deprecated, form, deviceIdIn = null, userAgentIn = null,
+  odkClient = null, suppliedProvenance = null) => ({ maybeOne, context }) => {
   const actorId = context.auth.actor.map((actor) => actor.id).orNull();
   const deviceId = applyPipe(deviceIdIn, truncateString(255), blankStringToNull);
   const userAgent = applyPipe(userAgentIn, prependString(odkClient), truncateString(255), blankStringToNull);
+  const provenance = provenanceFor(partial, 'odk-edit@1', suppliedProvenance);
+  const claimVersionId = uuid();
 
   // we already do transactions but it just feels nice to have the cte do it all at once.
-  return one(sql`
+  return maybeOne(sql`
     WITH
+      lockedClaim AS (
+        SELECT claims.id, latest.id AS "previousVersionId", latest.ordinal,
+               latest."submissionDefId"
+        FROM field_data_claims claims
+        JOIN LATERAL (
+          SELECT id, ordinal, "submissionDefId" FROM field_data_claim_versions
+          WHERE "claimId" = claims.id ORDER BY ordinal DESC LIMIT 1
+        ) latest ON TRUE
+        WHERE claims."submissionId" = ${deprecated.submissionId}
+        FOR UPDATE OF claims
+      ),
       updatedSubmission AS (
         UPDATE submissions
           SET "reviewState"='edited'
             , "updatedAt"=clock_timestamp()
-          WHERE id=${deprecated.submissionId}
-        RETURNING *
+          FROM lockedClaim
+          WHERE submissions.id=${deprecated.submissionId}
+            AND lockedClaim."submissionDefId"=${deprecated.id}
+        RETURNING submissions.*
       ),
       deprecatedDef AS (
         UPDATE submission_defs
           SET current = FALSE
-          WHERE "submissionId"=${deprecated.submissionId}
-            AND current IS TRUE
+          FROM updatedSubmission
+          WHERE submission_defs."submissionId"=${deprecated.submissionId}
+            AND submission_defs.current IS TRUE
       ),
       newDef AS (
         INSERT INTO submission_defs ("submissionId", xml, "formDefId", "instanceId", "instanceName", "submitterId", "localKey", "encDataAttachmentName", "signature", "createdAt", root, current, "deviceId", "userAgent")
-          VALUES (${deprecated.submissionId}, ${sql.binary(partial.xml)}, ${form.def.id}, ${partial.instanceId}, ${partial.def.instanceName}, ${actorId}, ${partial.def.localKey}, ${partial.def.encDataAttachmentName}, ${partial.def.signature}, clock_timestamp(), null, true, ${deviceId}, ${userAgent})
+          SELECT ${deprecated.submissionId}, ${sql.binary(partial.xml)}, ${form.def.id}, ${partial.instanceId}, ${partial.def.instanceName}, ${actorId}, ${partial.def.localKey}, ${partial.def.encDataAttachmentName}, ${partial.def.signature}, clock_timestamp(), null, true, ${deviceId}, ${userAgent}
+          FROM updatedSubmission
           RETURNING id AS "submissionDefId", "createdAt" as "submissionDefCreatedAt"
+      ),
+      newProvenance AS (
+        INSERT INTO field_data_submission_provenance
+          ("submissionDefId", origin, "sourceRef", "capturedAt", "receivedAt",
+           "integrityHash", "transformVersion", "policyVersion", degraded)
+          SELECT newDef."submissionDefId", ${provenance.origin}, ${provenance.sourceRef},
+            ${provenance.capturedAt == null ? null : provenance.capturedAt.toISOString()},
+            ${provenance.receivedAt.toISOString()}, ${provenance.integrityHash},
+            ${provenance.transformVersion}, ${provenance.policyVersion},
+            ${provenance.degraded == null ? null : JSON.stringify(provenance.degraded)}
+          FROM newDef
+        RETURNING "submissionDefId"
+      ),
+      newClaimVersion AS (
+        INSERT INTO field_data_claim_versions
+          (id, "claimId", "submissionDefId", ordinal, "previousVersionId", "lineageBasis")
+          SELECT ${claimVersionId}, lockedClaim.id, newDef."submissionDefId",
+                 lockedClaim.ordinal + 1, lockedClaim."previousVersionId", 'created'
+          FROM lockedClaim CROSS JOIN newDef
+        RETURNING id
       )
     SELECT updatedSubmission.*
          , submission_defs."userAgent"
@@ -130,8 +215,10 @@ const createVersion = (partial, deprecated, form, deviceIdIn = null, userAgentIn
       JOIN submission_defs
         ON "submissionId"=${deprecated.submissionId} AND root IS TRUE
       CROSS JOIN newDef
+      CROSS JOIN newProvenance
+      CROSS JOIN newClaimVersion
   `)
-    .then(({ submissionDefId, submissionDefCreatedAt, ...submissionData }) =>
+    .then((result) => result.map(({ submissionDefId, submissionDefCreatedAt, ...submissionData }) =>
       new Submission({ id: deprecated.submissionId, ...submissionData }, {
         currentVersion: new Submission.Def({
           id:                    submissionDefId,
@@ -150,7 +237,9 @@ const createVersion = (partial, deprecated, form, deviceIdIn = null, userAgentIn
           deviceId,
           userAgent,
         }),
-      }));
+      }))
+      .orElseGet(() => { throw Problem.user.claimVersionConflict(); }))
+    .catch(translateClaimWriteError);
 };
 
 createVersion.audit = (submission, partial, deprecated, form) => (log) =>
@@ -591,4 +680,3 @@ module.exports = {
   getODataSelectionEtag,
   getSelectionEtag,
 };
-

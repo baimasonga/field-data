@@ -153,6 +153,9 @@ const problems = {
       return `Failed to process ${total} entities in submission due to ${count} errors: ${joined}`;
     }),
 
+    claimVersionIdInvalid: problem(400.44, ({ value }) =>
+      `Claim version ID '${value}' is not a valid UUID.`),
+
     // no detail information for security reasons.
     authenticationFailed: problem(401.2, () => 'Could not authenticate with the provided credentials.'),
 
@@ -253,6 +256,11 @@ const problems = {
     deletePropPrereqViolation: problem(409.22, ({ propertyName }) => `Prerequisites for deleting the property "${propertyName}" are not met.`),
 
     datasetMissingForFormRestore: problem(409.23, () => `This Form cannot be restored because the related dataset(s) has been modified or deleted.`),
+    claimVersionConflict: problem(409.24, () =>
+      'The claim changed while this Submission version was being created. Please retry.'),
+
+    claimLineageInvalid: problem(409.25, ({ reason }) =>
+      `The proposed claim version does not extend its claim lineage. ${reason}`),
   },
   internal: {
     // no detail information, as this is only called when we don't know what happened.
@@ -275,6 +283,12 @@ const problems = {
     s3accessDenied: problem(500.7, () => `The S3 account details or permissions are incorrect.`),
 
     s3upstreamError: problem(500.9, ({ amzRequestId, operation }) => `The upstream S3 server had an internal problem performing '${operation}'. Amazon request ID: '${amzRequestId}'.`),
+
+    claimMappingMissing: problem(500.12, ({ submissionId }) =>
+      `Submission ${submissionId ?? '[unknown]'} has no P0.2 claim mapping.`),
+
+    claimLineageInvalid: problem(500.13, ({ reason }) =>
+      `Stored P0.2 claim lineage is invalid. ${reason}`),
 
     // used to indicate missing odata functionality.
     notImplemented: problem(501.1, ({ feature }) => `The requested feature ${feature} is not supported by this server.`),
@@ -317,4 +331,3 @@ for (const key of Object.keys(problems))
   Problem[key] = problems[key];
 
 module.exports = Problem;
-
