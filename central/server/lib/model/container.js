@@ -100,6 +100,7 @@ const withDefaults = (base, queries) => {
     Comments: require('./query/comments'),
     Configs: require('./query/configs'),
     FieldKeys: require('./query/field-keys'),
+    FieldDataClaims: require('./query/field-data-claims'),
     Forms: require('./query/forms'),
     FormAttachments: require('./query/form-attachments'),
     Keys: require('./query/keys'),
@@ -120,4 +121,3 @@ const withDefaults = (base, queries) => {
 };
 
 module.exports = { queryModuleBuilder, injector, withDefaults };
-

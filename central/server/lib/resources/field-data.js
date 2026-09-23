@@ -36,19 +36,6 @@ const { visibleProjects, actorIdOf } = require('../util/cross-project');
 const { MAX_IMPORT_BYTES, templateCsv, inspectCsv, submissionXml } = require('../util/submission-csv-import');
 const { buildEnvelope, validateEnvelope } = require('../util/provenance');
 
-// Records where a Submission version came from, beside the version rather than
-// on it. See docs/field-intelligence/P0.1-provenance-envelope.md.
-const recordProvenance = (db, submissionDefId, envelope) => db.query(sql`
-  insert into field_data_submission_provenance
-    ("submissionDefId", origin, "sourceRef", "capturedAt", "receivedAt",
-     "integrityHash", "transformVersion", "policyVersion", degraded)
-  values (${submissionDefId}, ${envelope.origin}, ${envelope.sourceRef},
-    ${envelope.capturedAt == null ? null : envelope.capturedAt.toISOString()},
-    ${envelope.receivedAt.toISOString()}, ${envelope.integrityHash},
-    ${envelope.transformVersion}, ${envelope.policyVersion},
-    ${envelope.degraded == null ? null : JSON.stringify(envelope.degraded)})
-  on conflict ("submissionDefId") do nothing`);
-
 const pingUrl = (urlStr) => new Promise((resolve) => {
   try {
     const parsed = new URL(urlStr);
@@ -816,10 +803,6 @@ module.exports = (service, endpoint) => {
         const xml = submissionXml(form, data);
         // eslint-disable-next-line no-await-in-loop
         const partial = await Submission.fromXml(Buffer.from(xml));
-        // eslint-disable-next-line no-await-in-loop
-        const submission = await container.Submissions.createNew(
-          partial, form, null, userAgent, headers['odk-client']
-        );
         // A CSV says nothing about when the interview happened, so capturedAt
         // stays null and the envelope records that it is unknown rather than
         // letting the upload time stand in for it.
@@ -827,7 +810,9 @@ module.exports = (service, endpoint) => {
           origin: 'imported', sourceRef, xml, transformVersion: 'csv-import@1'
         }));
         // eslint-disable-next-line no-await-in-loop
-        await recordProvenance(container.db, submission.def.id, envelope);
+        const submission = await container.Submissions.createNew(
+          partial, form, null, userAgent, headers['odk-client'], envelope
+        );
         // No binary fields are importable, but this call preserves the normal
         // Submission attachment bookkeeping and its invariants.
         // eslint-disable-next-line no-await-in-loop

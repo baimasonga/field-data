@@ -134,6 +134,73 @@ jobs:
           path: central/client/client-karma.log
           if-no-files-found: error
 
+  claim-versioning:
+    name: P0.2 PostgreSQL integration (gate)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_USER: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    defaults:
+      run:
+        working-directory: central/server
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24.16.0'
+          cache: npm
+          cache-dependency-path: central/server/package-lock.json
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Create test database
+        run: |
+          PGPASSWORD=postgres psql -h 127.0.0.1 -U postgres -d postgres -v ON_ERROR_STOP=1 <<'SQL'
+          CREATE USER jubilant WITH PASSWORD 'jubilant' SUPERUSER;
+          CREATE DATABASE jubilant_test OWNER jubilant;
+          SQL
+          PGPASSWORD=jubilant psql -h 127.0.0.1 -U jubilant -d jubilant_test -v ON_ERROR_STOP=1 \
+            -c "CREATE EXTENSION IF NOT EXISTS pgrowlocks"
+      - name: Write test configuration
+        run: |
+          cat > config/test.json <<'JSON'
+          {
+            "default": {
+              "database": {
+                "host": "127.0.0.1", "port": 5432,
+                "user": "jubilant", "password": "jubilant",
+                "database": "jubilant_test"
+              },
+              "server": { "port": 8383 },
+              "email": {
+                "serviceAccount": "no-reply@fielddata.local",
+                "transport": "json"
+              },
+              "xlsform": { "host": "localhost", "port": 5001 },
+              "enketo": { "url": "http://localhost:8005/-", "apiKey": "enketorules" },
+              "env": {
+                "domain": "http://localhost:8383",
+                "sysadminAccount": "admin@fielddata.quantixsl.com"
+              },
+              "external": { "sentry": {}, "analytics": {} }
+            }
+          }
+          JSON
+      - name: Exercise claim migration and API
+        run: |
+          NODE_ENV=test NODE_CONFIG_DIR=./config NODE_CONFIG_ENV=test BCRYPT=insecure \
+            FIELD_DATA_STORAGE_DIR="${{ runner.temp }}" \
+            npx mocha --timeout 30000 test/integration/api/field-data-claims.js
+
   server-integration-report:
     name: Server integration suite (report only)
     # Deliberately not on pull requests. The suite takes the better part of an
