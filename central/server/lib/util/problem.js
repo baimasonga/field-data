@@ -261,6 +261,8 @@ const problems = {
 
     claimLineageInvalid: problem(409.25, ({ reason }) =>
       `The proposed claim version does not extend its claim lineage. ${reason}`),
+    evidenceHashMismatch: problem(409.26, () =>
+      'The stored evidence bytes no longer match their recorded SHA-256 digest.'),
   },
   internal: {
     // no detail information, as this is only called when we don't know what happened.
