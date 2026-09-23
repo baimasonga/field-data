@@ -2,8 +2,10 @@
 // Licensed under the Apache License, Version 2.0.
 
 const { Form } = require('../model/frames');
+const { createHash } = require('crypto');
 const { UUID_PATTERN } = require('../util/claim-versioning');
 const { getOrNotFound } = require('../util/promise');
+const { blobContent } = require('../util/blob');
 const Problem = require('../util/problem');
 
 const metadata = (row) => ({
@@ -11,10 +13,12 @@ const metadata = (row) => ({
   sourceKind: row.sourceKind,
   relation: row.relation,
   mimeType: row.mimeType,
-  byteSize: Number(row.byteSize),
+  byteSize: row.contentHash == null ? null : Number(row.byteSize),
   contentHash: row.contentHash,
+  name: row.attachmentName ?? null,
   receivedAt: row.receivedAt,
-  integrityStatus: row.hashMatches ? 'verified' : 'mismatch',
+  integrityStatus: row.blobId == null && row.sourceKind !== 'submission-xml' ? 'missing'
+    : row.hashMatches == null ? 'unverified' : row.hashMatches ? 'verified' : 'mismatch',
   degraded: row.degraded,
   downloadUrl: `/v1/field-data/evidence/${row.id}/content`,
   derivations: []
@@ -68,6 +72,22 @@ module.exports = (service, endpoint) => {
   service.get('/field-data/evidence/:evidenceId/content',
     endpoint(async (container, context, request, response) => {
       const row = await getEvidence(container, context, true);
+      if (row.sourceKind !== 'submission-xml') {
+        if (row.blobId == null || (row.content == null && row.s3Status !== 'uploaded'))
+          throw Problem.user.evidenceBytesMissing();
+        if (row.contentHash == null) throw Problem.user.evidenceUnverified();
+        const bytes = await blobContent(container.s3, {
+          id: row.blobId, sha: row.blobSha, s3_status: row.s3Status, content: row.content
+        });
+        if (bytes == null) throw Problem.user.evidenceBytesMissing();
+        const digest = `sha256:${createHash('sha256').update(bytes).digest('hex')}`;
+        if (digest !== row.contentHash)
+          throw Problem.user.evidenceHashMismatch();
+        response.set('Content-Type', row.mimeType);
+        response.set('Content-Disposition', 'attachment');
+        response.set('Cache-Control', 'no-store');
+        return bytes;
+      }
       if (!row.hashMatches) throw Problem.user.evidenceHashMismatch();
       response.set('Content-Type', 'application/xml; charset=utf-8');
       response.set('Cache-Control', 'no-store');

@@ -41,4 +41,36 @@ describe('api: P0.3 XML evidence', () => {
         .integrityStatus.should.equal('mismatch');
       (await alice.get(record.downloadUrl).expect(409)).body.code.should.equal(409.26);
     }));
+
+  it('records missing attachments, then verifies a received original without erasing history',
+    testService(async (service, { run }) => {
+      const alice = await service.login('alice');
+      const chelsea = await service.login('chelsea');
+      await alice.post('/v1/projects/1/forms?publish=true')
+        .set('Content-Type', 'application/xml').send(testData.forms.binaryType).expect(200);
+      await alice.post('/v1/projects/1/forms/binaryType/submissions')
+        .set('Content-Type', 'application/xml').send(testData.instances.binaryType.both).expect(200);
+      const claim = await alice.get('/v1/projects/1/forms/binaryType/submissions/both/claim')
+        .expect(200);
+      const path = `/v1/field-data/claim-versions/${claim.body.currentVersionId}/evidence`;
+      const { items: original } = (await alice.get(path).expect(200)).body;
+      original.filter((item) => item.integrityStatus === 'missing').should.have.length(2);
+
+      await alice.post('/v1/projects/1/forms/binaryType/submissions/both/attachments/my_file1.mp4')
+        .set('Content-Type', 'image/jpeg').send('original-photo').expect(200);
+      const { items } = (await alice.get(path).expect(200)).body;
+      const received = items.find((item) => item.name === 'my_file1.mp4'
+        && item.integrityStatus === 'verified');
+      received.should.not.be.undefined();
+      items.filter((item) => item.integrityStatus === 'missing').should.have.length(2);
+      (await alice.get(received.downloadUrl).expect(200)).body.toString().should.equal('original-photo');
+      await chelsea.get(received.downloadUrl).expect(404);
+
+      await run(sql`UPDATE blobs SET content = decode('74616d7065726564', 'hex')
+        WHERE id = (SELECT "blobId" FROM field_data_evidence_records
+          WHERE id = ${received.id})`);
+      (await alice.get(path).expect(200)).body.items.find((item) => item.id === received.id)
+        .integrityStatus.should.equal('mismatch');
+      await alice.get(received.downloadUrl).expect(409);
+    }));
 });
