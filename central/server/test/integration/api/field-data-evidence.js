@@ -113,7 +113,7 @@ describe('api: P0.3 XML evidence', () => {
 
   it('keeps image metadata as a separate, authorized, immutable derivation',
     testService(async (service, container) => {
-      const { Blobs, run } = container;
+      const { Blobs, run, one } = container;
       const alice = await service.login('alice');
       const chelsea = await service.login('chelsea');
       await alice.post('/v1/projects/1/forms?publish=true')
@@ -135,6 +135,15 @@ describe('api: P0.3 XML evidence', () => {
       const evidence = (await alice.get(path).expect(200)).body.items
         .find((item) => item.name === 'here_is_file2.jpg' && item.integrityStatus === 'verified');
       evidence.derivations.should.have.length(1);
+      const stored = await one(sql`SELECT "contentHash",
+        'sha256:' || encode(sha256(convert_to("outputJson"::text, 'UTF8')), 'hex') AS recomputed,
+        "outputJson"::text AS rendered
+        FROM field_data_evidence_derivations WHERE id = ${evidence.derivations[0].id}`);
+      stored.contentHash.should.equal(stored.recomputed);
+      const derivativeRow = await container.FieldDataEvidence.getDerivation(
+        evidence.id, evidence.derivations[0].id
+      );
+      derivativeRow.hashMatches.should.equal(true);
       const derivativePath = `/v1/field-data/evidence/${evidence.id}/derivations/${evidence.derivations[0].id}/content`;
       (await alice.get(derivativePath).expect(200)).body.output
         .should.containEql({ format: 'png', parseStatus: 'parsed', width: 3, height: 2 });
