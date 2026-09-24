@@ -8,6 +8,61 @@ const { testService } = require('../setup');
 const testData = require('../../data/xml');
 
 describe('api: P0.5 review case detail', () => {
+  it('records one needs-evidence decision with evidence and finding snapshots',
+    testService(async (service, { one, oneFirst }) => {
+      const alice = await service.login('alice');
+      const chelsea = await service.login('chelsea');
+      await alice.post('/v1/projects/1/forms/simple/submissions')
+        .send(testData.instances.simple.one).set('Content-Type', 'application/xml').expect(200);
+      await alice.patch('/v1/projects/1/forms/simple/submissions/one')
+        .send({ reviewState: 'hasIssues' }).expect(200);
+      const actorId = await oneFirst(sql`SELECT "actorId" FROM audits
+        WHERE action = 'submission.update' ORDER BY id DESC LIMIT 1`);
+      const item = (await alice.get('/v1/field-data/review-queue?projectId=1&xmlFormId=simple')
+        .expect(200)).body.items[0];
+      const assignment = await alice.patch(`/v1/field-data/review-queue/${item.id}/assignment`)
+        .set('If-Match', item.etag).set('Idempotency-Key', 'decide-claim')
+        .send({ assignedTo: actorId, status: 'in-review' })
+        .expect(200);
+      await one(sql`INSERT INTO field_data_integrity_flags
+        ("formId", rule, "ruleVersion", "instanceId", outcome, evidence)
+        SELECT id, 'manual-check', 1, 'one', 'inconclusive', '{"note":"review"}'::jsonb
+        FROM forms WHERE "projectId" = 1 AND "xmlFormId" = 'simple'
+        RETURNING id`);
+      const url = `/v1/field-data/review-queue/${item.id}/decisions`;
+      const body = { outcome: 'needs-evidence', override: false,
+        reasonCode: 'legacy-review-state', note: 'Request the receipt.',
+        evidenceIds: [], integrityFindingIds: [] };
+      await chelsea.post(url).set('If-Match', assignment.headers.etag)
+        .set('Idempotency-Key', 'decide-one').send(body)
+        .expect(404);
+      await alice.post(url).set('Idempotency-Key', 'decide-one').send(body).expect(428);
+      await alice.post(url).set('If-Match', assignment.headers.etag)
+        .set('Idempotency-Key', 'decide-one').send({ ...body, reasonCode: 'wrong' })
+        .expect(400);
+      const first = await alice.post(url).set('If-Match', assignment.headers.etag)
+        .set('Idempotency-Key', 'decide-one').send(body)
+        .expect(201);
+      first.body.status.should.equal('open');
+      const replay = await alice.post(url).set('If-Match', assignment.headers.etag)
+        .set('Idempotency-Key', 'decide-one').send(body)
+        .expect(201);
+      replay.body.id.should.equal(first.body.id);
+      replay.headers['idempotency-status'].should.equal('replayed');
+      await alice.post(url).set('If-Match', assignment.headers.etag)
+        .set('Idempotency-Key', 'decide-two').send(body)
+        .expect(412);
+      const detail = (await alice.get(`/v1/field-data/review-queue/${item.id}`)
+        .expect(200)).body;
+      detail.decisions.should.have.length(1);
+      detail.decisions[0].evidenceSnapshot.should.have.length(1);
+      detail.decisions[0].integritySnapshot.should.have.length(1);
+      detail.decisions[0].evidenceSnapshot[0].integrityStatus.should.equal('verified');
+      assert.equal(detail.assignedTo, null);
+      (await one(sql`SELECT count(*)::integer AS count FROM audits
+        WHERE action = 'field_data.review.case.decide'`)).count.should.equal(1);
+    }));
+
   it('assigns a case once with revision and retry protection',
     testService(async (service, { one, oneFirst }) => {
       const alice = await service.login('alice');

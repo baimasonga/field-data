@@ -37,6 +37,40 @@
           @click="assign(item, true)">
           {{ assigning === item.id ? 'Releasing…' : 'Release case' }}
         </button>
+        <details @toggle="inspect($event, item)">
+          <summary>Inspect evidence and decision history</summary>
+          <p v-if="inspecting === item.id">Loading case evidence…</p>
+          <p v-else-if="inspectionError[item.id]" role="alert">
+            Evidence could not be loaded. Close and reopen to retry.
+          </p>
+          <template v-else-if="inspections[item.id]">
+            <p>Linked originals and their integrity at the time of inspection:</p>
+            <ul>
+              <li v-for="entry of inspections[item.id].evidence" :key="entry.id">
+                {{ entry.sourceKind }} · {{ entry.integrityStatus }} ·
+                <a :href="entry.downloadUrl">Download original</a>
+              </li>
+            </ul>
+            <p v-if="inspections[item.id].evidence.length === 0">No linked evidence.</p>
+            <p>Prior decisions:</p>
+            <ul>
+              <li v-for="decision of inspections[item.id].decisions" :key="decision.id">
+                {{ decision.outcome }} · {{ decision.reasonCode }} · {{ decision.note }}
+              </li>
+            </ul>
+            <p v-if="inspections[item.id].decisions.length === 0">No prior decisions.</p>
+            <div v-if="canReview && status === 'in-review' && item.assignedTo === currentUser.id">
+              <label :for="`review-note-${item.id}`">What evidence is needed?</label>
+              <textarea :id="`review-note-${item.id}`" v-model="notes[item.id]"
+                class="form-control" maxlength="4000"></textarea>
+              <button type="button" class="btn btn-primary"
+                :disabled="!notes[item.id]?.trim() || assigning === item.id"
+                @click="needsEvidence(item)">
+                Record needs evidence
+              </button>
+            </div>
+          </template>
+        </details>
       </li>
     </ul>
     <button v-if="nextCursor != null && !error" type="button" class="btn btn-default"
@@ -63,6 +97,10 @@ const { currentUser } = useRequestData();
 const items = ref([]);
 const status = ref('open');
 const assigning = ref(null);
+const inspecting = ref(null);
+const inspections = ref({});
+const inspectionError = ref({});
+const notes = ref({});
 const nextCursor = ref(null);
 const loading = ref(false);
 const error = ref(false);
@@ -87,6 +125,47 @@ const load = async (cursor = null) => {
   }
 };
 const loadMore = () => load(nextCursor.value);
+const inspect = async (event, item) => {
+  if (!event.target.open || inspections.value[item.id]) return;
+  inspecting.value = item.id;
+  inspectionError.value[item.id] = false;
+  try {
+    const [detail, evidence] = await Promise.all([
+      request({ method: 'GET', url: apiPaths.reviewCase(item.id), alert: false }),
+      request({ method: 'GET', url: apiPaths.claimEvidence(item.claimVersionId), alert: false })
+    ]);
+    inspections.value[item.id] = {
+      decisions: detail.data.decisions,
+      evidence: evidence.data.items
+    };
+  } catch {
+    inspectionError.value[item.id] = true;
+  } finally {
+    inspecting.value = null;
+  }
+};
+const needsEvidence = async (item) => {
+  assigning.value = item.id;
+  try {
+    await request({
+      method: 'POST',
+      url: apiPaths.reviewCaseDecisions(item.id),
+      headers: { 'If-Match': item.etag, 'Idempotency-Key': crypto.randomUUID() },
+      data: {
+        outcome: 'needs-evidence', override: false,
+        reasonCode: item.reasonCodes[0], note: notes.value[item.id].trim(),
+        evidenceIds: [], integrityFindingIds: []
+      }
+    });
+    items.value = items.value.filter((row) => row.id !== item.id);
+    delete inspections.value[item.id];
+    delete notes.value[item.id];
+  } catch {
+    await load();
+  } finally {
+    assigning.value = null;
+  }
+};
 const assign = async (item, releasing = false) => {
   assigning.value = item.id;
   try {
@@ -109,6 +188,8 @@ const assign = async (item, releasing = false) => {
 watch(() => [props.projectId, props.xmlFormId, status.value], () => {
   items.value = [];
   nextCursor.value = null;
+  inspections.value = {};
+  notes.value = {};
   load();
 }, { immediate: true });
 </script>
