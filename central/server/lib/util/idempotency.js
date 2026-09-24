@@ -40,4 +40,15 @@ const hashReviewAssignment = ({ caseId, revision, assignedTo }) => {
     .update(`p0.5\nreview.case.assign\n${canonical}`, 'utf8').digest('hex')}`;
 };
 
-module.exports = { validateKey, hashEvidenceLink, hashReviewAssignment };
+const hashReviewRelease = ({ caseId, revision, actorId }) => {
+  if (typeof caseId !== 'string' || !UUID_PATTERN.test(caseId)
+    || !Number.isSafeInteger(revision) || revision < 1
+    || !Number.isSafeInteger(actorId) || actorId < 1)
+    throw new Error('Invalid review release.');
+  const canonical = JSON.stringify({ caseId: caseId.toLowerCase(), revision, actorId,
+    assignedTo: null, status: 'open' });
+  return `sha256:${createHash('sha256')
+    .update(`p0.5\nreview.case.release\n${canonical}`, 'utf8').digest('hex')}`;
+};
+
+module.exports = { validateKey, hashEvidenceLink, hashReviewAssignment, hashReviewRelease };

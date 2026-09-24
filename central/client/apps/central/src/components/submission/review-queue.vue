@@ -32,6 +32,11 @@
           @click="assign(item)">
           {{ assigning === item.id ? 'Assigning…' : 'Assign to me' }}
         </button>
+        <button v-if="canReview && status === 'in-review' && item.assignedTo === currentUser.id"
+          type="button" class="btn btn-default" :disabled="assigning === item.id"
+          @click="assign(item, true)">
+          {{ assigning === item.id ? 'Releasing…' : 'Release case' }}
+        </button>
       </li>
     </ul>
     <button v-if="nextCursor != null && !error" type="button" class="btn btn-default"
@@ -82,14 +87,17 @@ const load = async (cursor = null) => {
   }
 };
 const loadMore = () => load(nextCursor.value);
-const assign = async (item) => {
+const assign = async (item, releasing = false) => {
   assigning.value = item.id;
   try {
     await request({
       method: 'PATCH',
       url: apiPaths.reviewCaseAssignment(item.id),
       headers: { 'If-Match': item.etag, 'Idempotency-Key': crypto.randomUUID() },
-      data: { assignedTo: currentUser.id, status: 'in-review' }
+      data: {
+        assignedTo: releasing ? null : currentUser.id,
+        status: releasing ? 'open' : 'in-review'
+      }
     });
     items.value = items.value.filter((row) => row.id !== item.id);
   } catch {
