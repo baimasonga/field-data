@@ -234,7 +234,21 @@ const responsesByComponent = {
     fields: () => testData.extendedForms.last()._fields,
     audits: true,
     comments: () => testData.extendedComments.sorted(),
-    diffs: () => ({})
+    diffs: () => ({}),
+    claim: [
+      ({ url }) => matchesApiPath(apiPaths.submissionClaim, url),
+      () => ({
+        currentVersionId: '00000000-0000-4000-8000-000000000001',
+        versions: [{
+          id: '00000000-0000-4000-8000-000000000001', ordinal: 1,
+          current: true, provenance: { origin: 'collected' }
+        }]
+      })
+    ],
+    evidence: [
+      ({ url }) => matchesApiPath(apiPaths.claimEvidence, url),
+      () => ({ items: [] })
+    ]
   }),
   DatasetShow: componentResponses({
     project: true,

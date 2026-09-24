@@ -168,6 +168,9 @@ export const apiPaths = {
     const encodedInstanceId = encodeURIComponent(instanceId);
     return `/v1/projects/${projectId}/forms/${encodedFormId}/submissions/${encodedRootId}/versions/${encodedInstanceId}`;
   },
+  submissionClaim: submissionPath('/claim'),
+  claimEvidence: (versionId) =>
+    `/v1/field-data/claim-versions/${encodeURIComponent(versionId)}/evidence`,
   submissionXml: submissionPath('.xml'),
   publicLinks: formPath('/public-links'),
   publicLink: (projectId, xmlFormId, publicLinkId) => {
