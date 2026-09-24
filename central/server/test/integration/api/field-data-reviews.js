@@ -54,7 +54,7 @@ describe('api: P0.5 review case detail', () => {
         .set('Idempotency-Key', 'release-1').send(releaseBody)
         .expect(200);
       released.body.status.should.equal('open');
-      released.body.assignedTo.should.equal(null);
+      assert.equal(released.body.assignedTo, null);
       (await alice.patch(path).set('If-Match', assigned[0].etag)
         .set('Idempotency-Key', 'release-1').send(releaseBody)
         .expect(200)).headers['idempotency-status'].should.equal('replayed');
