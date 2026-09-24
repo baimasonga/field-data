@@ -49,6 +49,8 @@ describe('api: P0.5 review case detail', () => {
             WHERE "submissionDefId" = (
               SELECT "submissionDefId" FROM field_data_claim_versions
               WHERE id = ${item.claimVersionId})`);
+          await run(sql`UPDATE field_data_claim_versions SET degraded = NULL
+            WHERE id = ${item.claimVersionId}`);
         }
         const first = await alice.post(url).set('If-Match', assigned.headers.etag)
           .set('Idempotency-Key', `decide-${outcome}`).send(body)
@@ -193,12 +195,15 @@ describe('api: P0.5 review case detail', () => {
       await alice.post('/v1/projects/1/forms/simple/submissions')
         .send(testData.instances.simple.one).set('Content-Type', 'application/xml').expect(200);
       const list = '/v1/field-data/review-queue?projectId=1&xmlFormId=simple';
-      (await alice.get(list).expect(200)).body.items.should.have.length(0);
+      const initial = (await alice.get(list).expect(200)).body.items;
+      initial.should.have.length(1);
+      initial[0].reasonCodes.should.deepEqual(['provenance-degraded']);
       await alice.patch('/v1/projects/1/forms/simple/submissions/one')
         .send({ reviewState: 'hasIssues' }).expect(200);
       const { body } = await alice.get(list).expect(200);
       body.items.should.have.length(1);
-      body.items[0].reasonCodes.should.deepEqual(['legacy-review-state']);
+      body.items[0].id.should.equal(initial[0].id);
+      body.items[0].reasonCodes.should.deepEqual(['provenance-degraded', 'legacy-review-state']);
       body.items[0].claim.rootInstanceId.should.equal('one');
       assert.equal(body.nextCursor, null);
       await alice.patch('/v1/projects/1/forms/simple/submissions/one')
@@ -241,9 +246,9 @@ describe('api: P0.5 review case detail', () => {
         .send(testData.instances.simple.one).set('Content-Type', 'application/xml').expect(200);
       const claim = (await alice.get('/v1/projects/1/forms/simple/submissions/one/claim')
         .expect(200)).body;
-      const reviewCase = await one(sql`INSERT INTO field_data_review_cases
-        ("claimVersionId", "reasonCodes")
-        VALUES (${claim.currentVersionId}, '["manual-referral"]'::jsonb)
+      const reviewCase = await one(sql`UPDATE field_data_review_cases
+        SET "reasonCodes" = '["manual-referral"]'::jsonb
+        WHERE "claimVersionId" = ${claim.currentVersionId}
         RETURNING id`);
       const decision = await one(sql`INSERT INTO field_data_review_decisions
         ("caseId", "claimVersionId", sequence, outcome, "reasonCode",

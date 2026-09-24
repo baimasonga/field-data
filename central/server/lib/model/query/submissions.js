@@ -88,8 +88,9 @@ const createNew = (partial, form, deviceIdIn = null, userAgentIn = null, odkClie
       ),
       newClaimVersion AS (
         INSERT INTO field_data_claim_versions
-          (id, "claimId", "submissionDefId", ordinal, "previousVersionId", "lineageBasis")
-          SELECT ${claimVersionId}, newClaim.id, newDef.id, 1, NULL, 'created'
+          (id, "claimId", "submissionDefId", ordinal, "previousVersionId", "lineageBasis", degraded)
+          SELECT ${claimVersionId}, newClaim.id, newDef.id, 1, NULL, 'created',
+            ${provenance.degraded == null ? null : JSON.stringify(provenance.degraded)}
           FROM newClaim CROSS JOIN newDef
         RETURNING id
       )
@@ -202,9 +203,10 @@ const createVersion = (partial, deprecated, form, deviceIdIn = null, userAgentIn
       ),
       newClaimVersion AS (
         INSERT INTO field_data_claim_versions
-          (id, "claimId", "submissionDefId", ordinal, "previousVersionId", "lineageBasis")
+          (id, "claimId", "submissionDefId", ordinal, "previousVersionId", "lineageBasis", degraded)
           SELECT ${claimVersionId}, lockedClaim.id, newDef."submissionDefId",
-                 lockedClaim.ordinal + 1, lockedClaim."previousVersionId", 'created'
+                 lockedClaim.ordinal + 1, lockedClaim."previousVersionId", 'created',
+                 ${provenance.degraded == null ? null : JSON.stringify(provenance.degraded)}
           FROM lockedClaim CROSS JOIN newDef
         RETURNING id
       )
