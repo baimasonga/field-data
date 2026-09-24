@@ -35,6 +35,6 @@ describe('api: P0.5 review case detail', () => {
       await chelsea.get(path).expect(404);
       await alice.get('/v1/field-data/review-queue/not-a-uuid').expect(404);
       await assert.rejects(run(sql`DELETE FROM field_data_review_decisions
-        WHERE id = ${decision.id}`), /append-only/);
+        WHERE id = ${decision.id}`), /Review decisions are append-only/);
     }));
 });
