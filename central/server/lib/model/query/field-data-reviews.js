@@ -129,6 +129,11 @@ const recordDecision = ({ caseId, revision, actorId, projectId, formActeeId,
     throw Problem.user.reviewCaseAssigned();
   if (!reviewCase.reasonCodes.includes(reasonCode))
     throw Problem.user.reviewAssignmentInvalid();
+  if (outcome !== 'needs-evidence') {
+    const pending = await all(sql`SELECT id FROM field_data_backchecks
+      WHERE "caseId" = ${caseId} AND status = 'requested' LIMIT 1`);
+    if (pending.length > 0) throw Problem.user.reviewAcceptanceBlocked();
+  }
   // The FK key-share lock taken by link insertion conflicts with this row
   // lock, so no new evidence link can appear between the snapshot and commit.
   await one(sql`SELECT id FROM field_data_claim_versions

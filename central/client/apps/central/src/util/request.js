@@ -287,6 +287,12 @@ export const apiPaths = {
     `/v1/field-data/review-queue/${encodeURIComponent(caseId)}`,
   reviewCaseDecisions: (caseId) =>
     `/v1/field-data/review-queue/${encodeURIComponent(caseId)}/decisions`,
+  reviewCaseBackchecks: (caseId) =>
+    `/v1/field-data/review-queue/${encodeURIComponent(caseId)}/backchecks`,
+  reviewCaseBackcheckAssignees: (caseId) =>
+    `/v1/field-data/review-queue/${encodeURIComponent(caseId)}/backcheck-assignees`,
+  reviewCaseBackcheckLink: (caseId, backcheckId) =>
+    `/v1/field-data/review-queue/${encodeURIComponent(caseId)}/backchecks/${encodeURIComponent(backcheckId)}/link`,
   formIntegrityRun: (projectId, xmlFormId) =>
     `/v1/projects/${projectId}/forms/${encodeURIComponent(xmlFormId)}/integrity/run`,
   formIntegrityFlag: (projectId, xmlFormId, id) =>

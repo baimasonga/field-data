@@ -59,6 +59,65 @@
               </li>
             </ul>
             <p v-if="inspections[item.id].decisions.length === 0">No prior decisions.</p>
+            <h3>Back-checks</h3>
+            <p v-if="inspections[item.id].backchecks.length === 0">No back-check requested.</p>
+            <ul v-else>
+              <li v-for="backcheck of inspections[item.id].backchecks" :key="backcheck.id">
+                <strong>{{ backcheck.status }}</strong> · {{ backcheck.assigneeName }} ·
+                {{ backcheck.question }}
+                <span v-if="backcheck.dueAt"> · Due {{ backcheck.dueAt }}</span>
+                <div v-if="backcheck.responseInstanceId">
+                  Original: <router-link :to="submissionPath(item.claim.rootInstanceId)">
+                    {{ item.claim.rootInstanceId }}
+                  </router-link>
+                  · Back-check: <router-link :to="submissionPath(backcheck.responseInstanceId)">
+                    {{ backcheck.responseInstanceId }}
+                  </router-link>
+                  · Capture time: {{ backcheck.responseCapturedAt || 'unknown' }}
+                  · Provenance: {{ backcheck.responseDegraded == null ? 'recorded' : 'degraded' }}
+                </div>
+                <div v-else-if="canReview && status === 'in-review' && item.assignedTo === currentUser.id">
+                  <label :for="`backcheck-response-${backcheck.id}`">
+                    Synced back-check submission ID
+                  </label>
+                  <input :id="`backcheck-response-${backcheck.id}`"
+                    v-model.trim="responses[backcheck.id]" class="form-control" maxlength="255">
+                  <button type="button" class="btn btn-default"
+                    :disabled="!responses[backcheck.id] || assigning === item.id"
+                    @click="linkBackcheck(item, backcheck)">
+Link field result
+</button>
+                </div>
+              </li>
+            </ul>
+            <div v-if="canReview && status === 'in-review' && item.assignedTo === currentUser.id
+              && item.claim.current && !inspections[item.id].backchecks.some(b => b.status === 'requested')">
+              <h4>Request a back-check</h4>
+              <p>
+The assigned App User collects a second submission of this form in ODK Collect,
+                including offline. Link its instance ID after it syncs.
+</p>
+              <label :for="`backcheck-assignee-${item.id}`">App User</label>
+              <select :id="`backcheck-assignee-${item.id}`" v-model="assigneesSelected[item.id]"
+                class="form-control">
+                <option :value="null">Choose a different collector</option>
+                <option v-for="assignee of inspections[item.id].assignees" :key="assignee.id"
+                  :value="assignee.id">
+{{ assignee.name }}
+</option>
+              </select>
+              <label :for="`backcheck-question-${item.id}`">What should they verify?</label>
+              <textarea :id="`backcheck-question-${item.id}`" v-model.trim="questions[item.id]"
+                class="form-control" maxlength="2000"></textarea>
+              <label :for="`backcheck-due-${item.id}`">Due date (optional)</label>
+              <input :id="`backcheck-due-${item.id}`" v-model="dueDates[item.id]"
+                class="form-control" type="date">
+              <button type="button" class="btn btn-primary"
+                :disabled="!assigneesSelected[item.id] || !questions[item.id]?.trim()
+                  || assigning === item.id" @click="requestBackcheck(item)">
+                Request back-check
+              </button>
+            </div>
             <div v-if="canReview && status === 'in-review' && item.assignedTo === currentUser.id">
               <label :for="`review-note-${item.id}`">Decision reason</label>
               <textarea :id="`review-note-${item.id}`" v-model="notes[item.id]"
@@ -112,6 +171,10 @@ const inspecting = ref(null);
 const inspections = ref({});
 const inspectionError = ref({});
 const notes = ref({});
+const questions = ref({});
+const dueDates = ref({});
+const responses = ref({});
+const assigneesSelected = ref({});
 const nextCursor = ref(null);
 const loading = ref(false);
 const error = ref(false);
@@ -141,18 +204,67 @@ const inspect = async (event, item) => {
   inspecting.value = item.id;
   inspectionError.value[item.id] = false;
   try {
-    const [detail, evidence] = await Promise.all([
+    const [detail, evidence, backchecks, assignees] = await Promise.all([
       request({ method: 'GET', url: apiPaths.reviewCase(item.id), alert: false }),
-      request({ method: 'GET', url: apiPaths.claimEvidence(item.claimVersionId), alert: false })
+      request({ method: 'GET', url: apiPaths.claimEvidence(item.claimVersionId), alert: false }),
+      request({ method: 'GET', url: apiPaths.reviewCaseBackchecks(item.id), alert: false }),
+      props.canReview && item.assignedTo === currentUser.id
+        ? request({ method: 'GET', url: apiPaths.reviewCaseBackcheckAssignees(item.id), alert: false })
+        : Promise.resolve({ data: [] })
     ]);
     inspections.value[item.id] = {
       decisions: detail.data.decisions,
-      evidence: evidence.data.items
+      evidence: evidence.data.items,
+      backchecks: backchecks.data,
+      assignees: assignees.data
     };
   } catch {
     inspectionError.value[item.id] = true;
   } finally {
     inspecting.value = null;
+  }
+};
+const refreshBackchecks = async (item) => {
+  const { data } = await request({ method: 'GET', url: apiPaths.reviewCaseBackchecks(item.id) });
+  inspections.value[item.id].backchecks = data;
+};
+const requestBackcheck = async (item) => {
+  assigning.value = item.id;
+  try {
+    const response = await request({
+      method: 'POST', url: apiPaths.reviewCaseBackchecks(item.id),
+      headers: { 'If-Match': item.etag },
+      data: {
+        requestId: crypto.randomUUID(), assignedTo: assigneesSelected.value[item.id],
+        question: questions.value[item.id].trim(),
+        dueAt: dueDates.value[item.id] ? `${dueDates.value[item.id]}T23:59:59Z` : null
+      }
+    });
+    items.value = items.value.map((row) => (row.id === item.id
+      ? { ...row, etag: response.headers.etag, revision: row.revision + 1 } : row));
+    await refreshBackchecks(item);
+    questions.value[item.id] = '';
+  } catch {
+    await load();
+  } finally {
+    assigning.value = null;
+  }
+};
+const linkBackcheck = async (item, backcheck) => {
+  assigning.value = item.id;
+  try {
+    const response = await request({
+      method: 'POST', url: apiPaths.reviewCaseBackcheckLink(item.id, backcheck.id),
+      headers: { 'If-Match': item.etag },
+      data: { instanceId: responses.value[backcheck.id].trim() }
+    });
+    items.value = items.value.map((row) => (row.id === item.id
+      ? { ...row, etag: response.headers.etag, revision: row.revision + 1 } : row));
+    await refreshBackchecks(item);
+  } catch {
+    await load();
+  } finally {
+    assigning.value = null;
   }
 };
 const recordDecision = async (item, outcome) => {

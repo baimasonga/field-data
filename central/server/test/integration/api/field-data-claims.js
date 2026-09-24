@@ -10,6 +10,9 @@ const derivationMigration = require('../../../lib/model/migrations/20260923-05-a
 const idempotencyMigration = require('../../../lib/model/migrations/20260923-06-add-evidence-link-idempotency');
 const reviewMigration = require('../../../lib/model/migrations/20260924-01-add-claim-review');
 const reviewRoutingMigration = require('../../../lib/model/migrations/20260924-02-route-legacy-review-cases');
+const degradedRoutingMigration = require('../../../lib/model/migrations/20260924-05-route-degraded-provenance');
+const captureRoutingMigration = require('../../../lib/model/migrations/20260924-06-route-missing-capture-findings');
+const backcheckMigration = require('../../../lib/model/migrations/20260924-07-add-backcheck-requests');
 const { testService, testServiceFullTrx } = require('../setup');
 const testData = require('../../data/xml');
 
@@ -125,6 +128,9 @@ describe('api: P0.2 claim versioning', () => {
       const db = knexConnect(config.get('test.database'));
       try {
         await db.transaction(async (trx) => {
+          await backcheckMigration.down(trx);
+          await captureRoutingMigration.down(trx);
+          await degradedRoutingMigration.down(trx);
           await reviewRoutingMigration.down(trx);
           await reviewMigration.down(trx);
           await idempotencyMigration.down(trx);
@@ -141,6 +147,9 @@ describe('api: P0.2 claim versioning', () => {
           await idempotencyMigration.up(trx);
           await reviewMigration.up(trx);
           await reviewRoutingMigration.up(trx);
+          await degradedRoutingMigration.up(trx);
+          await captureRoutingMigration.up(trx);
+          await backcheckMigration.up(trx);
         });
       } finally {
         await db.destroy();
