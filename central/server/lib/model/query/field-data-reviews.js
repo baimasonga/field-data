@@ -94,8 +94,8 @@ const assignToSelf = ({ caseId, revision, actorId, projectId, formActeeId,
   return { id: caseId, revision: revision + 1, replayed: false };
 };
 
-const decideNeedsEvidence = ({ caseId, revision, actorId, projectId, formActeeId,
-  key, requestHash, reasonCode, note }) => async ({ all, one, run }) => {
+const recordDecision = ({ caseId, revision, actorId, projectId, formActeeId,
+  key, requestHash, reasonCode, note, outcome }) => async ({ all, one, run }) => {
   const reserved = await all(sql`INSERT INTO field_data_idempotency_records
     ("projectId", "operationType", "idempotencyKey", "requestHash", status, "policyVersion")
     VALUES (${projectId}, 'review.case.decide', ${key}, ${requestHash}, 'in-progress', 'p0.5')
@@ -110,6 +110,7 @@ const decideNeedsEvidence = ({ caseId, revision, actorId, projectId, formActeeId
   }
   const rows = await all(sql`SELECT c.id, c.revision, c.status, c."assignedTo",
     c."claimVersionId", c."reasonCodes", v."claimId", v."submissionDefId",
+    v.degraded AS "claimDegraded", p.degraded AS "provenanceDegraded",
     sd.current, claim."submissionId", s."instanceId", s."formId"
     FROM field_data_review_cases c
     JOIN field_data_claim_versions v ON v.id = c."claimVersionId"
@@ -117,6 +118,7 @@ const decideNeedsEvidence = ({ caseId, revision, actorId, projectId, formActeeId
     JOIN field_data_claims claim ON claim.id = v."claimId"
     JOIN submissions s ON s.id = claim."submissionId" AND s."deletedAt" IS NULL
     JOIN forms f ON f.id = s."formId" AND f."projectId" = ${projectId}
+    LEFT JOIN field_data_submission_provenance p ON p."submissionDefId" = sd.id
     WHERE c.id = ${caseId} FOR UPDATE OF c`);
   if (rows.length === 0) throw Problem.user.notFound();
   const reviewCase = rows[0];
@@ -157,6 +159,11 @@ const decideNeedsEvidence = ({ caseId, revision, actorId, projectId, formActeeId
       ("instanceId" = ${reviewCase.instanceId}
         OR "relatedInstanceId" = ${reviewCase.instanceId})
     ORDER BY id FOR SHARE`);
+  if (outcome === 'accepted' && (evidence.length === 0
+    || evidence.some((item) => item.hashMatches !== true || item.relation === 'contradicts')
+    || findings.some((item) => item.status !== 'resolved')
+    || reviewCase.claimDegraded != null || reviewCase.provenanceDegraded != null))
+    throw Problem.user.reviewAcceptanceBlocked();
   let snapshot;
   try {
     snapshot = snapshotDigest(evidence.map((e) => ({
@@ -176,14 +183,16 @@ const decideNeedsEvidence = ({ caseId, revision, actorId, projectId, formActeeId
       "evidenceSnapshotHash", "integritySnapshot", "reviewerId")
     VALUES (${decisionId}, ${caseId}, ${reviewCase.claimVersionId},
       ${previous[0]?.id ?? null}, ${(previous[0]?.sequence ?? 0) + 1},
-      'needs-evidence', false, ${reasonCode}, ${note},
+      ${outcome}, false, ${reasonCode}, ${note},
       ${JSON.stringify(evidence.map((e) => ({
     id: e.id, relation: e.relation, sourceKind: e.sourceKind,
     contentHash: e.contentHash, policyVersion: e.policyVersion,
     integrityStatus: e.hashMatches === true ? 'verified'
       : e.hashMatches === false ? 'mismatch' : 'unverified'
   })))}, ${snapshot.hash}, ${JSON.stringify(findings)}, ${actorId})`);
-  await run(sql`UPDATE field_data_review_cases SET status = 'open',
+  await run(sql`UPDATE field_data_review_cases
+    SET status = ${outcome === 'needs-evidence' ? 'open' : 'resolved'},
+    "resolvedAt" = ${outcome === 'needs-evidence' ? null : sql`clock_timestamp()`},
     "assignedTo" = NULL, revision = revision + 1, "updatedAt" = clock_timestamp()
     WHERE id = ${caseId}`);
   await run(sql`INSERT INTO audits ("actorId", action, "acteeId", details,
@@ -192,7 +201,7 @@ const decideNeedsEvidence = ({ caseId, revision, actorId, projectId, formActeeId
       ${JSON.stringify({ submissionId: reviewCase.submissionId,
     submissionDefId: reviewCase.submissionDefId, claimId: reviewCase.claimId,
     claimVersionId: reviewCase.claimVersionId, caseId, decisionId,
-    outcome: 'needs-evidence', override: false, reasonCode })},
+    outcome, override: false, reasonCode })},
       clock_timestamp(), clock_timestamp(), 0)`);
   await run(sql`UPDATE field_data_idempotency_records SET status = 'succeeded',
     "resourceId" = ${decisionId}, "responseStatus" = 201,
@@ -202,4 +211,4 @@ const decideNeedsEvidence = ({ caseId, revision, actorId, projectId, formActeeId
   return { id: decisionId, revision: revision + 1, replayed: false };
 };
 
-module.exports = { getCase, listDecisions, listCases, assignToSelf, decideNeedsEvidence };
+module.exports = { getCase, listDecisions, listCases, assignToSelf, recordDecision };

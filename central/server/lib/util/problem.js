@@ -282,6 +282,8 @@ const problems = {
     reviewRevisionStale: problem(412.1, () => 'The review case has changed. Refresh and retry.'),
     evidenceScopeInvalid: problem(422.1, () =>
       'The evidence link must refer to this claim version and a valid predecessor.'),
+    reviewAcceptanceBlocked: problem(422.2, () =>
+      'Acceptance requires verified linked evidence and no unresolved integrity findings.'),
     reviewRevisionRequired: problem(428.1, () => 'If-Match is required for review assignments.'),
   },
   internal: {

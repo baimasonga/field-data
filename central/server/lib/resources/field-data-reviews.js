@@ -7,7 +7,7 @@ const { getOrNotFound } = require('../util/promise');
 const Problem = require('../util/problem');
 const { encodeCursor, decodeCursor } = require('../util/review-queue');
 const { validateKey, hashReviewAssignment, hashReviewRelease,
-  hashNeedsEvidence } = require('../util/idempotency');
+  hashReviewDecision } = require('../util/idempotency');
 
 const authorize = async (auth, form) => {
   try { await auth.canOrReject('submission.read', form); } catch (error) {
@@ -37,7 +37,8 @@ module.exports = (service, endpoint) => {
     const actorId = auth.actor.map((actor) => actor.id).orNull();
     if (actorId == null || body == null || Object.keys(body).some((field) =>
       !['outcome', 'override', 'reasonCode', 'note', 'evidenceIds', 'integrityFindingIds'].includes(field))
-      || body.outcome !== 'needs-evidence' || body.override !== false
+      || !['needs-evidence', 'accepted', 'rejected'].includes(body.outcome)
+      || body.override !== false
       || typeof body.reasonCode !== 'string' || !reviewCase.reasonCodes.includes(body.reasonCode)
       || typeof body.note !== 'string' || body.note.trim().length < 1
       || body.note.length > 4000 || !Array.isArray(body.evidenceIds)
@@ -57,20 +58,22 @@ module.exports = (service, endpoint) => {
     const revision = Number(parsed[1]);
     const { reasonCode } = body;
     const note = body.note.trim();
-    const requestHash = hashNeedsEvidence({
-      caseId: params.caseId, revision, actorId, reasonCode, note
+    const { outcome } = body;
+    const requestHash = hashReviewDecision({
+      caseId: params.caseId, revision, actorId, outcome, reasonCode, note
     });
-    const result = await container.transacting((tx) => tx.FieldDataReviews.decideNeedsEvidence({
+    const result = await container.transacting((tx) => tx.FieldDataReviews.recordDecision({
       caseId: params.caseId, revision, actorId, projectId: claim.scope.projectId,
-      formActeeId: form.acteeId, key, requestHash, reasonCode, note
+      formActeeId: form.acteeId, key, requestHash, reasonCode, note, outcome
     }));
     response.set('ETag', `"review-case-${result.revision}"`);
     response.set('Idempotency-Key', key);
     response.set('Idempotency-Status', result.replayed ? 'replayed' : 'created');
     response.set('Cache-Control', 'private, no-store');
     response.status(201);
-    return { id: result.id, caseId: params.caseId, outcome: 'needs-evidence',
-      status: 'open', revision: result.revision };
+    return { id: result.id, caseId: params.caseId, outcome,
+      status: outcome === 'needs-evidence' ? 'open' : 'resolved',
+      revision: result.revision };
   }));
 
   service.patch('/field-data/review-queue/:caseId/assignment', endpoint(async (

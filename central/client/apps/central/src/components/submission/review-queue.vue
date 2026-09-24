@@ -4,10 +4,10 @@
     <h2 id="review-queue-title">Claim review queue</h2>
     <p>Submissions flagged for review appear here. A flag is a question, not a finding of fraud.</p>
     <div class="btn-group" role="group" aria-label="Review case status">
-      <button v-for="value of ['open', 'in-review']" :key="value" type="button"
+      <button v-for="value of ['open', 'in-review', 'resolved']" :key="value" type="button"
         class="btn btn-default" :class="{ active: status === value }"
         :aria-pressed="status === value" @click="status = value">
-        {{ value === 'open' ? 'Open' : 'In review' }}
+        {{ value === 'in-review' ? 'In review' : value === 'open' ? 'Open' : 'Resolved' }}
       </button>
     </div>
     <p v-if="loading && items.length === 0">Loading review cases…</p>
@@ -60,14 +60,25 @@
             </ul>
             <p v-if="inspections[item.id].decisions.length === 0">No prior decisions.</p>
             <div v-if="canReview && status === 'in-review' && item.assignedTo === currentUser.id">
-              <label :for="`review-note-${item.id}`">What evidence is needed?</label>
+              <label :for="`review-note-${item.id}`">Decision reason</label>
               <textarea :id="`review-note-${item.id}`" v-model="notes[item.id]"
                 class="form-control" maxlength="4000"></textarea>
               <button type="button" class="btn btn-primary"
-                :disabled="!notes[item.id]?.trim() || assigning === item.id"
-                @click="needsEvidence(item)">
+                :disabled="!notes[item.id]?.trim() || assigning === item.id || !item.claim.current"
+                @click="recordDecision(item, 'needs-evidence')">
                 Record needs evidence
               </button>
+              <button type="button" class="btn btn-default"
+                :disabled="!notes[item.id]?.trim() || assigning === item.id || !item.claim.current"
+                @click="recordDecision(item, 'accepted')">
+                Accept claim
+              </button>
+              <button type="button" class="btn btn-default"
+                :disabled="!notes[item.id]?.trim() || assigning === item.id || !item.claim.current"
+                @click="recordDecision(item, 'rejected')">
+                Reject claim
+              </button>
+              <p>Acceptance requires verified linked evidence, intact provenance and no unresolved findings.</p>
             </div>
           </template>
         </details>
@@ -144,7 +155,7 @@ const inspect = async (event, item) => {
     inspecting.value = null;
   }
 };
-const needsEvidence = async (item) => {
+const recordDecision = async (item, outcome) => {
   assigning.value = item.id;
   try {
     await request({
@@ -152,7 +163,7 @@ const needsEvidence = async (item) => {
       url: apiPaths.reviewCaseDecisions(item.id),
       headers: { 'If-Match': item.etag, 'Idempotency-Key': crypto.randomUUID() },
       data: {
-        outcome: 'needs-evidence', override: false,
+        outcome, override: false,
         reasonCode: item.reasonCodes[0], note: notes.value[item.id].trim(),
         evidenceIds: [], integrityFindingIds: []
       }
