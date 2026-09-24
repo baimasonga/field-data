@@ -22,7 +22,7 @@ describe('api: P0.5 review case detail', () => {
       body.items.should.have.length(1);
       body.items[0].reasonCodes.should.deepEqual(['legacy-review-state']);
       body.items[0].claim.rootInstanceId.should.equal('one');
-      body.nextCursor.should.equal(null);
+      assert.equal(body.nextCursor, null);
       await alice.patch('/v1/projects/1/forms/simple/submissions/one')
         .send({ reviewState: 'hasIssues' }).expect(200);
       (await alice.get(list).expect(200)).body.items.should.have.length(1);
@@ -51,7 +51,7 @@ describe('api: P0.5 review case detail', () => {
     const second = (await alice.get(`${path}&cursor=${encodeURIComponent(first.nextCursor)}`)
       .expect(200)).body;
     second.items.should.have.length(1);
-    second.nextCursor.should.equal(null);
+    assert.equal(second.nextCursor, null);
     second.items[0].id.should.not.equal(first.items[0].id);
   }));
 

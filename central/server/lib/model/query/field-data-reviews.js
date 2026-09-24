@@ -7,7 +7,8 @@ const listCases = ({ projectId, xmlFormId, status, priority, reasonCode, cursor,
   ({ all }) => all(sql`
     WITH queue AS (
       SELECT c.id, c."claimVersionId", c.status, c.priority, c."reasonCodes",
-        c."assignedTo", c.revision, c."openedAt", c."updatedAt",
+        c."assignedTo", c.revision,
+        date_trunc('milliseconds', c."openedAt") AS "openedAt", c."updatedAt",
         v."claimId", v.ordinal, sd.current, s."instanceId" AS "rootInstanceId",
         CASE c.priority WHEN 'urgent' THEN 0 WHEN 'high' THEN 1
           WHEN 'normal' THEN 2 ELSE 3 END AS rank,
