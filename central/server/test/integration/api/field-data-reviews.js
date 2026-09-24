@@ -49,6 +49,8 @@ describe('api: P0.5 review case detail', () => {
             WHERE "submissionDefId" = (
               SELECT "submissionDefId" FROM field_data_claim_versions
               WHERE id = ${item.claimVersionId})`);
+          await run(sql`UPDATE field_data_claim_versions SET degraded = NULL
+            WHERE id = ${item.claimVersionId}`);
         }
         const first = await alice.post(url).set('If-Match', assigned.headers.etag)
           .set('Idempotency-Key', `decide-${outcome}`).send(body)
