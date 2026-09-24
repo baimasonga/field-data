@@ -39,6 +39,16 @@ describe('api: P0.5 review case detail', () => {
             .expect(422);
           await run(sql`UPDATE field_data_integrity_flags SET status = 'resolved'
             WHERE id = ${finding.id}`);
+          await alice.post(url).set('If-Match', assigned.headers.etag)
+            .set('Idempotency-Key', 'accept-degraded').send(body)
+            .expect(422);
+          // This API fixture has no device capture time. Model a submission
+          // whose capture time was actually supplied, then exercise acceptance.
+          await run(sql`UPDATE field_data_submission_provenance SET
+            "capturedAt" = "receivedAt", degraded = NULL
+            WHERE "submissionDefId" = (
+              SELECT "submissionDefId" FROM field_data_claim_versions
+              WHERE id = ${item.claimVersionId})`);
         }
         const first = await alice.post(url).set('If-Match', assigned.headers.etag)
           .set('Idempotency-Key', `decide-${outcome}`).send(body)
