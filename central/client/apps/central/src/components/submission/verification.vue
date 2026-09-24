@@ -20,7 +20,8 @@ and a number that looks like one would be believed.
     <loading :state="loading"/>
 
     <template v-if="!loading && evidence != null">
-      <submission-review-queue :project-id="projectId" :xml-form-id="xmlFormId"/>
+      <submission-review-queue :project-id="projectId" :xml-form-id="xmlFormId"
+        :can-review="canReview"/>
       <section class="verification-evidence">
         <h2>{{ $t('evidence.title') }}</h2>
         <p class="section-lead">{{ $t('evidence.lead') }}</p>

@@ -160,6 +160,7 @@ const problems = {
     evidenceLinkInvalid: problem(400.47, () => 'Evidence link identifiers or relation are invalid.'),
     reviewQueueInvalid: problem(400.48, () => 'Review queue filters are invalid.'),
     reviewCursorInvalid: problem(400.49, () => 'Review queue cursor is invalid.'),
+    reviewAssignmentInvalid: problem(400.50, () => 'Review assignment is invalid.'),
 
     // no detail information for security reasons.
     authenticationFailed: problem(401.2, () => 'Could not authenticate with the provided credentials.'),
@@ -276,6 +277,10 @@ const problems = {
       'This Idempotency-Key was used for different work.'),
     idempotencyInProgress: problem(409.31, () =>
       'This Idempotency-Key is still in progress. Retry shortly.'),
+    reviewCaseClosed: problem(409.32, () => 'This review case is no longer open.'),
+    reviewCaseAssigned: problem(409.33, () => 'This review case is assigned to another reviewer.'),
+    reviewRevisionStale: problem(412.1, () => 'The review case has changed. Refresh and retry.'),
+    reviewRevisionRequired: problem(428.1, () => 'If-Match is required for review assignments.'),
     evidenceScopeInvalid: problem(422.1, () =>
       'The evidence link must refer to this claim version and a valid predecessor.'),
   },

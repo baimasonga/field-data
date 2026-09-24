@@ -279,8 +279,10 @@ export const apiPaths = {
     `/v1/projects/${projectId}/forms/${encodeURIComponent(xmlFormId)}/evidence`,
   formIntegrity: (projectId, xmlFormId) =>
     `/v1/projects/${projectId}/forms/${encodeURIComponent(xmlFormId)}/integrity`,
-  reviewQueue: (projectId, xmlFormId, cursor = null) =>
-    `/v1/field-data/review-queue?projectId=${encodeURIComponent(projectId)}&xmlFormId=${encodeURIComponent(xmlFormId)}${cursor == null ? '' : `&cursor=${encodeURIComponent(cursor)}`}`,
+  reviewQueue: (projectId, xmlFormId, cursor = null, status = 'open') =>
+    `/v1/field-data/review-queue?projectId=${encodeURIComponent(projectId)}&xmlFormId=${encodeURIComponent(xmlFormId)}&status=${encodeURIComponent(status)}${cursor == null ? '' : `&cursor=${encodeURIComponent(cursor)}`}`,
+  reviewCaseAssignment: (caseId) =>
+    `/v1/field-data/review-queue/${encodeURIComponent(caseId)}/assignment`,
   formIntegrityRun: (projectId, xmlFormId) =>
     `/v1/projects/${projectId}/forms/${encodeURIComponent(xmlFormId)}/integrity/run`,
   formIntegrityFlag: (projectId, xmlFormId, id) =>

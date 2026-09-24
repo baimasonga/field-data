@@ -3,6 +3,13 @@
   <section class="review-queue" aria-labelledby="review-queue-title">
     <h2 id="review-queue-title">Claim review queue</h2>
     <p>Submissions flagged for review appear here. A flag is a question, not a finding of fraud.</p>
+    <div class="btn-group" role="group" aria-label="Review case status">
+      <button v-for="value of ['open', 'in-review']" :key="value" type="button"
+        class="btn btn-default" :class="{ active: status === value }"
+        :aria-pressed="status === value" @click="status = value">
+        {{ value === 'open' ? 'Open' : 'In review' }}
+      </button>
+    </div>
     <p v-if="loading && items.length === 0">Loading review cases…</p>
     <div v-else-if="error" role="alert">
       Review cases could not be loaded.
@@ -10,7 +17,7 @@
         Try again
       </button>
     </div>
-    <p v-else-if="items.length === 0">No open claim review cases for this form.</p>
+    <p v-else-if="items.length === 0">No {{ status }} claim review cases for this form.</p>
     <ul v-else class="list-group">
       <li v-for="item of items" :key="item.id" class="list-group-item">
         <router-link :to="submissionPath(item.claim.rootInstanceId)">
@@ -19,6 +26,12 @@
         <span> · Claim version {{ item.claim.ordinal }} · {{ item.priority }} priority</span>
         <span v-if="item.claim.current === false" class="text-warning"> · Superseded version</span>
         <span> · Reason: {{ item.reasonCodes.join(', ') }}</span>
+        <span v-if="item.assignedTo != null"> · Assigned to reviewer {{ item.assignedTo }}</span>
+        <button v-if="canReview && status === 'open' && item.assignedTo == null"
+          type="button" class="btn btn-default" :disabled="assigning === item.id"
+          @click="assign(item)">
+          {{ assigning === item.id ? 'Assigning…' : 'Assign to me' }}
+        </button>
       </li>
     </ul>
     <button v-if="nextCursor != null && !error" type="button" class="btn btn-default"
@@ -32,14 +45,19 @@
 import { ref, watch } from 'vue';
 import useRequest from '../../composables/request';
 import { apiPaths } from '../../util/request';
+import { useRequestData } from '../../request-data';
 
 defineOptions({ name: 'SubmissionReviewQueue' });
 const props = defineProps({
   projectId: { type: String, required: true },
-  xmlFormId: { type: String, required: true }
+  xmlFormId: { type: String, required: true },
+  canReview: { type: Boolean, default: false }
 });
 const { request } = useRequest();
+const { currentUser } = useRequestData();
 const items = ref([]);
+const status = ref('open');
+const assigning = ref(null);
 const nextCursor = ref(null);
 const loading = ref(false);
 const error = ref(false);
@@ -52,7 +70,7 @@ const load = async (cursor = null) => {
   try {
     const { data } = await request({
       method: 'GET',
-      url: apiPaths.reviewQueue(props.projectId, props.xmlFormId, cursor),
+      url: apiPaths.reviewQueue(props.projectId, props.xmlFormId, cursor, status.value),
       alert: false
     });
     items.value = cursor == null ? data.items : [...items.value, ...data.items];
@@ -64,7 +82,23 @@ const load = async (cursor = null) => {
   }
 };
 const loadMore = () => load(nextCursor.value);
-watch(() => [props.projectId, props.xmlFormId], () => {
+const assign = async (item) => {
+  assigning.value = item.id;
+  try {
+    await request({
+      method: 'PATCH',
+      url: apiPaths.reviewCaseAssignment(item.id),
+      headers: { 'If-Match': item.etag, 'Idempotency-Key': crypto.randomUUID() },
+      data: { assignedTo: currentUser.id, status: 'in-review' }
+    });
+    items.value = items.value.filter((row) => row.id !== item.id);
+  } catch {
+    await load();
+  } finally {
+    assigning.value = null;
+  }
+};
+watch(() => [props.projectId, props.xmlFormId, status.value], () => {
   items.value = [];
   nextCursor.value = null;
   load();

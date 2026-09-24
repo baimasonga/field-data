@@ -30,4 +30,14 @@ const hashEvidenceLink = ({ claimVersionId, evidenceId, relation, supersedesLink
     .update(`p0.4\nevidence.link.create\n${canonical}`, 'utf8').digest('hex')}`;
 };
 
-module.exports = { validateKey, hashEvidenceLink };
+const hashReviewAssignment = ({ caseId, revision, assignedTo }) => {
+  if (typeof caseId !== 'string' || !UUID_PATTERN.test(caseId)
+    || !Number.isSafeInteger(revision) || revision < 1
+    || !Number.isSafeInteger(assignedTo) || assignedTo < 1)
+    throw new Error('Invalid review assignment.');
+  const canonical = JSON.stringify({ caseId: caseId.toLowerCase(), revision, assignedTo });
+  return `sha256:${createHash('sha256')
+    .update(`p0.5\nreview.case.assign\n${canonical}`, 'utf8').digest('hex')}`;
+};
+
+module.exports = { validateKey, hashEvidenceLink, hashReviewAssignment };
