@@ -6,14 +6,20 @@
       <p v-if="loading">Loading claim evidence…</p>
       <p v-else-if="error" role="alert">Claim evidence could not be loaded. Please try again.</p>
       <template v-else-if="current != null">
-        <p>Version {{ current.ordinal }} · {{ current.current ? 'Current' : 'Superseded' }}
-          · Source: {{ current.provenance?.origin ?? 'unknown' }}</p>
+        <p>
+          Version {{ current.ordinal }} · {{ current.current ? 'Current' : 'Superseded' }}
+          · Source: {{ current.provenance?.origin ?? 'unknown' }}
+        </p>
         <p v-if="current.provenance?.degraded != null || current.degraded != null"
-          class="text-warning">Some provenance details were inferred or are unavailable.</p>
+          class="text-warning">
+          Some provenance details were inferred or are unavailable.
+        </p>
         <p v-if="current.provenance?.receivedAt != null">
-          Received: {{ current.provenance.receivedAt }}</p>
+          Received: {{ current.provenance.receivedAt }}
+        </p>
         <p v-if="current.provenance?.integrityHash != null">
-          Integrity hash: <code>{{ current.provenance.integrityHash }}</code></p>
+          Integrity hash: <code>{{ current.provenance.integrityHash }}</code>
+        </p>
         <h3>Original evidence</h3>
         <p v-if="items.length === 0">No evidence records are linked to this version.</p>
         <ul v-else class="list-unstyled">
@@ -61,9 +67,11 @@ watch(() => [props.projectId, props.xmlFormId, props.instanceId], async () => {
     const result = await request({ method: 'GET', url: `${base}/claim`, alert: false });
     claim.value = result.data;
     if (result.data.currentVersionId != null) {
-      const evidence = await request({ method: 'GET',
+      const evidence = await request({
+        method: 'GET',
         url: `/v1/field-data/claim-versions/${result.data.currentVersionId}/evidence`,
-        alert: false });
+        alert: false
+      });
       items.value = evidence.data.items;
     }
   } catch {
