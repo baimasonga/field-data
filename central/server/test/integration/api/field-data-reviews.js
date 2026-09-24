@@ -8,6 +8,70 @@ const { testService } = require('../setup');
 const testData = require('../../data/xml');
 
 describe('api: P0.5 review case detail', () => {
+  for (const outcome of ['accepted', 'rejected']) {
+    it(`resolves a claimed case as ${outcome} and keeps its immutable decision`,
+      testService(async (service, { one, oneFirst, run }) => {
+        const alice = await service.login('alice');
+        await alice.post('/v1/projects/1/forms/simple/submissions')
+          .send(testData.instances.simple.one).set('Content-Type', 'application/xml').expect(200);
+        await alice.patch('/v1/projects/1/forms/simple/submissions/one')
+          .send({ reviewState: 'hasIssues' }).expect(200);
+        const actorId = await oneFirst(sql`SELECT "actorId" FROM audits
+          WHERE action = 'submission.update' ORDER BY id DESC LIMIT 1`);
+        const item = (await alice.get('/v1/field-data/review-queue?projectId=1&xmlFormId=simple')
+          .expect(200)).body.items[0];
+        const assigned = await alice.patch(`/v1/field-data/review-queue/${item.id}/assignment`)
+          .set('If-Match', item.etag).set('Idempotency-Key', `take-${outcome}`)
+          .send({ assignedTo: actorId, status: 'in-review' })
+          .expect(200);
+        const url = `/v1/field-data/review-queue/${item.id}/decisions`;
+        const body = { outcome, override: false, reasonCode: 'legacy-review-state',
+          note: 'Reviewed the linked originals and field report.',
+          evidenceIds: [], integrityFindingIds: [] };
+        if (outcome === 'accepted') {
+          const finding = await one(sql`INSERT INTO field_data_integrity_flags
+            ("formId", rule, "ruleVersion", "instanceId", outcome, evidence)
+            SELECT id, 'manual-check', 1, 'one', 'inconclusive', '{}'::jsonb
+            FROM forms WHERE "projectId" = 1 AND "xmlFormId" = 'simple'
+            RETURNING id`);
+          await alice.post(url).set('If-Match', assigned.headers.etag)
+            .set('Idempotency-Key', 'accept-blocked').send(body)
+            .expect(422);
+          await run(sql`UPDATE field_data_integrity_flags SET status = 'resolved'
+            WHERE id = ${finding.id}`);
+          await alice.post(url).set('If-Match', assigned.headers.etag)
+            .set('Idempotency-Key', 'accept-degraded').send(body)
+            .expect(422);
+          // This API fixture has no device capture time. Model a submission
+          // whose capture time was actually supplied, then exercise acceptance.
+          await run(sql`UPDATE field_data_submission_provenance SET
+            "capturedAt" = "receivedAt", degraded = NULL
+            WHERE "submissionDefId" = (
+              SELECT "submissionDefId" FROM field_data_claim_versions
+              WHERE id = ${item.claimVersionId})`);
+        }
+        const first = await alice.post(url).set('If-Match', assigned.headers.etag)
+          .set('Idempotency-Key', `decide-${outcome}`).send(body)
+          .expect(201);
+        first.body.status.should.equal('resolved');
+        const replay = await alice.post(url).set('If-Match', assigned.headers.etag)
+          .set('Idempotency-Key', `decide-${outcome}`).send(body)
+          .expect(201);
+        replay.headers['idempotency-status'].should.equal('replayed');
+        replay.body.id.should.equal(first.body.id);
+        const detail = (await alice.get(`/v1/field-data/review-queue/${item.id}`)
+          .expect(200)).body;
+        detail.status.should.equal('resolved');
+        detail.decisions[0].outcome.should.equal(outcome);
+        detail.decisions[0].evidenceSnapshot.should.have.length(1);
+        detail.submissionReviewState.should.equal('hasIssues');
+        (await alice.get('/v1/field-data/review-queue?projectId=1&xmlFormId=simple&status=resolved')
+          .expect(200)).body.items[0].id.should.equal(item.id);
+        (await one(sql`SELECT count(*)::integer AS count FROM audits
+          WHERE action = 'field_data.review.case.decide'`)).count.should.equal(1);
+      }));
+  }
+
   it('records one needs-evidence decision with evidence and finding snapshots',
     testService(async (service, { one, oneFirst }) => {
       const alice = await service.login('alice');
