@@ -89,15 +89,22 @@ const up = async (db) => {
     AFTER INSERT ON field_data_review_decisions
     DEFERRABLE INITIALLY DEFERRED
     FOR EACH ROW EXECUTE FUNCTION field_data_validate_review_decision();
+  CREATE FUNCTION field_data_reject_review_decision_change()
+    RETURNS trigger LANGUAGE plpgsql AS $$
+    BEGIN
+      RAISE EXCEPTION 'Review decisions are append-only' USING ERRCODE = '23514';
+    END;
+    $$;
   CREATE TRIGGER field_data_review_decision_immutable
     BEFORE UPDATE OR DELETE ON field_data_review_decisions
-    FOR EACH ROW EXECUTE FUNCTION field_data_reject_evidence_update()`);
+    FOR EACH ROW EXECUTE FUNCTION field_data_reject_review_decision_change()`);
 };
 
 const down = async (db) => {
   await db.raw('DROP TABLE IF EXISTS field_data_review_decisions');
   await db.raw('DROP TABLE IF EXISTS field_data_review_cases');
   await db.raw('DROP FUNCTION IF EXISTS field_data_validate_review_decision()');
+  await db.raw('DROP FUNCTION IF EXISTS field_data_reject_review_decision_change()');
 };
 
 module.exports = { up, down };
