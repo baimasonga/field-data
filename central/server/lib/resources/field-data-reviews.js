@@ -6,7 +6,8 @@ const { UUID_PATTERN } = require('../util/claim-versioning');
 const { getOrNotFound } = require('../util/promise');
 const Problem = require('../util/problem');
 const { encodeCursor, decodeCursor } = require('../util/review-queue');
-const { validateKey, hashReviewAssignment, hashReviewRelease } = require('../util/idempotency');
+const { validateKey, hashReviewAssignment, hashReviewRelease,
+  hashNeedsEvidence } = require('../util/idempotency');
 
 const authorize = async (auth, form) => {
   try { await auth.canOrReject('submission.read', form); } catch (error) {
@@ -17,6 +18,61 @@ const authorize = async (auth, form) => {
 };
 
 module.exports = (service, endpoint) => {
+  service.post('/field-data/review-queue/:caseId/decisions', endpoint(async (
+    container, { params, auth, body, headers }, request, response
+  ) => {
+    if (!UUID_PATTERN.test(params.caseId)) throw Problem.user.notFound();
+    const reviewCase = await container.FieldDataReviews.getCase(params.caseId);
+    if (reviewCase == null) throw Problem.user.notFound();
+    const claim = await container.FieldDataClaims.getByVersionId(reviewCase.claimVersionId);
+    if (claim == null) throw Problem.user.notFound();
+    const form = await container.Forms.getByProjectAndXmlFormId(
+      claim.scope.projectId, claim.scope.xmlFormId, Form.WithoutDef, Form.WithoutXml
+    ).then(getOrNotFound);
+    try { await auth.canOrReject('submission.update', form); } catch (error) {
+      if (error?.problemCode === Problem.user.insufficientRights.code)
+        throw Problem.user.notFound();
+      throw error;
+    }
+    const actorId = auth.actor.map((actor) => actor.id).orNull();
+    if (actorId == null || body == null || Object.keys(body).some((field) =>
+      !['outcome', 'override', 'reasonCode', 'note', 'evidenceIds', 'integrityFindingIds'].includes(field))
+      || body.outcome !== 'needs-evidence' || body.override !== false
+      || typeof body.reasonCode !== 'string' || !reviewCase.reasonCodes.includes(body.reasonCode)
+      || typeof body.note !== 'string' || body.note.trim().length < 1
+      || body.note.length > 4000 || !Array.isArray(body.evidenceIds)
+      || body.evidenceIds.length !== 0 || !Array.isArray(body.integrityFindingIds)
+      || body.integrityFindingIds.length !== 0)
+      throw Problem.user.reviewAssignmentInvalid();
+    const match = headers['if-match'];
+    if (match == null) throw Problem.user.reviewRevisionRequired();
+    const parsed = /^"review-case-([1-9]\d*)"$/.exec(match);
+    if (parsed == null || !Number.isSafeInteger(Number(parsed[1])))
+      throw Problem.user.reviewAssignmentInvalid();
+    let key;
+    try { key = validateKey(headers['idempotency-key']); } catch (error) {
+      throw error.code === 'IDEMPOTENCY_KEY_REQUIRED'
+        ? Problem.user.idempotencyKeyRequired() : Problem.user.idempotencyKeyInvalid();
+    }
+    const revision = Number(parsed[1]);
+    const { reasonCode } = body;
+    const note = body.note.trim();
+    const requestHash = hashNeedsEvidence({
+      caseId: params.caseId, revision, actorId, reasonCode, note
+    });
+    const result = await container.transacting((tx) => tx.FieldDataReviews.decideNeedsEvidence({
+      caseId: params.caseId, revision, actorId, projectId: claim.scope.projectId,
+      formActeeId: form.acteeId, key, requestHash, reasonCode, note
+    }));
+    response.set('ETag', `"review-case-${result.revision}"`);
+    response.set('Idempotency-Key', key);
+    response.set('Idempotency-Status', result.replayed ? 'replayed' : 'created');
+    response.set('Cache-Control', 'private, no-store');
+    response.status(201);
+    return { id: result.id, caseId: params.caseId, outcome: 'needs-evidence',
+      status: 'open', revision: result.revision };
+  }));
+
   service.patch('/field-data/review-queue/:caseId/assignment', endpoint(async (
     container, { params, auth, body, headers },
     request, response
