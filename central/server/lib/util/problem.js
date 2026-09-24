@@ -158,6 +158,8 @@ const problems = {
     idempotencyKeyRequired: problem(400.45, () => 'Idempotency-Key is required.'),
     idempotencyKeyInvalid: problem(400.46, () => 'Idempotency-Key is invalid.'),
     evidenceLinkInvalid: problem(400.47, () => 'Evidence link identifiers or relation are invalid.'),
+    reviewQueueInvalid: problem(400.48, () => 'Review queue filters are invalid.'),
+    reviewCursorInvalid: problem(400.49, () => 'Review queue cursor is invalid.'),
 
     // no detail information for security reasons.
     authenticationFailed: problem(401.2, () => 'Could not authenticate with the provided credentials.'),

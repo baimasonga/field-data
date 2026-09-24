@@ -5,8 +5,57 @@ const { Form } = require('../model/frames');
 const { UUID_PATTERN } = require('../util/claim-versioning');
 const { getOrNotFound } = require('../util/promise');
 const Problem = require('../util/problem');
+const { encodeCursor, decodeCursor } = require('../util/review-queue');
+
+const authorize = async (auth, form) => {
+  try { await auth.canOrReject('submission.read', form); } catch (error) {
+    if (error?.problemCode === Problem.user.insufficientRights.code)
+      throw Problem.user.notFound();
+    throw error;
+  }
+};
 
 module.exports = (service, endpoint) => {
+  service.get('/field-data/review-queue', endpoint(async (
+    { FieldDataReviews, Forms }, { query, auth }, request, response
+  ) => {
+    const { projectId, xmlFormId, status = 'open', priority, reasonCode,
+      cursor: rawCursor, limit: rawLimit = '50' } = query;
+    if (!/^[1-9]\d*$/.test(projectId) || typeof xmlFormId !== 'string'
+      || xmlFormId.length === 0 || !['open', 'in-review', 'resolved', 'superseded'].includes(status)
+      || (priority != null && !['low', 'normal', 'high', 'urgent'].includes(priority))
+      || (reasonCode != null && (typeof reasonCode !== 'string' || reasonCode.length > 100))
+      || !/^\d+$/.test(rawLimit) || Number(rawLimit) < 1 || Number(rawLimit) > 100)
+      throw Problem.user.reviewQueueInvalid();
+    let cursor = null;
+    if (rawCursor != null) {
+      try { cursor = decodeCursor(rawCursor); } catch (error) {
+        throw Problem.user.reviewCursorInvalid();
+      }
+    }
+    const form = await Forms.getByProjectAndXmlFormId(
+      Number(projectId), xmlFormId, Form.WithoutDef, Form.WithoutXml
+    ).then(getOrNotFound);
+    await authorize(auth, form);
+    const max = Number(rawLimit);
+    const rows = await FieldDataReviews.listCases({ projectId: Number(projectId),
+      xmlFormId, status, priority, reasonCode, cursor, limit: max });
+    const page = rows.slice(0, max);
+    const items = page.map((row) => ({ id: row.id, claimVersionId: row.claimVersionId,
+      revision: row.revision, status: row.status, priority: row.priority,
+      reasonCodes: row.reasonCodes, assignedTo: row.assignedTo,
+      openedAt: row.openedAt, updatedAt: row.updatedAt,
+      claim: { id: row.claimId, ordinal: row.ordinal, current: row.current,
+        rootInstanceId: row.rootInstanceId },
+      provenance: { origin: row.provenanceOrigin, degraded: row.provenanceDegraded },
+      etag: `"review-case-${row.revision}"` }));
+    const last = page.at(-1);
+    response.set('Cache-Control', 'private, no-store');
+    return { items, nextCursor: rows.length > max ? encodeCursor({
+      rank: last.rank, openedAt: last.openedAt, id: last.id
+    }) : null };
+  }));
+
   service.get('/field-data/review-queue/:caseId', endpoint(async (
     { FieldDataReviews, FieldDataClaims, Forms }, { params, auth }, request, response
   ) => {
@@ -18,13 +67,7 @@ module.exports = (service, endpoint) => {
     const form = await Forms.getByProjectAndXmlFormId(
       claim.scope.projectId, claim.scope.xmlFormId, Form.WithoutDef, Form.WithoutXml
     ).then(getOrNotFound);
-    try {
-      await auth.canOrReject('submission.read', form);
-    } catch (error) {
-      if (error?.problemCode === Problem.user.insufficientRights.code)
-        throw Problem.user.notFound();
-      throw error;
-    }
+    await authorize(auth, form);
     const decisions = await FieldDataReviews.listDecisions(params.caseId);
     response.set('ETag', `"review-case-${reviewCase.revision}"`);
     response.set('Cache-Control', 'private, no-store');

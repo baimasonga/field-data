@@ -20,6 +20,7 @@ and a number that looks like one would be believed.
     <loading :state="loading"/>
 
     <template v-if="!loading && evidence != null">
+      <submission-review-queue :project-id="projectId" :xml-form-id="xmlFormId"/>
       <section class="verification-evidence">
         <h2>{{ $t('evidence.title') }}</h2>
         <p class="section-lead">{{ $t('evidence.lead') }}</p>
@@ -173,6 +174,7 @@ import { useI18n } from 'vue-i18n';
 
 import Loading from '../loading.vue';
 import Spinner from '../spinner.vue';
+import SubmissionReviewQueue from './review-queue.vue';
 
 import useRequest from '../../composables/request';
 import { apiPaths } from '../../util/request';
