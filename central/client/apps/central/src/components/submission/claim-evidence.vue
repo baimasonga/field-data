@@ -40,6 +40,7 @@
 <script setup>
 import { computed, ref, watch } from 'vue';
 import useRequest from '../../composables/request';
+import { apiPaths } from '../../util/request';
 
 defineOptions({ name: 'SubmissionClaimEvidence' });
 const props = defineProps({
@@ -61,15 +62,17 @@ watch(() => [props.projectId, props.xmlFormId, props.instanceId], async () => {
   items.value = [];
   loading.value = true;
   error.value = false;
-  const base = `/v1/projects/${encodeURIComponent(props.projectId)}/forms/` +
-    `${encodeURIComponent(props.xmlFormId)}/submissions/${encodeURIComponent(props.instanceId)}`;
   try {
-    const result = await request({ method: 'GET', url: `${base}/claim`, alert: false });
+    const result = await request({
+      method: 'GET',
+      url: apiPaths.submissionClaim(props.projectId, props.xmlFormId, props.instanceId),
+      alert: false
+    });
     claim.value = result.data;
     if (result.data.currentVersionId != null) {
       const evidence = await request({
         method: 'GET',
-        url: `/v1/field-data/claim-versions/${result.data.currentVersionId}/evidence`,
+        url: apiPaths.claimEvidence(result.data.currentVersionId),
         alert: false
       });
       items.value = evidence.data.items;
