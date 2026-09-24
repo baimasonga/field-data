@@ -46,6 +46,25 @@ describe('api: P0.5 review case detail', () => {
       assigned[0].assignedTo.should.equal(actorId);
       (await one(sql`SELECT count(*)::integer AS count FROM audits
         WHERE action = 'field_data.review.case.assign'`)).count.should.equal(1);
+      const releaseBody = { assignedTo: null, status: 'open' };
+      await alice.patch(path).set('If-Match', assigned[0].etag)
+        .set('Idempotency-Key', 'assignment-1').send(releaseBody)
+        .expect(409);
+      const released = await alice.patch(path).set('If-Match', assigned[0].etag)
+        .set('Idempotency-Key', 'release-1').send(releaseBody)
+        .expect(200);
+      released.body.status.should.equal('open');
+      released.body.assignedTo.should.equal(null);
+      (await alice.patch(path).set('If-Match', assigned[0].etag)
+        .set('Idempotency-Key', 'release-1').send(releaseBody)
+        .expect(200)).headers['idempotency-status'].should.equal('replayed');
+      await alice.patch(path).set('If-Match', assigned[0].etag)
+        .set('Idempotency-Key', 'release-2').send(releaseBody)
+        .expect(412);
+      (await one(sql`SELECT count(*)::integer AS count FROM audits
+        WHERE action = 'field_data.review.case.release'`)).count.should.equal(1);
+      (await alice.get('/v1/field-data/review-queue?projectId=1&xmlFormId=simple')
+        .expect(200)).body.items[0].id.should.equal(item.id);
     }));
 
   it('opens a review case when a submission is flagged and lists it only to form readers',
