@@ -6,6 +6,7 @@ const { UUID_PATTERN } = require('../util/claim-versioning');
 const { getOrNotFound } = require('../util/promise');
 const Problem = require('../util/problem');
 const { encodeCursor, decodeCursor } = require('../util/review-queue');
+const { validateKey, hashReviewAssignment } = require('../util/idempotency');
 
 const authorize = async (auth, form) => {
   try { await auth.canOrReject('submission.read', form); } catch (error) {
@@ -16,6 +17,53 @@ const authorize = async (auth, form) => {
 };
 
 module.exports = (service, endpoint) => {
+  service.patch('/field-data/review-queue/:caseId/assignment', endpoint(async (
+    container, { params, auth, body, headers },
+    request, response
+  ) => {
+    const { FieldDataReviews, FieldDataClaims, Forms } = container;
+    if (!UUID_PATTERN.test(params.caseId)) throw Problem.user.notFound();
+    const reviewCase = await FieldDataReviews.getCase(params.caseId);
+    if (reviewCase == null) throw Problem.user.notFound();
+    const claim = await FieldDataClaims.getByVersionId(reviewCase.claimVersionId);
+    if (claim == null) throw Problem.user.notFound();
+    const form = await Forms.getByProjectAndXmlFormId(
+      claim.scope.projectId, claim.scope.xmlFormId, Form.WithoutDef, Form.WithoutXml
+    ).then(getOrNotFound);
+    try { await auth.canOrReject('submission.update', form); } catch (error) {
+      if (error?.problemCode === Problem.user.insufficientRights.code)
+        throw Problem.user.notFound();
+      throw error;
+    }
+    const actorId = auth.actor.map((actor) => actor.id).orNull();
+    if (actorId == null || body == null || body.assignedTo !== actorId
+      || body.status !== 'in-review' || Object.keys(body).length !== 2)
+      throw Problem.user.reviewAssignmentInvalid();
+    const match = headers['if-match'];
+    if (match == null) throw Problem.user.reviewRevisionRequired();
+    const parsed = /^"review-case-([1-9]\d*)"$/.exec(match);
+    if (parsed == null || !Number.isSafeInteger(Number(parsed[1])))
+      throw Problem.user.reviewAssignmentInvalid();
+    let key;
+    try { key = validateKey(headers['idempotency-key']); } catch (error) {
+      throw error.code === 'IDEMPOTENCY_KEY_REQUIRED'
+        ? Problem.user.idempotencyKeyRequired() : Problem.user.idempotencyKeyInvalid();
+    }
+    const revision = Number(parsed[1]);
+    const requestHash = hashReviewAssignment({ caseId: params.caseId, revision,
+      assignedTo: actorId });
+    const result = await container.transacting((tx) => tx.FieldDataReviews.assignToSelf({
+      caseId: params.caseId, revision, actorId, projectId: claim.scope.projectId,
+      formActeeId: form.acteeId, key, requestHash
+    }));
+    response.set('ETag', `"review-case-${result.revision}"`);
+    response.set('Idempotency-Key', key);
+    response.set('Idempotency-Status', result.replayed ? 'replayed' : 'created');
+    response.set('Cache-Control', 'private, no-store');
+    return { id: result.id, revision: result.revision, status: 'in-review',
+      assignedTo: actorId };
+  }));
+
   service.get('/field-data/review-queue', endpoint(async (
     { FieldDataReviews, Forms }, { query, auth }, request, response
   ) => {

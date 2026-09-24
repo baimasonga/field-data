@@ -8,6 +8,46 @@ const { testService } = require('../setup');
 const testData = require('../../data/xml');
 
 describe('api: P0.5 review case detail', () => {
+  it('assigns a case once with revision and retry protection',
+    testService(async (service, { one, oneFirst }) => {
+      const alice = await service.login('alice');
+      const chelsea = await service.login('chelsea');
+      await alice.post('/v1/projects/1/forms/simple/submissions')
+        .send(testData.instances.simple.one).set('Content-Type', 'application/xml').expect(200);
+      await alice.patch('/v1/projects/1/forms/simple/submissions/one')
+        .send({ reviewState: 'hasIssues' }).expect(200);
+      const actorId = await oneFirst(sql`SELECT "actorId" FROM audits
+        WHERE action = 'submission.update' ORDER BY id DESC LIMIT 1`);
+      const item = (await alice.get('/v1/field-data/review-queue?projectId=1&xmlFormId=simple')
+        .expect(200)).body.items[0];
+      const path = `/v1/field-data/review-queue/${item.id}/assignment`;
+      const body = { assignedTo: actorId, status: 'in-review' };
+      await chelsea.patch(path).set('If-Match', item.etag)
+        .set('Idempotency-Key', 'assignment-1').send(body)
+        .expect(404);
+      await alice.patch(path).set('Idempotency-Key', 'assignment-1').send(body)
+        .expect(428);
+      const first = await alice.patch(path).set('If-Match', item.etag)
+        .set('Idempotency-Key', 'assignment-1').send(body)
+        .expect(200);
+      first.body.revision.should.equal(item.revision + 1);
+      first.headers['idempotency-status'].should.equal('created');
+      const replay = await alice.patch(path).set('If-Match', item.etag)
+        .set('Idempotency-Key', 'assignment-1').send(body)
+        .expect(200);
+      replay.headers['idempotency-status'].should.equal('replayed');
+      await alice.patch(path).set('If-Match', item.etag)
+        .set('Idempotency-Key', 'assignment-2').send(body)
+        .expect(412);
+      const assigned = (await alice.get(
+        '/v1/field-data/review-queue?projectId=1&xmlFormId=simple&status=in-review'
+      ).expect(200)).body.items;
+      assigned.should.have.length(1);
+      assigned[0].assignedTo.should.equal(actorId);
+      (await one(sql`SELECT count(*)::integer AS count FROM audits
+        WHERE action = 'field_data.review.case.assign'`)).count.should.equal(1);
+    }));
+
   it('opens a review case when a submission is flagged and lists it only to form readers',
     testService(async (service) => {
       const alice = await service.login('alice');
