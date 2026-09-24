@@ -3,8 +3,8 @@
 
 const up = async (db) => {
   await db.raw(`ALTER TABLE field_data_idempotency_records
-    DROP CONSTRAINT field_data_idempotency_records_operationType_check,
-    ADD CONSTRAINT field_data_idempotency_records_operationType_check
+    DROP CONSTRAINT field_data_idempotency_records_operationtype_check,
+    ADD CONSTRAINT field_data_idempotency_records_operationtype_check
       CHECK ("operationType" IN ('evidence.link.create', 'review.case.assign')),
     DROP CONSTRAINT field_data_idempotency_records_check,
     ADD CONSTRAINT field_data_idempotency_records_check
@@ -17,8 +17,8 @@ const down = async (db) => {
   await db.raw(`DELETE FROM field_data_idempotency_records
     WHERE "operationType" = 'review.case.assign'`);
   await db.raw(`ALTER TABLE field_data_idempotency_records
-    DROP CONSTRAINT field_data_idempotency_records_operationType_check,
-    ADD CONSTRAINT field_data_idempotency_records_operationType_check
+    DROP CONSTRAINT field_data_idempotency_records_operationtype_check,
+    ADD CONSTRAINT field_data_idempotency_records_operationtype_check
       CHECK ("operationType" = 'evidence.link.create'),
     DROP CONSTRAINT field_data_idempotency_records_check,
     ADD CONSTRAINT field_data_idempotency_records_check
