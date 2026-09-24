@@ -214,6 +214,28 @@ describe('api: P0.5 review case detail', () => {
       await alice.get(`${list}&limit=101`).expect(400);
     }));
 
+  it('routes a missing audit capture time finding to one review case',
+    testService(async (service) => {
+      const alice = await service.login('alice');
+      await alice.post('/v1/projects/1/forms/simple/submissions')
+        .send(testData.instances.simple.one).set('Content-Type', 'application/xml').expect(200);
+      const list = '/v1/field-data/review-queue?projectId=1&xmlFormId=simple';
+      const before = (await alice.get(list).expect(200)).body.items;
+      before.should.have.length(1);
+      const run = '/v1/projects/1/forms/simple/integrity/run';
+      (await alice.post(run).expect(200)).body.inconclusive.should.equal(1);
+      const after = (await alice.get(list).expect(200)).body.items;
+      after.should.have.length(1);
+      after[0].id.should.equal(before[0].id);
+      after[0].reasonCodes.should.deepEqual([
+        'provenance-degraded', 'capture-time-unavailable'
+      ]);
+      await alice.post(run).expect(200);
+      const again = (await alice.get(list).expect(200)).body.items;
+      again.should.have.length(1);
+      again[0].revision.should.equal(after[0].revision);
+    }));
+
   it('paginates flagged cases without repeating a row', testService(async (service) => {
     const alice = await service.login('alice');
     for (const instanceId of ['one', 'two']) {
