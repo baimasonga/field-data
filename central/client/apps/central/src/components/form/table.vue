@@ -91,8 +91,8 @@ export default {
   }
 
   th.review-state {
-    background-color: #ccc;
-    box-shadow: inset 0em -2px #aaa;
+    background-color: #cfcfdc;
+    box-shadow: inset 0em -2px #adadbf;
   }
 }
 

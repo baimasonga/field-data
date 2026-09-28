@@ -226,7 +226,7 @@ module.exports = (service, endpoint, anonymousEndpoint) => {
         const deprecatedId = partial.deprecatedId.orElseGet(() => { throw Problem.user.expectedDeprecation(); });
         return Promise.all([
           // TODO/PERF: a bespoke query here could save some round-trips
-          Submissions.getCurrentDefColsByIds(['instanceId', 'submissionId'], params.projectId, params.xmlFormId, params.instanceId, draft)
+          Submissions.getCurrentDefColsByIds(['id', 'instanceId', 'submissionId'], params.projectId, params.xmlFormId, params.instanceId, draft)
             .then(getOrNotFound)
             .then(rejectIf(((current) => current.instanceId !== deprecatedId),
               () => Problem.user.deprecatingOldSubmission(({ deprecatedId })))),
@@ -621,4 +621,3 @@ module.exports = (service, endpoint, anonymousEndpoint) => {
       .then(getOrNotFound)
       .then(ensureDef));
 };
-

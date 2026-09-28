@@ -293,6 +293,6 @@ describe('SubmissionMapView', () => {
     countFeatures(app).should.equal(1);
     // Even though there is only one submission in the GeoJSON, that should not
     // change the submission count in the tab badge.
-    findTab(app, 'Submissions').get('.badge').text().should.equal('2');
+    findTab(app, 'Data').get('.badge').text().should.equal('2');
   });
 });

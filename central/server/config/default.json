@@ -28,13 +28,11 @@
     "external": {
       "sentry": {},
       "analytics": {
-        "url": "https://data.getodk.cloud/v1/key/eOZ7S4bzyUW!g1PF6dIXsnSqktRuewzLTpmc6ipBtRq$LDfIMTUKswCexvE0UwJ9/projects/1/forms/odk-analytics/submissions",
-        "formId": "odk-analytics",
+        "_comment": "No endpoint: this deployment reports usage to nobody. Setting a url and formId here would switch central's analytics task back on, so leave them unset unless this project runs its own collector.",
         "version": "v2026.2.0_1"
       },
       "mailingListOptIn": {
-        "url": "https://data.getodk.cloud/v1/key/Dd0XJq$!skdvUmMLUO1!srDmrxePJSIiGuj3ttbzlayelMxxXMQF3hmeJ24rcT8N/projects/8/forms/mailing_list_opt_in/submissions",
-        "formId": "mailing_list_opt_in",
+        "_comment": "No endpoint: there is no mailing list, and a new user's email address is not sent anywhere. The sign-up checkbox is hidden to match; restore both together or neither.",
         "version": "v2025.4.0_1"
       },
       "s3blobStore": {}

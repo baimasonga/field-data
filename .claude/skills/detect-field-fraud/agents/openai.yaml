@@ -1,0 +1,14 @@
+interface:
+  display_name: Detect Field Fraud
+  short_description: Engineer explainable field-fraud detection
+  default_prompt: Use $detect-field-fraud to implement explainable fraud detection
+    and investigation workflows.
+  icon_small: assets/icon.svg
+  icon_large: assets/icon.svg
+policy:
+  products:
+  - chatgpt
+  - codex
+  - api
+  - atlas
+  allow_implicit_invocation: true

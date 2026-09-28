@@ -119,7 +119,7 @@ const htmlClass = computed(() =>
     $icon-lock-margin-right: 12px;
     .icon-lock {
       font-size: 16px;
-      color: #666;
+      color: #68687a;
       margin-left: $icon-lock-margin-left;
       margin-right: $icon-lock-margin-right;
       vertical-align: -2px;
@@ -132,7 +132,7 @@ const htmlClass = computed(() =>
       .encryption-message { display: none; }
 
       .encryption-overlay {
-        background-color: #ddd;
+        background-color: #e0e0ea;
         display: inline-block;
         height: 12px;
         position: absolute;

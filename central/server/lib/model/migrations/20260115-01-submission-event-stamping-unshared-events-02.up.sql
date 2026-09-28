@@ -8,7 +8,7 @@
 -- except according to the terms contained in the LICENSE file.
 
 --- create: get_event ---
-CREATE FUNCTION "public"."get_event"()
+CREATE FUNCTION "get_event"()
 RETURNS bigint
 AS
     $BODY$
@@ -33,4 +33,4 @@ LANGUAGE sql
 ;
 
 --- sign: get_event ---
-COMMENT ON FUNCTION "public"."get_event"() IS '{"dbsamizdat": {"version": 1, "definition_hash": "9538082b3636013895e4dcc8de1165bb"}}';
+COMMENT ON FUNCTION "get_event"() IS '{"dbsamizdat": {"version": 1, "definition_hash": "9538082b3636013895e4dcc8de1165bb"}}';

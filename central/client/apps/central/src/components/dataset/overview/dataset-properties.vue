@@ -164,7 +164,7 @@ const deleteProperty = () => {
 
   .empty-update-form {
     @include italic;
-    color: #888;
+    color: #8a8a9c;
   }
 
   .col-prop-name {

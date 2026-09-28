@@ -12,6 +12,7 @@ except according to the terms contained in the LICENSE file.
 import { always, equals } from 'ramda';
 
 import AccountLogin from './components/account/login.vue';
+import Landing from './components/landing.vue';
 import AccountPage from './components/account/page.vue';
 import AsyncRoute from './components/async-route.vue';
 import { routeProps } from './util/router';
@@ -215,6 +216,23 @@ const { i18n, requestData, config } = container;
 const { currentUser, serverConfig, project, form, dataset } = requestData;
 const routes = [
   asyncRoute({
+    // A read-only view of one form's counts, for somebody with no account.
+    // The token in the path is the whole of the authorisation.
+    path: '/shared/:token',
+    component: 'SharedDashboard',
+    props: true,
+    loading: 'page',
+    meta: {
+      requireLogin: false,
+      // Nothing here needs a session, and a reader who happens to have one
+      // should not have it spent on a page that ignores it.
+      restoreSession: false,
+      standalone: true,
+      title: () => [i18n.t('common.appName')]
+    }
+  }),
+
+  asyncRoute({
     path: '/load-error',
     component: 'ClientConfigError',
     loading: 'page',
@@ -283,9 +301,54 @@ const routes = [
     ]
   },
 
+  {
+    path: '/welcome',
+    name: 'Landing',
+    component: Landing,
+    meta: {
+      requireLogin: false,
+      requireAnonymity: true,
+      title: () => [],
+      fullWidth: true
+    }
+  },
   asyncRoute({
     path: '/',
     component: 'Home',
+    loading: 'page',
+    meta: {
+      title: () => [i18n.t('fieldDataHome.tab.dashboard')],
+      fullWidth: true
+    }
+  }),
+  asyncRoute({
+    path: '/forms',
+    component: 'FormsPage',
+    loading: 'page',
+    meta: {
+      title: () => [i18n.t('resource.forms')]
+    }
+  }),
+  asyncRoute({
+    path: '/maps',
+    component: 'MapsPage',
+    loading: 'page',
+    meta: {
+      title: () => [i18n.t('fieldDataHome.tab.maps')],
+      fullWidth: true
+    }
+  }),
+  asyncRoute({
+    path: '/submissions',
+    component: 'SubmissionsPage',
+    loading: 'page',
+    meta: {
+      title: () => [i18n.t('resource.submissions')]
+    }
+  }),
+  asyncRoute({
+    path: '/projects',
+    component: 'ProjectsPage',
     loading: 'page',
     meta: {
       title: () => [i18n.t('resource.projects')]
@@ -376,6 +439,52 @@ const routes = [
         }
       }),
       asyncRoute({
+        path: 'merged-datasets',
+        component: 'ProjectMergedDatasets',
+        props: true,
+        loading: 'tab',
+        meta: {
+          validateData: {
+            project: () => project.permits([
+              'form.list',
+              'submission.list',
+              'submission.read'
+            ])
+          },
+          title: () => [i18n.t('projectShow.tab.mergedDatasets'), project.nameOrId],
+          fullWidth: true
+        }
+      }),
+      asyncRoute({
+        path: 'reports',
+        component: 'ProjectXlsReports',
+        props: true,
+        loading: 'tab',
+        meta: {
+          validateData: {
+            project: () => project.permits([
+              'submission.list',
+              'submission.read'
+            ])
+          },
+          title: () => [i18n.t('projectShow.tab.reports'), project.nameOrId],
+          fullWidth: true
+        }
+      }),
+      asyncRoute({
+        path: 'summary',
+        component: 'ProjectSummary',
+        props: true,
+        loading: 'tab',
+        meta: {
+          validateData: {
+            project: () => project.permits(['submission.list', 'submission.read'])
+          },
+          title: () => [i18n.t('projectShow.tab.summary'), project.name],
+          fullWidth: true
+        }
+      }),
+      asyncRoute({
         path: 'custom-properties',
         component: 'CustomPropertyList',
         props: true,
@@ -449,6 +558,116 @@ const routes = [
             form: () => form.publishedAt != null
           },
           title: () => [i18n.t('resource.submissions'), form.nameOrId],
+          fullWidth: true
+        }
+      }),
+      asyncRoute({
+        path: 'summary',
+        component: 'SubmissionSummary',
+        props: true,
+        loading: 'tab',
+        meta: {
+          validateData: {
+            project: () => project.permits([
+              'form.read',
+              'submission.list',
+              'submission.read'
+            ]),
+            form: () => form.publishedAt != null
+          },
+          title: () => [i18n.t('formHead.tab.summary'), form.nameOrId],
+          fullWidth: true
+        }
+      }),
+      asyncRoute({
+        path: 'import',
+        component: 'SubmissionCsvImport',
+        props: true,
+        loading: 'tab',
+        meta: {
+          validateData: {
+            project: () => project.permits(['form.read', 'submission.create']),
+            // Import is a one-time operation on an empty Form, so the tab
+            // disappears once the Form holds anything. Without the second
+            // clause the tab stays for the life of the Form and every visit
+            // after the first import is answered with an error from the server.
+            form: () => form.publishedAt != null && form.submissions === 0
+          },
+          title: () => [i18n.t('formHead.tab.importCsv'), form.nameOrId],
+          fullWidth: true
+        }
+      }),
+      asyncRoute({
+        path: 'photos',
+        component: 'SubmissionPhotos',
+        props: true,
+        loading: 'tab',
+        meta: {
+          validateData: {
+            project: () => project.permits([
+              'form.read',
+              'submission.list',
+              'submission.read'
+            ]),
+            form: () => form.publishedAt != null
+          },
+          title: () => [i18n.t('formHead.tab.photos'), form.nameOrId],
+          fullWidth: true
+        }
+      }),
+      asyncRoute({
+        path: 'filtered-datasets',
+        component: 'SubmissionFilteredDatasets',
+        props: true,
+        loading: 'tab',
+        meta: {
+          validateData: {
+            project: () => project.permits([
+              'project.update',
+              'form.read',
+              'form.update',
+              'submission.list',
+              'submission.read'
+            ]),
+            form: () => form.publishedAt != null
+          },
+          title: () => [i18n.t('formHead.tab.filteredData'), form.nameOrId],
+          fullWidth: true
+        }
+      }),
+      asyncRoute({
+        path: 'charts',
+        component: 'SubmissionWidgets',
+        props: true,
+        loading: 'tab',
+        meta: {
+          validateData: {
+            project: () => project.permits([
+              'form.read',
+              'submission.list',
+              'submission.read'
+            ]),
+            form: () => form.publishedAt != null
+          },
+          title: () => [i18n.t('formHead.tab.charts'), form.nameOrId],
+          fullWidth: true
+        }
+      }),
+      asyncRoute({
+        path: 'verification',
+        component: 'SubmissionVerification',
+        props: true,
+        loading: 'tab',
+        meta: {
+          validateData: {
+            project: () => project.permits([
+              'form.read',
+              'submission.list',
+              'submission.read'
+            ]),
+            form: () => form.publishedAt != null
+          },
+          title: () => [i18n.t('formHead.tab.verification'), form.nameOrId],
           fullWidth: true
         }
       }),
@@ -761,24 +980,44 @@ const routes = [
         }
       }),
       asyncRoute({
-        path: 'webhooks',
+        path: 'organizations',
+        component: 'FieldDataOrganizations',
+        loading: 'tab',
+        meta: {
+          // No site-wide guard. Authority over an organization is granted on
+          // the organization, so an owner holds nothing at the site level for
+          // this to test -- and the listing is scoped by the server, which
+          // returns only the organizations this caller may read. Somebody with
+          // none sees an empty page, the same way the Field Data dashboard
+          // shows them zeros.
+          validateData: {},
+          title: () => [i18n.t('fieldDataHome.tab.organizations'), i18n.t('fieldDataHome.title')],
+          fullWidth: true
+        }
+      }),
+      asyncRoute({
+        path: 'integrations',
         component: 'FieldDataWebhooks',
         loading: 'tab',
         meta: {
           validateData: {
-            currentUser: () => currentUser.can('project.create')
+            currentUser: () => currentUser.can('config.set')
           },
-          title: () => [i18n.t('fieldDataHome.tab.webhooks'), i18n.t('fieldDataHome.title')],
+          title: () => [i18n.t('fieldDataHome.tab.integrations'), i18n.t('fieldDataHome.title')],
           fullWidth: true
         }
       }),
+      {
+        path: 'webhooks',
+        redirect: '/field-data/integrations'
+      },
       asyncRoute({
         path: 'backups',
         component: 'FieldDataBackups',
         loading: 'tab',
         meta: {
           validateData: {
-            currentUser: () => currentUser.can('project.create')
+            currentUser: () => currentUser.can('backup.run')
           },
           title: () => [i18n.t('fieldDataHome.tab.backups'), i18n.t('fieldDataHome.title')],
           fullWidth: true
@@ -878,6 +1117,10 @@ const routesByName = new Map();
     preserveData: [],
     fullWidth: false,
     skipAutoLogout: false,
+    // `true` for a page that stands on its own, with no navigation around it.
+    // A shared link sent to somebody without an account should not greet them
+    // with a menu they cannot use and a notice that they are not logged in.
+    standalone: false,
     ...meta,
     validateData: meta == null || meta.validateData == null
       ? []
@@ -930,6 +1173,9 @@ const routesByName = new Map();
   const preserveBetweenTabs = (to, from) => equals(to.params, from.params);
   const projectRoutes = [
     'ProjectOverview',
+    'ProjectSummary',
+    'ProjectMergedDatasets',
+    'ProjectXlsReports',
     'ProjectUserList',
     'FieldKeyList',
     'CustomPropertyList',
@@ -940,6 +1186,12 @@ const routesByName = new Map();
   ];
   const formRoutes = [
     'FormSubmissions',
+    'SubmissionCsvImport',
+    'SubmissionSummary',
+    'SubmissionFilteredDatasets',
+    'SubmissionPhotos',
+    'SubmissionVerification',
+    'SubmissionWidgets',
     'PublicLinkList',
     'FormVersionList',
     'FormEdit',

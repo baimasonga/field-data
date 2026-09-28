@@ -109,7 +109,7 @@ $border-radius: 12px;
   // Used to align the top of the icon with the top of the text.
   $icon-margin-top: 2px;
 
-  background-color: #666;
+  background-color: #68687a;
   border-inline: $border;
   border-top: $border;
   border-top-left-radius: $border-radius;
@@ -158,7 +158,7 @@ $border-radius: 12px;
 }
 
 .hover-card-footer {
-  background-color: #ddd;
+  background-color: #e0e0ea;
   border-inline: $border;
 
   &:empty { display: none; }

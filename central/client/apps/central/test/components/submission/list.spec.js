@@ -478,7 +478,8 @@ describe('SubmissionList', () => {
       it('updates the submission count', async () => {
         const component = await del();
         const text = component.get('#page-head-tabs li:nth-of-type(1)').text();
-        text.should.equal('Submissions 0');
+        // The Form's first tab is the Data group now.
+        text.should.equal('Data 0');
       });
 
       it('shows deleted submission button', async () => {

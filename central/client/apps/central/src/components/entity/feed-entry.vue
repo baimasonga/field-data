@@ -208,15 +208,15 @@ const showBranchData = () => {
 @import '../../assets/scss/mixins';
 
 .entity-feed-entry {
-  .icon-cloud-upload { color: #bbb; }
+  .icon-cloud-upload { color: #adadbf; }
   .icon-magic { color: $color-action-foreground; }
-  .icon-pencil { color: #666; }
+  .icon-pencil { color: #68687a; }
   .icon-random {
-    color: #bbb;
+    color: #adadbf;
     vertical-align: -2px;
   }
-  .icon-trash { color: #bbb; }
-  .icon-recycle {color: #bbb; }
+  .icon-trash { color: #adadbf; }
+  .icon-recycle {color: #adadbf; }
 
   .deleted-submission, .entity-label, .source-name { font-weight: normal; }
   .deleted-submission { color: $color-danger; }
@@ -227,7 +227,7 @@ const showBranchData = () => {
     border-radius: 2px;
   }
   .entity-version-tag {
-    background-color: #ddd;
+    background-color: #e0e0ea;
     margin-left: 5px;
 
     a {
@@ -236,7 +236,7 @@ const showBranchData = () => {
     }
   }
   .feed-entry-title .offline-update {
-    background-color: #eee;
+    background-color: #f1f1f6;
     font-weight: normal;
     margin-left: 5px;
   }

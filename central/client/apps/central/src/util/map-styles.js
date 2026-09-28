@@ -25,7 +25,18 @@ const selectedId = ['var', 'selectedId'];
 // considered blue, but that seemed too similar to the color of water on the
 // map. We also considered magenta, but the OSM base map uses magenta for
 // certain features.
-const featureColor = '#6d389f';
+//
+// Field Data: on the Gradient ramp this is iris-700, not the iris-600 the rest
+// of the interface uses for its accent. The reasoning above still holds and is
+// measurable: against the colors OSM actually paints, iris-600 falls to 3.6 to
+// one on water, where iris-700 holds 4.7 -- the margin the original purple had
+// at 4.8. Brand coherence is not worth a marker somebody cannot pick out of a
+// river.
+//
+// This colour lives in JavaScript, which is why the sweep that moved the rest
+// of the interface onto the ramp walked past it: that one rewrote style blocks
+// and stylesheets only.
+const featureColor = '#4b3ccb'; // gradient --iris-700
 const colorWithAlpha = (alpha) => {
   const alphaHex = Math.round(255 * alpha).toString(16).padStart(2, '0');
   return featureColor + alphaHex;

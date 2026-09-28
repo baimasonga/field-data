@@ -21,7 +21,8 @@ export interface WebFormsRendererProps {
   actionType: string;
   instanceId?: string | null;
   submissionAttachments?: string[] | null;
-  st?: string | null
+  st?: string | null;
+  singleSubmissionId?: string | null
 }
 
 const props = defineProps<WebFormsRendererProps>();
@@ -47,6 +48,28 @@ const draftPath = computed(() => props.form.draft ? '/draft' : '');
 const deviceID = getDeviceId();
 
 const visibleModal = ref();
+
+const singleSubmissionKey = computed(() =>
+  props.singleSubmissionId ? `field-data:submitted:${props.singleSubmissionId}` : null
+);
+const alreadySubmitted = ref(false);
+try {
+  alreadySubmitted.value = singleSubmissionKey.value != null &&
+    window.localStorage.getItem(singleSubmissionKey.value) === 'true';
+} catch {
+  // Private browsing modes can make localStorage unavailable.
+}
+if (alreadySubmitted.value) hideSpinner();
+
+const rememberSingleSubmission = () => {
+  if (singleSubmissionKey.value == null) return;
+  alreadySubmitted.value = true;
+  try {
+    window.localStorage.setItem(singleSubmissionKey.value, 'true');
+  } catch {
+    // The successful server submission is authoritative even without storage.
+  }
+};
 
 const withToken = (url) => `${url}${queryString({ st: props.st })}`;
 
@@ -136,6 +159,7 @@ const handleResult = () => {
     clearForm();
     
     if (isPublicLink.value) {
+      rememberSingleSubmission();
       visibleModal.value = { type: 'thankYouModal', hideable: false };
     } else if (isEdit.value) {
       visibleModal.value = { type: 'editSubmissionModal', hideable: false };
@@ -288,6 +312,12 @@ const closeWindow = () => {
 </script>
 
 <style scoped>
+.single-submission-complete {
+  margin: 4rem auto;
+  max-width: 42rem;
+  padding: 2rem;
+  text-align: center;
+}
 .p-dialog-content pre {
   white-space: pre-wrap;
   overflow-wrap: break-word;
@@ -296,13 +326,18 @@ const closeWindow = () => {
 
 <template>
 
-  <OdkWebForm
+  <OdkWebForm v-if="!alreadySubmitted"
     :form-xml="props.xform"
     :edit-instance="editInstanceOptions"
     :fetch-form-attachment="getAttachment"
     :device-id="deviceID"
     @loaded="webFormLoaded"
     @submit="handleSubmit"/>
+
+  <section v-else class="single-submission-complete" role="status">
+    <h1>{{ $t('thankYouModal.title') }}</h1>
+    <p>{{ $t('thankYouModal.body') }}</p>
+  </section>
 
   <Dialog modal :visible="!!visibleModal" :draggable="false" :closable="visibleModal?.hideable" @update:visible="visibleModal = null">
 		<template #header>
@@ -315,12 +350,18 @@ const closeWindow = () => {
           <pre>{{ $t(visibleModal.errorMessage) }}</pre>
         </template>
         <template #supportEmail>
-          <a href="mailto:support@getodk.org">support@getodk.org</a>
+          <!-- Whoever runs this server, not whoever wrote it. A form filler
+          who emails the upstream project gets no help and discloses that
+          they were asked to fill this form. -->
+          <span>{{ $t('supportContact') }}</span>
         </template>
       </Translation>
       <Translation v-else-if="visibleModal.type === 'retryModal'" tag="p" keypath="retryModal.body">
         <template #supportEmail>
-          <a href="mailto:support@getodk.org">support@getodk.org</a>
+          <!-- Whoever runs this server, not whoever wrote it. A form filler
+          who emails the upstream project gets no help and discloses that
+          they were asked to fill this form. -->
+          <span>{{ $t('supportContact') }}</span>
         </template>
       </Translation>
       <Translation v-else-if="visibleModal.type === 'sessionTimeoutModal'" tag="p" keypath="sessionTimeoutModal.body.full">
@@ -360,6 +401,10 @@ const closeWindow = () => {
         "close": "Close",
         "tryAgain": "Try again",
       },
+      // Fills the {supportEmail} slot in the two error messages below. Other
+      // locales fall back to this line until it is translated, which is still
+      // better than sending a form filler to a vendor who cannot help them.
+      "supportContact": "whoever runs this server",
       "previewModal": {
         "title": "Data is valid",
         "body": "The data you entered is valid, but it was not submitted because this is a Form preview."

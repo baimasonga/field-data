@@ -168,6 +168,9 @@ export const apiPaths = {
     const encodedInstanceId = encodeURIComponent(instanceId);
     return `/v1/projects/${projectId}/forms/${encodedFormId}/submissions/${encodedRootId}/versions/${encodedInstanceId}`;
   },
+  submissionClaim: submissionPath('/claim'),
+  claimEvidence: (versionId) =>
+    `/v1/field-data/claim-versions/${encodeURIComponent(versionId)}/evidence`,
   submissionXml: submissionPath('.xml'),
   publicLinks: formPath('/public-links'),
   publicLink: (projectId, xmlFormId, publicLinkId) => {
@@ -210,6 +213,101 @@ export const apiPaths = {
     return `/v1/config/public/${encodedKey}${qs}`;
   },
   // Field Data platform endpoints (see server/lib/resources/field-data.js)
+  projectSummary: (projectId) => `/v1/projects/${projectId}/summary`,
+  formSummary: (projectId, xmlFormId) =>
+    `/v1/projects/${projectId}/forms/${encodeURIComponent(xmlFormId)}/summary`,
+  submissionCsvImportTemplate: (projectId, xmlFormId) =>
+    `/v1/projects/${projectId}/forms/${encodeURIComponent(xmlFormId)}/submission-import/template.csv`,
+  submissionCsvImportDryRun: (projectId, xmlFormId) =>
+    `/v1/projects/${projectId}/forms/${encodeURIComponent(xmlFormId)}/submission-import/dry-run`,
+  submissionCsvImportCommit: (projectId, xmlFormId) =>
+    `/v1/projects/${projectId}/forms/${encodeURIComponent(xmlFormId)}/submission-import/commit`,
+  formFilterFields: (projectId, xmlFormId) =>
+    `/v1/projects/${projectId}/forms/${encodeURIComponent(xmlFormId)}/filter-fields`,
+  filteredDatasetPreview: (projectId, xmlFormId) =>
+    `/v1/projects/${projectId}/forms/${encodeURIComponent(xmlFormId)}/filtered-datasets/preview`,
+  // The browser Form builder. The first turns a definition into an XLSForm,
+  // which the client then posts to apiPaths.forms -- the same endpoint an
+  // uploaded spreadsheet goes to, so a built Form and an uploaded one come
+  // into being by exactly one path.
+  formBuilderQuestionTypes: () => '/v1/field-data/form-builder/question-types',
+  formBuilderXlsform: (projectId) =>
+    `/v1/projects/${projectId}/form-builder/xlsform`,
+  formBuilderDefinition: (projectId, xmlFormId) =>
+    `/v1/projects/${projectId}/forms/${encodeURIComponent(xmlFormId)}/builder-definition`,
+  // The shares of one Form, wherever they serve. Keyed on the Form rather than
+  // on a Project, because the ones worth finding are the ones serving
+  // somewhere else.
+  formFilteredDatasets: (projectId, xmlFormId) =>
+    `/v1/projects/${projectId}/forms/${encodeURIComponent(xmlFormId)}/filtered-datasets`,
+  filteredDatasets: (projectId, query = undefined) =>
+    `/v1/projects/${projectId}/filtered-datasets${queryString(query)}`,
+  filteredDataset: (projectId, id) =>
+    `/v1/projects/${projectId}/filtered-datasets/${id}`,
+  filteredDatasetDefinition: (projectId, id) =>
+    `/v1/projects/${projectId}/filtered-datasets/${id}/definition`,
+  filteredDatasetData: (projectId, id, query = undefined) =>
+    `/v1/projects/${projectId}/filtered-datasets/${id}/data${queryString(query)}`,
+  filteredDatasetExport: (projectId, id, format) =>
+    `/v1/projects/${projectId}/filtered-datasets/${id}/export.${format}`,
+  mergedDatasets: (projectId) => `/v1/projects/${projectId}/merged-datasets`,
+  mergedDataset: (projectId, id, query = undefined) =>
+    `/v1/projects/${projectId}/merged-datasets/${id}${queryString(query)}`,
+  mergedDatasetData: (projectId, id, query = undefined) =>
+    `/v1/projects/${projectId}/merged-datasets/${id}/data${queryString(query)}`,
+  xlsReportSources: (projectId) => `/v1/projects/${projectId}/xls-report-sources`,
+  xlsReportTemplates: (projectId) => `/v1/projects/${projectId}/xls-report-templates`,
+  xlsReportTemplate: (projectId, id) =>
+    `/v1/projects/${projectId}/xls-report-templates/${id}`,
+  xlsReportTemplateDownload: (projectId, id) =>
+    `/v1/projects/${projectId}/xls-report-templates/${id}/download`,
+  xlsReportRuns: (projectId, id) =>
+    `/v1/projects/${projectId}/xls-report-templates/${id}/runs`,
+  xlsReportRunCancel: (projectId, id, runId) =>
+    `/v1/projects/${projectId}/xls-report-templates/${id}/runs/${runId}/cancel`,
+  xlsReportRunDownload: (projectId, id, runId) =>
+    `/v1/projects/${projectId}/xls-report-templates/${id}/runs/${runId}/download`,
+  widgets: (projectId, query = undefined) =>
+    `/v1/projects/${projectId}/widgets${queryString(query)}`,
+  widget: (projectId, id, query = undefined) =>
+    `/v1/projects/${projectId}/widgets/${id}${queryString(query)}`,
+  widgetOrder: (projectId) => `/v1/projects/${projectId}/widgets/order`,
+  formDashboards: (projectId, xmlFormId) =>
+    `/v1/projects/${projectId}/forms/${encodeURIComponent(xmlFormId)}/dashboards`,
+  sharedDashboard: (token) => `/v1/field-data/shared/${encodeURIComponent(token)}`,
+  formEvidence: (projectId, xmlFormId) =>
+    `/v1/projects/${projectId}/forms/${encodeURIComponent(xmlFormId)}/evidence`,
+  formIntegrity: (projectId, xmlFormId) =>
+    `/v1/projects/${projectId}/forms/${encodeURIComponent(xmlFormId)}/integrity`,
+  reviewQueue: (projectId, xmlFormId, cursor = null, status = 'open') =>
+    `/v1/field-data/review-queue?projectId=${encodeURIComponent(projectId)}&xmlFormId=${encodeURIComponent(xmlFormId)}&status=${encodeURIComponent(status)}${cursor == null ? '' : `&cursor=${encodeURIComponent(cursor)}`}`,
+  reviewCaseAssignment: (caseId) =>
+    `/v1/field-data/review-queue/${encodeURIComponent(caseId)}/assignment`,
+  reviewCase: (caseId) =>
+    `/v1/field-data/review-queue/${encodeURIComponent(caseId)}`,
+  reviewCaseDecisions: (caseId) =>
+    `/v1/field-data/review-queue/${encodeURIComponent(caseId)}/decisions`,
+  reviewCaseBackchecks: (caseId) =>
+    `/v1/field-data/review-queue/${encodeURIComponent(caseId)}/backchecks`,
+  reviewCaseBackcheckAssignees: (caseId) =>
+    `/v1/field-data/review-queue/${encodeURIComponent(caseId)}/backcheck-assignees`,
+  reviewCaseBackcheckLink: (caseId, backcheckId) =>
+    `/v1/field-data/review-queue/${encodeURIComponent(caseId)}/backchecks/${encodeURIComponent(backcheckId)}/link`,
+  formIntegrityRun: (projectId, xmlFormId) =>
+    `/v1/projects/${projectId}/forms/${encodeURIComponent(xmlFormId)}/integrity/run`,
+  formIntegrityFlag: (projectId, xmlFormId, id) =>
+    `/v1/projects/${projectId}/forms/${encodeURIComponent(xmlFormId)}/integrity/${id}`,
+  formPhotos: (projectId, xmlFormId, offset, limit) =>
+    `/v1/projects/${projectId}/forms/${encodeURIComponent(xmlFormId)}/photos?offset=${offset}&limit=${limit}`,
+  // Forms and Submissions across every Project the user can see. The rest of
+  // the API is scoped to one Project, which is no help to somebody who wants
+  // to know which of eight has gone quiet.
+  fieldDataForms: () => '/v1/field-data/forms',
+  fieldDataSubmissions: (query = undefined) =>
+    `/v1/field-data/submissions${queryString(query)}`,
+  // Located Submissions across every Project, as one GeoJSON collection.
+  fieldDataMap: (query = undefined) =>
+    `/v1/field-data/map${queryString(query)}`,
   fieldDataStats: () => '/v1/field-data/stats',
   fieldDataExplore: (form) => `/v1/field-data/explore${form ? `?form=${encodeURIComponent(form)}` : ''}`,
   fieldDataExploreCsv: (form) => `/v1/field-data/explore.csv${form ? `?form=${encodeURIComponent(form)}` : ''}`,
@@ -233,10 +331,29 @@ export const apiPaths = {
   fieldDataMedia: () => '/v1/field-data/media',
   fieldDataMediaItem: (id) => `/v1/field-data/media/${id}`,
   fieldDataMediaDownload: (id) => `/v1/field-data/media/download/${id}`,
+  fieldDataOrganizations: () => '/v1/field-data/organizations',
+  fieldDataOrganization: (slug) =>
+    `/v1/field-data/organizations/${encodeURIComponent(slug)}`,
+  fieldDataOrganizationMembers: (slug) =>
+    `/v1/field-data/organizations/${encodeURIComponent(slug)}/members`,
+  fieldDataOrganizationMember: (slug, actorId) =>
+    `/v1/field-data/organizations/${encodeURIComponent(slug)}/members/${actorId}`,
+  fieldDataOrganizationProjects: (slug) =>
+    `/v1/field-data/organizations/${encodeURIComponent(slug)}/projects`,
+  fieldDataOrganizationRoles: () => '/v1/field-data/organization-roles',
   fieldDataWebhooks: () => '/v1/field-data/webhooks',
+  fieldDataWebhookTargets: () => '/v1/field-data/webhook-targets',
+  fieldDataIntegrationForms: () => '/v1/field-data/integration-forms',
   fieldDataWebhook: (id) => `/v1/field-data/webhooks/${id}`,
   fieldDataWebhookDeliveries: (id) => `/v1/field-data/webhooks/${id}/deliveries`,
-  fieldDataBackups: () => '/v1/field-data/backups'
+  fieldDataWebhookRotateSecret: (id) => `/v1/field-data/webhooks/${id}/rotate-secret`,
+  fieldDataWebhookSyncs: (id) => `/v1/field-data/webhooks/${id}/syncs`,
+  fieldDataWebhookSyncRetry: (id, syncId) =>
+    `/v1/field-data/webhooks/${id}/syncs/${syncId}/retry`,
+  fieldDataWebhookSyncCancel: (id, syncId) =>
+    `/v1/field-data/webhooks/${id}/syncs/${syncId}/cancel`,
+  fieldDataBackups: () => '/v1/field-data/backups',
+  fieldDataBackupDownload: (id) => `/v1/field-data/backups/${id}/download`
 };
 
 

@@ -57,7 +57,7 @@ $icon-font-size: 56px;
   position: absolute;
 
   [class^="icon-"] {
-    color: #555;
+    color: #4d4d5c;
     font-size: $icon-font-size;
   }
 }
@@ -79,7 +79,7 @@ a.summary-item-icon-container [class^="icon-"] { margin-right: 0; }
 }
 
 .summary-item-body {
-  color: #666;
+  color: #68687a;
 
   strong {
     color: $color-text;

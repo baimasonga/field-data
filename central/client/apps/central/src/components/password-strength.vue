@@ -46,7 +46,7 @@ const score = computed(() => {
 @import '../assets/scss/mixins';
 
 .password-strength {
-  background-color: #ddd;
+  background-color: #e0e0ea;
   float: right;
   height: 2px;
   margin-bottom: 20px;

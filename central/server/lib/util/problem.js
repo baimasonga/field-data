@@ -153,6 +153,15 @@ const problems = {
       return `Failed to process ${total} entities in submission due to ${count} errors: ${joined}`;
     }),
 
+    claimVersionIdInvalid: problem(400.44, ({ value }) =>
+      `Claim version ID '${value}' is not a valid UUID.`),
+    idempotencyKeyRequired: problem(400.45, () => 'Idempotency-Key is required.'),
+    idempotencyKeyInvalid: problem(400.46, () => 'Idempotency-Key is invalid.'),
+    evidenceLinkInvalid: problem(400.47, () => 'Evidence link identifiers or relation are invalid.'),
+    reviewQueueInvalid: problem(400.48, () => 'Review queue filters are invalid.'),
+    reviewCursorInvalid: problem(400.49, () => 'Review queue cursor is invalid.'),
+    reviewAssignmentInvalid: problem(400.51, () => 'Review assignment is invalid.'),
+
     // no detail information for security reasons.
     authenticationFailed: problem(401.2, () => 'Could not authenticate with the provided credentials.'),
 
@@ -253,6 +262,29 @@ const problems = {
     deletePropPrereqViolation: problem(409.22, ({ propertyName }) => `Prerequisites for deleting the property "${propertyName}" are not met.`),
 
     datasetMissingForFormRestore: problem(409.23, () => `This Form cannot be restored because the related dataset(s) has been modified or deleted.`),
+    claimVersionConflict: problem(409.24, () =>
+      'The claim changed while this Submission version was being created. Please retry.'),
+
+    claimLineageInvalid: problem(409.25, ({ reason }) =>
+      `The proposed claim version does not extend its claim lineage. ${reason}`),
+    evidenceHashMismatch: problem(409.26, () =>
+      'The stored evidence bytes no longer match their recorded SHA-256 digest.'),
+    evidenceBytesMissing: problem(409.27, () =>
+      'The original evidence bytes are missing.'),
+    evidenceUnverified: problem(409.28, () =>
+      'This evidence has no verified digest; the original cannot be served yet.'),
+    idempotencyKeyReused: problem(409.29, () =>
+      'This Idempotency-Key was used for different work.'),
+    idempotencyInProgress: problem(409.31, () =>
+      'This Idempotency-Key is still in progress. Retry shortly.'),
+    reviewCaseClosed: problem(409.32, () => 'This review case is no longer open.'),
+    reviewCaseAssigned: problem(409.33, () => 'This review case is assigned to another reviewer.'),
+    reviewRevisionStale: problem(412.1, () => 'The review case has changed. Refresh and retry.'),
+    evidenceScopeInvalid: problem(422.1, () =>
+      'The evidence link must refer to this claim version and a valid predecessor.'),
+    reviewAcceptanceBlocked: problem(422.2, () =>
+      'Acceptance requires verified linked evidence and no unresolved integrity findings.'),
+    reviewRevisionRequired: problem(428.1, () => 'If-Match is required for review assignments.'),
   },
   internal: {
     // no detail information, as this is only called when we don't know what happened.
@@ -275,6 +307,12 @@ const problems = {
     s3accessDenied: problem(500.7, () => `The S3 account details or permissions are incorrect.`),
 
     s3upstreamError: problem(500.9, ({ amzRequestId, operation }) => `The upstream S3 server had an internal problem performing '${operation}'. Amazon request ID: '${amzRequestId}'.`),
+
+    claimMappingMissing: problem(500.12, ({ submissionId }) =>
+      `Submission ${submissionId ?? '[unknown]'} has no P0.2 claim mapping.`),
+
+    claimLineageInvalid: problem(500.13, ({ reason }) =>
+      `Stored P0.2 claim lineage is invalid. ${reason}`),
 
     // used to indicate missing odata functionality.
     notImplemented: problem(501.1, ({ feature }) => `The requested feature ${feature} is not supported by this server.`),
@@ -317,4 +355,3 @@ for (const key of Object.keys(problems))
   Problem[key] = problems[key];
 
 module.exports = Problem;
-

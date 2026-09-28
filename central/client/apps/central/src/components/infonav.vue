@@ -50,11 +50,11 @@ const toggleId = `${idPrefix}-toggle`;
 @import '../assets/scss/variables';
 
   #page-head:not(:hover):not(:focus-within) .infonav-button {
-    color: #999;
+    color: #8a8a9c;
     a {
-      color: #999;
+      color: #8a8a9c;
       [class^="icon-"] {
-        color: #aaa;
+        color: #adadbf;
       }
     }
   }

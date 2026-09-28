@@ -19,15 +19,17 @@ RUN echo "deb http://apt.postgresql.org/pub/repos/apt/ $(grep -oP 'VERSION_CODEN
 
 FROM node:${node_version}-slim AS intermediate
 
-# For this customized build, do not depend on Git metadata being available
-# inside the Docker build context. This makes the image build reliably from
-# ZIP downloads, copied folders, forks, and Windows workspaces.
-ARG APP_VERSION=1.0.0
+# Release identity remains available even when the Docker build context does
+# not include Git metadata. CI may override APP_VERSION with a commit-qualified
+# value.
+ARG APP_VERSION
+COPY VERSION /tmp/VERSION
 
 RUN mkdir -p /tmp/sentry-versions \
-    && echo "$APP_VERSION" > /tmp/sentry-versions/central \
-    && echo "$APP_VERSION" > /tmp/sentry-versions/server \
-    && echo "$APP_VERSION" > /tmp/sentry-versions/client
+    && VERSION="${APP_VERSION:-$(cat /tmp/VERSION)}" \
+    && echo "$VERSION" > /tmp/sentry-versions/central \
+    && echo "$VERSION" > /tmp/sentry-versions/server \
+    && echo "$VERSION" > /tmp/sentry-versions/client
 
 
 

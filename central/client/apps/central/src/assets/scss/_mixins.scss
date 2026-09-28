@@ -99,8 +99,8 @@
 // FORMS
 
 @mixin form-control-background {
-  background-color: #eee;
-  .panel-body &, .modal-body & { background-color: #f7f7f7; }
+  background-color: #f1f1f6;
+  .panel-body &, .modal-body & { background-color: #f8f8fb; }
 }
 
 @mixin filter-control {
@@ -112,12 +112,12 @@
   align-items: center;
   gap: 8px;
   border-radius: 2px;
-  border: 1px solid #EEE;
+  border: 1px solid #f1f1f6;
   background: #FFF;
 
   &.disabled {
     cursor: not-allowed;
-    background: #ddd;
+    background: #e0e0ea;
     opacity: 0.65;
 
     .display-value {
@@ -190,6 +190,6 @@
   bottom: 0;
   left: 0;
   z-index: $z-index-modal-backdrop;
-  background-color: #000;
+  background-color: #0c0c11;
   opacity: $opacity;
 }

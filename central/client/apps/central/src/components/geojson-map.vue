@@ -733,8 +733,8 @@ defineExpose({
 $spacing: 10px;
 $background-color: #fff;
 $radius: 6px;
-$border-color: #cbd5e1;
-$muted-background-color: #F1F5F9;
+$border-color: #cfcfdc;
+$muted-background-color: #f8f8fb;
 
 .geojson-map {
   position: relative;
@@ -756,7 +756,7 @@ $muted-background-color: #F1F5F9;
 
     background-color: #fff;
     border-radius: 4px;
-    color: #000;
+    color: #0c0c11;
     font-size: 12px;
     line-height: 16px;
     padding-block: 6px;
@@ -855,7 +855,7 @@ $muted-background-color: #F1F5F9;
     li, a {
       font-size: 10px;
       line-height: 14px;
-      color: #777;
+      color: #68687a;
     }
   }
 }

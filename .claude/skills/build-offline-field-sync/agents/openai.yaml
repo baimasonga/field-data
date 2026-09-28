@@ -1,0 +1,14 @@
+interface:
+  display_name: Build Offline Field Sync
+  short_description: Engineer resilient offline data movement
+  default_prompt: Use $build-offline-field-sync to build or harden offline-first field
+    collection and synchronization.
+  icon_small: assets/icon.svg
+  icon_large: assets/icon.svg
+policy:
+  products:
+  - chatgpt
+  - codex
+  - api
+  - atlas
+  allow_implicit_invocation: true

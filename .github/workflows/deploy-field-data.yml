@@ -1,0 +1,526 @@
+name: Deploy Field Data
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+concurrency:
+  group: field-data-production
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    name: Deploy Cloudflare Worker and Container
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    environment: production
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install deployment dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Validate Cloudflare configuration
+        run: npm run check
+
+      # The container creates the first administrator on boot, and the server
+      # rejects a password under ten characters inside the same transaction
+      # that would create the account: a short secret leaves no user, no error
+      # anywhere a browser can see, and a login page that simply never works.
+      # That is worth failing a deploy over, here where the reason is readable.
+      - name: Check the administrator password meets the server's rules
+        env:
+          FIELD_DATA_ADMIN_PASSWORD: ${{ secrets.FIELD_DATA_ADMIN_PASSWORD }}
+        run: |
+          if [[ -z "${FIELD_DATA_ADMIN_PASSWORD:-}" ]]; then
+            echo "FIELD_DATA_ADMIN_PASSWORD is not set, so no administrator can" >&2
+            echo "be created and nobody will be able to log in." >&2
+            exit 1
+          fi
+          length=${#FIELD_DATA_ADMIN_PASSWORD}
+          bytes=$(printf %s "$FIELD_DATA_ADMIN_PASSWORD" | wc -c)
+          if (( length < 10 )); then
+            echo "FIELD_DATA_ADMIN_PASSWORD is $length characters. The server" >&2
+            echo "requires at least 10, so the administrator would not be created." >&2
+            exit 1
+          fi
+          if (( bytes > 72 )); then
+            echo "FIELD_DATA_ADMIN_PASSWORD is $bytes bytes. bcrypt reads only the" >&2
+            echo "first 72, and the server rejects anything longer." >&2
+            exit 1
+          fi
+          echo "FIELD_DATA_ADMIN_PASSWORD is $length characters, which the server accepts."
+
+      - name: Verify Supabase database connection
+        env:
+          # The pooler caps how many session-mode clients may be connected at
+          # once and the running application holds several of them, so prefer a
+          # direct connection when one is configured: a deploy-time check has no
+          # business competing for the slots live traffic needs.
+          PGHOST: ${{ secrets.PGHOST_DIRECT || secrets.PGHOST }}
+          PGPORT: ${{ secrets.PGPORT_DIRECT || secrets.PGPORT }}
+          PGUSER: ${{ secrets.PGUSER }}
+          PGPASSWORD: ${{ secrets.PGPASSWORD }}
+          PGDATABASE: postgres
+          PGSSLMODE: require
+          PGOPTIONS: "-c search_path=field_data,extensions,public"
+          PGCONNECT_TIMEOUT: "15"
+        run: |
+          docker build -q -t field-data-db-check .
+
+          # One connection, not two: the raw psql probe this replaced told us
+          # nothing the application runtime does not already establish.
+          check() {
+            docker run --rm --entrypoint node \
+              -e PGHOST -e PGPORT -e PGUSER -e PGPASSWORD -e PGDATABASE -e PGSSLMODE -e PGOPTIONS \
+              field-data-db-check -e '
+                const { Client } = require("pg");
+                const client = new Client({ connectionTimeoutMillis: 15000 });
+                (async () => {
+                  try {
+                    await client.connect();
+                    const result = await client.query("SELECT current_schema() AS schema");
+                    if (result.rows[0].schema !== "field_data") {
+                      console.error("NODE_DATABASE_SCHEMA_MISMATCH");
+                      process.exitCode = 1;
+                      return;
+                    }
+                    console.log("NODE_DATABASE_OK");
+                  } catch (error) {
+                    const code = error.code;
+                    const message = String((error && error.message) || error);
+                    const tls = ["SELF_SIGNED_CERT_IN_CHAIN", "DEPTH_ZERO_SELF_SIGNED_CERT", "UNABLE_TO_VERIFY_LEAF_SIGNATURE", "UNABLE_TO_GET_ISSUER_CERT_LOCALLY", "CERT_HAS_EXPIRED", "ERR_TLS_CERT_ALTNAME_INVALID"];
+                    const network = ["ENOTFOUND", "EAI_AGAIN", "ECONNREFUSED", "ETIMEDOUT", "ENETUNREACH"];
+                    console.error(/max clients reached/i.test(message) ? "NODE_DATABASE_POOL_EXHAUSTED" :
+                      tls.includes(code) ? "NODE_DATABASE_TLS_ERROR" :
+                      code === "28P01" ? "NODE_DATABASE_AUTH_ERROR" :
+                      network.includes(code) ? "NODE_DATABASE_NETWORK_ERROR" : "NODE_DATABASE_OTHER_ERROR");
+                    console.error(message);
+                    process.exitCode = 1;
+                  } finally {
+                    await client.end().catch(() => {});
+                  }
+                })();
+              '
+          }
+
+          # A full pooler is a queue, not a broken database, so wait for a slot
+          # rather than failing the deploy. Every other failure is still fatal
+          # on the first attempt.
+          for attempt in 1 2 3 4 5; do
+            if output=$(check 2>&1); then
+              echo "$output"
+              exit 0
+            fi
+            echo "$output"
+            if ! printf '%s' "$output" | grep -q NODE_DATABASE_POOL_EXHAUSTED; then
+              exit 1
+            fi
+            echo "No free session slot on the pooler (attempt $attempt of 5); waiting 30s."
+            sleep 30
+          done
+          echo "The pooler never freed a session slot." >&2
+          exit 1
+
+      # The container is supposed to do this on boot, and does not: after four
+      # deploys the users table is still empty and the table the bootstrap
+      # writes its own outcome to has never been created, so it is not failing
+      # partway, it is not running. Rather than debug a log nobody here can
+      # read, create the account from the deploy, where every step is visible.
+      #
+      # This writes the same four rows the server writes: an actee to be named
+      # by, an actor to hold permissions, the user itself, and an administrator
+      # assignment over '*'. The hash comes from the server's own bcrypt at the
+      # server's own cost factor, so it is a hash the server will verify.
+      #
+      # An account that already exists is left exactly as it is. Somebody may
+      # have changed that password deliberately, and a deploy is not the place
+      # to change it back.
+      - name: Make sure the administrator account exists
+        env:
+          PGHOST: ${{ secrets.PGHOST_DIRECT || secrets.PGHOST }}
+          PGPORT: ${{ secrets.PGPORT_DIRECT || secrets.PGPORT }}
+          PGUSER: ${{ secrets.PGUSER }}
+          PGPASSWORD: ${{ secrets.PGPASSWORD }}
+          PGDATABASE: postgres
+          PGSSLMODE: require
+          PGOPTIONS: "-c search_path=field_data,extensions,public"
+          PGCONNECT_TIMEOUT: "15"
+          SYSADMIN_EMAIL: ${{ vars.SYSADMIN_EMAIL || 'admin@fielddata.quantixsl.com' }}
+          FIELD_DATA_ADMIN_PASSWORD: ${{ secrets.FIELD_DATA_ADMIN_PASSWORD }}
+        run: |
+          docker run --rm --entrypoint node \
+            -e PGHOST -e PGPORT -e PGUSER -e PGPASSWORD -e PGDATABASE -e PGSSLMODE \
+            -e PGOPTIONS -e SYSADMIN_EMAIL -e FIELD_DATA_ADMIN_PASSWORD \
+            field-data-db-check -e '
+              const { Client } = require("pg");
+              const bcrypt = require("bcrypt");
+              const { randomUUID } = require("crypto");
+
+              const email = process.env.SYSADMIN_EMAIL;
+              const password = process.env.FIELD_DATA_ADMIN_PASSWORD;
+
+              (async () => {
+                const client = new Client({ connectionTimeoutMillis: 15000 });
+                await client.connect();
+                try {
+                  const found = await client.query(
+                    `select 1 from field_data.users where email = $1`, [email]);
+                  if (found.rowCount > 0) {
+                    console.log(`${email} already exists; leaving it alone.`);
+                    return;
+                  }
+
+                  const role = await client.query(
+                    `select id from field_data.roles where system = $1`, ["admin"]);
+                  if (role.rowCount === 0)
+                    throw new Error("No administrator role exists. Have the migrations run?");
+
+                  // Cost 12 is what lib/util/crypto.js uses.
+                  const hash = await bcrypt.hash(password, 12);
+                  const actee = randomUUID();
+
+                  await client.query("begin");
+                  await client.query(
+                    `insert into field_data.actees (id, species) values ($1, $2)`,
+                    [actee, "user"]);
+                  const actor = await client.query(
+                    `insert into field_data.actors (type, "acteeId", "displayName", "createdAt")
+                     values ($1, $2, $3, clock_timestamp()) returning id`,
+                    ["user", actee, email]);
+                  const actorId = actor.rows[0].id;
+                  await client.query(
+                    `insert into field_data.users ("actorId", password, email)
+                     values ($1, $2, $3)`,
+                    [actorId, hash, email]);
+                  await client.query(
+                    `insert into field_data.assignments ("actorId", "roleId", "acteeId")
+                     values ($1, $2, $3)`,
+                    [actorId, role.rows[0].id, "*"]);
+                  await client.query("commit");
+                  console.log(`Created ${email} as an administrator.`);
+                } catch (error) {
+                  await client.query("rollback").catch(() => {});
+                  throw error;
+                } finally {
+                  await client.end().catch(() => {});
+                }
+              })().catch((error) => {
+                console.error(String(error.message || error));
+                process.exitCode = 1;
+              });
+            '
+
+      # Upload secrets with the new Worker version. A later 'secret bulk' call
+      # fails with Cloudflare 10215 when the newest version is not fully deployed.
+      # A temporary JSON file keeps secret values out of command arguments/logs.
+      - name: Deploy Field Data with Worker secrets
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          PGHOST: ${{ secrets.PGHOST }}
+          PGPORT: ${{ secrets.PGPORT }}
+          PGUSER: ${{ secrets.PGUSER }}
+          PGPASSWORD: ${{ secrets.PGPASSWORD }}
+          SUPABASE_S3_ACCESS_KEY_ID: ${{ secrets.SUPABASE_S3_ACCESS_KEY_ID }}
+          SUPABASE_S3_SECRET_ACCESS_KEY: ${{ secrets.SUPABASE_S3_SECRET_ACCESS_KEY }}
+          FIELD_DATA_BACKUP_PASSPHRASE: ${{ secrets.FIELD_DATA_BACKUP_PASSPHRASE }}
+          FIELD_DATA_WEBHOOK_ENCRYPTION_KEY: ${{ secrets.FIELD_DATA_WEBHOOK_ENCRYPTION_KEY }}
+          FIELD_DATA_ADMIN_PASSWORD: ${{ secrets.FIELD_DATA_ADMIN_PASSWORD }}
+          EMAIL_USER: ${{ secrets.EMAIL_USER }}
+          EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
+        run: |
+          umask 077
+          secret_file="$RUNNER_TEMP/field-data-secrets.json"
+          trap 'rm -f "$secret_file"' EXIT
+          jq -n '{
+            PGHOST: env.PGHOST, PGPORT: env.PGPORT, PGUSER: env.PGUSER,
+            PGPASSWORD: env.PGPASSWORD,
+            SUPABASE_S3_ACCESS_KEY_ID: env.SUPABASE_S3_ACCESS_KEY_ID,
+            SUPABASE_S3_SECRET_ACCESS_KEY: env.SUPABASE_S3_SECRET_ACCESS_KEY,
+            FIELD_DATA_BACKUP_PASSPHRASE: env.FIELD_DATA_BACKUP_PASSPHRASE,
+            FIELD_DATA_WEBHOOK_ENCRYPTION_KEY: env.FIELD_DATA_WEBHOOK_ENCRYPTION_KEY,
+            FIELD_DATA_ADMIN_PASSWORD: env.FIELD_DATA_ADMIN_PASSWORD,
+            EMAIL_USER: env.EMAIL_USER, EMAIL_PASSWORD: env.EMAIL_PASSWORD
+          } | with_entries(select(.value != null and .value != ""))' > "$secret_file"
+          npx --no-install wrangler deploy \
+            --var "CONTAINER_BUILD_ID:${{ github.sha }}" \
+            --secrets-file "$secret_file"
+
+      - name: Verify live health endpoint
+        run: |
+          curl --fail --silent --show-error \
+            --retry 30 --retry-delay 20 --retry-all-errors \
+            https://field-data.mohamedbangura.workers.dev/healthz
+
+      # The client is two applications behind one origin, and nginx decides
+      # which one a URL belongs to. Get that wrong and filling in a form, or
+      # previewing a draft, silently serves the management app instead, which
+      # has no route for those URLs and renders "Page Not Found" on a page that
+      # exists. Nothing else in this deploy would notice, so check it here.
+      #
+      # nginx serves these from static files, so no real form is needed: the
+      # question is only which HTML comes back.
+      - name: Check each URL reaches the right application
+        run: |
+          base=https://field-data.mohamedbangura.workers.dev
+
+          # A deploy only repoints the container application at the new image.
+          # The instance that is running keeps serving the old one -- old nginx
+          # and all -- until a request retires it and a fresh one finishes
+          # booting. So this cannot assert once and believe the answer: a fast
+          # reply here means some container is up, not that it is this one.
+          # Retry until the new configuration is the one answering, and only
+          # call it a failure when it never is.
+          serves() {
+            local path=$1 expected=$2
+            local body
+            body=$(curl --silent --show-error --max-time 60 "$base$path") || body=''
+            printf '%s' "$body" | grep -q "$expected"
+          }
+
+          check_all() {
+            # Filling in, previewing and editing belong to the Web Forms app.
+            serves /projects/1/forms/probe/submissions/new /assets/forms/ &&
+            serves /projects/1/forms/probe/draft/submissions/new /assets/forms/ &&
+            serves /projects/1/forms/probe/draft/preview /assets/forms/ &&
+            serves /f/probe123 /assets/forms/ &&
+            # Everything else belongs to the management app.
+            serves /projects/1/forms/probe/submissions /assets/central/ &&
+            serves /users /assets/central/
+          }
+
+          for attempt in $(seq 1 20); do
+            if check_all; then
+              echo "Every URL reached the right application (after $attempt attempt(s))."
+              exit 0
+            fi
+            echo "Not yet on attempt $attempt; the new container may still be booting."
+            sleep 15
+          done
+
+          echo "URLs are still reaching the wrong application after five minutes:" >&2
+          for pair in \
+            "/projects/1/forms/probe/submissions/new|/assets/forms/|Web Forms" \
+            "/projects/1/forms/probe/draft/submissions/new|/assets/forms/|Web Forms" \
+            "/projects/1/forms/probe/draft/preview|/assets/forms/|Web Forms" \
+            "/f/probe123|/assets/forms/|Web Forms" \
+            "/projects/1/forms/probe/submissions|/assets/central/|the management app" \
+            "/users|/assets/central/|the management app"
+          do
+            IFS='|' read -r path expected label <<< "$pair"
+            if serves "$path" "$expected"; then
+              echo "  ok    $path -> $label" >&2
+            else
+              echo "  WRONG $path did not reach $label" >&2
+            fi
+          done
+          exit 1
+
+      # Health means nginx is answering, which it does before the backend has
+      # finished booting. The only test of "can somebody log in" is logging in,
+      # so do that here, where the server's own answer is readable.
+      #
+      # The password is never echoed. Only the status code and the message the
+      # server returns are printed, and the server's messages never quote the
+      # credential back.
+      - name: Check that the administrator can log in
+        env:
+          SYSADMIN_EMAIL: ${{ vars.SYSADMIN_EMAIL || 'admin@fielddata.quantixsl.com' }}
+          FIELD_DATA_ADMIN_PASSWORD: ${{ secrets.FIELD_DATA_ADMIN_PASSWORD }}
+        run: |
+          body=$(jq -nc --arg e "$SYSADMIN_EMAIL" --arg p "$FIELD_DATA_ADMIN_PASSWORD" \
+            '{email: $e, password: $p}')
+
+          # The question is "can the administrator log in, once the system is
+          # up". Only two answers exist: 200 is yes, 401 is no. Everything else
+          # -- a booting backend, a container being replaced, whatever sentence
+          # the runtime invents for a container that went away -- means the
+          # system is not up yet and is worth waiting out.
+          #
+          # Three deploys were failed by enumerating those sentences one at a
+          # time. This stops enumerating them.
+          for attempt in $(seq 1 12); do
+            response=$(curl --silent --show-error --max-time 30 \
+              --write-out '\n%{http_code}' \
+              --header 'Content-Type: application/json' \
+              --data "$body" \
+              https://field-data.mohamedbangura.workers.dev/v1/sessions) || true
+            status=${response##*$'\n'}
+            payload=${response%$'\n'*}
+
+            if [[ "$status" == 200 ]]; then
+              # Kept for the smoke test below, which needs a real session to
+              # ask whether anything works beyond the login itself. Masked so
+              # it cannot be read out of the log.
+              token=$(printf '%s\n' "$payload" | jq -r '.token // empty')
+              if [[ -n "$token" ]]; then
+                echo "::add-mask::$token"
+                echo "FIELD_DATA_SESSION_TOKEN=$token" >> "$GITHUB_ENV"
+              fi
+              echo "The administrator can log in (after $attempt attempt(s))."
+              exit 0
+            fi
+
+            if [[ "$status" == 401 ]]; then
+              echo "The server rejected the administrator's credentials:"
+              printf '%s\n' "$payload" | jq . 2>/dev/null || printf '%s\n' "$payload"
+              echo "Nobody can log in with $SYSADMIN_EMAIL." >&2
+              exit 1
+            fi
+
+            echo "Not up yet: answered $status (attempt $attempt of 12); waiting 20s."
+            sleep 20
+          done
+
+          echo "The server never became ready enough to answer a login in four minutes." >&2
+          echo "The last answer was $status:" >&2
+          printf '%s\n' "$payload" >&2
+          exit 1
+
+      # Logging in proves the front door opens. It says nothing about whether
+      # anything inside works, and a deploy that authenticates but cannot list
+      # a Project is broken in a way nobody notices until a person tries to
+      # work. This walks the path a person actually takes on their first visit
+      # and names the step that broke.
+      #
+      # An empty deployment passes: a Project list that is legitimately empty
+      # answers 200 with [], which is the thing being checked. The walk stops
+      # going deeper when there is nothing to go deeper into.
+      - name: Walk the critical path with that session
+        if: env.FIELD_DATA_SESSION_TOKEN != ''
+        env:
+          BASE: https://field-data.mohamedbangura.workers.dev
+        run: |
+          set -o pipefail
+          auth="Authorization: Bearer $FIELD_DATA_SESSION_TOKEN"
+          failed=0
+
+          # Prints the step, keeps going, and records whether it worked, so one
+          # run reports every broken thing rather than only the first.
+          get() {
+            local label=$1 path=$2
+            local out status
+            out=$(curl --silent --show-error --max-time 45 --write-out '\n%{http_code}' \
+              --header "$auth" "$BASE$path") || out=$'\n000'
+            status=${out##*$'\n'}
+            body=${out%$'\n'*}
+            if [[ "$status" == 200 ]]; then
+              echo "  ok   $label ($path)"
+              return 0
+            fi
+            echo "  FAIL $label ($path) answered $status" >&2
+            printf '%s\n' "$body" | head -c 400 >&2; echo >&2
+            failed=1
+            return 1
+          }
+
+          echo "Walking the critical path:"
+
+          get "current user"   "/v1/users/current" || true
+          get "Project list"   "/v1/projects" || true
+
+          project=$(printf '%s' "$body" | jq -r '.[0].id // empty' 2>/dev/null || true)
+          if [[ -z "$project" ]]; then
+            echo "  --   no Projects yet, so there is nothing further to open."
+          else
+            if get "Forms in Project $project" "/v1/projects/$project/forms"; then
+              form=$(printf '%s' "$body" | jq -r '[.[] | select(.publishedAt != null)][0].xmlFormId // empty' 2>/dev/null || true)
+              if [[ -z "$form" ]]; then
+                echo "  --   no published Form, so Submissions are not reachable yet."
+              else
+                encoded=$(jq -rn --arg f "$form" '$f|@uri')
+                get "Submissions of $form" \
+                  "/v1/projects/$project/forms/$encoded/submissions" || true
+              fi
+            fi
+          fi
+
+          # Fork-specific, and the reason this smoke test exists: these routes
+          # are not covered by anything upstream.
+          get "cross-project Forms"       "/v1/field-data/forms?limit=1" || true
+          get "cross-project Submissions" "/v1/field-data/submissions?limit=1" || true
+          get "cross-project Map"         "/v1/field-data/map?limit=1" || true
+
+          if [[ "$failed" != 0 ]]; then
+            echo "The deployment authenticates but part of the critical path is broken." >&2
+            exit 1
+          fi
+          echo "Every step of the critical path answered."
+
+      # Best effort: a session left open is harmless but untidy, and this must
+      # never be the thing that fails a deploy.
+      - name: Close the smoke-test session
+        if: always() && env.FIELD_DATA_SESSION_TOKEN != ''
+        continue-on-error: true
+        run: |
+          curl --silent --show-error --max-time 30 --request DELETE \
+            --header "Authorization: Bearer $FIELD_DATA_SESSION_TOKEN" \
+            https://field-data.mohamedbangura.workers.dev/v1/sessions/current \
+            >/dev/null && echo "Session closed." || echo "Could not close the session; it will expire."
+
+
+      # Runs whether the login worked or not, because the interesting case is
+      # the one where it did not. Says who exists and what the container's
+      # bootstrap recorded about trying to create them. No password or hash is
+      # selected here, only whether one is set.
+      - name: Report the accounts the database holds
+        if: always()
+        env:
+          PGHOST: ${{ secrets.PGHOST_DIRECT || secrets.PGHOST }}
+          PGPORT: ${{ secrets.PGPORT_DIRECT || secrets.PGPORT }}
+          PGUSER: ${{ secrets.PGUSER }}
+          PGPASSWORD: ${{ secrets.PGPASSWORD }}
+          PGDATABASE: postgres
+          PGSSLMODE: require
+          PGOPTIONS: "-c search_path=field_data,extensions,public"
+          PGCONNECT_TIMEOUT: "15"
+        run: |
+          docker run --rm --entrypoint node \
+            -e PGHOST -e PGPORT -e PGUSER -e PGPASSWORD -e PGDATABASE -e PGSSLMODE -e PGOPTIONS \
+            field-data-db-check -e '
+              const { Client } = require("pg");
+              const client = new Client({ connectionTimeoutMillis: 15000 });
+              const show = async (label, sql) => {
+                try {
+                  const { rows } = await client.query(sql);
+                  console.log(`\n${label}:`);
+                  console.log(rows.length ? JSON.stringify(rows, null, 2) : "  (no rows)");
+                } catch (error) {
+                  console.log(`\n${label}: ${String(error.message || error)}`);
+                }
+              };
+              (async () => {
+                await client.connect();
+                await show("accounts", `
+                  select u.email,
+                         a."displayName",
+                         u.password is not null as "hasPassword",
+                         r.name as role
+                  from field_data.users u
+                    join field_data.actors a on a.id = u."actorId"
+                    left join field_data.assignments s on s."actorId" = u."actorId"
+                    left join field_data.roles r on r.id = s."roleId"
+                  order by u.email`);
+                await show("what the container recorded at boot", `
+                  select at, outcome, detail
+                  from field_data.bootstrap_log
+                  order by at desc limit 10`);
+                await client.end();
+              })().catch((error) => {
+                console.error(String(error.message || error));
+                process.exitCode = 1;
+              });
+            '

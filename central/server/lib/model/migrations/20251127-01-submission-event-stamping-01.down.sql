@@ -9,19 +9,19 @@
 
 
 --- drop: get_event(submission_id integer) ---
-DROP FUNCTION IF EXISTS "public"."get_event"(submission_id integer) CASCADE;
+DROP FUNCTION IF EXISTS "get_event"(submission_id integer) CASCADE;
 
 --- drop: public.submissions.set_eventstamp_submissions_at_commit ---
-DROP TRIGGER IF EXISTS set_eventstamp_submissions_at_commit ON "public"."submissions" CASCADE;
+DROP TRIGGER IF EXISTS set_eventstamp_submissions_at_commit ON "submissions" CASCADE;
 
 --- drop: public.submissions.blank_submissions_event_on_insert ---
-DROP TRIGGER IF EXISTS blank_submissions_event_on_insert ON "public"."submissions" CASCADE;
+DROP TRIGGER IF EXISTS blank_submissions_event_on_insert ON "submissions" CASCADE;
 
 --- drop: eventstamp_submissions_triggerfunction ---
-DROP FUNCTION IF EXISTS "public"."eventstamp_submissions_triggerfunction"() CASCADE;
+DROP FUNCTION IF EXISTS "eventstamp_submissions_triggerfunction"() CASCADE;
 
 --- drop: blank_submissions_event_triggerfunction ---
-DROP FUNCTION IF EXISTS "public"."blank_submissions_event_triggerfunction"() CASCADE;
+DROP FUNCTION IF EXISTS "blank_submissions_event_triggerfunction"() CASCADE;
 
 --- drop: public.submissions.blank_submissions_event_on_update ---
-DROP TRIGGER IF EXISTS blank_submissions_event_on_update ON "public"."submissions" CASCADE;
+DROP TRIGGER IF EXISTS blank_submissions_event_on_update ON "submissions" CASCADE;

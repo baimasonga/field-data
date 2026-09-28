@@ -58,11 +58,11 @@ const { reviewStateIcon } = useReviewState();
   @mixin review-state-color($color) {
     & [class^="icon-"], &.color-text span:last-child { color: $color; }
   }
-  @include review-state-color(#999);
-  &.hasIssues { @include review-state-color($color-warning); }
-  &.edited { @include review-state-color(#666); }
-  &.approved { @include review-state-color($color-success); }
-  &.rejected { @include review-state-color($color-danger); }
+  @include review-state-color($color-text-secondary);
+  &.hasIssues { @include review-state-color($color-warning-text); }
+  &.edited { @include review-state-color($color-text-secondary); }
+  &.approved { @include review-state-color($color-success-text); }
+  &.rejected { @include review-state-color($color-danger-text); }
 
   // Minimize the CSS specificity to make it easy to override this style (e.g.,
   // in FeedEntry).

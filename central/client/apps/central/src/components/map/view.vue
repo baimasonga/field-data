@@ -152,7 +152,7 @@ defineExpose({ fetchData, cancelFetch, afterDelete });
 #map-view {
   position: relative;
 
-  .loading { color: #555; }
+  .loading { color: #4d4d5c; }
   .page-section:has(&) { margin-bottom: 15px; }
 }
 </style>

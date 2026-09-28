@@ -9,8 +9,8 @@
 
 
 const up = async (db) => {
-  await db.raw('CREATE INDEX entities_deletedat_index ON public.entities USING btree ("deletedAt")');
-  await db.raw('CREATE INDEX entity_defs_sourceid_index ON public.entity_defs USING btree ("sourceId");');
+  await db.raw('CREATE INDEX entities_deletedat_index ON entities USING btree ("deletedAt")');
+  await db.raw('CREATE INDEX entity_defs_sourceid_index ON entity_defs USING btree ("sourceId");');
 };
 
 const down = async (db) => {

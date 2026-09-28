@@ -9,7 +9,7 @@
 
 const up = async (db) => {
   await db.raw('ALTER TABLE ds_properties DROP CONSTRAINT ds_properties_name_datasetid_unique');
-  await db.raw(`CREATE UNIQUE INDEX ds_properties_datasetid_name_deletedat_unique ON public.ds_properties ("datasetId", "name") WHERE ("deletedAt" IS NULL)`);
+  await db.raw(`CREATE UNIQUE INDEX ds_properties_datasetid_name_deletedat_unique ON ds_properties ("datasetId", "name") WHERE ("deletedAt" IS NULL)`);
 };
 
 const down = async (db) => {

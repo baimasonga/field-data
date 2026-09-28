@@ -164,7 +164,7 @@ export default {
   td {
     font-size: 16px;
     padding: 3px 0px 3px 6px;
-    color: #333;
+    color: #333340;
   }
 
   .name {
@@ -183,7 +183,7 @@ export default {
     width: 100px;
     & [class*='icon'] {
       margin-left: 5px;
-      color: #888;
+      color: #8a8a9c;
     }
   }
 
@@ -200,7 +200,7 @@ export default {
     border-radius: 9999px;
     padding: 4px 8px;
     margin: -4px;
-    &:hover { background: #e8e8e8 }
+    &:hover { background: #e9e9f1 }
   }
 
   .actions {
@@ -213,17 +213,17 @@ export default {
     width: 150px;
     & [class*='icon'] {
       margin-left: 5px;
-      color: #888;
+      color: #8a8a9c;
     }
   }
 
   .closing-icon {
     margin-right: 5px;
-    color: #888;
+    color: #8a8a9c;
   }
 
   td.review-state {
-    background-color: #eee;
+    background-color: #f1f1f6;
   }
 }
 </style>

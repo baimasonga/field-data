@@ -1,0 +1,14 @@
+interface:
+  display_name: Build Adaptive Surveys
+  short_description: Create intelligent, evolving survey workflows
+  default_prompt: Use $build-adaptive-surveys to design and implement an adaptive
+    survey capability safely.
+  icon_small: assets/icon.svg
+  icon_large: assets/icon.svg
+policy:
+  products:
+  - chatgpt
+  - codex
+  - api
+  - atlas
+  allow_implicit_invocation: true

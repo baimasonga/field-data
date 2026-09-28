@@ -53,7 +53,7 @@ $margin-bottom: 20px;
   time {
     float: right;
     font-size: 13px;
-    color: #666;
+    color: #68687a;
     line-height: 25px;
   }
 }

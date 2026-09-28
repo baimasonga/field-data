@@ -37,7 +37,7 @@ defineEmits(['rows']);
 
 <style lang="scss">
 #entity-upload-warnings {
-  background-color: #deedf3;
+  background-color: #e9f1fd;
   padding: 9px 6px;
 }
 </style>

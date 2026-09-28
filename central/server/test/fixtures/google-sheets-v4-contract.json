@@ -1,0 +1,182 @@
+{
+  "_source": "https://sheets.googleapis.com/$discovery/rest?version=v4",
+  "_fetched": "2026-09-20",
+  "_note": "Extracted from Google's own machine-readable discovery document. Refresh with the command in google-sheets-contract.js.",
+  "revision": "20260909",
+  "rootUrl": "https://sheets.googleapis.com/",
+  "servicePath": "",
+  "methods": {
+    "get": {
+      "httpMethod": "GET",
+      "path": "v4/spreadsheets/{spreadsheetId}/values/{range}",
+      "parameters": {
+        "dateTimeRenderOption": {
+          "type": "string",
+          "enum": [
+            "SERIAL_NUMBER",
+            "FORMATTED_STRING"
+          ]
+        },
+        "majorDimension": {
+          "type": "string",
+          "enum": [
+            "DIMENSION_UNSPECIFIED",
+            "ROWS",
+            "COLUMNS"
+          ]
+        },
+        "range": {
+          "type": "string",
+          "enum": null
+        },
+        "spreadsheetId": {
+          "type": "string",
+          "enum": null
+        },
+        "valueRenderOption": {
+          "type": "string",
+          "enum": [
+            "FORMATTED_VALUE",
+            "UNFORMATTED_VALUE",
+            "FORMULA"
+          ]
+        }
+      },
+      "request": null,
+      "response": "ValueRange"
+    },
+    "append": {
+      "httpMethod": "POST",
+      "path": "v4/spreadsheets/{spreadsheetId}/values/{range}:append",
+      "parameters": {
+        "includeValuesInResponse": {
+          "type": "boolean",
+          "enum": null
+        },
+        "insertDataOption": {
+          "type": "string",
+          "enum": [
+            "OVERWRITE",
+            "INSERT_ROWS"
+          ]
+        },
+        "range": {
+          "type": "string",
+          "enum": null
+        },
+        "responseDateTimeRenderOption": {
+          "type": "string",
+          "enum": [
+            "SERIAL_NUMBER",
+            "FORMATTED_STRING"
+          ]
+        },
+        "responseValueRenderOption": {
+          "type": "string",
+          "enum": [
+            "FORMATTED_VALUE",
+            "UNFORMATTED_VALUE",
+            "FORMULA"
+          ]
+        },
+        "spreadsheetId": {
+          "type": "string",
+          "enum": null
+        },
+        "valueInputOption": {
+          "type": "string",
+          "enum": [
+            "INPUT_VALUE_OPTION_UNSPECIFIED",
+            "RAW",
+            "USER_ENTERED"
+          ]
+        }
+      },
+      "request": "ValueRange",
+      "response": "AppendValuesResponse"
+    },
+    "update": {
+      "httpMethod": "PUT",
+      "path": "v4/spreadsheets/{spreadsheetId}/values/{range}",
+      "parameters": {
+        "includeValuesInResponse": {
+          "type": "boolean",
+          "enum": null
+        },
+        "range": {
+          "type": "string",
+          "enum": null
+        },
+        "responseDateTimeRenderOption": {
+          "type": "string",
+          "enum": [
+            "SERIAL_NUMBER",
+            "FORMATTED_STRING"
+          ]
+        },
+        "responseValueRenderOption": {
+          "type": "string",
+          "enum": [
+            "FORMATTED_VALUE",
+            "UNFORMATTED_VALUE",
+            "FORMULA"
+          ]
+        },
+        "spreadsheetId": {
+          "type": "string",
+          "enum": null
+        },
+        "valueInputOption": {
+          "type": "string",
+          "enum": [
+            "INPUT_VALUE_OPTION_UNSPECIFIED",
+            "RAW",
+            "USER_ENTERED"
+          ]
+        }
+      },
+      "request": "ValueRange",
+      "response": "UpdateValuesResponse"
+    }
+  },
+  "schemas": {
+    "ValueRange": [
+      "majorDimension",
+      "range",
+      "values"
+    ],
+    "AppendValuesResponse": [
+      "spreadsheetId",
+      "tableRange",
+      "updates"
+    ],
+    "UpdateValuesResponse": [
+      "spreadsheetId",
+      "updatedCells",
+      "updatedColumns",
+      "updatedData",
+      "updatedRange",
+      "updatedRows"
+    ]
+  },
+  "observedErrors": {
+    "_note": "Captured live from the real endpoints on 2026-09-20 with deliberately invalid credentials.",
+    "token": {
+      "status": 401,
+      "body": {
+        "error": "invalid_client",
+        "error_description": "The OAuth client was not found."
+      }
+    },
+    "sheets": {
+      "status": 401,
+      "body": {
+        "error": {
+          "code": 401,
+          "status": "UNAUTHENTICATED",
+          "message": "Request had invalid authentication credentials."
+        }
+      }
+    }
+  }
+}

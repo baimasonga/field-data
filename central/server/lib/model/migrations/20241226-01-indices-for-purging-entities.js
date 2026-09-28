@@ -8,7 +8,7 @@
 // except according to the terms contained in the LICENSE file.
 
 const up = (db) => db.raw(`
-CREATE INDEX audits_details_entity_uuid ON public.audits USING hash ((details->'entity'->>'uuid'))
+CREATE INDEX audits_details_entity_uuid ON audits USING hash ((details->'entity'->>'uuid'))
 WHERE ACTION IN ('entity.create', 'entity.update', 'entity.update.version', 'entity.update.resolve', 'entity.delete', 'entity.restore');
 
 CREATE INDEX audits_details_entityUuids ON audits USING gin ((details -> 'entityUuids') jsonb_path_ops)

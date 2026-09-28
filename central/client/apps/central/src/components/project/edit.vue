@@ -79,7 +79,7 @@ const submit = () => {
 #project-edit {
   .note {
     float: right;
-    color: #333;
+    color: #333340;
     font-size: 11px;
     padding-right: 12px;
     position: relative;

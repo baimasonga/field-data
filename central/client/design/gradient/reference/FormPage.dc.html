@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<!-- @template name="Form Page" description="Sectioned settings/account form on Gradient — labeled fields, inline validation, sticky save bar, success toast." -->
+<helmet>
+<script src="./ds-base.js"></script>
+<style>body{margin:0;background:var(--color-canvas)}*{box-sizing:border-box}</style>
+</helmet>
+<div style="min-height:100vh;background:var(--color-canvas);font-family:var(--font-sans);color:var(--text-primary);padding:0 0 140px">
+<header style="border-bottom:1px solid var(--border-subtle);background:var(--color-surface)">
+<div style="max-width:960px;margin:0 auto;padding:22px 32px;display:flex;align-items:center;justify-content:space-between;gap:24px">
+<div style="display:flex;align-items:center;gap:12px">
+<div style="width:24px;height:24px;border-radius:7px;background:var(--gradient-aurora);flex:none"></div>
+<span style="font-size:17px;font-weight:600;letter-spacing:-.01em">Gradient</span>
+</div>
+<nav style="display:flex;align-items:center;gap:8px;font-size:14px;color:var(--text-muted)">
+<a href="#" style="color:inherit;text-decoration:none">Docs</a>
+<span style="color:var(--border-strong)">·</span>
+<a href="#" style="color:inherit;text-decoration:none">Support</a>
+</nav>
+</div>
+</header>
+<main style="max-width:960px;margin:0 auto;padding:56px 32px 0;display:flex;flex-direction:column;gap:48px">
+<div style="display:flex;flex-direction:column;gap:12px">
+<span style="font-size:12px;font-weight:600;letter-spacing:.09em;text-transform:uppercase;color:var(--accent)">Account</span>
+<h1 style="margin:0;font-size:38px;line-height:1.14;letter-spacing:-.02em;font-weight:600">Profile settings</h1>
+<p style="margin:0;font-size:17px;line-height:1.55;color:var(--text-muted);max-width:60ch;text-wrap:pretty">Update how you appear across the workspace. Changes apply to every project you belong to.</p>
+</div>
+<section style="display:grid;grid-template-columns:minmax(0,280px) minmax(0,1fr);gap:40px;align-items:start;padding-bottom:48px;border-bottom:1px solid var(--border-subtle)">
+<div style="display:flex;flex-direction:column;gap:8px">
+<h2 style="margin:0;font-size:20px;font-weight:600;letter-spacing:-.011em">Identity</h2>
+<p style="margin:0;font-size:14px;line-height:1.55;color:var(--text-muted)">Your name and work email. Email is used for sign-in.</p>
+</div>
+<div style="display:flex;flex-direction:column;gap:22px">
+<div style="display:flex;flex-direction:column;gap:7px">
+<label for="fp-name" style="font-size:14px;font-weight:500">Full name</label>
+<x-import component-from-global-scope="GradientDesignSystem_756db6.Input" id="fp-name" placeholder="Ada Lovelace" value="{{ nameVal }}" onChange="{{ onName }}" invalid="{{ nameErr }}" hint-size="100%,42px"></x-import>
+<sc-if value="{{ nameErr }}" hint-placeholder-val="{{ false }}">
+<span style="font-size:13px;color:var(--danger-text)">{{ nameErr }}</span>
+</sc-if>
+</div>
+<div style="display:flex;flex-direction:column;gap:7px">
+<label for="fp-email" style="font-size:14px;font-weight:500">Work email</label>
+<x-import component-from-global-scope="GradientDesignSystem_756db6.Input" id="fp-email" type="email" placeholder="you@company.com" value="{{ emailVal }}" onChange="{{ onEmail }}" invalid="{{ emailErr }}" hint-size="100%,42px"></x-import>
+<sc-if value="{{ emailErr }}" hint-placeholder-val="{{ false }}">
+<span style="font-size:13px;color:var(--danger-text)">{{ emailErr }}</span>
+</sc-if>
+</div>
+<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:22px">
+<div style="display:flex;flex-direction:column;gap:7px">
+<label for="fp-role" style="font-size:14px;font-weight:500">Role</label>
+<x-import component-from-global-scope="GradientDesignSystem_756db6.Select" id="fp-role" value="{{ roleVal }}" onChange="{{ onRole }}" hint-size="100%,42px">
+<option value="design">Design</option>
+<option value="eng">Engineering</option>
+<option value="pm">Product</option>
+<option value="ops">Operations</option>
+</x-import>
+</div>
+<div style="display:flex;flex-direction:column;gap:7px">
+<label for="fp-tz" style="font-size:14px;font-weight:500">Time zone</label>
+<x-import component-from-global-scope="GradientDesignSystem_756db6.Select" id="fp-tz" value="{{ tzVal }}" onChange="{{ onTz }}" hint-size="100%,42px">
+<option value="pt">Pacific (UTC−8)</option>
+<option value="et">Eastern (UTC−5)</option>
+<option value="gmt">London (UTC+0)</option>
+<option value="cet">Berlin (UTC+1)</option>
+</x-import>
+</div>
+</div>
+</div>
+</section>
+<section style="display:grid;grid-template-columns:minmax(0,280px) minmax(0,1fr);gap:40px;align-items:start;padding-bottom:48px;border-bottom:1px solid var(--border-subtle)">
+<div style="display:flex;flex-direction:column;gap:8px">
+<h2 style="margin:0;font-size:20px;font-weight:600;letter-spacing:-.011em">About</h2>
+<p style="margin:0;font-size:14px;line-height:1.55;color:var(--text-muted)">A short bio shown on your profile card.</p>
+</div>
+<div style="display:flex;flex-direction:column;gap:7px">
+<label for="fp-bio" style="font-size:14px;font-weight:500">Bio</label>
+<x-import component-from-global-scope="GradientDesignSystem_756db6.Textarea" id="fp-bio" rows="4" placeholder="What you work on, in a sentence or two." value="{{ bioVal }}" onChange="{{ onBio }}" hint-size="100%,112px"></x-import>
+<span style="font-size:13px;color:var(--text-subtle)">{{ bioCount }} of 240 characters</span>
+</div>
+</section>
+<section style="display:grid;grid-template-columns:minmax(0,280px) minmax(0,1fr);gap:40px;align-items:start;padding-bottom:48px;border-bottom:1px solid var(--border-subtle)">
+<div style="display:flex;flex-direction:column;gap:8px">
+<h2 style="margin:0;font-size:20px;font-weight:600;letter-spacing:-.011em">Notifications</h2>
+<p style="margin:0;font-size:14px;line-height:1.55;color:var(--text-muted)">Applies immediately — no save required.</p>
+</div>
+<div style="display:flex;flex-direction:column;gap:2px">
+<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:24px;padding:16px 0;border-top:1px solid var(--border-subtle)">
+<div style="display:flex;flex-direction:column;gap:4px"><span style="font-size:15px;font-weight:500">Comment replies</span><span style="font-size:13.5px;color:var(--text-muted)">Someone responds in a thread you started.</span></div>
+<x-import component-from-global-scope="GradientDesignSystem_756db6.Switch" checked="{{ notifReplies }}" onChange="{{ onNotifReplies }}" hint-size="40px,24px"></x-import>
+</div>
+<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:24px;padding:16px 0;border-top:1px solid var(--border-subtle)">
+<div style="display:flex;flex-direction:column;gap:4px"><span style="font-size:15px;font-weight:500">Weekly digest</span><span style="font-size:13.5px;color:var(--text-muted)">A Monday summary of workspace activity.</span></div>
+<x-import component-from-global-scope="GradientDesignSystem_756db6.Switch" checked="{{ notifDigest }}" onChange="{{ onNotifDigest }}" hint-size="40px,24px"></x-import>
+</div>
+<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:24px;padding:16px 0;border-top:1px solid var(--border-subtle);border-bottom:1px solid var(--border-subtle)">
+<div style="display:flex;flex-direction:column;gap:4px"><span style="font-size:15px;font-weight:500">Product news</span><span style="font-size:13.5px;color:var(--text-muted)">Occasional notes on what shipped.</span></div>
+<x-import component-from-global-scope="GradientDesignSystem_756db6.Switch" checked="{{ notifNews }}" onChange="{{ onNotifNews }}" hint-size="40px,24px"></x-import>
+</div>
+</div>
+</section>
+<section style="display:grid;grid-template-columns:minmax(0,280px) minmax(0,1fr);gap:40px;align-items:start">
+<div style="display:flex;flex-direction:column;gap:8px">
+<h2 style="margin:0;font-size:20px;font-weight:600;letter-spacing:-.011em">Visibility</h2>
+<p style="margin:0;font-size:14px;line-height:1.55;color:var(--text-muted)">Who can find your profile in search.</p>
+</div>
+<div style="display:flex;flex-direction:column;gap:24px">
+<div style="display:flex;flex-direction:column;gap:14px">
+<x-import component-from-global-scope="GradientDesignSystem_756db6.Radio" name="fp-vis" value="everyone" label="Everyone in the workspace" checked="{{ visEveryone }}" onChange="{{ onVis }}" hint-size="100%,24px"></x-import>
+<x-import component-from-global-scope="GradientDesignSystem_756db6.Radio" name="fp-vis" value="team" label="Only my team" checked="{{ visTeam }}" onChange="{{ onVis }}" hint-size="100%,24px"></x-import>
+<x-import component-from-global-scope="GradientDesignSystem_756db6.Radio" name="fp-vis" value="private" label="Nobody — hide my profile" checked="{{ visPrivate }}" onChange="{{ onVis }}" hint-size="100%,24px"></x-import>
+</div>
+<div style="padding-top:20px;border-top:1px solid var(--border-subtle)">
+<x-import component-from-global-scope="GradientDesignSystem_756db6.Checkbox" label="Send me a copy of changes by email" checked="{{ confirmCopy }}" onChange="{{ onConfirmCopy }}" hint-size="100%,24px"></x-import>
+</div>
+</div>
+</section>
+</main>
+<div style="position:fixed;left:0;right:0;bottom:0;border-top:1px solid var(--border-default);background:var(--color-surface);box-shadow:var(--shadow-lg);z-index:5">
+<div style="max-width:960px;margin:0 auto;padding:16px 32px;display:flex;align-items:center;justify-content:space-between;gap:20px">
+<span style="font-size:13.5px;color:var(--text-muted)">{{ dirtyLabel }}</span>
+<div style="display:flex;align-items:center;gap:10px">
+<x-import component-from-global-scope="GradientDesignSystem_756db6.Button" variant="ghost" onClick="{{ onReset }}" hint-size="90px,40px">Discard</x-import>
+<x-import component-from-global-scope="GradientDesignSystem_756db6.Button" variant="gradient" loading="{{ saving }}" onClick="{{ onSave }}" hint-size="130px,40px">Save changes</x-import>
+</div>
+</div>
+</div>
+<sc-if value="{{ toastOpen }}" hint-placeholder-val="{{ false }}">
+<div style="position:fixed;right:24px;bottom:88px;z-index:20;max-width:380px">
+<x-import component-from-global-scope="GradientDesignSystem_756db6.Toast" variant="success" title="Profile saved" description="Your changes are live across the workspace." onClose="{{ onToastClose }}" hint-size="360px,76px"></x-import>
+</div>
+</sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1100,&quot;height&quot;:900}}">
+class Component extends DCLogic {
+  state = {
+    name: 'Ada Lovelace', email: 'ada@company.com', role: 'design', tz: 'pt',
+    bio: 'Design systems and interface craft. Currently untangling our component library.',
+    replies: true, digest: true, news: false,
+    vis: 'everyone', copy: false,
+    errors: {}, dirty: false, saving: false, toast: false
+  };
+  set(patch) { this.setState({ ...patch, dirty: true, toast: false }); }
+  validate() {
+    const e = {};
+    if (!this.state.name.trim()) e.name = 'Enter your name.';
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(this.state.email)) e.email = 'Enter a valid email address.';
+    this.setState({ errors: e });
+    return Object.keys(e).length === 0;
+  }
+  renderVals() {
+    const s = this.state;
+    return {
+      nameVal: s.name, emailVal: s.email, roleVal: s.role, tzVal: s.tz, bioVal: s.bio,
+      nameErr: s.errors.name || '', emailErr: s.errors.email || '',
+      bioCount: s.bio.length,
+      notifReplies: s.replies, notifDigest: s.digest, notifNews: s.news,
+      visEveryone: s.vis === 'everyone', visTeam: s.vis === 'team', visPrivate: s.vis === 'private',
+      confirmCopy: s.copy, saving: s.saving, toastOpen: s.toast,
+      dirtyLabel: s.dirty ? 'Unsaved changes' : 'All changes saved',
+      onName: e => this.set({ name: e.target.value }),
+      onEmail: e => this.set({ email: e.target.value }),
+      onRole: e => this.set({ role: e.target.value }),
+      onTz: e => this.set({ tz: e.target.value }),
+      onBio: e => this.set({ bio: e.target.value.slice(0, 240) }),
+      onNotifReplies: e => this.setState({ replies: e.target.checked }),
+      onNotifDigest: e => this.setState({ digest: e.target.checked }),
+      onNotifNews: e => this.setState({ news: e.target.checked }),
+      onVis: e => this.set({ vis: e.target.value }),
+      onConfirmCopy: e => this.set({ copy: e.target.checked }),
+      onReset: () => this.setState({ name: 'Ada Lovelace', email: 'ada@company.com', role: 'design', tz: 'pt', bio: 'Design systems and interface craft. Currently untangling our component library.', vis: 'everyone', copy: false, errors: {}, dirty: false, toast: false }),
+      onToastClose: () => this.setState({ toast: false }),
+      onSave: () => {
+        if (!this.validate()) return;
+        this.setState({ saving: true });
+        setTimeout(() => this.setState({ saving: false, dirty: false, toast: true }), 700);
+      }
+    };
+  }
+}
+</script>
+</body>
+</html>

@@ -27,6 +27,8 @@ except according to the terms contained in the LICENSE file.
             @comment="fetchActivityData" @delete="deleteModal.show()"/>
         </div>
       </div>
+      <submission-claim-evidence v-if="dataExists" :project-id="projectId"
+        :xml-form-id="xmlFormId" :instance-id="instanceId"/>
     </page-body>
     <submission-update-review-state v-bind="reviewModal" :project-id="projectId"
       :xml-form-id="xmlFormId" :submission="submission"
@@ -46,6 +48,7 @@ import PageBody from '../page/body.vue';
 import PageHead from '../page/head.vue';
 import SubmissionActivity from './activity.vue';
 import SubmissionBasicDetails from './basic-details.vue';
+import SubmissionClaimEvidence from './claim-evidence.vue';
 import SubmissionUpdateReviewState from './update-review-state.vue';
 import SubmissionDelete from './delete.vue';
 
@@ -67,6 +70,7 @@ export default {
     PageHead,
     SubmissionActivity,
     SubmissionBasicDetails,
+    SubmissionClaimEvidence,
     SubmissionDelete,
     SubmissionUpdateReviewState
   },

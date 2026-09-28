@@ -190,6 +190,10 @@ const loaders = new Map()
     /* webpackChunkName: "component-form-submissions" */
     '../components/form/submissions.vue'
   )))
+  .set('SubmissionCsvImport', loader(() => import(
+    /* webpackChunkName: "component-submission-csv-import" */
+    '../components/submission/csv-import.vue'
+  )))
   .set('GeojsonMap', loader(() => import(
     '../components/geojson-map.vue'
   )))
@@ -216,13 +220,65 @@ const loaders = new Map()
     /* webpackChunkName: "component-hover-cards" */
     '../components/hover-cards.vue'
   )))
+  .set('FormsPage', loader(() => import(
+    /* webpackChunkName: "component-forms-page" */
+    '../components/forms.vue'
+  )))
+  .set('SubmissionsPage', loader(() => import(
+    /* webpackChunkName: "component-submissions-page" */
+    '../components/submissions.vue'
+  )))
+  .set('MapsPage', loader(() => import(
+    /* webpackChunkName: "component-maps-page" */
+    '../components/maps.vue'
+  )))
+  .set('ProjectsPage', loader(() => import(
+    /* webpackChunkName: "component-projects-page" */
+    '../components/projects.vue'
+  )))
+  .set('ProjectSummary', loader(() => import(
+    /* webpackChunkName: "component-project-summary" */
+    '../components/project/summary.vue'
+  )))
+  .set('SharedDashboard', loader(() => import(
+    /* webpackChunkName: "component-shared-dashboard" */
+    '../components/shared-dashboard.vue'
+  )))
+  .set('SubmissionPhotos', loader(() => import(
+    /* webpackChunkName: "component-submission-photos" */
+    '../components/submission/photos.vue'
+  )))
+  .set('SubmissionSummary', loader(() => import(
+    /* webpackChunkName: "component-submission-summary" */
+    '../components/submission/summary.vue'
+  )))
+  .set('SubmissionFilteredDatasets', loader(() => import(
+    /* webpackChunkName: "component-submission-filtered-datasets" */
+    '../components/submission/filtered-datasets.vue'
+  )))
+  .set('SubmissionVerification', loader(() => import(
+    /* webpackChunkName: "component-submission-verification" */
+    '../components/submission/verification.vue'
+  )))
+  .set('SubmissionWidgets', loader(() => import(
+    /* webpackChunkName: "component-submission-widgets" */
+    '../components/submission/widgets.vue'
+  )))
+  .set('ProjectMergedDatasets', loader(() => import(
+    /* webpackChunkName: "component-project-merged-datasets" */
+    '../components/project/merged-datasets.vue'
+  )))
+  .set('ProjectXlsReports', loader(() => import(
+    /* webpackChunkName: "component-project-xls-reports" */
+    '../components/project/xls-reports.vue'
+  )))
+  .set('FieldDataOrganizations', loader(() => import(
+    /* webpackChunkName: "component-field-data-organizations" */
+    '../components/field-data/organizations.vue'
+  )))
   .set('NotFound', loader(() => import(
     /* webpackChunkName: "component-not-found" */
     '../components/not-found.vue'
-  )))
-  .set('OutdatedVersion', loader(() => import(
-    /* webpackChunkName: "component-outdated-version" */
-    '../components/outdated-version.vue'
   )))
   .set('ProjectFormAccess', loader(() => import(
     /* webpackChunkName: "component-project-form-access" */

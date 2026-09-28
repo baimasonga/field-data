@@ -18,7 +18,7 @@ const getTablesWithTimestampColumns = (db) => db.raw(`
     table_name, JSON_AGG(column_name) AS columns
   FROM
     information_schema.columns
-  WHERE table_schema = 'public'
+  WHERE table_schema = current_schema()
     AND udt_name = 'timestamptz'
   GROUP BY table_name`);
 

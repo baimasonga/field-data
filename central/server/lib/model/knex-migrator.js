@@ -26,7 +26,15 @@ const withKnex = (config) => (mutator) => {
 };
 
 // Given a database, initiates migrations on it.
-const migrate = (db) => db.migrate.latest({ directory: `${__dirname}/migrations` });
+const migrate = async (db) => {
+  if (process.env.FIELD_DATA_DB_SCHEMA) {
+    const result = await db.raw('select current_schema() as schema');
+    if (result.rows[0].schema !== process.env.FIELD_DATA_DB_SCHEMA) {
+      throw new Error('Database search_path does not select FIELD_DATA_DB_SCHEMA; refusing migrations.');
+    }
+  }
+  return db.migrate.latest({ directory: `${__dirname}/migrations` });
+};
 
 module.exports = { knexConnect, withKnex, migrate };
 

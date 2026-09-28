@@ -1,0 +1,458 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<h:html xmlns="http://www.w3.org/2002/xforms" xmlns:h="http://www.w3.org/1999/xhtml" xmlns:jr="http://openrosa.org/javarosa" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+    <h:head>
+        <h:title>AVDP Tree Crops Survey</h:title>
+        <model>
+            <instance>
+                <data xmlns="" id="avdp_tree_crops_survey" version="2026091901">
+                    <survey_date/>
+                    <enumerator_id/>
+                    <consent/>
+                    <farmer_id/>
+                    <farmer_name/>
+                    <sex/>
+                    <age/>
+                    <phone/>
+                    <district/>
+                    <chiefdom/>
+                    <community/>
+                    <group_member/>
+                    <group_name/>
+                    <avdp_beneficiary/>
+                    <plot_id/>
+                    <crop/>
+                    <crop_other/>
+                    <tenure/>
+                    <gps_permission/>
+                    <plot_gps/>
+                    <area_ha/>
+                    <area_method/>
+                    <planting_year/>
+                    <trees_total/>
+                    <trees_bearing/>
+                    <seedlings_received/>
+                    <seedlings_planted/>
+                    <seedlings_surviving/>
+                    <period_start/>
+                    <period_end/>
+                    <product/>
+                    <product_other/>
+                    <harvest_kg/>
+                    <sold_kg/>
+                    <revenue_sle/>
+                    <buyer/>
+                    <training/>
+                    <training_topic/>
+                    <extension_visits/>
+                    <gals/>
+                    <decisions/>
+                    <main_problem/>
+                    <problem_details/>
+                    <observations/>
+</data>
+            </instance>
+            <bind nodeset="/data/survey_date" type="date" required="true()" constraint=". &lt;= today()" jr:constraintMsg="Please check this value against the question instructions."/>
+            <bind nodeset="/data/enumerator_id" type="string" required="true()"/>
+            <bind nodeset="/data/consent" type="string" required="true()"/>
+            <bind nodeset="/data/farmer_id" type="string" required="true()" relevant="/data/consent = 'yes'"/>
+            <bind nodeset="/data/farmer_name" type="string" relevant="/data/consent = 'yes'"/>
+            <bind nodeset="/data/sex" type="string" required="true()" relevant="/data/consent = 'yes'"/>
+            <bind nodeset="/data/age" type="int" relevant="/data/consent = 'yes'" constraint=". &gt;= 18 and . &lt;= 120" jr:constraintMsg="Please check this value against the question instructions."/>
+            <bind nodeset="/data/phone" type="string" relevant="/data/consent = 'yes'"/>
+            <bind nodeset="/data/district" type="string" required="true()" relevant="/data/consent = 'yes'"/>
+            <bind nodeset="/data/chiefdom" type="string" required="true()" relevant="/data/consent = 'yes'"/>
+            <bind nodeset="/data/community" type="string" required="true()" relevant="/data/consent = 'yes'"/>
+            <bind nodeset="/data/group_member" type="string" required="true()" relevant="/data/consent = 'yes'"/>
+            <bind nodeset="/data/group_name" type="string" required="true()" relevant="/data/consent = 'yes' and (/data/group_member = 'yes')"/>
+            <bind nodeset="/data/avdp_beneficiary" type="string" required="true()" relevant="/data/consent = 'yes'"/>
+            <bind nodeset="/data/plot_id" type="string" required="true()" relevant="/data/consent = 'yes'"/>
+            <bind nodeset="/data/crop" type="string" required="true()" relevant="/data/consent = 'yes'"/>
+            <bind nodeset="/data/crop_other" type="string" required="true()" relevant="/data/consent = 'yes' and (/data/crop = 'other')"/>
+            <bind nodeset="/data/tenure" type="string" required="true()" relevant="/data/consent = 'yes'"/>
+            <bind nodeset="/data/gps_permission" type="string" required="true()" relevant="/data/consent = 'yes'"/>
+            <bind nodeset="/data/plot_gps" type="geopoint" relevant="/data/consent = 'yes' and (/data/gps_permission = 'yes')"/>
+            <bind nodeset="/data/area_ha" type="decimal" relevant="/data/consent = 'yes'" constraint=". &gt; 0" jr:constraintMsg="Please check this value against the question instructions."/>
+            <bind nodeset="/data/area_method" type="string" required="true()" relevant="/data/consent = 'yes'"/>
+            <bind nodeset="/data/planting_year" type="int" relevant="/data/consent = 'yes'" constraint=". &gt;= 1900 and . &lt;= 2100 and . &lt;= number(format-date(/data/survey_date, &quot;%Y&quot;))" jr:constraintMsg="Please check this value against the question instructions."/>
+            <bind nodeset="/data/trees_total" type="int" relevant="/data/consent = 'yes'" constraint=". &gt;= 0" jr:constraintMsg="Please check this value against the question instructions."/>
+            <bind nodeset="/data/trees_bearing" type="int" relevant="/data/consent = 'yes'" constraint=". &gt;= 0 and (. &lt;= /data/trees_total or string-length(/data/trees_total) = 0)" jr:constraintMsg="Please check this value against the question instructions."/>
+            <bind nodeset="/data/seedlings_received" type="int" relevant="/data/consent = 'yes'" constraint=". &gt;= 0" jr:constraintMsg="Please check this value against the question instructions."/>
+            <bind nodeset="/data/seedlings_planted" type="int" required="true()" relevant="/data/consent = 'yes' and (/data/seedlings_received &gt; 0)" constraint=". &gt;= 0 and . &lt;= /data/seedlings_received" jr:constraintMsg="Please check this value against the question instructions."/>
+            <bind nodeset="/data/seedlings_surviving" type="int" required="true()" relevant="/data/consent = 'yes' and (/data/seedlings_planted &gt; 0)" constraint=". &gt;= 0 and . &lt;= /data/seedlings_planted" jr:constraintMsg="Please check this value against the question instructions."/>
+            <bind nodeset="/data/period_start" type="date" required="true()" relevant="/data/consent = 'yes'" constraint=". &lt;= /data/survey_date" jr:constraintMsg="Please check this value against the question instructions."/>
+            <bind nodeset="/data/period_end" type="date" required="true()" relevant="/data/consent = 'yes'" constraint=". &gt;= /data/period_start and . &lt;= /data/survey_date" jr:constraintMsg="Please check this value against the question instructions."/>
+            <bind nodeset="/data/product" type="string" required="true()" relevant="/data/consent = 'yes'"/>
+            <bind nodeset="/data/product_other" type="string" required="true()" relevant="/data/consent = 'yes' and (/data/product = 'other')"/>
+            <bind nodeset="/data/harvest_kg" type="decimal" relevant="/data/consent = 'yes'" constraint=". &gt;= 0" jr:constraintMsg="Please check this value against the question instructions."/>
+            <bind nodeset="/data/sold_kg" type="decimal" relevant="/data/consent = 'yes'" constraint=". &gt;= 0 and (. &lt;= /data/harvest_kg or string-length(/data/harvest_kg) = 0)" jr:constraintMsg="Please check this value against the question instructions."/>
+            <bind nodeset="/data/revenue_sle" type="decimal" relevant="/data/consent = 'yes' and (/data/sold_kg &gt; 0)" constraint=". &gt;= 0" jr:constraintMsg="Please check this value against the question instructions."/>
+            <bind nodeset="/data/buyer" type="string" required="true()" relevant="/data/consent = 'yes' and (/data/sold_kg &gt; 0)"/>
+            <bind nodeset="/data/training" type="string" required="true()" relevant="/data/consent = 'yes'"/>
+            <bind nodeset="/data/training_topic" type="string" required="true()" relevant="/data/consent = 'yes' and (/data/training = 'yes')"/>
+            <bind nodeset="/data/extension_visits" type="int" relevant="/data/consent = 'yes'" constraint=". &gt;= 0" jr:constraintMsg="Please check this value against the question instructions."/>
+            <bind nodeset="/data/gals" type="string" required="true()" relevant="/data/consent = 'yes'"/>
+            <bind nodeset="/data/decisions" type="string" required="true()" relevant="/data/consent = 'yes'"/>
+            <bind nodeset="/data/main_problem" type="string" required="true()" relevant="/data/consent = 'yes'"/>
+            <bind nodeset="/data/problem_details" type="string" relevant="/data/consent = 'yes' and (/data/main_problem != 'none')"/>
+            <bind nodeset="/data/observations" type="string" relevant="/data/consent = 'yes'"/>
+            <bind nodeset="/data/meta/instanceID" type="string" readonly="true()" calculate="concat('uuid:', uuid())"/>
+        </model>
+    </h:head>
+    <h:body>
+        <input ref="/data/survey_date">
+            <label>Interview date</label>
+        </input>
+        <input ref="/data/enumerator_id">
+            <label>Enumerator name or code</label>
+        </input>
+        <select1 ref="/data/consent">
+            <label>Does the adult respondent freely agree to participate?</label>
+            <hint>Explain: this draft survey records farmer and plot information for AVDP monitoring. Participation is voluntary. The respondent may refuse or stop. Explain who will access the records before requesting consent. If no, end and save without personal or plot details.</hint>
+            <item>
+                <label>Yes</label>
+                <value>yes</value>
+            </item>
+            <item>
+                <label>No</label>
+                <value>no</value>
+            </item>
+        </select1>
+        <group ref="/data">
+            <label>Farmer and plot interview</label>
+            <input ref="/data/farmer_id">
+                <label>Farmer / beneficiary ID</label>
+                <hint>Use the same ID on every plot record for this farmer. Do not use a national identity number.</hint>
+            </input>
+            <input ref="/data/farmer_name">
+                <label>Farmer name</label>
+            </input>
+            <select1 ref="/data/sex">
+                <label>Farmer sex</label>
+                <item>
+                    <label>Female</label>
+                    <value>female</value>
+                </item>
+                <item>
+                    <label>Male</label>
+                    <value>male</value>
+                </item>
+                <item>
+                    <label>Prefer not to say</label>
+                    <value>not_stated</value>
+                </item>
+            </select1>
+            <input ref="/data/age">
+                <label>Farmer age in completed years</label>
+                <hint>Interview adults only. Leave blank if not stated.</hint>
+            </input>
+            <input ref="/data/phone">
+                <label>Contact phone (optional)</label>
+                <hint>Record only with permission; include country code if known.</hint>
+            </input>
+            <input ref="/data/district">
+                <label>District</label>
+            </input>
+            <input ref="/data/chiefdom">
+                <label>Chiefdom</label>
+            </input>
+            <input ref="/data/community">
+                <label>Community / village</label>
+            </input>
+            <select1 ref="/data/group_member">
+                <label>Farmer organisation / cooperative member?</label>
+                <item>
+                    <label>Yes</label>
+                    <value>yes</value>
+                </item>
+                <item>
+                    <label>No</label>
+                    <value>no</value>
+                </item>
+            </select1>
+            <input ref="/data/group_name">
+                <label>Organisation / cooperative name</label>
+            </input>
+            <select1 ref="/data/avdp_beneficiary">
+                <label>Registered AVDP beneficiary?</label>
+                <item>
+                    <label>Yes</label>
+                    <value>yes</value>
+                </item>
+                <item>
+                    <label>No</label>
+                    <value>no</value>
+                </item>
+                <item>
+                    <label>Not known</label>
+                    <value>unknown</value>
+                </item>
+            </select1>
+            <input ref="/data/plot_id">
+                <label>Plot ID</label>
+                <hint>Unique within this farmer. One submission per plot and crop. For mixed plots, record the crop-specific area to avoid double counting.</hint>
+            </input>
+            <select1 ref="/data/crop">
+                <label>Tree crop assessed</label>
+                <item>
+                    <label>Cocoa</label>
+                    <value>cocoa</value>
+                </item>
+                <item>
+                    <label>Coffee</label>
+                    <value>coffee</value>
+                </item>
+                <item>
+                    <label>Oil palm</label>
+                    <value>oil_palm</value>
+                </item>
+                <item>
+                    <label>Other tree crop</label>
+                    <value>other</value>
+                </item>
+            </select1>
+            <input ref="/data/crop_other">
+                <label>Specify other tree crop</label>
+            </input>
+            <select1 ref="/data/tenure">
+                <label>Plot land tenure</label>
+                <item>
+                    <label>Owned / family land</label>
+                    <value>owned</value>
+                </item>
+                <item>
+                    <label>Rented</label>
+                    <value>rented</value>
+                </item>
+                <item>
+                    <label>Communal allocation</label>
+                    <value>communal</value>
+                </item>
+                <item>
+                    <label>Sharecropped</label>
+                    <value>sharecropped</value>
+                </item>
+                <item>
+                    <label>Other</label>
+                    <value>other</value>
+                </item>
+            </select1>
+            <select1 ref="/data/gps_permission">
+                <label>Permission to record plot location?</label>
+                <item>
+                    <label>Yes</label>
+                    <value>yes</value>
+                </item>
+                <item>
+                    <label>No</label>
+                    <value>no</value>
+                </item>
+            </select1>
+            <input ref="/data/plot_gps">
+                <label>Plot GPS location</label>
+                <hint>Capture at the plot, outdoors. This is a point location, not a boundary or area measurement. Leave blank if unavailable.</hint>
+            </input>
+            <input ref="/data/area_ha">
+                <label>Area occupied by this crop on this plot (hectares)</label>
+                <hint>1 acre = 0.404686 hectares. Leave blank if unknown.</hint>
+            </input>
+            <select1 ref="/data/area_method">
+                <label>How was area determined?</label>
+                <item>
+                    <label>GPS boundary measurement</label>
+                    <value>gps</value>
+                </item>
+                <item>
+                    <label>Other field measurement</label>
+                    <value>measured</value>
+                </item>
+                <item>
+                    <label>Farmer estimate</label>
+                    <value>estimated</value>
+                </item>
+                <item>
+                    <label>Unknown</label>
+                    <value>unknown</value>
+                </item>
+            </select1>
+            <input ref="/data/planting_year">
+                <label>Main planting year</label>
+            </input>
+            <input ref="/data/trees_total">
+                <label>Total living crop trees on this plot</label>
+            </input>
+            <input ref="/data/trees_bearing">
+                <label>Of these, number currently bearing fruit</label>
+            </input>
+            <input ref="/data/seedlings_received">
+                <label>Seedlings received from AVDP in the past 12 months</label>
+                <hint>Enter 0 for none. Leave blank if unknown.</hint>
+            </input>
+            <input ref="/data/seedlings_planted">
+                <label>Of those received, seedlings planted</label>
+            </input>
+            <input ref="/data/seedlings_surviving">
+                <label>Of those planted, seedlings still alive</label>
+            </input>
+            <input ref="/data/period_start">
+                <label>Production reference period: start date</label>
+                <hint>Use the same completed 12-month period across the survey.</hint>
+            </input>
+            <input ref="/data/period_end">
+                <label>Production reference period: end date</label>
+            </input>
+            <select1 ref="/data/product">
+                <label>Product used for production and sales quantities</label>
+                <hint>Use one product consistently. Do not combine fresh and processed weights.</hint>
+                <item>
+                    <label>Dry cocoa beans</label>
+                    <value>dry_cocoa</value>
+                </item>
+                <item>
+                    <label>Dry coffee beans</label>
+                    <value>dry_coffee</value>
+                </item>
+                <item>
+                    <label>Fresh oil palm fruit bunches</label>
+                    <value>fresh_bunches</value>
+                </item>
+                <item>
+                    <label>Other product</label>
+                    <value>other</value>
+                </item>
+            </select1>
+            <input ref="/data/product_other">
+                <label>Specify product</label>
+            </input>
+            <input ref="/data/harvest_kg">
+                <label>Total production from this plot during reference period (kg)</label>
+                <hint>Enter 0 if no harvest; leave blank if unknown. Convert bags or bunches only using a known measured weight.</hint>
+            </input>
+            <input ref="/data/sold_kg">
+                <label>Of that production, quantity sold (kg)</label>
+            </input>
+            <input ref="/data/revenue_sle">
+                <label>Total money received for that quantity sold (SLE / new leones)</label>
+                <hint>Record actual gross receipts, not profit. Exclude sales of old stocks or other plots.</hint>
+            </input>
+            <select1 ref="/data/buyer">
+                <label>Main buyer</label>
+                <item>
+                    <label>Local trader</label>
+                    <value>trader</value>
+                </item>
+                <item>
+                    <label>Cooperative</label>
+                    <value>cooperative</value>
+                </item>
+                <item>
+                    <label>Processor</label>
+                    <value>processor</value>
+                </item>
+                <item>
+                    <label>Exporter</label>
+                    <value>exporter</value>
+                </item>
+                <item>
+                    <label>Other</label>
+                    <value>other</value>
+                </item>
+            </select1>
+            <select1 ref="/data/training">
+                <label>Received AVDP tree crop training in the past 12 months?</label>
+                <item>
+                    <label>Yes</label>
+                    <value>yes</value>
+                </item>
+                <item>
+                    <label>No</label>
+                    <value>no</value>
+                </item>
+            </select1>
+            <input ref="/data/training_topic">
+                <label>Main training topic</label>
+            </input>
+            <input ref="/data/extension_visits">
+                <label>Extension visits to this plot in the past 12 months</label>
+            </input>
+            <select1 ref="/data/gals">
+                <label>Participated in Gender Action Learning System (GALS) activities?</label>
+                <item>
+                    <label>Yes</label>
+                    <value>yes</value>
+                </item>
+                <item>
+                    <label>No</label>
+                    <value>no</value>
+                </item>
+                <item>
+                    <label>Not known</label>
+                    <value>unknown</value>
+                </item>
+            </select1>
+            <select1 ref="/data/decisions">
+                <label>Who mainly decides how income from this crop is used?</label>
+                <item>
+                    <label>Woman</label>
+                    <value>woman</value>
+                </item>
+                <item>
+                    <label>Man</label>
+                    <value>man</value>
+                </item>
+                <item>
+                    <label>Joint decision</label>
+                    <value>joint</value>
+                </item>
+                <item>
+                    <label>Other</label>
+                    <value>other</value>
+                </item>
+                <item>
+                    <label>Prefer not to say</label>
+                    <value>not_stated</value>
+                </item>
+            </select1>
+            <select1 ref="/data/main_problem">
+                <label>Main constraint affecting this plot</label>
+                <item>
+                    <label>Pests / diseases</label>
+                    <value>pests</value>
+                </item>
+                <item>
+                    <label>Poor seedlings / tree survival</label>
+                    <value>seedlings</value>
+                </item>
+                <item>
+                    <label>Rainfall / drought / flooding</label>
+                    <value>climate</value>
+                </item>
+                <item>
+                    <label>Labour shortage</label>
+                    <value>labour</value>
+                </item>
+                <item>
+                    <label>Low prices / market access</label>
+                    <value>market</value>
+                </item>
+                <item>
+                    <label>Finance / inputs</label>
+                    <value>finance</value>
+                </item>
+                <item>
+                    <label>No major constraint</label>
+                    <value>none</value>
+                </item>
+                <item>
+                    <label>Other</label>
+                    <value>other</value>
+                </item>
+            </select1>
+            <input ref="/data/problem_details">
+                <label>Describe the problem and support needed</label>
+            </input>
+            <input ref="/data/observations">
+                <label>Enumerator observations / follow-up action</label>
+            </input>
+        </group>
+    </h:body>
+</h:html>

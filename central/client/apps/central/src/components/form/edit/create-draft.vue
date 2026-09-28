@@ -58,7 +58,7 @@ const create = () => {
 #form-edit-create-draft-button {
   font-size: 14px;
 
-  ~ p { color: #666; }
+  ~ p { color: #68687a; }
   + p { margin-block: 3px 0; }
 }
 </style>

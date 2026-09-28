@@ -147,13 +147,38 @@ describe('FormHead', () => {
       testData.extendedFormVersions.createPast(1, { draft: true });
       return load('/projects/1/forms/f/submissions').then(app => {
         const tabs = app.findAll('#page-head-tabs a');
+        // Four groups, not ten tabs. The views inside the open one are in the
+        // row below.
         tabs.map(tab => textWithout(tab, '.badge')).should.eql([
-          'Submissions',
-          'Public Access',
-          'Edit Form',
+          'Data',
+          'Share',
           'Versions',
           'Settings'
         ]);
+        // The Data group's views. This spec expected ten top-level tabs
+        // before the fork added Summary, Charts, Photos, Filtered Data and
+        // Verification without updating it, which is why it was failing.
+        // Import CSV is here because this Form has no Submissions yet; the
+        // spec below covers the case where it does.
+        app.findAll('#form-subtabs a').map(view => view.text()).should.eql([
+          'Submissions',
+          'Import CSV',
+          'Summary',
+          'Charts',
+          'Photos',
+          'Verification'
+        ]);
+      });
+    });
+
+    it('hides Import CSV once the form has submissions', () => {
+      mockLogin();
+      testData.extendedForms.createPast(1, { submissions: 1 });
+      testData.extendedSubmissions.createPast(1);
+      return load('/projects/1/forms/f/submissions').then(app => {
+        const views = app.findAll('#form-subtabs a').map(view => view.text());
+        views.should.not.contain('Import CSV');
+        views.should.contain('Submissions');
       });
     });
 
@@ -165,7 +190,7 @@ describe('FormHead', () => {
       return load('/projects/1/forms/f/submissions').then(app => {
         const tabs = app.findAll('#page-head-tabs a');
         const text = tabs.map(tab => textWithout(tab, '.badge'));
-        text.should.eql(['Submissions', 'Versions']);
+        text.should.eql(['Data', 'Versions']);
       });
     });
 
@@ -174,9 +199,11 @@ describe('FormHead', () => {
       testData.extendedForms.createPast(1, { draft: true });
       const app = await load('/projects/1/forms/f/draft');
       const tabs = app.findAll('#page-head-tabs li');
-      tabs.length.should.equal(5);
+      tabs.length.should.equal(4);
       for (const tab of tabs) {
-        if (tab.text() === 'Edit Form') continue; // eslint-disable-line no-continue
+        // Versions leads with Edit Form while there is nothing published, so
+        // the draft editor is not left behind a disabled tab.
+        if (tab.text() === 'Versions') continue; // eslint-disable-line no-continue
         tab.classes('disabled').should.be.true;
         const a = tab.get('a');
         a.should.have.ariaDescription('Publish this Draft Form to enable these functions');
@@ -190,7 +217,7 @@ describe('FormHead', () => {
       testData.extendedFormVersions.createPast(1, { draft: true });
       const app = await load('/projects/1/forms/f/draft');
       const tabs = app.findAll('#page-head-tabs li');
-      tabs.length.should.equal(5);
+      tabs.length.should.equal(4);
       for (const tab of tabs) {
         tab.classes('disabled').should.be.false;
         const a = tab.get('a');
@@ -203,14 +230,14 @@ describe('FormHead', () => {
       mockLogin();
       testData.extendedForms.createPast(1, { submissions: 1000 });
       const app = await load('/projects/1/forms/f/settings');
-      findTab(app, 'Submissions').get('.badge').text().should.equal('1,000');
+      findTab(app, 'Data').get('.badge').text().should.equal('1,000');
     });
 
     it('shows the number of active public links', async () => {
       mockLogin();
       testData.extendedForms.createPast(1, { publicLinks: 1000 });
       const app = await load('/projects/1/forms/f/settings');
-      findTab(app, 'Public Access').get('.badge').text().should.equal('1,000');
+      findTab(app, 'Share').get('.badge').text().should.equal('1,000');
     });
 
     it('shows the form state', async () => {

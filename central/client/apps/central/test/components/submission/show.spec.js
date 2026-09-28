@@ -67,6 +67,15 @@ describe('SubmissionShow', () => {
     component.get('#page-head-title').text().should.equal('s');
   });
 
+  it('shows the current claim provenance and evidence section', async () => {
+    testData.extendedSubmissions.createPast(1, { instanceId: 's' });
+    const component = await load('/projects/1/forms/f/submissions/s', { root: false });
+    const panel = component.get('.claim-evidence');
+    panel.text().should.containEql('Version 1');
+    panel.text().should.containEql('Source: collected');
+    panel.text().should.containEql('No evidence records are linked');
+  });
+
   describe('delete', () => {
     it('toggles the modal', () => {
       testData.extendedSubmissions.createPast(1, { instanceId: 'e' });

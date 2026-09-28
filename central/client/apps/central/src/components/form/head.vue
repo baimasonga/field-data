@@ -41,55 +41,28 @@ except according to the terms contained in the LICENSE file.
         </infonav>
       </template>
       <template #tabs>
-        <!-- No v-if, because anyone who can navigate to the form should be able
-        to navigate to .../submissions and .../versions. -->
-        <li :class="formTabClass('submissions')" role="presentation">
-          <router-link :to="tabPath('submissions')"
-            v-tooltip.aria-describedby="formTabDescription">
-            {{ $t('resource.submissions') }}
-            <span v-if="form.dataExists" class="badge">
-              {{ $n(form.submissions, 'default') }}
-            </span>
-          </router-link>
-        </li>
-        <!-- Using rendersFormTabs rather than canRoute(), because we want to
-        render the tabs even if the form does not have a published version (in
-        which case canRoute() will return `false`). -->
-        <li v-if="rendersFormTabs" :class="formTabClass('public-links')"
-          role="presentation">
-          <router-link :to="tabPath('public-links')"
-            v-tooltip.aria-describedby="formTabDescription">
-            {{ $t('formHead.tab.publicAccess') }}
-            <span v-if="form.dataExists" class="badge">
-              {{ $n(form.publicLinks, 'default') }}
-            </span>
-          </router-link>
-        </li>
-        <li v-if="canRoute(tabPath('draft'))" id="form-head-draft-tab"
-          :class="tabClass('draft')" role="presentation">
-          <router-link :to="tabPath('draft')">
-            <span>{{ $t('formHead.tab.editForm') }}</span>
-            <span class="icon-pencil"></span>
-          </router-link>
-        </li>
-        <li :class="formTabClass('versions')" role="presentation">
-          <router-link :to="tabPath('versions')"
-            v-tooltip.aria-describedby="formTabDescription">
-            {{ $t('formHead.tab.versions') }}
-          </router-link>
-        </li>
-        <li v-if="rendersFormTabs" :class="formTabClass('settings')"
-          role="presentation">
-          <router-link :to="tabPath('settings')"
-            v-tooltip.aria-describedby="formTabDescription">
-            {{ $t('common.tab.settings') }}
-            <span v-if="form.dataExists" class="badge">
-              {{ $t(`formState.${form.state}`) }}
-            </span>
+        <!-- Four groups rather than ten tabs. Every view still has its own
+        route and its own URL; what changed is that the page stops asking
+        somebody to choose between ten of them before they have read a row. -->
+        <li v-for="group in formTabGroups" :key="group.key"
+          :class="groupClass(group)" role="presentation">
+          <router-link :to="tabPath(group.primary)"
+            v-tooltip.aria-describedby="group.disabled ? formTabDescription : null">
+            {{ group.label }}
+            <span v-if="group.badge != null" class="badge">{{ group.badge }}</span>
           </router-link>
         </li>
       </template>
     </page-head>
+    <nav v-if="subtabs.length > 1" id="form-subtabs" class="page-subtabs"
+      :aria-label="$t('subnav.label')">
+      <router-link v-for="view in subtabs" :key="view.path" :to="tabPath(view.path)"
+        :class="{ active: $route.path === tabPath(view.path), disabled: view.disabled }"
+        v-tooltip.aria-describedby="view.disabled ? formTabDescription : null">
+        {{ view.label }}
+        <span v-if="view.path === 'draft'" class="icon-pencil" aria-hidden="true"></span>
+      </router-link>
+    </nav>
   </div>
 </template>
 
@@ -102,6 +75,46 @@ import PageHead from '../page/head.vue';
 import useRoutes from '../../composables/routes';
 import useTabs from '../../composables/tabs';
 import { useRequestData } from '../../request-data';
+
+// Ten views, grouped by how often anybody opens them. Order within a group is
+// the order of the secondary row; the first one that works is where the tab
+// itself goes.
+const TAB_GROUPS = [
+  {
+    key: 'data', labelKey: 'group.data', local: true,
+    // Verification reads the evidence behind Submissions and takes
+    // submission.list, so it belongs with the data rather than under
+    // Settings, where a Project viewer would have been shown a tab full of
+    // settings they cannot change.
+    members: ['submissions', 'import', 'summary', 'charts', 'photos', 'verification']
+  },
+  {
+    key: 'share', labelKey: 'group.share', local: true,
+    members: ['public-links', 'filtered-datasets']
+  },
+  {
+    key: 'versions', labelKey: 'formHead.tab.versions', local: false,
+    members: ['versions', 'draft']
+  },
+  {
+    key: 'settings', labelKey: 'common.tab.settings', local: false,
+    members: ['settings']
+  }
+];
+
+const MEMBER_LABELS = {
+  submissions: 'resource.submissions',
+  import: 'formHead.tab.importCsv',
+  summary: 'formHead.tab.summary',
+  charts: 'formHead.tab.charts',
+  photos: 'formHead.tab.photos',
+  'public-links': 'formHead.tab.publicAccess',
+  'filtered-datasets': 'formHead.tab.filteredData',
+  versions: 'formHead.tab.versions',
+  draft: 'formHead.tab.editForm',
+  settings: 'common.tab.settings',
+  verification: 'formHead.tab.verification'
+};
 
 export default {
   name: 'FormHead',
@@ -123,6 +136,39 @@ export default {
     rendersFormTabs() {
       return this.project.dataExists && this.project.permits(['form.update']);
     },
+    formTabGroups() {
+      const groups = [];
+      for (const group of TAB_GROUPS) {
+        const members = group.members
+          .filter(path => this.tabVisible(path))
+          .map(path => ({
+            path,
+            label: this.$t(MEMBER_LABELS[path]),
+            disabled: this.tabDisabled(path)
+          }));
+        if (members.length === 0) continue; // eslint-disable-line no-continue
+        // A Form without a published version can only be edited, and every
+        // other view is disabled. The tab leads with the view that still
+        // works, so the draft editor does not end up behind a dead link.
+        const usable = members.find(member => !member.disabled) ?? members[0];
+        groups.push({
+          key: group.key,
+          label: this.$t(group.labelKey),
+          members,
+          primary: usable.path,
+          disabled: usable.disabled,
+          badge: this.groupBadge(group.key)
+        });
+      }
+      return groups;
+    },
+    activeGroup() {
+      return this.formTabGroups.find(group => group.members
+        .some(member => this.$route.path === this.tabPath(member.path)));
+    },
+    subtabs() {
+      return this.activeGroup == null ? [] : this.activeGroup.members;
+    },
     formTabDescription() {
       return this.form.dataExists && this.form.publishedAt == null
         ? this.$t('formNav.tabTitle')
@@ -143,30 +189,45 @@ export default {
     }
   },
   methods: {
-    formTabClass(path) {
-      const htmlClass = this.tabClass(path);
-      if (this.form.dataExists && this.form.publishedAt == null)
-        htmlClass.disabled = true;
+    // Submissions and Versions render for anybody who can reach the Form.
+    // Public Access and Settings use the Project right rather than canRoute(),
+    // because they render for a Form without a published version, where
+    // canRoute() is false.
+    tabVisible(path) {
+      if (path === 'submissions' || path === 'versions') return true;
+      if (path === 'public-links' || path === 'settings') return this.rendersFormTabs;
+      // Import is a one-time operation on an empty Form, so its tab goes away
+      // as soon as the Form holds anything. canRoute() cannot carry this on
+      // its own: it only consults a route's validateData for resources that
+      // are preserved across the navigation, so it answers true here whatever
+      // the Submission count is. The route keeps the same condition, which is
+      // what stops somebody typing the URL.
+      if (path === 'import')
+        return this.form.dataExists && this.form.submissions === 0 &&
+          this.canRoute(this.tabPath(path));
+      return this.canRoute(this.tabPath(path));
+    },
+    tabDisabled(path) {
+      return path !== 'draft' && this.form.dataExists &&
+        this.form.publishedAt == null;
+    },
+    groupBadge(key) {
+      if (!this.form.dataExists) return null;
+      if (key === 'data') return this.$n(this.form.submissions, 'default');
+      if (key === 'share') return this.$n(this.form.publicLinks, 'default');
+      if (key === 'settings') return this.$t(`formState.${this.form.state}`);
+      return null;
+    },
+    groupClass(group) {
+      const htmlClass = this.tabClass(...group.members.map(member => member.path));
+      if (group.disabled) htmlClass.disabled = true;
       return htmlClass;
     }
   }
 };
 </script>
 
-<style lang="scss">
-#form-head-draft-tab {
-  a {
-    align-items: center;
-    column-gap: 5px;
-    display: flex;
-  }
 
-  .icon-pencil {
-    color: #555;
-    font-size: 16px;
-  }
-}
-</style>
 
 <i18n lang="json5">
 {
@@ -175,6 +236,17 @@ export default {
       "action": {
         "back": "Back to Project Overview"
       }
+    },
+    "subnav": {
+      // Names the row of views inside the open Form tab, for screen readers.
+      "label": "Views"
+    },
+    "group": {
+      // Tab grouping the Form's Submissions, summary, charts and photos.
+      "data": "Data",
+      // Tab grouping the ways this Form's data is shared outside the Project:
+      // public links and filtered datasets.
+      "share": "Share"
     },
     "formNav": {
       // Tooltip text that will be shown when hovering over tabs for Submissions, Public Access, etc.

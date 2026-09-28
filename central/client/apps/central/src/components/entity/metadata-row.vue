@@ -118,7 +118,7 @@ defineEmits(['selectionChanged']);
     &:empty { width: 75px; }
   }
   .updates {
-    color: #777;
+    color: #68687a;
     margin-left: auto;
     width: 41px;
 

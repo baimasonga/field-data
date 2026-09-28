@@ -7,7 +7,7 @@
 -- including this file, may be copied, modified, propagated, or distributed
 -- except according to the terms contained in the LICENSE file.
 
-DROP FUNCTION IF EXISTS "public"."get_event"() CASCADE;
+DROP FUNCTION IF EXISTS "get_event"() CASCADE;
 
 DROP INDEX event_idx;
 

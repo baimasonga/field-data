@@ -1,0 +1,8 @@
+.git
+.github
+node_modules
+**/node_modules
+**/npm-debug.log
+central/test
+central/client/**/e2e
+central/client/**/tests

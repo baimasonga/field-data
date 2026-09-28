@@ -172,7 +172,7 @@ const markAsResolved = () => {
       width: 30px;
       font-size: 20px;
       align-self: center;
-      color: #9F9F9F
+      color: #adadbf
     }
 
     p {

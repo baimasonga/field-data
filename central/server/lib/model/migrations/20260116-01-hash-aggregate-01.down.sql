@@ -7,6 +7,6 @@
 -- including this file, may be copied, modified, propagated, or distributed
 -- except according to the terms contained in the LICENSE file.
 
-DROP AGGREGATE "public"."md5_hash_agg"(anyelement);
+DROP AGGREGATE "md5_hash_agg"(anyelement);
 
-DROP FUNCTION "public"."hash_aggregate_state_transition_func"(state text, additional_value anyelement);
+DROP FUNCTION "hash_aggregate_state_transition_func"(state text, additional_value anyelement);

@@ -16,11 +16,13 @@ except according to the terms contained in the LICENSE file.
       <span class="icon-question-circle"></span><span class="caret"></span>
     </a>
     <ul class="dropdown-menu">
+      <!-- The documentation is ODK's, because the collection features are
+      ODK's and there is no Field Data manual to send anyone to. Naming it
+      is the honest version: a reader who lands on docs.getodk.org should
+      know before they click why it says ODK Central. There is no Field Data
+      forum at all, so no forum link. -->
       <li>
-        <doc-link to="central-intro/">{{ $t('common.docs') }}</doc-link>
-      </li>
-      <li>
-        <a href="https://forum.getodk.org/" target="_blank">{{ $t('common.forum') }}</a>
+        <doc-link to="central-intro/">{{ $t('odkDocs') }}</doc-link>
       </li>
       <li>
         <a href="/version.txt" target="_blank">{{ $t('common.version') }}</a>
@@ -42,7 +44,10 @@ defineOptions({
   "en": {
     // This text is used to label a help menu that lists links to useful
     // resources.
-    "help": "Help"
+    "help": "Help",
+    // Names the destination, because it is another project's manual and says
+    // "ODK Central" throughout. Other locales fall back to this line.
+    "odkDocs": "ODK documentation"
   }
 }
 </i18n>

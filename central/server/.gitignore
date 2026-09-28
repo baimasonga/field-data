@@ -13,6 +13,7 @@ node_modules/
 .vscode
 /junit-reports/
 /config/development.json
+/config/test.json
 
 # context files for AI agents
 AGENTS.md
