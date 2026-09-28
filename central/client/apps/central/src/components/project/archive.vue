@@ -79,7 +79,7 @@ const archive = () => {
     // This is the title at the top of a pop-up.
     "title": "Archiving Project",
     "introduction": [
-      "You are about to archive the Project “{name}”. It will still work as it does now, but it will be sorted to the bottom of the Project List on the Central homepage.",
+      "You are about to archive the Project “{name}”. It will still work as it does now, but it will be sorted to the bottom of the Project List on the Field Data homepage.",
       {
         "full": "{noUndo}, but the ability to unarchive a Project is planned for a future release.",
         "noUndo": "This action cannot be undone"
@@ -105,7 +105,7 @@ const archive = () => {
   "de": {
     "title": "Projekt wird archiviert",
     "introduction": [
-      "Sie sind dabei das Projekt \"{name}\" zu archivieren. Es wird weiterhin wie bisher funktioniern, aber es wird ans Ende der Projektliste auf der Homepage von Central verschoben.",
+      "Sie sind dabei das Projekt \"{name}\" zu archivieren. Es wird weiterhin wie bisher funktioniern, aber es wird ans Ende der Projektliste auf der Homepage von Field Data verschoben.",
       {
         "full": "{noUndo}, aber die Möglichkeit ein Projekt zu dearchivieren ist für eine zukünftige Version geplant.",
         "noUndo": "Diese Aktion kann nicht rückgängig gemacht werden"
@@ -115,7 +115,7 @@ const archive = () => {
   "es": {
     "title": "Archivando proyecto",
     "introduction": [
-      "Está a punto de archivar el proyecto \"{name}\". Seguirá funcionando como lo hace ahora, pero se ordenará al final de la lista de proyectos de la página de inicio Central.",
+      "Está a punto de archivar el proyecto \"{name}\". Seguirá funcionando como lo hace ahora, pero se ordenará al final de la lista de proyectos de la página de inicio Field Data.",
       {
         "full": "{noUndo} pero la posibilidad de desarchivar un proyecto está prevista para una futura versión.",
         "noUndo": "Esta acción no se puede deshacer."
@@ -125,7 +125,7 @@ const archive = () => {
   "fr": {
     "title": "Archivage du projet",
     "introduction": [
-      "Vous êtes sur le point d'archiver le projet “{name}”. Il fonctionnera toujours comme maintenant, mais il sera classé en bas de la liste des projets de la page d'accueil de Central.",
+      "Vous êtes sur le point d'archiver le projet “{name}”. Il fonctionnera toujours comme maintenant, mais il sera classé en bas de la liste des projets de la page d'accueil de Field Data.",
       {
         "full": "{noUndo}, mais la possibilité de \"dés-archiver\" un projet est prévu pour une version future.",
         "noUndo": "Cette action ne peut être annulée"
@@ -135,7 +135,7 @@ const archive = () => {
   "id": {
     "title": "Mengarsip Proyek",
     "introduction": [
-      "Anda hendak mengarsip Proyek \"{name}\". Proyek akan tetap berjalan seperti sekarang, tetapi peletakannya akan berada di bawah Daftar Proyek pada laman utama Central.",
+      "Anda hendak mengarsip Proyek \"{name}\". Proyek akan tetap berjalan seperti sekarang, tetapi peletakannya akan berada di bawah Daftar Proyek pada laman utama Field Data.",
       {
         "full": "{noUndo}, tetapi fungsi untuk membatalkan pengarsipan Proyek akan dirancang untuk pembaruan yang akan datang.",
         "noUndo": "Tindakan ini tidak bisa dibatalkan/dikembalikan"
@@ -145,7 +145,7 @@ const archive = () => {
   "it": {
     "title": "Archiviando il Progetto",
     "introduction": [
-      "Stai per archiviare il Progetto “{name}”. Continuerà a funzionare, ma verrà ordinato in fondo all'elenco dei progetti nella home page di Central.",
+      "Stai per archiviare il Progetto “{name}”. Continuerà a funzionare, ma verrà ordinato in fondo all'elenco dei progetti nella home page di Field Data.",
       {
         "full": "{noUndo}, ma la possibilità di annullare l'archiviazione di un progetto è prevista per una versione futura.",
         "noUndo": "Quest'azione non può essere annullata"
@@ -165,7 +165,7 @@ const archive = () => {
   "pt": {
     "title": "Arquivando o projeto",
     "introduction": [
-      "Você está prestes a arquivar o projeto \"{name}\". Ele continuará funcionando como está agora, mas será exibido no final da lista de projetos da página principal do Central.",
+      "Você está prestes a arquivar o projeto \"{name}\". Ele continuará funcionando como está agora, mas será exibido no final da lista de projetos da página principal do Field Data.",
       {
         "full": "{noUndo}, mas a possibilidade de desarquivar um projeto está planejada para uma versão futura.",
         "noUndo": "Essa ação não pode ser desfeita"
@@ -175,7 +175,7 @@ const archive = () => {
   "sw": {
     "title": "Mradi wa Kuhifadhi kumbukumbu",
     "introduction": [
-      "Unakaribia kuweka Mradi \"{name}\" kwenye kumbukumbu. Bado itafanya kazi kama inavyofanya sasa, lakini itapangwa hadi chini ya Orodha ya Mradi kwenye ukurasa wa nyumbani wa Central",
+      "Unakaribia kuweka Mradi \"{name}\" kwenye kumbukumbu. Bado itafanya kazi kama inavyofanya sasa, lakini itapangwa hadi chini ya Orodha ya Mradi kwenye ukurasa wa nyumbani wa Field Data",
       {
         "full": "{noUndo}, lakini uwezo wa kutoa Mradi kwenye kumbukumbu umepangwa kutolewa siku zijazo.",
         "noUndo": "Kitendo hiki hakiwezi kutenduliwa"
@@ -195,7 +195,7 @@ const archive = () => {
   "zh-Hant": {
     "title": "歸檔專案",
     "introduction": [
-      "您即將歸檔「{name}」專案。它仍一樣工作，但它將被排序到 Central 主頁項目清單的底部。",
+      "您即將歸檔「{name}」專案。它仍一樣工作，但它將被排序到 Field Data 主頁項目清單的底部。",
       {
         "full": "{noUndo}，但計劃在未來版本中提供取消專案歸檔的功能。",
         "noUndo": "此操作無法撤銷"

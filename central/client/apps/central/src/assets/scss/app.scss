@@ -979,3 +979,107 @@ becomes more complicated.
     margin-left: 10px;
   }
 }
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+// FIELD DATA THEME
+//
+// Scoped to the logged-in app shell (.fd-shell, set in app.vue) so every inner
+// Central page — Projects, Users, System, account, etc. — adopts the Field Data
+// look (clean white cards, teal accents, modern tables) without affecting the
+// logged-out login page. The extra .fd-shell class raises specificity so these
+// win over the base rules above.
+
+.fd-shell {
+  // --- Page header: grey title block -> clean header on the page background ---
+  #page-head {
+    background-color: transparent;
+    border-bottom: 1px solid #e6edee;
+
+    .h1 {
+      font-weight: 750;
+      letter-spacing: -0.01em;
+      color: #143039;
+    }
+
+    #page-head-tabs {
+      border-bottom: none;
+
+      > li > a {
+        border: none;
+        border-bottom: 2px solid transparent;
+        background: transparent;
+        color: #5a6b71;
+        font-weight: 600;
+        margin-right: 20px;
+        padding: 8px 2px;
+
+        &:hover, &:focus {
+          background: transparent;
+          color: $color-accent-primary;
+          border-bottom-color: #cfe0e5;
+        }
+      }
+
+      > li.active > a {
+        &, &:hover, &:focus {
+          background: transparent;
+          color: $color-accent-primary;
+          border: none;
+          border-bottom: 2px solid $color-accent-primary;
+        }
+      }
+    }
+  }
+
+  // --- Tables: dense grey -> airy with uppercase muted headers ---
+  .table {
+    > thead {
+      background-color: transparent;
+
+      > tr > th {
+        border-bottom: 1px solid #e2e9eb;
+        color: #6a7c82;
+        font-size: 11.5px;
+        font-weight: 700;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+      }
+    }
+
+    > tbody > tr > th, > tbody > tr > td {
+      border-top: 1px solid #eef3f4;
+    }
+
+    > tbody > tr:hover > td { background-color: #f7fbfc; }
+  }
+
+  // --- Panels: flat blocks -> rounded white cards ---
+  .panel {
+    border: 1px solid #e4ebed;
+    border-radius: 12px;
+    box-shadow: 0 1px 2px rgba(20, 48, 57, 0.04);
+    overflow: hidden;
+
+    .panel-heading { border-radius: 0; }
+  }
+
+  // All panel headings (default, simple, danger…) get the same light treatment
+  // so pages like Account settings stop showing ODK's grey heading blocks.
+  .panel > .panel-heading {
+    background-color: #f4f9fa;
+    border-bottom: 1px solid #e4ebed;
+    color: #143039;
+
+    .panel-title { font-size: 15px; font-weight: 700; letter-spacing: normal; }
+  }
+
+  .panel-main {
+    border-radius: 12px;
+    box-shadow: 0 10px 40px rgba(20, 48, 57, 0.10);
+  }
+
+  // Selects: subtle rounding so they match the themed tables and cards.
+  select.form-control { border-radius: 8px; }
+}

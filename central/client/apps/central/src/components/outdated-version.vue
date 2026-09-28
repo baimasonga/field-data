@@ -58,7 +58,7 @@ const showBanner = computed(() => {
   const dismissDate = currentUser.preferences?.site?.outdatedVersionWarningDismissDate;
   if (dismissDate && centralVersion.currentDate.getTime() < (new Date(dismissDate).getTime() + (864E5 * 30))) return false;
 
-  // Difference between current year and Central version year is less than 2
+  // Difference between current year and Field Data version year is less than 2
   const centralVersionYear = Number(centralVersion.currentVersion.match(/^(\d{4})/)[1]);
   const currentYear = centralVersion.currentDate.getFullYear();
   if (currentYear - centralVersionYear < 2) return false;
@@ -105,7 +105,7 @@ const dismiss = () => {
       // This is a title for the outdated version banner shown for the screenreaders only
       "title": "Outdated Version",
       "instructionsToUpgrade": "Instructions to upgrade",
-      "instructionsToUpgradeTooltip": "Click here to see instructions to upgrade Central",
+      "instructionsToUpgradeTooltip": "Click here to see instructions to upgrade Field Data",
       "dismiss": "Dismiss for 30 days",
       "dismissTooltip": "Click here to dismiss this warning for 30 days."
     }
@@ -118,35 +118,35 @@ const dismiss = () => {
   "de": {
     "title": "Veraltete Version",
     "instructionsToUpgrade": "Anweisungen zum Upgrade",
-    "instructionsToUpgradeTooltip": "Klicken Sie hier für eine Anleitung zum Upgrade von Central",
+    "instructionsToUpgradeTooltip": "Klicken Sie hier für eine Anleitung zum Upgrade von Field Data",
     "dismiss": "Entlassung für 30 Tage",
     "dismissTooltip": "Klicken Sie hier, um diese Warnung für 30 Tage aufzuheben."
   },
   "es": {
     "title": "Versión obsoleta",
     "instructionsToUpgrade": "Instrucciones para actualizar",
-    "instructionsToUpgradeTooltip": "Haga clic aquí para ver las instrucciones de actualización de Central",
+    "instructionsToUpgradeTooltip": "Haga clic aquí para ver las instrucciones de actualización de Field Data",
     "dismiss": "Despido durante 30 días",
     "dismissTooltip": "Haga clic aquí para desactivar esta advertencia durante 30 días."
   },
   "fr": {
     "title": "Version ancienne",
     "instructionsToUpgrade": "Instructions de mise à jour",
-    "instructionsToUpgradeTooltip": "Cliquez ici pour voir les instructions pour mettre Central à jour",
+    "instructionsToUpgradeTooltip": "Cliquez ici pour voir les instructions pour mettre Field Data à jour",
     "dismiss": "Cacher pour 30 jours",
     "dismissTooltip": "Cliquez ici pour cacher cette alerte pour 30 jours."
   },
   "it": {
     "title": "Versione obsoleta",
     "instructionsToUpgrade": "Istruzioni per l'aggiornamento",
-    "instructionsToUpgradeTooltip": "Fare clic qui per visualizzare le istruzioni per l'aggiornamento di Central",
+    "instructionsToUpgradeTooltip": "Fare clic qui per visualizzare le istruzioni per l'aggiornamento di Field Data",
     "dismiss": "Sospendere per 30 giorni",
     "dismissTooltip": "Fate clic qui per disattivare questo avviso per 30 giorni."
   },
   "pt": {
     "title": "Versão ultrapassada",
     "instructionsToUpgrade": "Instruções para atualizar",
-    "instructionsToUpgradeTooltip": "Clique aqui para ver as instruções para atualizar o Central",
+    "instructionsToUpgradeTooltip": "Clique aqui para ver as instruções para atualizar o Field Data",
     "dismiss": "Ignorar por 30 dias",
     "dismissTooltip": "Clique aqui para ignorar este aviso por 30 dias."
   },
@@ -160,7 +160,7 @@ const dismiss = () => {
   "zh-Hant": {
     "title": "過時的版本",
     "instructionsToUpgrade": "升級說明",
-    "instructionsToUpgradeTooltip": "按此處查看升級 Central 的說明",
+    "instructionsToUpgradeTooltip": "按此處查看升級 Field Data 的說明",
     "dismiss": "忽略 30 天",
     "dismissTooltip": "按此處忽略此警告 30 天。"
   }

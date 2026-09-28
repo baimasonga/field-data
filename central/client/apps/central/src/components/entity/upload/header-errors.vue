@@ -143,7 +143,7 @@ const formattedDelimiter = computed(() => formatCSVDelimiter(props.delimiter));
       "invalidQuotes": "A quoted field is invalid. Check the header row of your file to see if there are any unusual values.",
       // {label} will have the text "label" and refers to the "label" property.
       // The name of the property is not translated.
-      "missingLabel": "A {label} property is required. The label indicates the name to use for each Entity throughout Central and elsewhere.",
+      "missingLabel": "A {label} property is required. The label indicates the name to use for each Entity throughout Field Data and elsewhere.",
       "unknownProperty": "If you want to add properties to this Entity List, you can do so in the Entity Properties section on the Overview page of this Entity List, or you can upload and publish a Form that references the property.",
       "duplicateColumn": "It looks like two or more columns have the same header. Please make sure column headers are unique.",
       "emptyColumn": "It looks like you have an empty cell in the header. Please remove any empty columns in your file.",
@@ -161,7 +161,7 @@ const formattedDelimiter = computed(() => formatCSVDelimiter(props.delimiter));
     "suggestions": {
       "title": "Vorschläge",
       "invalidQuotes": "Ein zitiertes Feld ist ungültig. Überprüfen Sie die Kopfzeile Ihrer Datei, um zu sehen, ob es irgendwelche ungewöhnlichen Werte gibt.",
-      "missingLabel": "Eine {label} Eigenschaft ist erforderlich. Die Bezeichnung gibt den Namen an, der für jedes Objekt in Central und anderswo zu verwenden ist.",
+      "missingLabel": "Eine {label} Eigenschaft ist erforderlich. Die Bezeichnung gibt den Namen an, der für jedes Objekt in Field Data und anderswo zu verwenden ist.",
       "unknownProperty": "Wenn Sie Eigenschaften zu dieser Objektliste hinzufügen möchten, können Sie dies im Abschnitt Objekteigenschaften auf der Übersichtsseite dieser Objektliste tun, oder Sie können ein Formular hochladen und veröffentlichen, das auf die Eigenschaft verweist.",
       "duplicateColumn": "Es sieht so aus, als hätten zwei oder mehr Spalten die gleiche Überschrift. Bitte stellen Sie sicher, dass die Spaltenüberschriften eindeutig sind.",
       "emptyColumn": "Es sieht so aus, als ob Sie eine leere Zelle in der Kopfzeile haben. Bitte entfernen Sie alle leeren Spalten in Ihrer Datei.",
@@ -173,7 +173,7 @@ const formattedDelimiter = computed(() => formatCSVDelimiter(props.delimiter));
     "suggestions": {
       "title": "Sugerencias",
       "invalidQuotes": "Un campo citado no es válido. Compruebe la fila de cabecera de su archivo para ver si hay algún valor inusual.",
-      "missingLabel": "Se requiere una propiedad {label}. La etiqueta indica el nombre a utilizar para cada Entidad en toda la Central y en otros lugares.",
+      "missingLabel": "Se requiere una propiedad {label}. La etiqueta indica el nombre a utilizar para cada Entidad en toda la Field Data y en otros lugares.",
       "unknownProperty": "Si desea añadir propiedades a esta Lista de entidades, puede hacerlo en la sección Propiedades de la entidad de la página Descripción general de esta Lista de entidades, o puede cargar y publicar un Formulario que haga referencia a la propiedad.",
       "duplicateColumn": "Parece que dos o más columnas tienen el mismo encabezado. Asegúrate de que los encabezados de las columnas son únicos.",
       "emptyColumn": "Parece que tiene una celda vacía en la cabecera. Elimine las columnas vacías de su archivo.",
@@ -185,7 +185,7 @@ const formattedDelimiter = computed(() => formatCSVDelimiter(props.delimiter));
     "suggestions": {
       "title": "Suggestions",
       "invalidQuotes": "Un champ entre guillemets est invalide. Vérifiez que l'entête de votre fichier ne contient pas une valeur inhabituelle.",
-      "missingLabel": "Une propriété {label} est requise. Le label indique le nom à utiliser pour chaque entité dans Central et ailleurs.",
+      "missingLabel": "Une propriété {label} est requise. Le label indique le nom à utiliser pour chaque entité dans Field Data et ailleurs.",
       "unknownProperty": "Si vous souhaitez ajouter des propriétés à cette liste d'entités, vous pouvez le faire dans la section Propriétés d'Entités de la page d'aperçu de cette liste d'entités, ou vous pouvez charger et publier un formulaire qui référence ces propriétés.",
       "duplicateColumn": "Il semblerait que deux colonnes ou plus aient le même entête. Assurez vous que les entêtes de colonnes sont uniques.",
       "emptyColumn": "Il semblerait que vous ayez une cellule vide dans la ligne d'entête. Merci de supprimer toutes les colonnes vides de votre fichier.",
@@ -197,7 +197,7 @@ const formattedDelimiter = computed(() => formatCSVDelimiter(props.delimiter));
     "suggestions": {
       "title": "Suggerimenti",
       "invalidQuotes": "Un campo tra virgolette non è valido. Controlla la riga di intestazione del tuo file per vedere se sono presenti valori insoliti.",
-      "missingLabel": "Una {label} proprietà è richiesta. L'etichetta indica il nome da utilizzare per ciascuna Entità in tutto Central e altrove.",
+      "missingLabel": "Una {label} proprietà è richiesta. L'etichetta indica il nome da utilizzare per ciascuna Entità in tutto Field Data e altrove.",
       "unknownProperty": "Se si desidera aggiungere proprietà a questo Elenco di entità, è possibile farlo nella sezione Proprietà dell'entità nella pagina Panoramica di questo Elenco di entità, oppure si può caricare e pubblicare un formulario che faccia riferimento alla proprietà.",
       "duplicateColumn": "Sembra che due o più colonne abbiano la stessa intestazione. Assicurarsi che le intestazioni delle colonne siano uniche.",
       "emptyColumn": "Sembra che ci sia una cella vuota nell'intestazione. Eliminare le colonne vuote nel file.",
@@ -209,7 +209,7 @@ const formattedDelimiter = computed(() => formatCSVDelimiter(props.delimiter));
     "suggestions": {
       "title": "Sugestões",
       "invalidQuotes": "Um campo entre aspas é inválido. Verifique a linha de cabeçalho do seu arquivo para ver se há valores incomuns.",
-      "missingLabel": "Uma propriedade de {label} é obrigatória. O rótulo indica o nome a ser usado para cada Entidade no Central e em outros lugares.",
+      "missingLabel": "Uma propriedade de {label} é obrigatória. O rótulo indica o nome a ser usado para cada Entidade no Field Data e em outros lugares.",
       "unknownProperty": "Se quiser adicionar propriedades a esta Lista de Entidades, você pode fazê-lo na seção Propriedades da Entidade na página Visão Geral desta Lista de Entidades, ou pode carregar e publicar um Formulário que faça referência à propriedade.",
       "duplicateColumn": "Parece que duas ou mais colunas têm o mesmo cabeçalho. Certifique-se de que os cabeçalhos das colunas sejam exclusivos.",
       "emptyColumn": "Parece que você tem uma célula vazia no cabeçalho. Remova todas as colunas vazias do seu arquivo.",
@@ -233,7 +233,7 @@ const formattedDelimiter = computed(() => formatCSVDelimiter(props.delimiter));
     "suggestions": {
       "title": "建議",
       "invalidQuotes": "帶引號的欄位無效。檢查文件的標題行，看看是否有任何異常值。",
-      "missingLabel": "需要 1{label} 屬性。此標籤指示整個 Central 和其他地方每個實體使用的名稱。",
+      "missingLabel": "需要 1{label} 屬性。此標籤指示整個 Field Data 和其他地方每個實體使用的名稱。",
       "unknownProperty": "如果您想要向此實體清單新增屬性，您可以在此實體清單的概述頁面上的實體屬性部分中執行此操作，也可以上傳並發布引用該屬性的表單。",
       "duplicateColumn": "看起來兩個或更多列具有相同的標題。請確保列標題是唯一的。",
       "emptyColumn": "標題中似乎有一個空白單元格。請刪除檔案中的所有空白列。",

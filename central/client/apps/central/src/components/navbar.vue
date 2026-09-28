@@ -22,16 +22,34 @@ except according to the terms contained in the LICENSE file.
             <span class="navbar-icon-bar"></span>
             <span class="navbar-icon-bar"></span>
           </button>
-          <router-link to="/" class="navbar-brand">Field Data</router-link>
+          <router-link v-if="!visiblyLoggedIn" to="/" class="navbar-brand">Field Data</router-link>
         </div>
         <div class="collapse navbar-collapse">
-          <navbar-links v-if="visiblyLoggedIn"/>
+          <!-- Field Data command bar: the left sidebar owns primary navigation
+          (components/field-data/sidebar.vue); this is now a white top bar. -->
+          <form v-if="visiblyLoggedIn" id="fd-topbar-search" role="search" @submit.prevent>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+              stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+            </svg>
+            <input type="text" aria-label="Search"
+              placeholder="Search forms, submissions, users…">
+          </form>
           <div class="navbar-right">
             <a v-show="showsAnalyticsNotice" id="navbar-analytics-notice"
               href="#" @click.prevent="analyticsIntroduction.show()">
               {{ $t('analyticsNotice') }}
             </a>
             <ul class="nav navbar-nav">
+              <li v-if="visiblyLoggedIn" id="fd-topbar-noti">
+                <a href="#" title="Notifications" @click.prevent>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                    stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+                    <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+                  </svg>
+                </a>
+              </li>
               <navbar-help-dropdown/>
               <navbar-locale-dropdown/>
               <navbar-actions/>
@@ -147,6 +165,49 @@ $border-height: 3px;
   }
 }
 
+// Field Data: white command bar when inside the app shell (logged in). Scoped
+// to .fd-shell so the logged-out login page keeps the original navbar.
+.fd-shell {
+  .navbar-default {
+    background-color: #fff;
+    border-top: none;
+    border-bottom: 1px solid #e6edee;
+    box-shadow: none;
+    height: 54px;
+
+    .navbar-nav { margin-top: 0; }
+    .navbar-nav > li > a {
+      display: flex;
+      align-items: center;
+      height: 54px;
+      padding: 0 12px;
+      border-top: none;
+      color: #33474d;
+      svg { color: #5a6b71; }
+      &:hover, &:focus { color: $color-accent-primary; background: transparent; border-top: none; box-shadow: none; }
+    }
+    .navbar-nav .active > a, .navbar-nav .open > a {
+      &, &:hover, &:focus { background: #f1f6f7; color: $color-accent-primary; border-top: none; box-shadow: none; }
+    }
+  }
+
+  #fd-topbar-search {
+    float: left;
+    margin: 10px 0 0 8px;
+    position: relative;
+    > svg { position: absolute; left: 12px; top: 9px; width: 16px; height: 16px; color: #9aa7ab; pointer-events: none; }
+    input {
+      width: 340px; max-width: 42vw; height: 34px;
+      border: 1px solid #dde6e8; border-radius: 8px; background: #f6fafb;
+      padding: 0 12px 0 36px; font-size: 13.5px; color: #33474d;
+      &::placeholder { color: #9aa7ab; }
+      &:focus { outline: none; border-color: $color-accent-primary; box-shadow: 0 0 0 3px rgba(14, 116, 144, 0.15); background: #fff; }
+    }
+  }
+
+  #fd-topbar-noti > a svg { width: 19px; height: 19px; }
+}
+
 // Navbar is not collapsed.
 @media (min-width: 768px) {
   .navbar-default {
@@ -179,7 +240,7 @@ $border-height: 3px;
         box-shadow: 0 0 6px transparentize($color-accent-secondary, 0.7) inset;
 
         &, &:hover, &:focus {
-          background-color: #b40066;
+          background-color: #0C6B85;
           border-top-color: #fff;
           color: #fff;
         }
@@ -245,7 +306,7 @@ $border-height: 3px;
       // Used by screen readers to describe the button used to show or hide the navigation bar on small screens ("hamburger menu").
       "toggle": "Toggle navigation"
     },
-    "analyticsNotice": "Help improve Central!"
+    "analyticsNotice": "Help improve Field Data!"
   }
 }
 </i18n>
@@ -257,37 +318,37 @@ $border-height: 3px;
     "action": {
       "toggle": "Přepnout navigaci"
     },
-    "analyticsNotice": "Pomozte zlepšit Central!"
+    "analyticsNotice": "Pomozte zlepšit Field Data!"
   },
   "de": {
     "action": {
       "toggle": "Navigation umschalten"
     },
-    "analyticsNotice": "Hilf Central zu verbessern!"
+    "analyticsNotice": "Hilf Field Data zu verbessern!"
   },
   "es": {
     "action": {
       "toggle": "Alternar la navegación"
     },
-    "analyticsNotice": "Ayuda a mejorar Central"
+    "analyticsNotice": "Ayuda a mejorar Field Data"
   },
   "fr": {
     "action": {
       "toggle": "Basculer la navigation"
     },
-    "analyticsNotice": "Aidez à améliorer Central !"
+    "analyticsNotice": "Aidez à améliorer Field Data !"
   },
   "id": {
     "action": {
       "toggle": "Navigasi Toggle"
     },
-    "analyticsNotice": "Bantu Memperbaiki Central!"
+    "analyticsNotice": "Bantu Memperbaiki Field Data!"
   },
   "it": {
     "action": {
       "toggle": "Attiva/disattiva navigazione"
     },
-    "analyticsNotice": "Aiuta a migliorare Central"
+    "analyticsNotice": "Aiuta a migliorare Field Data"
   },
   "ja": {
     "action": {
@@ -299,13 +360,13 @@ $border-height: 3px;
     "action": {
       "toggle": "Ocultar ou exibir a barra de navegação"
     },
-    "analyticsNotice": "Ajude a melhorar o Central!"
+    "analyticsNotice": "Ajude a melhorar o Field Data!"
   },
   "sw": {
     "action": {
       "toggle": "Geuza urambazaji"
     },
-    "analyticsNotice": "Saidia kuboresha Central"
+    "analyticsNotice": "Saidia kuboresha Field Data"
   },
   "zh": {
     "action": {
@@ -317,7 +378,7 @@ $border-height: 3px;
     "action": {
       "toggle": "切換導航鈕"
     },
-    "analyticsNotice": "幫忙改善 Central!"
+    "analyticsNotice": "幫忙改善 Field Data!"
   }
 }
 </i18n>

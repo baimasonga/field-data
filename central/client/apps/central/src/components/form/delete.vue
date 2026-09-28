@@ -93,7 +93,7 @@ export default {
       "Are you sure you want to delete the Form {name} and all of its Submissions?",
       "This action will move the Form to the Trash. After 30 days in the Trash, it will be permanently purged, but it can be restored before then."
     ],
-    "noDeleteEntities": "Any Entities created by this Form’s Submissions will not be deleted. In a future version of Central, it will be possible to delete Entities."
+    "noDeleteEntities": "Any Entities created by this Form’s Submissions will not be deleted. In a future version of Field Data, it will be possible to delete Entities."
   }
 }
 </i18n>
@@ -114,7 +114,7 @@ export default {
       "Sind Sie sicher, dass Sie das Formular {name} und alle dazugehörigen Übermittlungen löschen wollen?",
       "Diese Aktion verschiebt das Formular in den Papierkorb. Nach 30 Tagen im Papierkorb wird es dauerhaft gelöscht, kann aber vorher wiederhergestellt werden."
     ],
-    "noDeleteEntities": "Alle durch die Einreichungen dieses Formulars erstellten Objekte werden nicht gelöscht. In einer zukünftigen Version von Central wird es möglich sein, Objekte zu löschen."
+    "noDeleteEntities": "Alle durch die Einreichungen dieses Formulars erstellten Objekte werden nicht gelöscht. In einer zukünftigen Version von Field Data wird es möglich sein, Objekte zu löschen."
   },
   "es": {
     "title": "Borrar formulario",
@@ -122,7 +122,7 @@ export default {
       "¿Está seguro que desea eliminar el formulario {name} y todos sus envíos?",
       "Esta acción moverá el Formulario a la Papelera. Después de 30 días en la Papelera, se eliminará de forma permanente, pero se puede restablecer antes de esa fecha."
     ],
-    "noDeleteEntities": "No se eliminará ninguna entidad creada por los envíos de este formulario. En una versión futura de Central, será posible eliminar Entidades."
+    "noDeleteEntities": "No se eliminará ninguna entidad creada por los envíos de este formulario. En una versión futura de Field Data, será posible eliminar Entidades."
   },
   "fr": {
     "title": "Supprimer le formulaire",
@@ -144,7 +144,7 @@ export default {
       "Sei sicuro di voler eliminare il formulario {name} e tutti i suoi invii?",
       "Questa azione sposterà il formulario nel Cestino. Dopo 30 giorni nel Cestino, verrà eliminato definitivamente, ma prima di allora può essere ripristinato."
     ],
-    "noDeleteEntities": "Qualsiasi entità creata dagli invii di questo formulario non verrà eliminata. In una versione futura di Central, sarà possibile eliminare Entità."
+    "noDeleteEntities": "Qualsiasi entità creata dagli invii di questo formulario non verrà eliminata. In una versione futura di Field Data, sarà possibile eliminare Entità."
   },
   "ja": {
     "title": "フォームの削除",
@@ -157,7 +157,7 @@ export default {
     "introduction": [
       "Você tem certeza que deseja excluir o formulário {name} e todas as suas respostas?"
     ],
-    "noDeleteEntities": "Nenhuma Entidade criada pelas Respostas deste Formulário será excluída. Em uma versão futura do Central, será possível excluir Entidades."
+    "noDeleteEntities": "Nenhuma Entidade criada pelas Respostas deste Formulário será excluída. Em uma versão futura do Field Data, será possível excluir Entidades."
   },
   "sw": {
     "title": "Futa Fomu",
@@ -180,7 +180,7 @@ export default {
       "您確定要刪除表單{name}及其所有提交內容嗎？",
       "此動作會將表單移至垃圾桶。在垃圾桶中存放 30 天後，該表格將被永久清除，但在此之前可以還原。"
     ],
-    "noDeleteEntities": "透過此表單提交建立的任何實體都不會被刪除。在 Central 的未來版本中，將可以刪除實體。"
+    "noDeleteEntities": "透過此表單提交建立的任何實體都不會被刪除。在 Field Data 的未來版本中，將可以刪除實體。"
   }
 }
 </i18n>

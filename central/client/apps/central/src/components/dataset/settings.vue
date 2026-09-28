@@ -190,9 +190,9 @@ const dependentFormsCount = computed(() => {
     // This is a title shown above a section of the page.
     "entityWorkflow": "Entity Workflow",
     "onReceipt": {
-      "label": "Create Entities as soon as Submissions are received by Central",
+      "label": "Create Entities as soon as Submissions are received by Field Data",
       "description": "You will not have a chance to review or revise data before Entities are created.",
-      "successMessage": "Entities will be created as soon as Submissions are received by Central."
+      "successMessage": "Entities will be created as soon as Submissions are received by Field Data."
     },
     "onApproval": {
       "label": "Create Entities when Submissions are marked as Approved",
@@ -231,9 +231,9 @@ const dependentFormsCount = computed(() => {
   "cs": {
     "entityWorkflow": "Entity Workflow",
     "onReceipt": {
-      "label": "Vytvořit entity, jakmile Central obdrží podání.",
+      "label": "Vytvořit entity, jakmile Field Data obdrží podání.",
       "description": "Před vytvořením entit nebudete mít možnost údaje zkontrolovat nebo opravit.",
-      "successMessage": "Entity budou vytvořeny, jakmile Central obdrží podání."
+      "successMessage": "Entity budou vytvořeny, jakmile Field Data obdrží podání."
     },
     "onApproval": {
       "label": "Vytvořit entity, když jsou podání označena jako schválená",
@@ -246,7 +246,7 @@ const dependentFormsCount = computed(() => {
     "onReceipt": {
       "label": "Objekte anlegen, sobald die Einsendungen bei der Zentrale eingegangen sind",
       "description": "Sie haben keine Gelegenheit zur Überprüfung oder Überarbeitung der Daten, bevor Objekte erstellt werden.",
-      "successMessage": "Die Objekte werden erstellt, sobald die Einsendungen bei der Central eingegangen sind."
+      "successMessage": "Die Objekte werden erstellt, sobald die Einsendungen bei der Field Data eingegangen sind."
     },
     "onApproval": {
       "label": "Objekte erstellen, wenn Einsendungen als genehmigt markiert sind",
@@ -271,9 +271,9 @@ const dependentFormsCount = computed(() => {
   "es": {
     "entityWorkflow": "Flujo de trabajo de la entidad",
     "onReceipt": {
-      "label": "Crear entidades tan pronto como Central reciba las presentaciones",
+      "label": "Crear entidades tan pronto como Field Data reciba las presentaciones",
       "description": "No tendrá la oportunidad de revisar o revisar los datos antes de que se creen las Entidades.",
-      "successMessage": "Las Entidades se crearán tan pronto como Central reciba los Envíos."
+      "successMessage": "Las Entidades se crearán tan pronto como Field Data reciba los Envíos."
     },
     "onApproval": {
       "label": "Crear Entidades cuando los envíos se marcan como aprobados",
@@ -298,9 +298,9 @@ const dependentFormsCount = computed(() => {
   "fr": {
     "entityWorkflow": "Flux de travail d'une entité",
     "onReceipt": {
-      "label": "Créer les Entités aussitôt que les Soumissions sont reçues par Central.",
+      "label": "Créer les Entités aussitôt que les Soumissions sont reçues par Field Data.",
       "description": "Vous n'aurez pas la possibilité de vérifier ou réviser les données avant que les Entités soient créées.",
-      "successMessage": "Les Entités seront créées aussitôt que Central recevra les Soumissions."
+      "successMessage": "Les Entités seront créées aussitôt que Field Data recevra les Soumissions."
     },
     "onApproval": {
       "label": "Créer les Entités quand les Soumissions sont marquées comme Approuvées.",
@@ -325,9 +325,9 @@ const dependentFormsCount = computed(() => {
   "it": {
     "entityWorkflow": "Flusso di lavoro dell'Entità",
     "onReceipt": {
-      "label": "Creare Entità non appena gli Invii vengono ricevuti da Central",
+      "label": "Creare Entità non appena gli Invii vengono ricevuti da Field Data",
       "description": "Non avrai la possibilità di esaminare o rivedere i dati prima della creazione delle Entità.",
-      "successMessage": "Le entità verranno create non appena gli Invii saranno ricevute da Central."
+      "successMessage": "Le entità verranno create non appena gli Invii saranno ricevute da Field Data."
     },
     "onApproval": {
       "label": "Crea Entità quando gli invii sono contrassegnati come approvati",
@@ -352,9 +352,9 @@ const dependentFormsCount = computed(() => {
   "pt": {
     "entityWorkflow": "Fluxo de Trabalho da Entidade",
     "onReceipt": {
-      "label": "Criar Entidades assim que as Respostas forem recebidas pelo Central",
+      "label": "Criar Entidades assim que as Respostas forem recebidas pelo Field Data",
       "description": "Você não terá oportunidade de examinar ou revisar dados antes de as Entidades serem criadas.",
-      "successMessage": "As Entidades serão criadas assim que as Respostas forem recebidas pelo Central."
+      "successMessage": "As Entidades serão criadas assim que as Respostas forem recebidas pelo Field Data."
     },
     "onApproval": {
       "label": "Criar Entidades quando as Respostas forem marcadas como Aprovadas",
@@ -365,9 +365,9 @@ const dependentFormsCount = computed(() => {
   "sw": {
     "entityWorkflow": "Mtiririko wa Kazi wa Huluki",
     "onReceipt": {
-      "label": "Unda Huluki mara tu Mawasilisho yanapopokelewa na Central",
+      "label": "Unda Huluki mara tu Mawasilisho yanapopokelewa na Field Data",
       "description": "Hutakuwa na nafasi ya kukagua au kurekebisha data kabla ya Huluki kuundwa.",
-      "successMessage": "Huluki zitaundwa mara tu Mawasilisho yatakapopokelewa na Central."
+      "successMessage": "Huluki zitaundwa mara tu Mawasilisho yatakapopokelewa na Field Data."
     },
     "onApproval": {
       "label": "Unda Huluki wakati Mawasilisho yametiwa alama kuwa Yameidhinishwa",
@@ -378,9 +378,9 @@ const dependentFormsCount = computed(() => {
   "zh": {
     "entityWorkflow": "实体工作流程",
     "onReceipt": {
-      "label": "在 Central 接收到提交后立即创建实体",
+      "label": "在 Field Data 接收到提交后立即创建实体",
       "description": "在建立实体之前，您将没有机会查看或修改数据。",
-      "successMessage": "Central 在接收到提交后将立即创建实体。"
+      "successMessage": "Field Data 在接收到提交后将立即创建实体。"
     },
     "onApproval": {
       "label": "当提交被标记为“已批准”时创建实体",
@@ -400,9 +400,9 @@ const dependentFormsCount = computed(() => {
   "zh-Hant": {
     "entityWorkflow": "實體工作流程",
     "onReceipt": {
-      "label": "Central 收到提交後立即建立實體",
+      "label": "Field Data 收到提交後立即建立實體",
       "description": "在建立實體之前，您將沒有機會查看或修改資料。",
-      "successMessage": "Central 收到提交後將立即建立實體。"
+      "successMessage": "Field Data 收到提交後將立即建立實體。"
     },
     "onApproval": {
       "label": "當提交標記為「已核准」時建立實體",

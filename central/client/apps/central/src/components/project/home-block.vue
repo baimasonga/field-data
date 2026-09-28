@@ -8,49 +8,70 @@ the LICENSE file found in the top-level directory of this distribution and at
 https://www.apache.org/licenses/LICENSE-2.0. No part of ODK Central,
 including this file, may be copied, modified, propagated, or distributed
 except according to the terms contained in the LICENSE file.
+
+Field Data: each Project is now a white card with a header (name + summary +
+"Open project") and a properly labelled Forms table, replacing the original
+unlabelled icon columns. Entity lists keep their existing rendering.
 -->
 <template>
-  <div class="project-home-block">
-    <div class="title">
-      <router-link :to="projectPath(project.id)">{{ project.name }}</router-link>
-      <template v-if="project.keyId">
-        <span class="encrypted badge" aria-hidden="true" v-tooltip.sr-only>
-          <span class="icon-lock"></span>
-          {{ $t('encrypted') }}
-        </span>
-        <span class="sr-only">{{ $t('encryptionTip') }}</span>
-      </template>
+  <div class="fd-project-card">
+    <div class="fd-project-head">
+      <router-link :to="projectPath(project.id)" class="fd-project-mark" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
+        </svg>
+      </router-link>
+      <div class="fd-project-title">
+        <div class="nm-row">
+          <router-link :to="projectPath(project.id)" class="nm">{{ project.name }}</router-link>
+          <template v-if="project.keyId">
+            <span class="fd-enc" aria-hidden="true" v-tooltip.sr-only>
+              <span class="icon-lock"></span>{{ $t('encrypted') }}
+            </span>
+            <span class="sr-only">{{ $t('encryptionTip') }}</span>
+          </template>
+        </div>
+        <div class="mt">{{ $tcn('summary.forms', numForms) }} · {{ $tcn('summary.subs', totalSubmissions) }}</div>
+      </div>
+      <router-link :to="projectPath(project.id)" class="fd-project-open">
+        {{ $t('openProject') }}<span class="icon-angle-right"></span>
+      </router-link>
     </div>
-    <table v-if="visibleForms.length > 0 || visibleDataset.length > 0" class="project-table table">
-      <project-form-row v-for="(form, index) of visibleForms" :key="form.xmlFormId" :form="form" :project="project" :show-icon="index === 0"/>
-      <tr v-if="showExpander" class="project-form-row transparent-bg">
-        <td class="col-icon"></td>
-        <td colspan="6" class="expand-button-container">
-          <a href="#" role="button" class="expand-button" @click.prevent="toggleExpanded">
-            <template v-if="!formExpanded">
-              {{ $tcn('showMore', numForms) }}<span class="icon-angle-down"></span>
-            </template>
-            <template v-else>
-              {{ $tcn('showFewer', numForms) }}<span class="icon-angle-up"></span>
-            </template>
-          </a>
-        </td>
-      </tr>
 
-      <tr v-if="visibleForms.length > 0 && visibleDataset.length > 0" class="margin">
-        <td class="col-icon"></td>
-      </tr>
-      <project-dataset-row v-for="(dataset, index) of visibleDataset" :key="dataset.name" :dataset="dataset" :project="project" :show-icon="index === 0"/>
+    <table v-if="visibleForms.length > 0" class="fd-forms-table">
+      <thead>
+        <tr>
+          <th>{{ $t('th.form') }}</th>
+          <th class="r">{{ $t('th.submissions') }}</th>
+          <th class="r">{{ $t('th.needsReview') }}</th>
+          <th class="r">{{ $t('th.lastSubmission') }}</th>
+          <th class="r">{{ $t('th.status') }}</th>
+        </tr>
+      </thead>
+      <tbody>
+        <project-form-row v-for="form of visibleForms" :key="form.xmlFormId"
+          :form="form" :project="project"/>
+        <tr v-if="showExpander" class="fd-expand">
+          <td colspan="5">
+            <a href="#" role="button" @click.prevent="toggleExpanded">
+              <template v-if="!formExpanded">{{ $tcn('showMore', numForms) }}<span class="icon-angle-down"></span></template>
+              <template v-else>{{ $tcn('showFewer', numForms) }}<span class="icon-angle-up"></span></template>
+            </a>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+
+    <!-- Entity lists (datasets) keep their original rendering. -->
+    <table v-if="visibleDataset.length > 0" class="project-table table fd-dataset-table">
+      <project-dataset-row v-for="(dataset, index) of visibleDataset" :key="dataset.name"
+        :dataset="dataset" :project="project" :show-icon="index === 0"/>
       <tr v-if="showDatasetExpander" class="project-dataset-row transparent-bg">
         <td class="col-icon"></td>
         <td colspan="2" class="expand-button-container">
           <a href="#" role="button" class="expand-button" @click.prevent="toggleDatasetExpanded">
-            <template v-if="!datasetExpanded">
-              {{ $tcn('showMoreDatasets', numDatasets) }}<span class="icon-angle-down"></span>
-            </template>
-            <template v-else>
-              {{ $tcn('showFewerDatasets', numDatasets) }}<span class="icon-angle-up"></span>
-            </template>
+            <template v-if="!datasetExpanded">{{ $tcn('showMoreDatasets', numDatasets) }}<span class="icon-angle-down"></span></template>
+            <template v-else>{{ $tcn('showFewerDatasets', numDatasets) }}<span class="icon-angle-up"></span></template>
           </a>
         </td>
         <td v-if="hiddenConflicts > 0" colspan="2" class="conflicts-count">
@@ -59,12 +80,14 @@ except according to the terms contained in the LICENSE file.
           </a>
         </td>
         <td v-if="hiddenConflicts > 0" colspan="2" class="conflict-caption">
-          <span>
-            {{ $t('hidden') }}
-          </span>
+          <span>{{ $t('hidden') }}</span>
         </td>
       </tr>
     </table>
+
+    <p v-if="visibleForms.length === 0 && visibleDataset.length === 0" class="fd-project-empty">
+      {{ $t('noForms') }}
+    </p>
   </div>
 </template>
 
@@ -78,48 +101,32 @@ export default {
   name: 'ProjectHomeBlock',
   components: { ProjectFormRow, ProjectDatasetRow },
   props: {
-    project: {
-      type: Object,
-      required: true
-    },
-    sortFunc: {
-      type: Function,
-      required: true
-    },
-    maxForms: {
-      type: Number,
-      default: 3
-    },
-    maxDatasets: {
-      type: Number,
-      default: 3
-    }
+    project: { type: Object, required: true },
+    sortFunc: { type: Function, required: true },
+    maxForms: { type: Number, default: 3 },
+    maxDatasets: { type: Number, default: 3 }
   },
   setup() {
     const { projectPath } = useRoutes();
     return { projectPath };
   },
   data() {
-    return {
-      formExpanded: false,
-      datasetExpanded: false
-    };
+    return { formExpanded: false, datasetExpanded: false };
   },
   computed: {
     visibleForms() {
       const sortedForms = this.project.formList.filter((f) => f.state !== 'closed');
       sortedForms.sort(this.sortFunc);
-      return this.formExpanded
-        ? sortedForms
-        : sortedForms.slice(0, this.maxForms);
+      return this.formExpanded ? sortedForms : sortedForms.slice(0, this.maxForms);
+    },
+    totalSubmissions() {
+      return this.project.formList.reduce((n, f) => n + (f.submissions || 0), 0);
     },
     sortedDatasets() {
       return [...this.project.datasetList].sort(this.sortFunc);
     },
     visibleDataset() {
-      return this.datasetExpanded
-        ? this.sortedDatasets
-        : this.sortedDatasets.slice(0, this.maxDatasets);
+      return this.datasetExpanded ? this.sortedDatasets : this.sortedDatasets.slice(0, this.maxDatasets);
     },
     hiddenConflicts() {
       return this.datasetExpanded ? 0 : this.sortedDatasets.slice(this.maxDatasets).reduce((n, { conflicts }) => n + conflicts, 0);
@@ -138,12 +145,8 @@ export default {
     }
   },
   methods: {
-    toggleExpanded() {
-      this.formExpanded = !this.formExpanded;
-    },
-    toggleDatasetExpanded() {
-      this.datasetExpanded = !this.datasetExpanded;
-    }
+    toggleExpanded() { this.formExpanded = !this.formExpanded; },
+    toggleDatasetExpanded() { this.datasetExpanded = !this.datasetExpanded; }
   }
 };
 </script>
@@ -151,141 +154,89 @@ export default {
 <style lang="scss">
 @import '../../assets/scss/mixins';
 
-.project-home-block {
-  margin-bottom: 15px;
+.fd-project-card {
+  background: #fff;
+  border: 1px solid #e4ebed;
+  border-radius: 14px;
+  box-shadow: 0 1px 2px rgba(18, 48, 58, 0.05);
+  margin-bottom: 20px;
+  overflow: hidden;
+  transition: box-shadow 0.18s;
 
-  .title {
-    font-size: 24px;
-    font-weight: bold;
-    letter-spacing: -0.02em;
-    margin-bottom: 5px;
-    background-color: $color-page-background;
-    box-shadow: 0 0 20px $color-page-background;
-    position: sticky;
-    top: 0;
+  &:hover { box-shadow: 0 8px 24px rgba(18, 48, 58, 0.09); }
+
+  .fd-project-head {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 16px 22px;
+    border-bottom: 1px solid #eef3f4;
+  }
+  .fd-project-mark {
+    width: 40px; height: 40px; border-radius: 10px; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    background: linear-gradient(135deg, rgba(14,116,144,0.13), rgba(46,139,90,0.14));
+    color: #0E7490;
+    svg { width: 20px; height: 20px; }
+  }
+  .fd-project-title { flex: 1; min-width: 0; }
+  .nm-row { display: flex; align-items: center; gap: 9px; }
+  .nm {
+    font-size: 16.5px; font-weight: 700; color: #12303a; letter-spacing: -0.01em;
+    &:hover { color: #0E7490; }
+  }
+  .fd-enc {
+    font-size: 11px; font-weight: 600; color: #1f6e45;
+    background: #e2f3ea; border-radius: 5px; padding: 1px 7px;
+  }
+  .mt { font-size: 13px; color: #5f7278; margin-top: 2px; }
+  .fd-project-open {
+    color: #0E7490; font-weight: 600; font-size: 13.5px; white-space: nowrap;
+    display: inline-flex; align-items: center; gap: 4px;
+    .icon-angle-right { font-size: 15px; }
+    &:hover { color: #0A5A72; }
   }
 
-  .encrypted {
-    margin-left: 9px;
-    color: #333;
-    background-color: #ddd;
-    border: 1px solid #ccc;
-    font-weight: 400;
-  }
+  .fd-forms-table {
+    width: 100%;
+    border-collapse: collapse;
 
-  padding-right: 12px;
-
-  table {
-    margin-left: 9px;
-    margin-bottom: 4px;
-  }
-
-  .expand-button-container {
-    padding-left: 6px;
-    font-size: 14px;
-    color: #888;
-  }
-  .expand-button {
-    @include text-link;
-    &:focus {
-      background-color: transparent;
+    thead th {
+      text-align: left;
+      font-size: 11px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase;
+      color: #8fa1a7;
+      padding: 11px 16px;
+      border-bottom: 1px solid #eef3f4;
+      &.r { text-align: right; }
     }
   }
 
-  .icon-angle-down, .icon-angle-up {
-    margin-left: 5px;
+  .fd-expand td {
+    padding: 10px 16px;
+    border-top: 1px solid #eef3f4;
+    a { @include text-link; font-size: 13.5px; color: #0E7490; font-weight: 600; }
+    .icon-angle-down, .icon-angle-up { margin-left: 5px; }
   }
 
-  .project-table {
-    .transparent-bg{
-      background: transparent !important;
-    }
+  .fd-project-empty {
+    padding: 20px 22px; color: #8fa1a7; font-size: 14px; margin: 0;
+  }
 
-    tr:first-child .col-icon {
-      border-top-left-radius: 5px;
-    }
-
-    tr:last-child .col-icon {
-      border-bottom-left-radius: 5px;
-    }
-
-    tr:nth-child(3n + 2 of .project-form-row) {
-      background: #eee;
-    }
-
-    tr:nth-child(3n + 2 of .project-dataset-row) {
-      background: #eee;
-    }
-
+  // Entity-list table keeps its original look.
+  .fd-dataset-table {
+    margin: 6px 12px 12px;
+    .transparent-bg { background: transparent !important; }
     .col-icon {
-      width: 35px;
-      background: #e3e4e4;
-      border-right-width: 2px;
-      border-right-style: solid;
-      padding: 5px 0px;
-      text-align: center;
-
-      span {
-        margin-left: 0;
-      }
+      width: 35px; background: #e3e4e4; padding: 5px 0; text-align: center;
+      border-right: 2px solid #2E8B5A;
+      span { color: #2E8B5A; margin-left: 0; }
     }
-
-    .project-form-row .col-icon {
-      border-right-color: #009ccc;
-
-      span {
-        color: #009ccc;
-      }
-    }
-
-    .project-dataset-row {
-      .conflicts-count {
-        text-align: right;
-        padding: 0 $padding-right-table-data;
-
-        [class*='icon'] {
-          margin-right:0;
-        }
-
-        .btn-danger {
-          color: white;
-          margin-right: -5px;
-          font-size: 14px;
-          padding: 2px 7px;
-
-          [class*='icon'] {
-            color: white;
-          }
-        }
-      }
-
-      .col-icon{
-        border-right-color: #b9005c;
-
-        span {
-          color: #b9005c;
-        }
-      }
-
-      .conflict-caption {
-        font-size: 14px;
-        color: #888;
-        padding: 6px 10px;
-      }
-    }
-
-    .margin {
-      height: 5px;
-
-      .col-icon {
-        border-right: none;
-        width: 33px;
-      }
-    }
+    .project-dataset-row:nth-child(3n + 1) { background: #f4f7f8; }
+    .expand-button-container { padding-left: 6px; font-size: 14px; color: #888; }
+    .expand-button { @include text-link; &:focus { background-color: transparent; } }
+    .conflicts-count { text-align: right; .btn-danger { color: #fff; font-size: 14px; padding: 2px 7px; } }
+    .conflict-caption { font-size: 14px; color: #888; padding: 6px 10px; }
   }
-
-
-
 }
 </style>
 
@@ -293,108 +244,26 @@ export default {
 <i18n lang="json5">
 {
   "en": {
-    // This text is shown in a small label next to a Project name to indicate that the Project is encrypted.
     "encrypted": "Encrypted",
     "encryptionTip": "This Project uses managed encryption.",
-    // This clickable text is shown below a table of forms where only a few out of the total number ("count") of forms is shown.
+    "openProject": "Open project",
+    "noForms": "This project has no forms yet.",
+    "th": {
+      "form": "Form",
+      "submissions": "Submissions",
+      "needsReview": "Needs review",
+      "lastSubmission": "Last submission",
+      "status": "Status"
+    },
+    "summary": {
+      "forms": "{count} form | {count} forms",
+      "subs": "{count} submission | {count} submissions"
+    },
     "showMore": "Show {count} total Form | Show {count} total Forms",
-    // This clickable text is shown below a table of entity lists where only a few out of the total number ("count") of entity lists is shown.
     "showMoreDatasets": "Show {count} total Entity List | Show {count} total Entity Lists",
-    // This clickable text is shown below an expanded table of forms that can be collapsed to hide some forms.
-    // "Count" refers to the number of forms.
     "showFewer": "Show fewer of {count} total Form | Show fewer of {count} total Forms",
-    // This clickable text is shown below an expanded table of entity lists that can be collapsed to hide some entity list.
-    // "Count" refers to the number of entity lists.
     "showFewerDatasets": "Show fewer of {count} total Entity List | Show fewer of {count} total Entity Lists",
-    // Static text shown besides hidden Entity Lists with number of conflicts on the Homepage
     "hidden": "hidden"
-  }
-}
-</i18n>
-
-<!-- Autogenerated by destructure.js -->
-<i18n>
-{
-  "cs": {
-    "encrypted": "Šifrováno",
-    "encryptionTip": "Tento projekt používá řízené šifrování.",
-    "hidden": "skryto"
-  },
-  "de": {
-    "encrypted": "Verschlüsselt",
-    "encryptionTip": "Dieses Projekt verwendet verwaltete Verschlüsselung.",
-    "showMore": "Zeige alle {count} Formular | Zeige alle {count} Formulare",
-    "showMoreDatasets": "Zeige alle {count} Objektliste | Zeige alle {count} Objektlisten",
-    "showFewer": "Zeige weniger von insgesamt {count} Formular | Zeige weniger von insgesamt {count} Formularen",
-    "showFewerDatasets": "Zeige weniger von insgesamt {count} Objektliste | Zeige weniger von insgesamt {count} Objektlisten",
-    "hidden": "versteckt"
-  },
-  "es": {
-    "encrypted": "Cifrado",
-    "encryptionTip": "Este proyecto utiliza cifrado administrado.",
-    "showMore": "Mostrar {count} total formulario | Mostrar {count} totales formularios | Mostrar {count} totales formularios",
-    "showMoreDatasets": "Mostrar {count} lista de entidades | Mostrar {count} listas de entidades | Mostrar {count} listas de entidades",
-    "showFewer": "Mostrar menos de {count} total formulario | Mostrar menos de {count} totales formularios | Mostrar menos de {count} totales formularios",
-    "showFewerDatasets": "Mostrar menos de {count} lista de entidades | Mostrar menos de {count} listas de entidades | Mostrar menos de {count} listas de entidades",
-    "hidden": "oculto"
-  },
-  "fr": {
-    "encrypted": "Chiffré",
-    "encryptionTip": "Ce projet utilise un chiffrement des données.",
-    "showMore": "Afficher tous les {count} Formulaires | Afficher tous les {count} Formulaires | Afficher les {count} Formulaires",
-    "showMoreDatasets": "Afficher toutes les {count} Listes d'Entités | Afficher toutes les {count} Listes d'Entités | Afficher toutes les {count} listes d'entités",
-    "showFewer": "Voir moins que ce {count} formulaire | Voir moins que ces {count} formulaires | Voir moins que ces {count} formulaires",
-    "showFewerDatasets": "Voir moins que cette {count} Liste d'Entités | Voir moins que ces {count} Listes d'Entités | Voir moins que ces {count} listes d'entités",
-    "hidden": "caché"
-  },
-  "id": {
-    "encrypted": "Terenkripsi",
-    "encryptionTip": "Proyek ini menggunakan enkripsi terkelola."
-  },
-  "it": {
-    "encrypted": "Crittografato",
-    "encryptionTip": "Questo progetto utilizza la crittografia gestita.",
-    "showMore": "Mostra {count} del totale formulari | Mostra {count} del totale formulari | Mostra {count} del totale formulari",
-    "showMoreDatasets": "Mostra {count} del totale Lista Entità | Mostra {count} del totale Lista Entità | Mostra {count} del totale Lista Entità",
-    "showFewer": "Mostra meno {count} del totale Formulario | Mostra meno {count} del totale Formulari | Mostra meno {count} del totale Formulari",
-    "showFewerDatasets": "Mostra meno del {count} totale Lista Entità | Mostra meno del {count} totale Lista Entità | Mostra meno del {count} totale Lista Entità",
-    "hidden": "nascosto"
-  },
-  "pt": {
-    "encrypted": "Encriptado",
-    "encryptionTip": "Este Projeto usa encriptação gerenciada.",
-    "showMore": "Mostrar {count} Formulário | Mostrar {count} total de Formulários | Mostrar {count} total de Formulários",
-    "showMoreDatasets": "Mostrar {count} Lista de Entidades | Mostrar {count} total de Listas de Entidades | Mostrar {count} total de Listas de Entidades",
-    "showFewer": "Mostrar menos de {count} Formulário | Mostrar menos de {count} total de Formulários | Mostrar menos de {count} total de Formulários",
-    "showFewerDatasets": "Mostrar menos de {count} Lista de Entidades | Mostrar menos de {count} total de Listas de Entidades | Mostrar menos de {count} total de Listas de Entidades",
-    "hidden": "oculto"
-  },
-  "sw": {
-    "encrypted": "Imesimbwa kwa njia fiche",
-    "encryptionTip": "Mradi huu unatumia usimbaji fiche unaodhibitiwa.",
-    "showMore": "Onyesha Jumla ya Fomu {count} | Onyesha Jumla ya Fomu {count}",
-    "showMoreDatasets": "Onyesha Orodha {count} jumla ya Huluki | Onyesha Orodha {count} jumla ya Huluki",
-    "showFewer": "Onyesha idadi ndogo ya Fomu {count} jumla | Onyesha Jumla ya Fomu {count} chache",
-    "showFewerDatasets": "Onyesha idadi ndogo ya Orodha ya Huluki chache kati ya {count} | Onyesha chini ya Orodha {count} jumla ya Huluki",
-    "hidden": "Fiche"
-  },
-  "zh": {
-    "encrypted": "已加密",
-    "encryptionTip": "此项目使用托管加密。",
-    "showMore": "显示{count}个表单",
-    "showMoreDatasets": "显示{count}个实体列表",
-    "showFewer": "显示前几行的{count}个表单",
-    "showFewerDatasets": "显示前几行的{count}个实体列表",
-    "hidden": "隐藏"
-  },
-  "zh-Hant": {
-    "encrypted": "加密",
-    "encryptionTip": "該專案使用託管加密。",
-    "showMore": "共顯示 {count} 個表單",
-    "showMoreDatasets": "共顯示 {count} 個實體列表",
-    "showFewer": "顯示較少的表格（共 {count} 個）",
-    "showFewerDatasets": "顯示較少的實體清單（共 {count} 個）",
-    "hidden": "隱藏"
   }
 }
 </i18n>

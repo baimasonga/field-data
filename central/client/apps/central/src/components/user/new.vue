@@ -109,7 +109,7 @@ export default {
       "Once you create this account, the email address you provide will be sent instructions on how to set a password and proceed."
     ],
     "oidcIntroduction": [
-      "Users on your login server must have a Central account to log in to Central. Once you create this account, the user on your login server with the email address you provide will be able to log in to Central."
+      "Users on your login server must have a Field Data account to log in to Field Data. Once you create this account, the user on your login server with the email address you provide will be able to log in to Field Data."
     ],
     "problem": {
       "409_3": "It looks like {email} already has an account. Please try another email address."
@@ -127,7 +127,7 @@ export default {
       "Po vytvoření tohoto účtu vám bude zaslána e-mailová adresa, kterou zadáte, s pokyny, jak nastavit heslo a jak pokračovat."
     ],
     "oidcIntroduction": [
-      "Uživatelé na přihlašovacím serveru musí mít účet Central, aby se mohli přihlásit do Central. Jakmile tento účet vytvoříte, bude se uživatel na přihlašovacím serveru s vámi zadanou e-mailovou adresou moci přihlásit do Centralu."
+      "Uživatelé na přihlašovacím serveru musí mít účet Field Data, aby se mohli přihlásit do Field Data. Jakmile tento účet vytvoříte, bude se uživatel na přihlašovacím serveru s vámi zadanou e-mailovou adresou moci přihlásit do Centralu."
     ]
   },
   "de": {
@@ -136,7 +136,7 @@ export default {
       "Sobald Sie dieses Benutzerkonto angelegt haben, senden wir eine Email mit weiteren Schritten zur Passworterstellung an die angegebene E-Mail-Adresse."
     ],
     "oidcIntroduction": [
-      "Benutzer auf Ihrem Anmeldeserver müssen über ein Central-Konto verfügen, um sich bei Central anzumelden. Sobald Sie dieses Konto erstellt haben, kann sich der Benutzer auf Ihrem Anmeldeserver mit der von Ihnen angegebenen E-Mail-Adresse bei Central anmelden."
+      "Benutzer auf Ihrem Anmeldeserver müssen über ein Field Data-Konto verfügen, um sich bei Field Data anzumelden. Sobald Sie dieses Konto erstellt haben, kann sich der Benutzer auf Ihrem Anmeldeserver mit der von Ihnen angegebenen E-Mail-Adresse bei Field Data anmelden."
     ],
     "problem": {
       "409_3": "Es sieht so aus, als hätte {email} bereits ein Konto. Bitte versuchen Sie eine andere Emailadresse."
@@ -148,7 +148,7 @@ export default {
       "Al crear esta cuenta, se enviarán al correo electrónico que ha proporcionado las instrucciones para establecer una contraseña y cómo proceder."
     ],
     "oidcIntroduction": [
-      "Los usuarios de su servidor de inicio de sesión deben tener una cuenta de Central para iniciar sesión en Central. Una vez que cree esta cuenta, el usuario en su servidor de inicio de sesión con la dirección de correo electrónico que proporcione podrá iniciar sesión en Central."
+      "Los usuarios de su servidor de inicio de sesión deben tener una cuenta de Field Data para iniciar sesión en Field Data. Una vez que cree esta cuenta, el usuario en su servidor de inicio de sesión con la dirección de correo electrónico que proporcione podrá iniciar sesión en Field Data."
     ],
     "problem": {
       "409_3": "Parece que {email} ya tiene una cuenta. Por favor, prueba con otra dirección de correo electrónico."
@@ -160,7 +160,7 @@ export default {
       "Une fois que vous aurez créé ce compte, l'adresse de courriel que vous aurez fournie recevra des instructions sur la manière de définir un mot de passe et de procéder."
     ],
     "oidcIntroduction": [
-      "Les utilisateurs de votre serveur de connexion doivent avoir un compte Central pour se connecter à Central. Une fois ce compte créé, l'utilisateur de votre serveur de connexion ayant cette adresse de courriel pourra se connecter à Central."
+      "Les utilisateurs de votre serveur de connexion doivent avoir un compte Field Data pour se connecter à Field Data. Une fois ce compte créé, l'utilisateur de votre serveur de connexion ayant cette adresse de courriel pourra se connecter à Field Data."
     ],
     "problem": {
       "409_3": "Il semblerait que {email} dispose déjà d'un compte. Merci d'essayer une autre adresse de courriel."
@@ -178,7 +178,7 @@ export default {
       "Una volta creato questo account, all'indirizzo email fornito verranno inviate le istruzioni su come impostare una password e procedere."
     ],
     "oidcIntroduction": [
-      "Gli utenti del server di accesso devono avere un account Central per accedere a Central. Una volta creato questo account, l'utente del server di accesso con l'indirizzo e-mail fornito potrà accedere a Central."
+      "Gli utenti del server di accesso devono avere un account Field Data per accedere a Field Data. Una volta creato questo account, l'utente del server di accesso con l'indirizzo e-mail fornito potrà accedere a Field Data."
     ],
     "problem": {
       "409_3": "Sembra che {email} abbia già un account. Per favore, prova un altro indirizzo email."
@@ -196,7 +196,7 @@ export default {
       "Quando você criar essa conta, o endereço de email fornecido receberá instruções sobre como criar uma senha e os próximos passos."
     ],
     "oidcIntroduction": [
-      "Usuários em seu servidor de login devem ter uma conta no Central para fazer login no Central. Depois de criar essa conta, o usuário no seu servidor de login com o endereço de e-mail que você fornecer poderá fazer login no Central."
+      "Usuários em seu servidor de login devem ter uma conta no Field Data para fazer login no Field Data. Depois de criar essa conta, o usuário no seu servidor de login com o endereço de e-mail que você fornecer poderá fazer login no Field Data."
     ],
     "problem": {
       "409_3": "Parece que {email} já tem uma conta. Tente outro endereço de e-mail."
@@ -208,7 +208,7 @@ export default {
       "Ukishafungua akaunti hii, barua pepe utakayotoa itatumiwa maelekezo ya jinsi ya kuweka nenosiri na kuendelea."
     ],
     "oidcIntroduction": [
-      "Watumiaji kwenye seva yako ya kuingia lazima wawe na akaunti ya Kati ili kuingia Kati. Mara tu unapofungua akaunti hii, mtumiaji kwenye seva yako ya kuingia na anwani ya barua pepe unayotoa ataweza kuingia kwenye Central."
+      "Watumiaji kwenye seva yako ya kuingia lazima wawe na akaunti ya Kati ili kuingia Kati. Mara tu unapofungua akaunti hii, mtumiaji kwenye seva yako ya kuingia na anwani ya barua pepe unayotoa ataweza kuingia kwenye Field Data."
     ]
   },
   "zh": {
@@ -217,7 +217,7 @@ export default {
       "一旦创建此账户，系统将向您提供的邮箱发送设置密码及后续操作指南。"
     ],
     "oidcIntroduction": [
-      "您登录服务器上的用户必须拥有 Central 账户方可登录 Central。一旦创建此账户，登录服务器上使用该邮箱的用户即可访问 Central。"
+      "您登录服务器上的用户必须拥有 Field Data 账户方可登录 Central。一旦创建此账户，登录服务器上使用该邮箱的用户即可访问 Central。"
     ],
     "problem": {
       "409_3": "此邮箱 {email} 似乎已注册账户，请尝试其他邮箱地址。"
@@ -229,7 +229,7 @@ export default {
       "建立此帳戶後，您提供的電子郵件地址將收到有關如何設定密碼並繼續操作的說明。"
     ],
     "oidcIntroduction": [
-      "登入伺服器上的使用者必須擁有 Central 帳戶才能登入 Central。建立此帳戶後，登入伺服器上使用您提供的電子郵件地址的使用者將能夠登入 Central。"
+      "登入伺服器上的使用者必須擁有 Field Data 帳戶才能登入 Central。建立此帳戶後，登入伺服器上使用您提供的電子郵件地址的使用者將能夠登入 Central。"
     ],
     "problem": {
       "409_3": "{email} 似乎已經有一個帳戶。請嘗試其他電子郵件地址。"

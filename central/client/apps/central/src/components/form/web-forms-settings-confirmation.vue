@@ -12,7 +12,7 @@ except according to the terms contained in the LICENSE file.
 <template>
   <modal :state="state" :hideable="!form.awaitingResponse" backdrop
   @hide="$emit('hide')">
-    <template v-if="webformsEnabled" #title>ODK Web Forms</template>
+    <template v-if="webformsEnabled" #title>Web Forms</template>
     <template v-else #title>Enketo</template>
 
     <template v-if="webformsEnabled" #body>
@@ -89,14 +89,14 @@ const setWebformsEnabled = () => {
   {
     "en": {
       "webformsConfirmation": {
-        // The words "ODK Web Forms" and "Enketo" should not be translated
-        "description": "Are you sure you want to switch from Enketo to ODK Web Forms?",
-        // The words "ODK Web Forms" should not be translated
-        "useOdkWebForms": "Use ODK Web Forms"
+        // The words "Web Forms" and "Enketo" should not be translated
+        "description": "Are you sure you want to switch from Enketo to Web Forms?",
+        // The words "Web Forms" should not be translated
+        "useOdkWebForms": "Use Web Forms"
       },
       "enketoConfirmation": {
-        // The words "Enketo" and "ODK Web Forms" should not be translated
-        "description": "Are you sure you want to switch from ODK Web Forms to Enketo?",
+        // The words "Enketo" and "Web Forms" should not be translated
+        "description": "Are you sure you want to switch from Web Forms to Enketo?",
         // The word "Enketo" should not be translated
         "useEnketo": "Use Enketo"
       }
@@ -121,53 +121,53 @@ const setWebformsEnabled = () => {
       "useOdkWebForms": "Utilizar Formularios web ODK"
     },
     "enketoConfirmation": {
-      "description": "¿Está seguro de que desea cambiar de ODK Web Forms a Enketo?",
+      "description": "¿Está seguro de que desea cambiar de Web Forms a Enketo?",
       "useEnketo": "Utilice Enketo"
     }
   },
   "fr": {
     "webformsConfirmation": {
-      "description": "Êtes-vous sûr de vouloir passer de Enketo à ODK Web Forms?",
+      "description": "Êtes-vous sûr de vouloir passer de Enketo à Web Forms?",
       "useOdkWebForms": "Utiliser les Web Forms d'ODK"
     },
     "enketoConfirmation": {
-      "description": "Êtes vous sûr de vouloir passer d'ODK Web Forms à Enketo ?",
+      "description": "Êtes vous sûr de vouloir passer d'Web Forms à Enketo ?",
       "useEnketo": "Utiliser Enketo"
     }
   },
   "it": {
     "webformsConfirmation": {
-      "useOdkWebForms": "Utilizza ODK Web Forms"
+      "useOdkWebForms": "Utilizza Web Forms"
     },
     "enketoConfirmation": {
-      "description": "Siete sicuri di voler passare da ODK Web Forms a Enketo?",
+      "description": "Siete sicuri di voler passare da Web Forms a Enketo?",
       "useEnketo": "Usa Enketo"
     }
   },
   "pt": {
     "webformsConfirmation": {
-      "useOdkWebForms": "Utilizar ODK Web Forms"
+      "useOdkWebForms": "Utilizar Web Forms"
     },
     "enketoConfirmation": {
-      "description": "Você tem certeza que deseja mudar do ODK Web Forms para o Enketo?",
+      "description": "Você tem certeza que deseja mudar do Web Forms para o Enketo?",
       "useEnketo": "Utilizar o Enketo"
     }
   },
   "zh": {
     "webformsConfirmation": {
-      "useOdkWebForms": "使用 ODK Web Forms"
+      "useOdkWebForms": "使用 Web Forms"
     },
     "enketoConfirmation": {
-      "description": "确定要从ODK Web表单切换至Enketo吗？",
+      "description": "确定要从Web表单切换至Enketo吗？",
       "useEnketo": "使用Enketo"
     }
   },
   "zh-Hant": {
     "webformsConfirmation": {
-      "useOdkWebForms": "使用 ODK Web Forms"
+      "useOdkWebForms": "使用 Web Forms"
     },
     "enketoConfirmation": {
-      "description": "您確定要從 ODK Web Forms 轉換到 Enketo？",
+      "description": "您確定要從 Web Forms 轉換到 Enketo？",
       "useEnketo": "使用 Enketo"
     }
   }

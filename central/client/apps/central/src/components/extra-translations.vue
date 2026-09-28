@@ -19,11 +19,11 @@ using existing transifex process.
   {
     "en": {
       "outdatedVersionHtml": {
-        "heading": "You’re using a significantly outdated version of ODK Central",
+        "heading": "You’re using a significantly outdated version of Field Data",
         "sentence1": "Upgrade now to protect your data and take advantage of the latest features.",
         // {OdkCloudLink} is a hyperlink to the ODK Cloud webpage and the text of it is "ODK Cloud",
         // which doesn't need to be translated.
-        "sentence2": "If you don’t want to maintain Central, try {OdkCloudLink}."
+        "sentence2": "If you don’t want to maintain Field Data, try {OdkCloudLink}."
       }
     }
   }
@@ -34,49 +34,49 @@ using existing transifex process.
 {
   "de": {
     "outdatedVersionHtml": {
-      "heading": "Sie verwenden eine deutlich veraltete Version von ODK Central",
+      "heading": "Sie verwenden eine deutlich veraltete Version von Field Data",
       "sentence1": "Aktualisieren Sie jetzt, um Ihre Daten zu schützen und von den neuesten Funktionen zu profitieren.",
-      "sentence2": "Wenn Sie Central nicht pflegen wollen, versuchen Sie {OdkCloudLink}."
+      "sentence2": "Wenn Sie Field Data nicht pflegen wollen, versuchen Sie {OdkCloudLink}."
     }
   },
   "es": {
     "outdatedVersionHtml": {
-      "heading": "Está utilizando una versión significativamente obsoleta de ODK Central",
+      "heading": "Está utilizando una versión significativamente obsoleta de Field Data",
       "sentence1": "Actualízate ahora para proteger tus datos y aprovechar las últimas funciones.",
-      "sentence2": "Si no quiere mantener Central, pruebe con {OdkCloudLink}."
+      "sentence2": "Si no quiere mantener Field Data, pruebe con {OdkCloudLink}."
     }
   },
   "fr": {
     "outdatedVersionHtml": {
-      "heading": "Vous utilisez une version ancienne d'ODK Central",
+      "heading": "Vous utilisez une version ancienne d'Field Data",
       "sentence1": "Effectuez une mise à jour pour protéger vos données et profiter des fonctionnalités les plus récentes.",
       "sentence2": "Si vous préférez ne pas être responsable des mises à jours, essayez {OdkCloudLink}."
     }
   },
   "it": {
     "outdatedVersionHtml": {
-      "heading": "Si sta utilizzando una versione significativamente obsoleta di ODK Central",
+      "heading": "Si sta utilizzando una versione significativamente obsoleta di Field Data",
       "sentence1": "Eseguite subito l'aggiornamento per proteggere i vostri dati e sfruttare le funzioni più recenti.",
-      "sentence2": "Se non si vuole mantenere Central, provare con {OdkCloudLink}."
+      "sentence2": "Se non si vuole mantenere Field Data, provare con {OdkCloudLink}."
     }
   },
   "pt": {
     "outdatedVersionHtml": {
-      "heading": "Você está usando uma versão consideravelmente ultrapassada do ODK Central",
+      "heading": "Você está usando uma versão consideravelmente ultrapassada do Field Data",
       "sentence1": "Atualize agora para proteger seus dados e obter vantagem das últimas implementações.",
-      "sentence2": "Se você não quer manter o Central, tente {OdkCloudLink}"
+      "sentence2": "Se você não quer manter o Field Data, tente {OdkCloudLink}"
     }
   },
   "zh": {
     "outdatedVersionHtml": {
-      "heading": "您使用的ODK Central版本过低",
+      "heading": "您使用的Field Data版本过低",
       "sentence1": "立即升级以保护您的资料，同时使用最新的功能。",
       "sentence2": "如果您不想维护Central，请使用{OdkCloudLink}。"
     }
   },
   "zh-Hant": {
     "outdatedVersionHtml": {
-      "heading": "您使用的 ODK Central 版本明顯過時",
+      "heading": "您使用的 Field Data 版本明顯過時",
       "sentence1": "立即升級以保護您的資料並利用最新功能。",
       "sentence2": "如果您不想維護 Central，請嘗試 {OdkCloudLink}."
     }

@@ -66,7 +66,7 @@ export default {
   "en": {
     "disabled": {
       "processing": "Preview has not finished processing for this Form. Please refresh later and try again.",
-      "notOpen": "In this version of ODK Central, preview is only available for Forms in the Open state."
+      "notOpen": "In this version of Field Data, preview is only available for Forms in the Open state."
     }
   }
 }
@@ -78,67 +78,67 @@ export default {
   "cs": {
     "disabled": {
       "processing": "Náhled nedokončil zpracování tohoto formuláře. Aktualizujte prosím později a zkuste to znovu.",
-      "notOpen": "V této verzi ODK Central je náhled k dispozici pouze pro formuláře v otevřeném stavu."
+      "notOpen": "V této verzi Field Data je náhled k dispozici pouze pro formuláře v otevřeném stavu."
     }
   },
   "de": {
     "disabled": {
       "processing": "Die Vorschau für dieses Formular ist noch nicht vollständig erstellt. Bitte aktualieren Sie und versuchen Sie es später noch einmal.",
-      "notOpen": "In dieser Version von ODK Central steht die Vorschau nur für Formule im Zustand \"Offen\" zur Verfügung."
+      "notOpen": "In dieser Version von Field Data steht die Vorschau nur für Formule im Zustand \"Offen\" zur Verfügung."
     }
   },
   "es": {
     "disabled": {
       "processing": "La vista previa no ha finalizado el procesamiento de este formulario. Por favor actualice más tarde e intente nuevamente.",
-      "notOpen": "En esta versión de ODK Central, la vista previa solo está disponible para formularios en estado abierto."
+      "notOpen": "En esta versión de Field Data, la vista previa solo está disponible para formularios en estado abierto."
     }
   },
   "fr": {
     "disabled": {
       "processing": "L'aperçu n'a pas fini d'être exécuté pour ce formulaire. Veuillez rafraîchir plus tard et réessayer.",
-      "notOpen": "Dans cette version d'ODK Central, l'aperçu n'est disponible que pour les formulaires dont l'état est ouvert."
+      "notOpen": "Dans cette version d'Field Data, l'aperçu n'est disponible que pour les formulaires dont l'état est ouvert."
     }
   },
   "id": {
     "disabled": {
       "processing": "Pratinjau untuk formulir ini masih dalam proses pengerjaan. Silakan muat ulang dan coba lagi nanti.",
-      "notOpen": "Pada versi ODK Central ini, pratinjau hanya tersedia untuk formulir dalam kondisi terbuka."
+      "notOpen": "Pada versi Field Data ini, pratinjau hanya tersedia untuk formulir dalam kondisi terbuka."
     }
   },
   "it": {
     "disabled": {
       "processing": "L'anteprima non ha terminato l'elaborazione per questo formulario. Per favore riaggiorna più tardi e riprova.",
-      "notOpen": "In questa versione di ODK Central, l'anteprima è disponibile solo per i formulari nello stato aperto."
+      "notOpen": "In questa versione di Field Data, l'anteprima è disponibile solo per i formulari nello stato aperto."
     }
   },
   "ja": {
     "disabled": {
       "processing": "このフォームのプレビュー処理が終了していません。後ほどページを更新し、もう一度試して下さい。",
-      "notOpen": "このバージョンのODK Centralでは、プレビューは、公開状態のフォームでのみ利用可能です。"
+      "notOpen": "このバージョンのField Dataでは、プレビューは、公開状態のフォームでのみ利用可能です。"
     }
   },
   "pt": {
     "disabled": {
       "processing": "A visualização prévia não terminou de processar esse formulário. Por favor, atualize a página mais tarde e tente novamente.",
-      "notOpen": "Nessa versão do ODK Central, a pré-visualização está disponível apenas para formulários com status aberto."
+      "notOpen": "Nessa versão do Field Data, a pré-visualização está disponível apenas para formulários com status aberto."
     }
   },
   "sw": {
     "disabled": {
       "processing": "Onyesho la kuchungulia halijamaliza kuchakata Fomu hii. Tafadhali onyesha upya baadaye na ujaribu tena.",
-      "notOpen": "Katika toleo hili la ODK Central, onyesho la kukagua linapatikana kwa Fomu zilizo katika \"OPEN STATE\""
+      "notOpen": "Katika toleo hili la Field Data, onyesho la kukagua linapatikana kwa Fomu zilizo katika \"OPEN STATE\""
     }
   },
   "zh": {
     "disabled": {
       "processing": "此表单的预览功能尚未处理完成，请稍后刷新重试。",
-      "notOpen": "此版本ODK Central中，预览功能仅对“开放”状态的表单开放。"
+      "notOpen": "此版本Field Data中，预览功能仅对“开放”状态的表单开放。"
     }
   },
   "zh-Hant": {
     "disabled": {
       "processing": "預覽尚未完成此表單的處理。請稍後重新載入並重試。",
-      "notOpen": "在此版本的 ODK Central 中，預覽僅適用於「開啟」狀態的表單。"
+      "notOpen": "在此版本的 Field Data 中，預覽僅適用於「開啟」狀態的表單。"
     }
   }
 }

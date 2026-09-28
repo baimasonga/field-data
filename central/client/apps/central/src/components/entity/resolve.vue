@@ -217,7 +217,7 @@ watch(() => props.entity?.__system?.version, (version) => {
     // Entity.
     "title": "Parallel updates to “{label}”",
     "instructions": [
-      "Updates were made to “{label}” in parallel. This means changes may be in conflict with each other, as they were authored against older data than they were eventually applied to by Central.",
+      "Updates were made to “{label}” in parallel. This means changes may be in conflict with each other, as they were authored against older data than they were eventually applied to by Field Data.",
       "Review the updates, make any edits you need to, and if you are sure this Entity data is correct press “Mark as resolved” to clear this warning message."
     ],
     "action": {
@@ -261,7 +261,7 @@ watch(() => props.entity?.__system?.version, (version) => {
   "de": {
     "title": "Parallele Update zu \"{label}\"",
     "instructions": [
-      "Updates wurden parallel zu ''{label}\" durchgeführt. Dies bedeutet, dass Änderungen möglicherweise im Konflikt miteinander stehen, da sie zu älteren Daten erstellt wurden, als sie schließlich von Central angewendet wurden.",
+      "Updates wurden parallel zu ''{label}\" durchgeführt. Dies bedeutet, dass Änderungen möglicherweise im Konflikt miteinander stehen, da sie zu älteren Daten erstellt wurden, als sie schließlich von Field Data angewendet wurden.",
       "Überprüfen Sie die Updates, nehmen Sie die erforderlichen Bearbeitungen vor, und wenn Sie sicher sind, dass die Objektdaten korrekt sind, drücken Sie 'Als behoben markieren', um diese Warnmeldung zu löschen."
     ],
     "action": {
@@ -282,7 +282,7 @@ watch(() => props.entity?.__system?.version, (version) => {
   "es": {
     "title": "Actualizaciones paralelas a “{label}”",
     "instructions": [
-      "Se realizaron actualizaciones en “{label}” en paralelo. Esto significa que los cambios pueden entrar en conflicto entre sí, ya que se crearon con datos más antiguos de los que finalmente aplicó Central.",
+      "Se realizaron actualizaciones en “{label}” en paralelo. Esto significa que los cambios pueden entrar en conflicto entre sí, ya que se crearon con datos más antiguos de los que finalmente aplicó Field Data.",
       "Revise las actualizaciones, realice las modificaciones necesarias y, si está seguro de que los datos de esta entidad son correctos, presione \"Marcar como resuelto\" para borrar este mensaje de advertencia."
     ],
     "action": {
@@ -303,7 +303,7 @@ watch(() => props.entity?.__system?.version, (version) => {
   "fr": {
     "title": "Mises à jour parallèles de \"{label}\"",
     "instructions": [
-      "Des mises à jour de \"{label}\" ont été effectuées en parallèle. Cela signifie que les modifications peuvent être en conflit les unes avec les autres, car elles ont été créées sur des données plus anciennes que celles sur lesquelles Central pourrait les appliquer.",
+      "Des mises à jour de \"{label}\" ont été effectuées en parallèle. Cela signifie que les modifications peuvent être en conflit les unes avec les autres, car elles ont été créées sur des données plus anciennes que celles sur lesquelles Field Data pourrait les appliquer.",
       "Passez en revue les mises à jour, faites les modifications nécessaires, et si vous êtes certains que les données de cette Entité sont correctes, cliquez \"Marquer comme résolu\" pour supprimer le message d'avertissement."
     ],
     "action": {
@@ -324,7 +324,7 @@ watch(() => props.entity?.__system?.version, (version) => {
   "it": {
     "title": "Aggiornamenti paralleli a “{label}”",
     "instructions": [
-      "Sono stati apportati aggiornamenti a “{label}” in parallelo. Ciò significa che le modifiche potrebbero essere in conflitto tra loro, poiché sono state create rispetto a dati più vecchi di quelli a cui sono stati applicati da Central.",
+      "Sono stati apportati aggiornamenti a “{label}” in parallelo. Ciò significa che le modifiche potrebbero essere in conflitto tra loro, poiché sono state create rispetto a dati più vecchi di quelli a cui sono stati applicati da Field Data.",
       "Rivedi gli aggiornamenti, apporta le modifiche necessarie e, se sei sicuro che i dati dell'entità siano corretti, premi \"Segna come risolto\" per cancellare questo messaggio di avviso."
     ],
     "action": {
@@ -345,7 +345,7 @@ watch(() => props.entity?.__system?.version, (version) => {
   "pt": {
     "title": "Atualizações paralelas para \"{label}\"",
     "instructions": [
-      "Atualizações foram feitas para \"{label}\" em paralelo. Isso significa que as alterações podem estar em conflito entre si, pois foram criadas com base em dados mais antigos do que os que foram eventualmente aplicados pelo Central.",
+      "Atualizações foram feitas para \"{label}\" em paralelo. Isso significa que as alterações podem estar em conflito entre si, pois foram criadas com base em dados mais antigos do que os que foram eventualmente aplicados pelo Field Data.",
       "Revise as atualizações, faça as alterações necessárias e, se tiver certeza de que os dados desta Entidade estão corretos, pressione \"Marcar como resolvido\" para limpar esta mensagem de aviso."
     ],
     "action": {
@@ -366,7 +366,7 @@ watch(() => props.entity?.__system?.version, (version) => {
   "sw": {
     "title": "Masasisho sambamba ya “{label}”",
     "instructions": [
-      "Masasisho yalifanywa kwa “{label}” kwa sambamba. Hii inamaanisha kuwa mabadiliko yanaweza kuwa yanakinzana, kwa vile yaliandikwa dhidi ya data ya zamani kuliko yalivyotumiwa na Central.",
+      "Masasisho yalifanywa kwa “{label}” kwa sambamba. Hii inamaanisha kuwa mabadiliko yanaweza kuwa yanakinzana, kwa vile yaliandikwa dhidi ya data ya zamani kuliko yalivyotumiwa na Field Data.",
       "Kagua masasisho, fanya mabadiliko yoyote unayohitaji, na ikiwa una uhakika kwamba data hii ya Huluki ni sahihi bonyeza“Mark as resolved” ili kufuta ujumbe huu wa onyo."
     ],
     "action": {
@@ -403,7 +403,7 @@ watch(() => props.entity?.__system?.version, (version) => {
   "zh-Hant": {
     "title": "並行更新「1{label}」",
     "instructions": [
-      "並行更新了「1{label}」。這意味著更改可能會相互衝突，因為它們是根據較舊的資料編寫的，而不是 Central 最終應用的資料。",
+      "並行更新了「1{label}」。這意味著更改可能會相互衝突，因為它們是根據較舊的資料編寫的，而不是 Field Data 最終應用的資料。",
       "查看更新，進行所需的任何編輯，如果您確定該實體資料正確，請按「標記為已解決」以清除此警告訊息。"
     ],
     "action": {

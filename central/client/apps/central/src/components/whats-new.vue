@@ -129,7 +129,7 @@ function hideModal() {
   {
     "en": {
       // This is the title at the top of a pop-up.
-      "title": "Entity Filtering 🎯 and ODK Web Forms by Default 🌐",
+      "title": "Entity Filtering 🎯 and Web Forms by Default 🌐",
       "body": "Control which Entities each App User or Public Link receives with filtering rules based on custom properties. Plus, Web Forms is now the default web form experience, bringing a faster, more intuitive experience for form previews, data editing, and web-based form filling."
     }
   }
@@ -139,8 +139,8 @@ function hideModal() {
 <i18n>
 {
   "fr": {
-    "title": "Filtrez vos entités 🎯 et ODK Web Forms par défaut 🌐",
-    "body": "Contrôlez les entités reçues par chaque utilisateur mobile ou chaque lien public grâce à des règles de filtrage basées sur des propriétés. De plus, ODK Web Forms est maintenant l'expérience par défaut pour les formulaires web, offrant une expérience rapide et intuitive pour la prévisualisation de formulaire, la modification des données et la saisie en ligne."
+    "title": "Filtrez vos entités 🎯 et Web Forms par défaut 🌐",
+    "body": "Contrôlez les entités reçues par chaque utilisateur mobile ou chaque lien public grâce à des règles de filtrage basées sur des propriétés. De plus, Web Forms est maintenant l'expérience par défaut pour les formulaires web, offrant une expérience rapide et intuitive pour la prévisualisation de formulaire, la modification des données et la saisie en ligne."
   }
 }
 </i18n>

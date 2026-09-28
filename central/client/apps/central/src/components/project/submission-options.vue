@@ -93,7 +93,7 @@ const { projectPath, formPath } = useRoutes();
     "title": "Submission Options",
     "introduction": [
       // This text is shown above a list of options for submitting data.
-      "There are several options for submitting data to ODK Central:",
+      "There are several options for submitting data to Field Data:",
       {
         // This text is shown in a list of options for submitting data.
         // {collect} is a link whose text is "ODK Collect".
@@ -107,7 +107,7 @@ const { projectPath, formPath } = useRoutes();
       },
       {
         // This text is shown in a list of options for submitting data.
-        "full": "Create a {webUser} with the Role of {dataCollector} for each individual who will be collecting data. These Users will log into Central to fill out this Form in a web browser. Project Managers can also create Submissions from a web browser.",
+        "full": "Create a {webUser} with the Role of {dataCollector} for each individual who will be collecting data. These Users will log into Field Data to fill out this Form in a web browser. Project Managers can also create Submissions from a web browser.",
         "webUser": "Web User",
         "dataCollector": "Data Collector"
       }
@@ -122,7 +122,7 @@ const { projectPath, formPath } = useRoutes();
   "cs": {
     "title": "Možnosti Příspěvků",
     "introduction": [
-      "Existuje několik možností pro odesílání dat do ODK Central:",
+      "Existuje několik možností pro odesílání dat do Field Data:",
       {
         "full": "Vytvořte {appUsers} a použijte {collect} aplikaci pro Android. To je nejvhodnější, pokud sběratelé dat potřebují přístup k více formulářům, jsou offline, nebo máte složitý formulář.",
         "appUsers": "Uživatele aplikace"
@@ -132,7 +132,7 @@ const { projectPath, formPath } = useRoutes();
         "publicLinks": "Veřejně přístupných odkazů"
       },
       {
-        "full": "Vytvořte {webUser} s rolí {dataCollector} pro každého jednotlivce, který bude shromažďovat data. Tito uživatelé se přihlásí do Central a vyplní tento formulář ve webovém prohlížeči. Projektoví manažeři mohou také vytvářet příspěvky z webového prohlížeče.",
+        "full": "Vytvořte {webUser} s rolí {dataCollector} pro každého jednotlivce, který bude shromažďovat data. Tito uživatelé se přihlásí do Field Data a vyplní tento formulář ve webovém prohlížeči. Projektoví manažeři mohou také vytvářet příspěvky z webového prohlížeče.",
         "webUser": "Webového uživatele",
         "dataCollector": "Sběrač dat"
       }
@@ -141,7 +141,7 @@ const { projectPath, formPath } = useRoutes();
   "de": {
     "title": "Übermittlungsoptionen",
     "introduction": [
-      "Es gibt mehrere Optionen, um Daten an ODK Central zu übermitteln:",
+      "Es gibt mehrere Optionen, um Daten an Field Data zu übermitteln:",
       {
         "full": "{appUsers} erstellen und die {collect} Android-App benutzen. Dies passt am besten, wenn die Datensammler Zugriff auf mehrere Formulare benötigen, offline sind oder wenn Sie ein komplexes Formular haben.",
         "appUsers": "App-Benutzer"
@@ -151,7 +151,7 @@ const { projectPath, formPath } = useRoutes();
         "publicLinks": "Öffentlicher Zugangslinks"
       },
       {
-        "full": "Erstellen Sie einen {webUser} mit der Rolle eines {dataCollector} für jeden Einzelnen, der Daten sammeln wird. Diese Benutzer werden sich in Central einloggen, um dieses Formular in einem Webbrowser auszufüllen. Projekt-Manager können auch Übermittlungen in einem Webbrowser erstellen.",
+        "full": "Erstellen Sie einen {webUser} mit der Rolle eines {dataCollector} für jeden Einzelnen, der Daten sammeln wird. Diese Benutzer werden sich in Field Data einloggen, um dieses Formular in einem Webbrowser auszufüllen. Projekt-Manager können auch Übermittlungen in einem Webbrowser erstellen.",
         "webUser": "Web-Benutzer",
         "dataCollector": "Datensammler"
       }
@@ -160,7 +160,7 @@ const { projectPath, formPath } = useRoutes();
   "es": {
     "title": "Opciones de envío",
     "introduction": [
-      "Hay varias opciones para enviar datos a ODK Central:",
+      "Hay varias opciones para enviar datos a Field Data:",
       {
         "full": "Crea {appUsers} y usa la aplicación Android {collect}. Esto es más apropiado cuando los recolectores de datos necesitan acceso a múltiples formularios, están fuera de línea o tiene un formulario complejo.",
         "appUsers": "Usuarios móviles"
@@ -170,7 +170,7 @@ const { projectPath, formPath } = useRoutes();
         "publicLinks": "Enlaces de acceso público"
       },
       {
-        "full": "Cree un {webUser} con el rol de {dataCollector} para cada individuo que recopilará datos. Estos usuarios iniciarán sesión en Central para completar este Formulario en un navegador web. Los administradores de proyectos también pueden crear envíos desde un navegador web.",
+        "full": "Cree un {webUser} con el rol de {dataCollector} para cada individuo que recopilará datos. Estos usuarios iniciarán sesión en Field Data para completar este Formulario en un navegador web. Los administradores de proyectos también pueden crear envíos desde un navegador web.",
         "webUser": "Usuario web",
         "dataCollector": "Recolector de datos"
       }
@@ -179,7 +179,7 @@ const { projectPath, formPath } = useRoutes();
   "fr": {
     "title": "Méthodes d'envoi de données",
     "introduction": [
-      "Il y a plusieurs méthodes pour envoyer des données à ODK Central:",
+      "Il y a plusieurs méthodes pour envoyer des données à Field Data:",
       {
         "full": "Créez des {appUsers} et utilisez l'application Android {collect}. Cela convient particulièrement bien quand les collecteurs de données doivent accéder à plusieurs formulaires, sont hors-ligne, ou ont des formulaires complexes.",
         "appUsers": "Utilisateurs mobiles"
@@ -189,7 +189,7 @@ const { projectPath, formPath } = useRoutes();
         "publicLinks": "liens d'accès public"
       },
       {
-        "full": "Créez un {webUser} avec le rôle de {dataCollector} pour chaque individu qui participera à la collecte de données. Ces utilisateurs accéderont à leurs comptes Central pour remplir ce formulaire depuis leurs navigateurs. Les gestionnaires de projet peuvent également créer des soumissions depuis leurs navigateurs.",
+        "full": "Créez un {webUser} avec le rôle de {dataCollector} pour chaque individu qui participera à la collecte de données. Ces utilisateurs accéderont à leurs comptes Field Data pour remplir ce formulaire depuis leurs navigateurs. Les gestionnaires de projet peuvent également créer des soumissions depuis leurs navigateurs.",
         "webUser": "utilisateur web",
         "dataCollector": "collecteur de données"
       }
@@ -198,7 +198,7 @@ const { projectPath, formPath } = useRoutes();
   "id": {
     "title": "Pengaturan Kiriman Data",
     "introduction": [
-      "Ada beberapa pengaturan untuk mengirim data ke ODK Central:",
+      "Ada beberapa pengaturan untuk mengirim data ke Field Data:",
       {
         "full": "Buat {appUsers} dan gunakan aplikasi Android {collect}. Ini akan membantu dan memudahkan pengumpul data membutuhkan akses ke berbagai formulir, sedang offline, atau ketika Anda memiliki formulir yang kompleks.",
         "appUsers": "Pengguna Aplikasi"
@@ -208,7 +208,7 @@ const { projectPath, formPath } = useRoutes();
         "publicLinks": "Tautan Akses Publik"
       },
       {
-        "full": "Buat sebuah {webUser} dengan Peran sebagai {dataCollector} untuk setiap invididu yang akan mengumpulkan data. Pengguna ini akan masuk ke Central untuk mengisi formulir lewat web browser. Manajer Proyek juga bisa membuat kiriman data lewat web browser.",
+        "full": "Buat sebuah {webUser} dengan Peran sebagai {dataCollector} untuk setiap invididu yang akan mengumpulkan data. Pengguna ini akan masuk ke Field Data untuk mengisi formulir lewat web browser. Manajer Proyek juga bisa membuat kiriman data lewat web browser.",
         "webUser": "Pengguna Web",
         "dataCollector": "Pengumpul Data"
       }
@@ -217,7 +217,7 @@ const { projectPath, formPath } = useRoutes();
   "it": {
     "title": "Opzioni invio",
     "introduction": [
-      "Esistono diverse opzioni per inviare dati a ODK Central:",
+      "Esistono diverse opzioni per inviare dati a Field Data:",
       {
         "full": "Creare {appUsers} e utilizzare l'applicazione Android {collect}. Questo è più appropriato quando i raccoglitori di dati devono accedere a più formulari, sono offline o nel caso tu abbia un formulario complesso.",
         "appUsers": "Utenti dell'applicazione"
@@ -227,7 +227,7 @@ const { projectPath, formPath } = useRoutes();
         "publicLinks": "Link con accesso pubblico"
       },
       {
-        "full": "Crea un {webUser} con il ruolo di {dataCollector} per ogni individuo che raccoglierà dati. Questi utenti accederanno a Central per compilare questo formulario in un browser web. I project manager possono anche creare invii da un browser web.",
+        "full": "Crea un {webUser} con il ruolo di {dataCollector} per ogni individuo che raccoglierà dati. Questi utenti accederanno a Field Data per compilare questo formulario in un browser web. I project manager possono anche creare invii da un browser web.",
         "webUser": "Utente Web",
         "dataCollector": "Raccoglitore di dati"
       }
@@ -236,7 +236,7 @@ const { projectPath, formPath } = useRoutes();
   "ja": {
     "title": "フォーム提出方法の選択肢",
     "introduction": [
-      "ODK Centralへのデータ提出方法にはいくつかの選択肢があります。",
+      "Field Dataへのデータ提出方法にはいくつかの選択肢があります。",
       {
         "full": "{appUsers}を作成し、Androidアプリの{collect}を使用して下さい。この方法は、データ収集者が複数のフォームにアクセスする必要がある場合や、オフラインである場合、複雑なフォームを持っている場合などに最適です",
         "appUsers": "アプリユーザー"
@@ -255,7 +255,7 @@ const { projectPath, formPath } = useRoutes();
   "pt": {
     "title": "Opções de resposta",
     "introduction": [
-      "Existem várias maneiras de enviar respostas para o ODK Central:",
+      "Existem várias maneiras de enviar respostas para o Field Data:",
       {
         "full": "Crie {appUsers} e utilize o aplicativo {collect} para Android. Isso é o mais apropriado quando os coletores de dados precisam de acesso a múltiplos formulários, ficam sem internet, ou quando você tem um formulário complexo.",
         "appUsers": "Usuários de aplicativo"
@@ -265,7 +265,7 @@ const { projectPath, formPath } = useRoutes();
         "publicLinks": "Links de acesso público"
       },
       {
-        "full": "Crie um {webUser} com a função de {dataCollector} para cada indivíduo que fará a coleta de dados. Esses usuários poderão fazer login no Central para preencher o formulário em um navegador de internet. Gerentes de projeto também podem preencher formulários a partir do navegador de internet.",
+        "full": "Crie um {webUser} com a função de {dataCollector} para cada indivíduo que fará a coleta de dados. Esses usuários poderão fazer login no Field Data para preencher o formulário em um navegador de internet. Gerentes de projeto também podem preencher formulários a partir do navegador de internet.",
         "webUser": "Usuário da web",
         "dataCollector": "Coletor de dados"
       }
@@ -274,7 +274,7 @@ const { projectPath, formPath } = useRoutes();
   "sw": {
     "title": "Chaguzi za Uwasilishaji",
     "introduction": [
-      "Kuna chaguo kadhaa za kuwasilisha data kwa ODK Central:",
+      "Kuna chaguo kadhaa za kuwasilisha data kwa Field Data:",
       {
         "full": "Unda {appUsers} na utumie programu ya Android ya {collect}. Hii inafaa zaidi wakati wakusanyaji wa data wanahitaji ufikiaji wa Fomu nyingi, wako nje ya mtandao, au una Fomu ngumu",
         "appUsers": "Watumiaji wa Programu"
@@ -293,7 +293,7 @@ const { projectPath, formPath } = useRoutes();
   "zh": {
     "title": "提交选项",
     "introduction": [
-      "向ODK Central提交数据有以下几种方式：",
+      "向Field Data提交数据有以下几种方式：",
       {
         "full": "创建{appUsers}并使用{collect}安卓应用程序。此方式最适合数据收集员需访问多个表单、处于离线状态或使用复杂表单的场景。",
         "appUsers": "APP用户"
@@ -312,7 +312,7 @@ const { projectPath, formPath } = useRoutes();
   "zh-Hant": {
     "title": "提交選項",
     "introduction": [
-      "有多種選項可用於向 ODK Central 提交資料：",
+      "有多種選項可用於向 Field Data 提交資料：",
       {
         "full": "建立 {appUsers} 並使用 {collect} Android 應用程式。當資料收集者需要存取多個表單、處於離線狀態或您有一個複雜的表單時，這是最合適的。",
         "appUsers": "App 使用者"
@@ -322,7 +322,7 @@ const { projectPath, formPath } = useRoutes();
         "publicLinks": "公共訪問連結"
       },
       {
-        "full": "為每個要收集資料的人建立一個角色為 {dataCollector} 的 {webUser}。這些使用者將登入 Central 以在網頁瀏覽器中填寫此表格。專案管理員也可以從網頁瀏覽器建立提交。",
+        "full": "為每個要收集資料的人建立一個角色為 {dataCollector} 的 {webUser}。這些使用者將登入 Field Data 以在網頁瀏覽器中填寫此表格。專案管理員也可以從網頁瀏覽器建立提交。",
         "webUser": "網路使用者",
         "dataCollector": "資料收集者"
       }

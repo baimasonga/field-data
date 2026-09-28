@@ -274,14 +274,14 @@ export default {
           [
             "If you enable encryption, the following things will happen:",
             "Finalized Submission data will be encrypted on mobile devices.",
-            "Submission data at rest will be encrypted on the Central server.",
+            "Submission data at rest will be encrypted on the Field Data server.",
             [
               // {submission} will have the text "<submission>", which is XML
               // and will not be translated.
               "Forms configured with manual {submission} keys will continue to use those keys, and must be manually decrypted.",
               // {base64RsaPublicKey} will have the text "base64RsaPublicKey",
               // which is code and will not be translated.
-              "To use the automatic Central encryption process on these Forms, remove the {base64RsaPublicKey} configuration."
+              "To use the automatic Field Data encryption process on these Forms, remove the {base64RsaPublicKey} configuration."
             ],
             "You will no longer be able to edit or view Submission data online.",
             "You will no longer be able to analyze data via OData.",
@@ -290,7 +290,7 @@ export default {
           ],
           [
             // don't translate this sentence, it is not used anywhere
-            "In addition, the following are true in this version of ODK Central:",
+            "In addition, the following are true in this version of Field Data:",
             [
               "Existing Submissions will remain unencrypted."
             ],
@@ -346,7 +346,7 @@ export default {
             ]
           ],
           [
-            "Kromě toho platí pro tuto verzi ODK Central následující:",
+            "Kromě toho platí pro tuto verzi Field Data následující:",
             [
               "Stávající příspěvky zůstanou nezašifrované."
             ],
@@ -375,10 +375,10 @@ export default {
           [
             "Wenn Sie die Verschlüsselung aktivieren, wird folgendes geschehen:",
             "Daten von abgeschlossenen Übermittlungen werden auf den Mobilgeräten verschlüsselt.",
-            "Übermittlungen auf dem Central Server werden verschlüsselt.",
+            "Übermittlungen auf dem Field Data Server werden verschlüsselt.",
             [
               "Formulare, die mit manuellen {submission} Schlüsseln konfiguriert wurden, werden diese Schlüssel weiterhin verwenden und müssen manuell entschlüsselt werden.",
-              "Um den automatischen Central-Verschlüsselungsprozess für diese Formulare zu nutzen, entfernen Sie die {base64RsaPublicKey} Konfiguration."
+              "Um den automatischen Field Data-Verschlüsselungsprozess für diese Formulare zu nutzen, entfernen Sie die {base64RsaPublicKey} Konfiguration."
             ],
             "Sie können die Übermittlungsdaten nicht mehr online bearbeiten oder anschauen.",
             "Sie werden nicht mehr in der Lage sein, Daten über OData zu analysieren.",
@@ -386,7 +386,7 @@ export default {
             "Neue Einreichungen werden nicht mehr zu Objekte verarbeitet."
           ],
           [
-            "Außerdem treffen die folgenden Punkte in dieser Version von ODK Central zu:",
+            "Außerdem treffen die folgenden Punkte in dieser Version von Field Data zu:",
             [
               "Existierende Übermittlungen bleiben unverschlüsselt."
             ],
@@ -415,10 +415,10 @@ export default {
           [
             "Si usted habilita el cifrado, ocurrirán las siguientes cosas:",
             "Los datos de la presentación final serán cifrados en los dispositivos móviles.",
-            "Los datos de la presentación que se encuentran en reposo serán cifrados en el servidor Central.",
+            "Los datos de la presentación que se encuentran en reposo serán cifrados en el servidor Field Data.",
             [
               "Los formularios configurados con claves {submission} manuales continuarán utilizando esas claves y deben ser descifrados manualmente.",
-              "Para utilizar el proceso automático de encriptación de Central en estos formularios, remueva la configuración {base64RsaPublicKey}."
+              "Para utilizar el proceso automático de encriptación de Field Data en estos formularios, remueva la configuración {base64RsaPublicKey}."
             ],
             "Ya no podrá editar ni ver los datos de envío en línea.",
             "Ya no podrá analizar datos a través de OData.",
@@ -426,7 +426,7 @@ export default {
             "Los Envíos nuevos ya no se procesarán en Entidades."
           ],
           [
-            "Además, lo siguiente es cierto en esta versión de ODK Central:",
+            "Además, lo siguiente es cierto en esta versión de Field Data:",
             [
               "Los envíos existentes permanecerán sin cifrar."
             ],
@@ -455,10 +455,10 @@ export default {
           [
             "Si vous activez le chiffrement, les choses suivantes vont se produire :",
             "Les données de soumission finalisées seront chiffrées sur les appareils mobiles.",
-            "Les données de soumission au repos seront chiffrées sur le serveur de Central.",
+            "Les données de soumission au repos seront chiffrées sur le serveur de Field Data.",
             [
               "Les formulaires configurés avec des clés {submission} manuelles continueront à utiliser ces clés et devront être déchiffrés manuellement.",
-              "Pour utiliser le chiffrement automatique de Central pour ce formulaire, supprimez la configuration {base64RsaPublicKey}."
+              "Pour utiliser le chiffrement automatique de Field Data pour ce formulaire, supprimez la configuration {base64RsaPublicKey}."
             ],
             "Vous ne pourrez plus éditer ou prévisualiser les données de soumission en ligne.",
             "Vous ne pourrez plus vous connecter aux données via OData.",
@@ -466,7 +466,7 @@ export default {
             "Les nouvelles Soumissions ne seront plus transformées en entités."
           ],
           [
-            "En outre, ce qui suit est vrai dans cette version d'ODK Central :",
+            "En outre, ce qui suit est vrai dans cette version d'Field Data :",
             [
               "Les soumissions existantes resteront non chiffrées."
             ],
@@ -509,14 +509,14 @@ export default {
           [
             "Apabila Anda mengizinkan enkripsi, hal-hal berikut akan terjadi:",
             "Kiriman data yang sudah difinalisasi akan dienkripsi di perangkat seluler.",
-            "Kiriman data lain akan dienkripsi di server Central.",
+            "Kiriman data lain akan dienkripsi di server Field Data.",
             [
               "Formulir yang dikonfigurasi dengan kunci {submission} manual akan tetap menggunakan kunci-kunci tersebut dan harus didekripsi secara manual.",
-              "Untuk menggunakan proses enkripsi otomatis Central pada formulir ini, hapus konfigurasi {base64RsaPublicKey}."
+              "Untuk menggunakan proses enkripsi otomatis Field Data pada formulir ini, hapus konfigurasi {base64RsaPublicKey}."
             ]
           ],
           [
-            "Sebagai tambahan, berikut adalah yang benar ada pada versi ODK Central ini:",
+            "Sebagai tambahan, berikut adalah yang benar ada pada versi Field Data ini:",
             [
               "Kiriman data yang sudah ada akan tetap tidak terenkripsi."
             ],
@@ -541,7 +541,7 @@ export default {
           [
             "Se abiliti la crittografia, accadranno le seguenti cose:",
             "I dati dell'Invio finalizzato verranno crittografati sui dispositivi mobili.",
-            "I dati inattivi di invio verranno crittografati sul server Central.",
+            "I dati inattivi di invio verranno crittografati sul server Field Data.",
             [
               "I formulari configurati con chiavi {submission} manuali continueranno a utilizzare tali chiavi e devono essere decrittografati manualmente.",
               "Per utilizzare il processo di crittografia centrale automatica su questi formulari, rimuovere la configurazione {base64RsaPublicKey}."
@@ -552,7 +552,7 @@ export default {
             "I nuovi invii non verranno più elaborati in Entità."
           ],
           [
-            "Inoltre, quanto segue è reale in questa versione di ODK Central:",
+            "Inoltre, quanto segue è reale in questa versione di Field Data:",
             [
               "Gli invii esistenti rimarranno non crittografati."
             ],
@@ -588,7 +588,7 @@ export default {
             ]
           ],
           [
-            "また、このバージョンのODK Centralでは以下のようになっています。",
+            "また、このバージョンのField Dataでは以下のようになっています。",
             [
               "既存の提出されたフォームは暗号化されずに残ります。"
             ],
@@ -613,10 +613,10 @@ export default {
           [
             "Se você habilitar a encriptação, ocorrerá o seguinte:",
             "Dados de respostas finalizadas serão encriptados nos dispositivos móveis.",
-            "Dados de respostas atualmente armazenados nesse servidor Central serão criptografados.",
+            "Dados de respostas atualmente armazenados nesse servidor Field Data serão criptografados.",
             [
               "Formulários configurados com chaves manuais de encriptação {submission} continuarão a utilizar essas chaves e precisarão ser descriptografados manualmente.",
-              "Para usar o processo de encriptação automático do Central nesses formulários, remova a configuração da chave {base64RsaPublicKey}."
+              "Para usar o processo de encriptação automático do Field Data nesses formulários, remova a configuração da chave {base64RsaPublicKey}."
             ],
             "Você não poderá mais editar ou visualizar dados de Resposta on-line.",
             "Você não poderá mais analisar dados via OData.",
@@ -624,7 +624,7 @@ export default {
             "Novas Respostas não serão mais processadas em Entidades."
           ],
           [
-            "Além disso, as informações a seguir são verdadeiras nessa versão do ODK Central:",
+            "Além disso, as informações a seguir são verdadeiras nessa versão do Field Data:",
             [
               "As respostas existentes permanecerão sem encriptação."
             ],
@@ -653,14 +653,14 @@ export default {
           [
             "Ukiwezesha usimbaji fiche, mambo yafuatayo yatafanyika:",
             "Data iliyokamilishwa ya Uwasilishaji itasimbwa kwa njia fiche kwenye vifaa vya mkononi.",
-            "Data ya uwasilishaji imesalia itasimbwa kwa njia fiche kwenye seva ya Central",
+            "Data ya uwasilishaji imesalia itasimbwa kwa njia fiche kwenye seva ya Field Data",
             [
               "Fomu zilizosanidiwa kwa funguo za mwongozo za {submission} zitaendelea kutumia funguo hizo, na lazima zisimbuwe wewe mwenyewe",
               "li kutumia mchakato wa usimbaji fiche wa Kati kiotomatiki kwenye Fomu hizi, ondoa usanidi wa {base64RsaPublicKey}."
             ]
           ],
           [
-            "kwa kuongeza, yafuatayo ni kweli katika toleo hili la ODK Central:",
+            "kwa kuongeza, yafuatayo ni kweli katika toleo hili la Field Data:",
             [
               "Mawasilisho yaliyopo yatasalia kuwa hayajasimbwa."
             ],
@@ -700,7 +700,7 @@ export default {
             "新提交的数据将不再处理至实体。"
           ],
           [
-            "此外，此版本ODK Central中以下情况适用：",
+            "此外，此版本Field Data中以下情况适用：",
             [
               "现有提交数据将保持未加密状态。"
             ],
@@ -732,7 +732,7 @@ export default {
             "靜態提交資料將在中央伺服器上加密。",
             [
               "配置有手動 {submission} 金鑰的表單將繼續使用這些金鑰，並且必須手動解密。",
-              "若要在這些表單上使用自動 Central 加密流程，請刪除 {base64RsaPublicKey} 設定。"
+              "若要在這些表單上使用自動 Field Data 加密流程，請刪除 {base64RsaPublicKey} 設定。"
             ],
             "您將無法再在線上編輯或查看提交資料。",
             "您將無法再透過 OData 分析資料。",
@@ -740,7 +740,7 @@ export default {
             "新提交的內容將不再被處理為實體。"
           ],
           [
-            "此外，在此版本的 ODK Central 中，以下內容均屬正確：",
+            "此外，在此版本的 Field Data 中，以下內容均屬正確：",
             [
               "現有提交內容將保持未加密狀態。"
             ],

@@ -129,10 +129,10 @@ const del = (item) => {
       "actions": "Actions"
     },
     "emptyTable": "No media has been uploaded yet.",
-    "confirmDelete": "Are you sure you want to delete “{name}”?",
+    "confirmDelete": "Are you sure you want to delete \"{name}\"?",
     "alert": {
-      "uploaded": "“{name}” has been uploaded.",
-      "deleted": "“{name}” has been deleted."
+      "uploaded": "\"{name}\" has been uploaded.",
+      "deleted": "\"{name}\" has been deleted."
     }
   }
 }

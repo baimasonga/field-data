@@ -13,12 +13,15 @@ except according to the terms contained in the LICENSE file.
   <div>
     <home-summary/>
     <page-body>
-      <div id="home-news-container">
-        <home-news/>
-        <home-config-section v-if="config.home.title != null"
-          :title="config.home.title" :body="config.home.body"/>
-      </div>
+      <home-config-section v-if="config.home.title != null"
+        :title="config.home.title" :body="config.home.body"/>
       <project-list/>
+      <p id="fd-home-help">
+        {{ $t('help.pre') }}
+        <a href="https://docs.getodk.org/central-intro/" target="_blank" rel="noopener">{{ $t('help.docs') }}</a>
+        {{ $t('help.or') }}
+        <a href="https://forum.getodk.org/" target="_blank" rel="noopener">{{ $t('help.community') }}</a>.
+      </p>
     </page-body>
     <whats-new/>
   </div>
@@ -27,7 +30,6 @@ except according to the terms contained in the LICENSE file.
 <script setup>
 import { defineAsyncComponent, inject } from 'vue';
 
-import HomeNews from './home/news.vue';
 import HomeSummary from './home/summary.vue';
 import PageBody from './page/body.vue';
 import ProjectList from './project/list.vue';
@@ -52,9 +54,13 @@ const config = inject('config');
 <style lang="scss">
 @import '../assets/scss/variables';
 
-#home-news-container {
-  display: flex;
-  > * { flex: 1; }
+#fd-home-help {
+  margin-top: 26px;
+  color: #6a7c82;
+  font-size: 13px;
+
+  a { color: #0E7490; font-weight: 600; text-decoration: none;
+    &:hover { text-decoration: underline; } }
 }
 </style>
 
@@ -62,8 +68,14 @@ const config = inject('config');
 {
   "en": {
     "heading": [
-      "Welcome to Central."
-    ]
+      "Welcome to Field Data."
+    ],
+    "help": {
+      "pre": "Need a hand? Browse the",
+      "docs": "documentation",
+      "or": "or reach the",
+      "community": "support community"
+    }
   }
 }
 </i18n>
@@ -78,37 +90,37 @@ const config = inject('config');
   },
   "de": {
     "heading": [
-      "Willkommen bei Central"
+      "Willkommen bei Field Data"
     ]
   },
   "es": {
     "heading": [
-      "Bienvenido a Central."
+      "Bienvenido a Field Data."
     ]
   },
   "fr": {
     "heading": [
-      "Bienvenue sur Central"
+      "Bienvenue sur Field Data"
     ]
   },
   "id": {
     "heading": [
-      "Selamat datang di Central."
+      "Selamat datang di Field Data."
     ]
   },
   "it": {
     "heading": [
-      "Benvenuto su Central"
+      "Benvenuto su Field Data"
     ]
   },
   "pt": {
     "heading": [
-      "Bem-vindo ao Central."
+      "Bem-vindo ao Field Data."
     ]
   },
   "sw": {
     "heading": [
-      "Karibu Central"
+      "Karibu Field Data"
     ]
   },
   "zh": {
@@ -118,7 +130,7 @@ const config = inject('config');
   },
   "zh-Hant": {
     "heading": [
-      "歡迎來到 Central."
+      "歡迎來到 Field Data."
     ]
   }
 }

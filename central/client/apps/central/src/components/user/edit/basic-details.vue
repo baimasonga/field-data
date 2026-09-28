@@ -87,7 +87,7 @@ const submit = () => {
   "en": {
     // This is a title shown above a section of the page.
     "title": "Basic Details",
-    "emailDisabled": "Your email address cannot be changed. It is used between Central and your login server to ensure your identity.",
+    "emailDisabled": "Your email address cannot be changed. It is used between Field Data and your login server to ensure your identity.",
     "action": {
       "update": "Update details"
     },
@@ -106,7 +106,7 @@ const submit = () => {
 {
   "cs": {
     "title": "Základní podrobnosti",
-    "emailDisabled": "Vaši e-mailovou adresu nelze změnit. Používá se mezi serverem Central a přihlašovacím serverem k zajištění vaší identity.",
+    "emailDisabled": "Vaši e-mailovou adresu nelze změnit. Používá se mezi serverem Field Data a přihlašovacím serverem k zajištění vaší identity.",
     "action": {
       "update": "Aktualizovat podrobnosti"
     },
@@ -116,7 +116,7 @@ const submit = () => {
   },
   "de": {
     "title": "Basisinformationen",
-    "emailDisabled": "Ihre E-Mail-Adresse kann nicht geändert werden. Sie wird zwischen Central und Ihrem Anmeldeserver verwendet, um Ihre Identität sicherzustellen.",
+    "emailDisabled": "Ihre E-Mail-Adresse kann nicht geändert werden. Sie wird zwischen Field Data und Ihrem Anmeldeserver verwendet, um Ihre Identität sicherzustellen.",
     "action": {
       "update": "Details aktualisieren"
     },
@@ -129,7 +129,7 @@ const submit = () => {
   },
   "es": {
     "title": "Información básica",
-    "emailDisabled": "Su dirección de correo electrónico no se puede cambiar. Se utiliza entre Central y su servidor de inicio de sesión para garantizar su identidad.",
+    "emailDisabled": "Su dirección de correo electrónico no se puede cambiar. Se utiliza entre Field Data y su servidor de inicio de sesión para garantizar su identidad.",
     "action": {
       "update": "Actualizar información"
     },
@@ -142,7 +142,7 @@ const submit = () => {
   },
   "fr": {
     "title": "Détails de base",
-    "emailDisabled": "Votre adresse de courriel ne peut être changée. Elle est utilisée entre Central et votre serveur de connexion pour vérifier votre identité.",
+    "emailDisabled": "Votre adresse de courriel ne peut être changée. Elle est utilisée entre Field Data et votre serveur de connexion pour vérifier votre identité.",
     "action": {
       "update": "Mettre à jour les détails"
     },
@@ -164,7 +164,7 @@ const submit = () => {
   },
   "it": {
     "title": "Dettagli di base",
-    "emailDisabled": "L'indirizzo e-mail non può essere modificato. Viene utilizzato tra Central e il server di login per garantire l'identità dell'utente.",
+    "emailDisabled": "L'indirizzo e-mail non può essere modificato. Viene utilizzato tra Field Data e il server di login per garantire l'identità dell'utente.",
     "action": {
       "update": "Aggiornare dettagli"
     },
@@ -186,7 +186,7 @@ const submit = () => {
   },
   "pt": {
     "title": "Detalhes básicos",
-    "emailDisabled": "Seu endereço de e-mail não pode ser alterado. Ele é usado entre o Central e seu servidor de login para garantir sua identidade.",
+    "emailDisabled": "Seu endereço de e-mail não pode ser alterado. Ele é usado entre o Field Data e seu servidor de login para garantir sua identidade.",
     "action": {
       "update": "Atualizar detalhes"
     },
@@ -199,7 +199,7 @@ const submit = () => {
   },
   "sw": {
     "title": "Maelezo ya Msingi",
-    "emailDisabled": "Anwani yako ya barua pepe haiwezi kubadilishwa. Inatumika kati ya Central na seva yako ya kuingia ili kuhakikisha utambulisho wako.",
+    "emailDisabled": "Anwani yako ya barua pepe haiwezi kubadilishwa. Inatumika kati ya Field Data na seva yako ya kuingia ili kuhakikisha utambulisho wako.",
     "action": {
       "update": "Sasisha maelezo"
     },
@@ -209,7 +209,7 @@ const submit = () => {
   },
   "zh": {
     "title": "基础信息",
-    "emailDisabled": "您的邮箱地址不可更改。该地址在 Central 与您的登录服务器之间用于身份验证。",
+    "emailDisabled": "您的邮箱地址不可更改。该地址在 Field Data 与您的登录服务器之间用于身份验证。",
     "action": {
       "update": "更新详情"
     },
@@ -222,7 +222,7 @@ const submit = () => {
   },
   "zh-Hant": {
     "title": "基本訊息",
-    "emailDisabled": "您的電子郵件地址無法變更。它在 Central 和您的登入伺服器之間使用，以確保您的身分。",
+    "emailDisabled": "您的電子郵件地址無法變更。它在 Field Data 和您的登入伺服器之間使用，以確保您的身分。",
     "action": {
       "update": "更新詳情"
     },

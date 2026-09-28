@@ -53,8 +53,8 @@ const errorMessage = computed(() => requestAlertMessage(i18n, props.error));
 {
   "en": {
     // This is the title at the top of a panel.
-    "title": "Error Loading Central",
-    "body": "There was an error loading Central."
+    "title": "Error Loading Field Data",
+    "body": "There was an error loading Field Data."
   }
 }
 </i18n>
@@ -63,35 +63,35 @@ const errorMessage = computed(() => requestAlertMessage(i18n, props.error));
 <i18n>
 {
   "cs": {
-    "title": "Chyba načítání Central"
+    "title": "Chyba načítání Field Data"
   },
   "de": {
-    "title": "Fehler beim Laden Central",
-    "body": "Es ist ein Fehler beim Laden Central aufgetreten."
+    "title": "Fehler beim Laden Field Data",
+    "body": "Es ist ein Fehler beim Laden Field Data aufgetreten."
   },
   "es": {
-    "title": "Error al cargar Central",
-    "body": "Se ha producido un error al cargar Central."
+    "title": "Error al cargar Field Data",
+    "body": "Se ha producido un error al cargar Field Data."
   },
   "fr": {
-    "title": "Erreur au chargement de Central",
-    "body": "Il y a eu des erreurs au chargement de Central"
+    "title": "Erreur au chargement de Field Data",
+    "body": "Il y a eu des erreurs au chargement de Field Data"
   },
   "it": {
-    "title": "Errore nel caricamento di Central",
-    "body": "C'è stato un errore nel caricamento di Central."
+    "title": "Errore nel caricamento di Field Data",
+    "body": "C'è stato un errore nel caricamento di Field Data."
   },
   "pt": {
-    "title": "Erro ao carregar o Central",
-    "body": "Ocorreu um erro ao carregar o Central."
+    "title": "Erro ao carregar o Field Data",
+    "body": "Ocorreu um erro ao carregar o Field Data."
   },
   "zh": {
     "title": "载入Central时出错",
     "body": "载入Central时发生错误。"
   },
   "zh-Hant": {
-    "title": "載入 Central 時出錯",
-    "body": "載入 Central 時發生錯誤。"
+    "title": "載入 Field Data 時出錯",
+    "body": "載入 Field Data 時發生錯誤。"
   }
 }
 </i18n>

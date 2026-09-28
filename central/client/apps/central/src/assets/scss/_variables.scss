@@ -11,8 +11,11 @@ except according to the terms contained in the LICENSE file.
 */
 
 // Core
-$color-accent-primary: #bd006b;
-$color-accent-secondary: #8d0050;
+// Field Data brand: teal-blue that bridges the logo's green→blue gradient.
+// (Buttons/links are already blue via $color-action-*, success is green — so the
+// UI reads as greens, blues, and white throughout.)
+$color-accent-primary: #0E7490;
+$color-accent-secondary: #0A5A72;
 $color-page-background: #f7f7f7;
 
 // Media query breakpoints - copied from bootstrap

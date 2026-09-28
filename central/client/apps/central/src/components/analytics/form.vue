@@ -168,7 +168,7 @@ export default {
       "true": [
         {
           "full": "{weWillShare} and we accept the {termsOfService} and {privacyPolicy}.",
-          "weWillShare": "We are willing to share anonymous usage data monthly with the Central team,",
+          "weWillShare": "We are willing to share anonymous usage data monthly with the Field Data team,",
           "termsOfService": "Terms of Service",
           "privacyPolicy": "Privacy Policy"
         },
@@ -181,7 +181,7 @@ export default {
     },
     "contact": [
       "I am willing to include my contact information with the report.",
-      "We may contact you to learn more about your usage of Central."
+      "We may contact you to learn more about your usage of Field Data."
     ],
     "field": {
       "workEmail": "Work email address",
@@ -219,7 +219,7 @@ export default {
     },
     "contact": [
       "Jsem ochoten připojit ke zprávě své kontaktní údaje.",
-      "Můžeme vás kontaktovat, abychom se dozvěděli více o vašem používání služby Central."
+      "Můžeme vás kontaktovat, abychom se dozvěděli více o vašem používání služby Field Data."
     ],
     "field": {
       "workEmail": "Pracovní e-mailová adresa",
@@ -235,7 +235,7 @@ export default {
       "true": [
         {
           "full": "{weWillShare} und wir akzeptieren die {termsOfService} und {privacyPolicy}.",
-          "weWillShare": "Wir sind einverstanden, anonyme Nutzungsdaten monatlich mit dem Central-Team zu teilen.",
+          "weWillShare": "Wir sind einverstanden, anonyme Nutzungsdaten monatlich mit dem Field Data-Team zu teilen.",
           "termsOfService": "Nutzungsbedingungen",
           "privacyPolicy": "Datenschutzerklärung"
         },
@@ -248,7 +248,7 @@ export default {
     },
     "contact": [
       "Ich bin einverstanden, dass meine Kontaktdaten im Report ersichtlich sind.",
-      "Wir werden Sie unter Umständen kontaktieren, um mehr über Ihre Nutzung von Central zu erfahren."
+      "Wir werden Sie unter Umständen kontaktieren, um mehr über Ihre Nutzung von Field Data zu erfahren."
     ],
     "field": {
       "workEmail": "Email Adresse (geschäftlich)",
@@ -280,7 +280,7 @@ export default {
     },
     "contact": [
       "Estoy dispuesto a incluir mi información de contacto con el informe.",
-      "Es posible que nos comuniquemos con usted para obtener más información sobre su uso de Central."
+      "Es posible que nos comuniquemos con usted para obtener más información sobre su uso de Field Data."
     ],
     "field": {
       "workEmail": "Dirección de correo electrónico del trabajo",
@@ -299,7 +299,7 @@ export default {
       "true": [
         {
           "full": "{weWillShare} et nous acceptons les {termsOfService} et la {privacyPolicy}.",
-          "weWillShare": "Nous souhaitons partager mensuellement des données d'usage anonymisées avec l’équipe de Central .",
+          "weWillShare": "Nous souhaitons partager mensuellement des données d'usage anonymisées avec l’équipe de Field Data .",
           "termsOfService": "Conditions de service",
           "privacyPolicy": "Politique de confidentialité"
         },
@@ -312,7 +312,7 @@ export default {
     },
     "contact": [
       "Je souhaite inclure mes informations de contact dans le rapport.",
-      "Nous pouvons vous contacter pour en savoir plus sur votre utilisation de Central."
+      "Nous pouvons vous contacter pour en savoir plus sur votre utilisation de Field Data."
     ],
     "field": {
       "workEmail": "Adresse de courriel professionnelle",
@@ -339,7 +339,7 @@ export default {
     },
     "contact": [
       "Saya bersedia menyertakan informasi kontak saya dengan laporan tersebut.",
-      "Kami dapat menghubungi anda untuk mempelajari lebih lanjut tentang penggunaan Central oleh anda."
+      "Kami dapat menghubungi anda untuk mempelajari lebih lanjut tentang penggunaan Field Data oleh anda."
     ],
     "field": {
       "workEmail": "Alamat email kantor",
@@ -355,7 +355,7 @@ export default {
       "true": [
         {
           "full": "{weWillShare} e accettiamo i {termsOfService} e {privacyPolicy}.",
-          "weWillShare": "Siamo disposti a condividere mensilmente dati di utilizzo anonimi con il team Central,",
+          "weWillShare": "Siamo disposti a condividere mensilmente dati di utilizzo anonimi con il team Field Data,",
           "termsOfService": "Termini di servizio",
           "privacyPolicy": "Politica sulla Privacy."
         },
@@ -368,7 +368,7 @@ export default {
     },
     "contact": [
       "Sono disposto a includere le mie informazioni di contatto con il rapporto.",
-      "Potremmo contattarti per capire meglio sul tuo utilizzo di Central"
+      "Potremmo contattarti per capire meglio sul tuo utilizzo di Field Data"
     ],
     "field": {
       "workEmail": "Indirizzo email del lavoro",
@@ -400,7 +400,7 @@ export default {
     },
     "contact": [
       "私は報告にコンタクトの情報を含みます。",
-      "私たちからあなたのODK Centralの利用状況について問い合わせることがあります。"
+      "私たちからあなたのField Dataの利用状況について問い合わせることがあります。"
     ],
     "field": {
       "workEmail": "職場のメールアドレス",
@@ -416,7 +416,7 @@ export default {
       "true": [
         {
           "full": "{weWillShare} e nós aceitamos os {termsOfService} e a {privacyPolicy}.",
-          "weWillShare": "Nós concordamos em compartilhar dados anônimos de uso mensalmente com a equipe do Central,",
+          "weWillShare": "Nós concordamos em compartilhar dados anônimos de uso mensalmente com a equipe do Field Data,",
           "termsOfService": "Termos de serviço",
           "privacyPolicy": "Política de privacidade"
         },
@@ -429,7 +429,7 @@ export default {
     },
     "contact": [
       "Desejo incluir minhas informações de contato com o relatório.",
-      "Nós poderemos entrar em contato com você para saber mais sobre o uso do Central."
+      "Nós poderemos entrar em contato com você para saber mais sobre o uso do Field Data."
     ],
     "field": {
       "workEmail": "Endereço de email de trabalho",
@@ -461,7 +461,7 @@ export default {
     },
     "contact": [
       "Niko tayari kujumuisha maelezo yangu ya mawasiliano na ripoti",
-      "Tunaweza kuwasiliana nawe ili kupata maelezo zaidi kuhusu matumizi yako ya Central"
+      "Tunaweza kuwasiliana nawe ili kupata maelezo zaidi kuhusu matumizi yako ya Field Data"
     ],
     "field": {
       "workEmail": "Anwani ya barua pepe ya kazini",
@@ -509,7 +509,7 @@ export default {
       "true": [
         {
           "full": "{weWillShare} 與我們接受 {termsOfService} 與 {privacyPolicy}。",
-          "weWillShare": "我們願意每月與 Central 團隊分享匿名使用資料。",
+          "weWillShare": "我們願意每月與 Field Data 團隊分享匿名使用資料。",
           "termsOfService": "服務條款",
           "privacyPolicy": "隱私權政策"
         },
@@ -522,7 +522,7 @@ export default {
     },
     "contact": [
       "我願意於報告中包含我的聯絡資訊。",
-      "我們可能會與您聯繫，以了解有關 Central 使用情況的更多資訊。"
+      "我們可能會與您聯繫，以了解有關 Field Data 使用情況的更多資訊。"
     ],
     "field": {
       "workEmail": "工作電子郵件地址",

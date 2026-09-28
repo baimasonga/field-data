@@ -62,9 +62,9 @@ const selectLocale = (locale) => {
 <i18n lang="json5">
 {
   "en": {
-    // This is shown below the list of languages and links to the ODK Central
+    // This is shown below the list of languages and links to the Field Data
     // translation guide.
-    "helpTranslate": "Help translate Central"
+    "helpTranslate": "Help translate Field Data"
   }
 }
 </i18n>
@@ -73,37 +73,37 @@ const selectLocale = (locale) => {
 <i18n>
 {
   "cs": {
-    "helpTranslate": "Nápověda k překladu Central"
+    "helpTranslate": "Nápověda k překladu Field Data"
   },
   "de": {
-    "helpTranslate": "Hilf Central zu übersetzen"
+    "helpTranslate": "Hilf Field Data zu übersetzen"
   },
   "es": {
-    "helpTranslate": "Ayuda a traducir Central"
+    "helpTranslate": "Ayuda a traducir Field Data"
   },
   "fr": {
-    "helpTranslate": "Aider à traduire Central"
+    "helpTranslate": "Aider à traduire Field Data"
   },
   "id": {
     "helpTranslate": "Bantu terjemahan pusat"
   },
   "it": {
-    "helpTranslate": "Aiuta a tradurre Central"
+    "helpTranslate": "Aiuta a tradurre Field Data"
   },
   "ja": {
     "helpTranslate": "Centralの翻訳に貢献する"
   },
   "pt": {
-    "helpTranslate": "Ajude a traduzir o Central"
+    "helpTranslate": "Ajude a traduzir o Field Data"
   },
   "sw": {
-    "helpTranslate": "Saidia kutafsiri Central"
+    "helpTranslate": "Saidia kutafsiri Field Data"
   },
   "zh": {
-    "helpTranslate": "协助翻译Central"
+    "helpTranslate": "协助翻译Field Data"
   },
   "zh-Hant": {
-    "helpTranslate": "協助翻譯 Central"
+    "helpTranslate": "協助翻譯 Field Data"
   }
 }
 </i18n>

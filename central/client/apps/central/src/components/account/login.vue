@@ -46,8 +46,8 @@ except according to the terms contained in the LICENSE file.
     </form>
 
     <div id="account-login-footer">
-      <img src="../../assets/images/odk-logo.png" :alt="$t('login.odkLogo')">
-      <span>{{ hostname }}</span>
+      <span class="pip"></span>
+      <span class="host">{{ hostname }}</span>
     </div>
   </div>
 </template>
@@ -241,23 +241,31 @@ export default {
 #account-login-footer {
   display: flex;
   align-items: center;
-  column-gap: 12px;
+  column-gap: 10px;
 
-  margin-top: 40px;
+  margin-top: 36px;
+  padding-top: 18px;
+  border-top: 1px solid #e3e9eb;
 
-  img {
-    max-width: 39px;
-    max-height: 39px;
+  .pip {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background-color: $color-success;
+    box-shadow: 0 0 0 3px rgba($color-success, 0.18);
+    flex-shrink: 0;
   }
 
-  span {
-    color: #555;
+  .host {
+    color: #667;
     font-family: $font-family-monospace;
     font-size: 12px;
     font-weight: 500;
-    letter-spacing: 1.25px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
     overflow: hidden;
     white-space: nowrap;
+    text-overflow: ellipsis;
   }
 }
 </style>
@@ -272,9 +280,9 @@ export default {
     "oidc": {
       "body": "Click Continue to proceed to the login page.",
       "error": {
-        "auth-ok-user-not-found": "There is no Central account associated with your email address. Please ask your Central administrator to create an account for you to continue.",
+        "auth-ok-user-not-found": "There is no Field Data account associated with your email address. Please ask your Field Data administrator to create an account for you to continue.",
         "email-not-verified": "Your email address has not been verified by your login server. Please contact your server administrator.",
-        "email-claim-not-provided": "Central could not access the email address associated with your account. This could be because your server administrator has configured something incorrectly, or has not set an email address for your account. It could also be the result of privacy options that you can choose during the login process. If so, please try again and ensure that your email is shared.",
+        "email-claim-not-provided": "Field Data could not access the email address associated with your account. This could be because your server administrator has configured something incorrectly, or has not set an email address for your account. It could also be the result of privacy options that you can choose during the login process. If so, please try again and ensure that your email is shared.",
         "internal-server-error": "Something went wrong during login. Please contact your server administrator."
       }
     },
@@ -295,9 +303,9 @@ export default {
     "oidc": {
       "body": "Kliknutím na tlačítko Pokračovat přejdete na přihlašovací stránku.",
       "error": {
-        "auth-ok-user-not-found": "K vaší e-mailové adrese není přiřazen žádný centrální účet. Požádejte prosím správce Central, aby vám vytvořil účet, abyste mohli pokračovat.",
+        "auth-ok-user-not-found": "K vaší e-mailové adrese není přiřazen žádný centrální účet. Požádejte prosím správce Field Data, aby vám vytvořil účet, abyste mohli pokračovat.",
         "email-not-verified": "Vaše e-mailová adresa nebyla ověřena přihlašovacím serverem. Obraťte se prosím na správce serveru.",
-        "email-claim-not-provided": "Central nemohl získat přístup k e-mailové adrese přidružené k vašemu účtu. Může to být způsobeno tím, že správce serveru něco špatně nakonfiguroval nebo že e-mailovou adresu pro váš účet nenastavil. Může to být také důsledek možností ochrany osobních údajů, které můžete zvolit během přihlašovacího procesu. V takovém případě to zkuste znovu a ujistěte se, že je váš e-mail sdílený.",
+        "email-claim-not-provided": "Field Data nemohl získat přístup k e-mailové adrese přidružené k vašemu účtu. Může to být způsobeno tím, že správce serveru něco špatně nakonfiguroval nebo že e-mailovou adresu pro váš účet nenastavil. Může to být také důsledek možností ochrany osobních údajů, které můžete zvolit během přihlašovacího procesu. V takovém případě to zkuste znovu a ujistěte se, že je váš e-mail sdílený.",
         "internal-server-error": "Při přihlašování se něco pokazilo. Kontaktujte prosím správce serveru."
       }
     },
@@ -313,9 +321,9 @@ export default {
     "oidc": {
       "body": "Klicken Sie auf Weiter, um zur Anmeldeseite zu gelangen.",
       "error": {
-        "auth-ok-user-not-found": "Mit Ihrer E-Mail-Adresse ist kein Central-Konto verknüpft. Bitten Sie Ihren zentralen Administrator, ein Konto zu erstellen, damit Sie fortfahren können.",
+        "auth-ok-user-not-found": "Mit Ihrer E-Mail-Adresse ist kein Field Data-Konto verknüpft. Bitten Sie Ihren zentralen Administrator, ein Konto zu erstellen, damit Sie fortfahren können.",
         "email-not-verified": "Ihre E-Mail-Adresse wurde von Ihrem Anmeldeserver nicht überprüft. Bitte wenden Sie sich an Ihren Serveradministrator.",
-        "email-claim-not-provided": "Central konnte nicht auf die mit Ihrem Konto verknüpfte E-Mail-Adresse zugreifen. Dies kann daran liegen, dass Ihr Serveradministrator etwas falsch konfiguriert hat oder keine E-Mail-Adresse für Ihr Konto festgelegt hat. Dies könnte auch auf Datenschutzoptionen zurückzuführen sein, die Sie während des Anmeldevorgangs auswählen können. Wenn ja, versuchen Sie es bitte erneut und stellen Sie sicher, dass Ihre E-Mail-Adresse geteilt wird.",
+        "email-claim-not-provided": "Field Data konnte nicht auf die mit Ihrem Konto verknüpfte E-Mail-Adresse zugreifen. Dies kann daran liegen, dass Ihr Serveradministrator etwas falsch konfiguriert hat oder keine E-Mail-Adresse für Ihr Konto festgelegt hat. Dies könnte auch auf Datenschutzoptionen zurückzuführen sein, die Sie während des Anmeldevorgangs auswählen können. Wenn ja, versuchen Sie es bitte erneut und stellen Sie sicher, dass Ihre E-Mail-Adresse geteilt wird.",
         "internal-server-error": "Beim Anmelden ist ein Fehler aufgetreten. Bitte wenden Sie sich an Ihren Serveradministrator."
       }
     },
@@ -331,9 +339,9 @@ export default {
     "oidc": {
       "body": "Haga clic en Continuar para pasar a la página de inicio de sesión.",
       "error": {
-        "auth-ok-user-not-found": "No hay ninguna cuenta Central asociada con su dirección de correo electrónico. Pídale a su administrador central que cree una cuenta para continuar.",
+        "auth-ok-user-not-found": "No hay ninguna cuenta Field Data asociada con su dirección de correo electrónico. Pídale a su administrador central que cree una cuenta para continuar.",
         "email-not-verified": "Su dirección de correo electrónico no ha sido verificada por su servidor de inicio de sesión. Comuníquese con el administrador de su servidor.",
-        "email-claim-not-provided": "Central no pudo acceder a la dirección de correo electrónico asociada con su cuenta. Esto podría deberse a que el administrador de su servidor haya configurado algo incorrectamente o no haya configurado una dirección de correo electrónico para su cuenta. También podría ser el resultado de las opciones de privacidad que puedes elegir durante el proceso de inicio de sesión. Si es así, inténtalo de nuevo y asegúrate de que tu correo electrónico esté compartido.",
+        "email-claim-not-provided": "Field Data no pudo acceder a la dirección de correo electrónico asociada con su cuenta. Esto podría deberse a que el administrador de su servidor haya configurado algo incorrectamente o no haya configurado una dirección de correo electrónico para su cuenta. También podría ser el resultado de las opciones de privacidad que puedes elegir durante el proceso de inicio de sesión. Si es así, inténtalo de nuevo y asegúrate de que tu correo electrónico esté compartido.",
         "internal-server-error": "Algo salió mal durante el inicio de sesión. Comuníquese con el administrador de su servidor."
       }
     },
@@ -349,9 +357,9 @@ export default {
     "oidc": {
       "body": "Cliquez sur Continuer pour accéder à la page de connexion.",
       "error": {
-        "auth-ok-user-not-found": "Il n'y a pas de compte Central associé à votre adresse de courriel. Veuillez demander à votre administrateur de Central de vous créer un compte pour continuer.",
+        "auth-ok-user-not-found": "Il n'y a pas de compte Field Data associé à votre adresse de courriel. Veuillez demander à votre administrateur de Field Data de vous créer un compte pour continuer.",
         "email-not-verified": "Votre adresse de courriel n'a pas été vérifiée par votre serveur de connexion. Veuillez contacter l'administrateur de votre serveur.",
-        "email-claim-not-provided": "Central n'a pas pu accéder à l'adresse de courriel associée à votre compte. Cela peut être dû au fait que l'administrateur de votre serveur a configuré quelque chose de manière incorrecte ou n'a pas défini d'adresse de courriel pour votre compte. Cela peut également être dû aux options de confidentialité que vous pouvez choisir durant la procédure de connexion. Si c'est le cas, veuillez réessayer et vous assurer que votre adresse de courriel est partagée.",
+        "email-claim-not-provided": "Field Data n'a pas pu accéder à l'adresse de courriel associée à votre compte. Cela peut être dû au fait que l'administrateur de votre serveur a configuré quelque chose de manière incorrecte ou n'a pas défini d'adresse de courriel pour votre compte. Cela peut également être dû aux options de confidentialité que vous pouvez choisir durant la procédure de connexion. Si c'est le cas, veuillez réessayer et vous assurer que votre adresse de courriel est partagée.",
         "internal-server-error": "Un problème s'est produit lors de la connexion. Veuillez contacter l'administrateur de votre serveur."
       }
     },
@@ -375,9 +383,9 @@ export default {
     "oidc": {
       "body": "Fare clic su Continua per passare alla pagina di Login.",
       "error": {
-        "auth-ok-user-not-found": "Al suo indirizzo e-mail non è associato alcun account su Central. Chiedete all'amministratore di Central di creare un account per continuare.",
+        "auth-ok-user-not-found": "Al suo indirizzo e-mail non è associato alcun account su Field Data. Chiedete all'amministratore di Field Data di creare un account per continuare.",
         "email-not-verified": "Il vostro indirizzo e-mail non è stato verificato dal server di accesso. Contattare l'amministratore del server.",
-        "email-claim-not-provided": "Central non è riuscito ad accedere all'indirizzo e-mail associato al vostro account. Ciò potrebbe essere dovuto al fatto che l'amministratore del server ha configurato qualcosa di errato o non ha impostato un indirizzo e-mail per l'account. Potrebbe anche essere il risultato delle opzioni di privacy che si possono scegliere durante il processo di login. In tal caso, riprovare e assicurarsi che il proprio indirizzo e-mail sia condiviso.",
+        "email-claim-not-provided": "Field Data non è riuscito ad accedere all'indirizzo e-mail associato al vostro account. Ciò potrebbe essere dovuto al fatto che l'amministratore del server ha configurato qualcosa di errato o non ha impostato un indirizzo e-mail per l'account. Potrebbe anche essere il risultato delle opzioni di privacy che si possono scegliere durante il processo di login. In tal caso, riprovare e assicurarsi che il proprio indirizzo e-mail sia condiviso.",
         "internal-server-error": "Qualcosa è andato storto durante l'accesso. Contattare l'amministratore del server."
       }
     },
@@ -401,9 +409,9 @@ export default {
     "oidc": {
       "body": "Clique em Continuar para prosseguir para a página de login.",
       "error": {
-        "auth-ok-user-not-found": "Não há nenhuma conta no Central associada ao seu endereço de e-mail. Peça ao seu administrador do Central para criar uma conta para você continuar.",
+        "auth-ok-user-not-found": "Não há nenhuma conta no Field Data associada ao seu endereço de e-mail. Peça ao seu administrador do Field Data para criar uma conta para você continuar.",
         "email-not-verified": "Seu endereço de e-mail não foi verificado pelo seu servidor de login. Por favor, entre em contato com o administrador do seu servidor.",
-        "email-claim-not-provided": "O Central não conseguiu acessar o endereço de e-mail associado à sua conta. Isso pode ter ocorrido porque o administrador do servidor configurou algo incorretamente ou não definiu um endereço de e-mail para a sua conta. Também pode ser resultado de opções de privacidade que você pode escolher durante o processo de login. Nesse caso, tente novamente e certifique-se de que seu e-mail seja compartilhado.",
+        "email-claim-not-provided": "O Field Data não conseguiu acessar o endereço de e-mail associado à sua conta. Isso pode ter ocorrido porque o administrador do servidor configurou algo incorretamente ou não definiu um endereço de e-mail para a sua conta. Também pode ser resultado de opções de privacidade que você pode escolher durante o processo de login. Nesse caso, tente novamente e certifique-se de que seu e-mail seja compartilhado.",
         "internal-server-error": "Algo deu errado durante o login. Por favor, entre em contato com o administrador do seu servidor."
       }
     },
@@ -420,7 +428,7 @@ export default {
       "error": {
         "auth-ok-user-not-found": "Hakuna akaunti ya Kati inayohusishwa na anwani yako ya barua pepe. Tafadhali muulize msimamizi wako Mkuu akufungulie akaunti ili uendelee.",
         "email-not-verified": "Anwani yako ya barua pepe haijathibitishwa na seva yako ya kuingia. Tafadhali wasiliana na msimamizi wa seva yako.",
-        "email-claim-not-provided": "Central haikuweza kufikia anwani ya barua pepe inayohusishwa na akaunti yako. Hii inaweza kuwa kwa sababu msimamizi wa seva yako amesanidi kitu vibaya, au hajaweka anwani ya barua pepe kwa akaunti yako. Inaweza pia kuwa matokeo ya chaguzi za faragha ambazo unaweza kuchagua wakati wa mchakato wa kuingia. Ikiwa ndivyo, tafadhali jaribu tena na uhakikishe kuwa barua pepe yako inashirikiwa.",
+        "email-claim-not-provided": "Field Data haikuweza kufikia anwani ya barua pepe inayohusishwa na akaunti yako. Hii inaweza kuwa kwa sababu msimamizi wa seva yako amesanidi kitu vibaya, au hajaweka anwani ya barua pepe kwa akaunti yako. Inaweza pia kuwa matokeo ya chaguzi za faragha ambazo unaweza kuchagua wakati wa mchakato wa kuingia. Ikiwa ndivyo, tafadhali jaribu tena na uhakikishe kuwa barua pepe yako inashirikiwa.",
         "internal-server-error": "Hitilafu fulani imetokea wakati wa kuingia. Tafadhali wasiliana na msimamizi wa seva yako."
       }
     },
@@ -454,9 +462,9 @@ export default {
     "oidc": {
       "body": "點選繼續進入登入頁面。",
       "error": {
-        "auth-ok-user-not-found": "沒有與您的電子郵件地址關聯的 Central 帳戶。請要求您的 Central 管理員建立帳戶以便您繼續登入。",
+        "auth-ok-user-not-found": "沒有與您的電子郵件地址關聯的 Field Data 帳戶。請要求您的 Field Data 管理員建立帳戶以便您繼續登入。",
         "email-not-verified": "您的登入伺服器尚未驗證您的電子郵件地址。請聯絡您的伺服器管理員。",
-        "email-claim-not-provided": "Central 無法存取與您的帳戶關聯的電子郵件地址。這可能是因為您的伺服器管理員配置不正確，或沒有為您的帳戶設定電子郵件地址。這也可能是您在登入過程中可以選擇的隱私選項的結果。如果是這樣，請重試並確保您的電子郵件已分享。",
+        "email-claim-not-provided": "Field Data 無法存取與您的帳戶關聯的電子郵件地址。這可能是因為您的伺服器管理員配置不正確，或沒有為您的帳戶設定電子郵件地址。這也可能是您在登入過程中可以選擇的隱私選項的結果。如果是這樣，請重試並確保您的電子郵件已分享。",
         "internal-server-error": "登入期間出現問題。請聯絡您的伺服器管理員。"
       }
     },

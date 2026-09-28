@@ -40,6 +40,15 @@
     "title": "Field Data",
     "tab": {
       "dashboard": "Dashboard",
+      "explore": "Data Explorer",
+      "review": "Review Queue",
+      "cleaning": "Data Cleaning",
+      "templates": "Project Templates",
+      "team": "Field Teams",
+      "cases": "Cases",
+      "assignments": "Assignments",
+      "report": "Reports",
+      "dhis2": "DHIS2 Mapping",
       "media": "Media Library",
       "webhooks": "Webhooks",
       "backups": "Backups"
@@ -386,19 +395,22 @@
     "learnMore": "Learn more."
   },
   "login": {
-    "odkLogo": "ODK logo",
+    "odkLogo": "Field Data logo",
     // @transifexKey component.AccountPageContainer.customLogoAlt
     "customLogoAlt": "Organization logo",
     "defaultTitle": "Welcome to Field Data",
     "defaultDescription": "Log into your account to get started",
     // An image shown on the login page
-    "heroImage": "Login image"
+    "heroImage": "Login image",
+    // Brand-panel tagline and region line on the account pages
+    "tagline": "Offline Field Operations Platform",
+    "region": "Built for field teams across Sierra Leone & West Africa"
   },
   "analytics": {
-    "alwaysImprove": "We are always trying to improve ODK Central.",
+    "alwaysImprove": "We are always trying to improve Field Data.",
     "needFeedback": {
-      // "This" refers to improving Central.
-      "full": "To do this, we need {your} feedback, so that we can understand how you are using Central, and how it could be better for you.",
+      // "This" refers to improving Field Data.
+      "full": "To do this, we need {your} feedback, so that we can understand how you are using Field Data, and how it could be better for you.",
       "your": "your"
     },
     "mailingListOptIn": "Send me occasional emails about new features and best practices."
@@ -488,7 +500,7 @@
     "new": "New!",
     "totalEntities": "Total Entities",
     // @transifexKey component.NavbarHelpDropdown.version
-    // An identifier of a particular version of something (of Central, of a
+    // An identifier of a particular version of something (of Field Data, of a
     // Form, of an Entity)
     "version": "Version",
     // A short identifier of an Entity version. "v" is short for "version".
@@ -544,7 +556,7 @@
       // {status} is an HTTP status code, for example, 404.
       "errorNotProblem": "Something went wrong: error code {status}.",
       "problem": {
-        // A "resource" is a generic term for something in Central, for example,
+        // A "resource" is a generic term for something in Field Data, for example,
         // a Project, a Web User, or a Form.
         "404_1": "The resource you are looking for cannot be found. The resource may have been deleted.",
         "409_17": {

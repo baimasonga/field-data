@@ -113,7 +113,7 @@ export default {
   "en": {
     // This is a title shown above a section of the page.
     "title": "Change Password",
-    "oidcBody": "This Central server does not manage any login passwords.",
+    "oidcBody": "This Field Data server does not manage any login passwords.",
     "action": {
       "change": "Change password"
     },
@@ -143,7 +143,7 @@ export default {
   },
   "de": {
     "title": "Passwort ändern",
-    "oidcBody": "Dieser Central-Server verwaltet keine Anmeldepasswörter.",
+    "oidcBody": "Dieser Field Data-Server verwaltet keine Anmeldepasswörter.",
     "action": {
       "change": "Passwort ändern"
     },
@@ -167,7 +167,7 @@ export default {
   },
   "fr": {
     "title": "Changer le mot de passe",
-    "oidcBody": "Ce serveur Central ne gère aucun mot de passe de connexion.",
+    "oidcBody": "Ce serveur Field Data ne gère aucun mot de passe de connexion.",
     "action": {
       "change": "Changer le mot de passe"
     },
@@ -190,7 +190,7 @@ export default {
   },
   "it": {
     "title": "Cambiare la password",
-    "oidcBody": "Questo Central server non gestisce alcuna password di accesso.",
+    "oidcBody": "Questo Field Data server non gestisce alcuna password di accesso.",
     "action": {
       "change": "Cambiare la password"
     },
@@ -213,7 +213,7 @@ export default {
   },
   "pt": {
     "title": "Mudar senha",
-    "oidcBody": "Este servidor Central não gerencia nenhuma senha de login.",
+    "oidcBody": "Este servidor Field Data não gerencia nenhuma senha de login.",
     "action": {
       "change": "Mudar senha"
     },
@@ -237,7 +237,7 @@ export default {
   },
   "zh": {
     "title": "更改密码",
-    "oidcBody": "此 Central 服务器不管理任何登录密码。",
+    "oidcBody": "此 Field Data 服务器不管理任何登录密码。",
     "action": {
       "change": "更改密码"
     },
@@ -249,7 +249,7 @@ export default {
   },
   "zh-Hant": {
     "title": "變更密碼",
-    "oidcBody": "此 Central 服器不管理任何登入密碼。",
+    "oidcBody": "此 Field Data 服器不管理任何登入密碼。",
     "action": {
       "change": "變更密碼"
     },

@@ -143,7 +143,7 @@ const change = (value) => {
       // of the data collector (the author)
       "baseDiff": "Author’s View",
       // A comparison between two versions of an Entity, from the point of view
-      // of the Central server
+      // of the Field Data server
       "serverDiff": "Central’s View",
       // This text is shown for an update to an Entity. {version} is a short
       // version identifier, for example, "v3". It is the version that the
@@ -191,7 +191,7 @@ const change = (value) => {
     },
     "tab": {
       "baseDiff": "Vista del autor",
-      "serverDiff": "Vista de Central",
+      "serverDiff": "Vista de Field Data",
       "updating": "(actualizando {version})"
     }
   },
@@ -205,7 +205,7 @@ const change = (value) => {
     },
     "tab": {
       "baseDiff": "Vue de l'Auteur",
-      "serverDiff": "Vue de Central",
+      "serverDiff": "Vue de Field Data",
       "updating": "(mise à jour {version})"
     }
   },
@@ -219,7 +219,7 @@ const change = (value) => {
     },
     "tab": {
       "baseDiff": "Vista dell'autore",
-      "serverDiff": "Vista di Central",
+      "serverDiff": "Vista di Field Data",
       "updating": "(aggiornando {version})"
     }
   },
@@ -233,7 +233,7 @@ const change = (value) => {
     },
     "tab": {
       "baseDiff": "Visualização do Autor",
-      "serverDiff": "Visualização do Central",
+      "serverDiff": "Visualização do Field Data",
       "updating": "(atualizando {version})"
     }
   },

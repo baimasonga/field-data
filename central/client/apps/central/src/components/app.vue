@@ -10,15 +10,20 @@ including this file, may be copied, modified, propagated, or distributed
 except according to the terms contained in the LICENSE file.
 -->
 <template>
-  <div>
-    <!-- If the user's session is restored during the initial navigation, that
-    will affect how the navbar is rendered. -->
-    <navbar v-show="routerReady"/>
-    <outdated-version/>
-    <alerts/>
-    <feedback-button v-if="showsFeedbackButton"/>
-    <div ref="containerEl" class="container-fluid">
-      <router-view/>
+  <div :class="{ 'fd-shell': visiblyLoggedIn }">
+    <!-- Field Data: a left sidebar replaces the horizontal nav once logged in.
+    Logged out (e.g. the login page) keeps the plain top navbar. -->
+    <field-data-sidebar v-if="visiblyLoggedIn"/>
+    <div class="fd-main-col">
+      <!-- If the user's session is restored during the initial navigation, that
+      will affect how the navbar is rendered. -->
+      <navbar v-show="routerReady"/>
+      <outdated-version/>
+      <alerts/>
+      <feedback-button v-if="showsFeedbackButton"/>
+      <div ref="containerEl" class="container-fluid">
+        <router-view/>
+      </div>
     </div>
 
     <div id="modals"></div>
@@ -34,6 +39,7 @@ import { START_LOCATION } from 'vue-router';
 
 import Alerts from './alerts.vue';
 import Navbar from './navbar.vue';
+import FieldDataSidebar from './field-data/sidebar.vue';
 
 import useCallWait from '../composables/call-wait';
 import useDisabled from '../composables/disabled';
@@ -46,6 +52,7 @@ export default {
   name: 'App',
   components: {
     Alerts,
+    FieldDataSidebar,
     HoverCards: defineAsyncComponent(loadAsync('HoverCards')),
     Navbar,
     FeedbackButton: defineAsyncComponent(loadAsync('FeedbackButton')),
@@ -111,3 +118,16 @@ export default {
   }
 };
 </script>
+
+<style lang="scss">
+// Field Data shell: sidebar + main column, applied only when logged in.
+.fd-shell {
+  display: flex;
+  align-items: flex-start;
+  min-height: 100vh;
+
+  .fd-main-col { flex: 1 1 auto; min-width: 0; }
+  // Portal targets must not consume row space in the flex shell.
+  > #modals, > #tooltips { flex: 0 0 0; width: 0; }
+}
+</style>

@@ -12,6 +12,14 @@
 /docker-compose.override.yml
 /version.txt
 
+# Stray archive of the repo — not a build artifact, don't commit it.
+/central.zip
+
+# Field Data local-storage fallback dirs, used when no /data volume is mounted
+# (e.g. running the backend outside Docker).
+/field-data-media/
+/field-data-backups/
+
 /files/allow-postgres14-upgrade
 /files/postgres14/upgrade/*
 !/files/postgres14/upgrade/check-available-space

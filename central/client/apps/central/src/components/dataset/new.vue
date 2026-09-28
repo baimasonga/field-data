@@ -174,7 +174,7 @@ const hideOrComplete = () => {
       "Entities let you share information between Forms so you can collect longitudinal data, manage cases over time, and represent other workflows with multiple steps."
     ],
     // This is shown in the introduction as a usage note/warning when the project is encrypted.
-    "encrypted": "This Project is encrypted. Forms and Submissions will not be able to modify any Entities in this List. Entities must be managed through Central or the API.",
+    "encrypted": "This Project is encrypted. Forms and Submissions will not be able to modify any Entities in this List. Entities must be managed through Field Data or the API.",
     // This appears above a text input field for the name of an Entity List
     "entityListName": "Entity List name",
     "success": [
@@ -198,7 +198,7 @@ const hideOrComplete = () => {
   },
   "de": {
     "title": "Objektliste erstellen",
-    "encrypted": "Dieses Projekt ist verschlüsselt. Formulare und Übermittlungen sind nicht in der Lage, Objekte in dieser Liste zu ändern. Objekte müssen über Central oder die API verwaltet werden.",
+    "encrypted": "Dieses Projekt ist verschlüsselt. Formulare und Übermittlungen sind nicht in der Lage, Objekte in dieser Liste zu ändern. Objekte müssen über Field Data oder die API verwaltet werden.",
     "entityListName": "Name der Objektliste",
     "success": [
       "Die Objektliste \"{name}\" ist erstellt worden.",
@@ -213,7 +213,7 @@ const hideOrComplete = () => {
   },
   "es": {
     "title": "Crear lista de entidades",
-    "encrypted": "Este Proyecto está encriptado. Los Formularios y Envíos no podrán modificar ninguna Entidad de esta Lista. Las Entidades deben gestionarse a través de Central o de la API.",
+    "encrypted": "Este Proyecto está encriptado. Los Formularios y Envíos no podrán modificar ninguna Entidad de esta Lista. Las Entidades deben gestionarse a través de Field Data o de la API.",
     "entityListName": "Nombre de la lista de entidades",
     "success": [
       "La lista de entidades “{name}” se ha creado.",
@@ -228,7 +228,7 @@ const hideOrComplete = () => {
   },
   "fr": {
     "title": "Créer une liste d'Entités",
-    "encrypted": "Ce projet est chiffré. Les soumissions de formulaires ne pourront pas modifier cette liste. Les entités doivent être gérées à partir de Central ou de l'interface de programmation (API).",
+    "encrypted": "Ce projet est chiffré. Les soumissions de formulaires ne pourront pas modifier cette liste. Les entités doivent être gérées à partir de Field Data ou de l'interface de programmation (API).",
     "entityListName": "Nom de la Liste d'Entités",
     "success": [
       "La Liste d'Entités \"{name}\" a été créée.",
@@ -243,7 +243,7 @@ const hideOrComplete = () => {
   },
   "it": {
     "title": "Crea la Lista Entità",
-    "encrypted": "Questo progetto è criptato. I formulari e gli invii non saranno in grado di modificare le entità di questo elenco. Le entità devono essere gestite tramite Central o l'API.",
+    "encrypted": "Questo progetto è criptato. I formulari e gli invii non saranno in grado di modificare le entità di questo elenco. Le entità devono essere gestite tramite Field Data o l'API.",
     "entityListName": "Nome Lista Entità",
     "success": [
       "La Lista Entità \"{name}\" è stato creata.",
@@ -258,7 +258,7 @@ const hideOrComplete = () => {
   },
   "pt": {
     "title": "Criar lista de Entidades",
-    "encrypted": "Este Projeto está encriptado. Formulários e Respostas não poderão modificar nenhuma Entidade nesta Lista. As Entidades devem ser gerenciadas por meio do Central ou da API.",
+    "encrypted": "Este Projeto está encriptado. Formulários e Respostas não poderão modificar nenhuma Entidade nesta Lista. As Entidades devem ser gerenciadas por meio do Field Data ou da API.",
     "entityListName": "Nome da Lista de Entidades",
     "success": [
       "A Lista de Entidades “{name}” foi criada.",
@@ -293,7 +293,7 @@ const hideOrComplete = () => {
   },
   "zh-Hant": {
     "title": "建立實體列表",
-    "encrypted": "該專案已加密。表格和提交內容將無法修改此清單中的任何實體。實體必須透過 Central 或 API 進行管理。",
+    "encrypted": "該專案已加密。表格和提交內容將無法修改此清單中的任何實體。實體必須透過 Field Data 或 API 進行管理。",
     "entityListName": "實體清單名稱",
     "success": [
       "實體清單「{name}」已建立。",

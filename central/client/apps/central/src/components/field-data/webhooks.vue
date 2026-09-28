@@ -195,7 +195,7 @@ const toggleDetails = (hook) => {
   "en": {
     "field": {
       "name": "Name",
-      "url": "URL (https://…)",
+      "url": "URL (https://...)",
       "events": "Events (comma-separated)"
     },
     "action": {
@@ -215,10 +215,10 @@ const toggleDetails = (hook) => {
     // Shown in the Events column when a webhook subscribes to every event.
     "allEvents": "All events",
     "emptyTable": "No webhooks have been configured yet.",
-    "confirmDelete": "Are you sure you want to delete the webhook “{name}”?",
+    "confirmDelete": "Are you sure you want to delete the webhook \"{name}\"?",
     "alert": {
-      "created": "Webhook “{name}” has been created.",
-      "deleted": "Webhook “{name}” has been deleted."
+      "created": "Webhook \"{name}\" has been created.",
+      "deleted": "Webhook \"{name}\" has been deleted."
     },
     "detail": {
       "secret": "Signing secret",

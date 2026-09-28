@@ -67,16 +67,16 @@ const hideAndNavigate = (navigate, event) => {
 {
   "en": {
     // This is the title at the top of a pop-up.
-    "title": "Help Improve Central!",
+    "title": "Help Improve Field Data!",
     "introduction": [
       {
-        "full": "In the {usageReporting} tab in System Settings, you can choose to share anonymized usage data or contact information with the Central team.",
+        "full": "In the {usageReporting} tab in System Settings, you can choose to share anonymized usage data or contact information with the Field Data team.",
         "usageReporting": "Usage Reporting"
       },
       "There, you can also choose to not see this message again."
     ],
     "action": {
-      "improveCentral": "Improve Central"
+      "improveCentral": "Improve Field Data"
     }
   }
 }
@@ -86,74 +86,74 @@ const hideAndNavigate = (navigate, event) => {
 <i18n>
 {
   "cs": {
-    "title": "Pomozte zlepšit Central!",
+    "title": "Pomozte zlepšit Field Data!",
     "introduction": [
       {
-        "full": "Na kartě {usageReporting} v Nastavení systému můžete zvolit sdílení anonymizovaných údajů o používání nebo kontaktních informací s týmem Central.",
+        "full": "Na kartě {usageReporting} v Nastavení systému můžete zvolit sdílení anonymizovaných údajů o používání nebo kontaktních informací s týmem Field Data.",
         "usageReporting": "Hlášení o použití"
       },
       "Tam můžete také zvolit, že se tato zpráva již nebude zobrazovat."
     ],
     "action": {
-      "improveCentral": "Zlepšit Central"
+      "improveCentral": "Zlepšit Field Data"
     }
   },
   "de": {
-    "title": "Hilf ODK Central zu verbessern!",
+    "title": "Hilf Field Data zu verbessern!",
     "introduction": [
       {
-        "full": "Unter {usageReporting} in den Systemeinstellungen kannst du wählen, ob duanonymisierte Nutzungsdaten oder Kontaktinformationen mit dem Central-Team teilen möchtest.",
+        "full": "Unter {usageReporting} in den Systemeinstellungen kannst du wählen, ob duanonymisierte Nutzungsdaten oder Kontaktinformationen mit dem Field Data-Team teilen möchtest.",
         "usageReporting": "Nutzungsberichterstattung"
       },
       "Dort können Sie auch festlegen, dass diese Nachricht nicht mehr angezeigt wird."
     ],
     "action": {
-      "improveCentral": "Verbessere Central"
+      "improveCentral": "Verbessere Field Data"
     }
   },
   "es": {
-    "title": "Ayuda a mejorar Central",
+    "title": "Ayuda a mejorar Field Data",
     "introduction": [
       {
-        "full": "En la pestaña {usageReporting} en Configuración del sistema, puede optar por compartir datos de uso anónimos o información de contacto con el equipo Central.",
+        "full": "En la pestaña {usageReporting} en Configuración del sistema, puede optar por compartir datos de uso anónimos o información de contacto con el equipo Field Data.",
         "usageReporting": "Informes de uso"
       },
       "Allí, también puede optar por no volver a ver este mensaje."
     ],
     "action": {
-      "improveCentral": "Mejorar Central"
+      "improveCentral": "Mejorar Field Data"
     }
   },
   "fr": {
-    "title": "Aidez à améliorer Central !",
+    "title": "Aidez à améliorer Field Data !",
     "introduction": [
       {
-        "full": "Dans l'onglet {usageReporting} des Paramètres Système, vous pouvez choisir de partager des données d'usage anonymisées ou vos coordonnées avec l'équipe de Central.",
+        "full": "Dans l'onglet {usageReporting} des Paramètres Système, vous pouvez choisir de partager des données d'usage anonymisées ou vos coordonnées avec l'équipe de Field Data.",
         "usageReporting": "Rapports d'utilisation"
       },
       "Là, vous pouvez également choisir de ne plus voir à nouveau ce message."
     ],
     "action": {
-      "improveCentral": "Améliorer Central"
+      "improveCentral": "Améliorer Field Data"
     }
   },
   "id": {
-    "title": "Bantu Tingkatkan Central!",
+    "title": "Bantu Tingkatkan Field Data!",
     "action": {
-      "improveCentral": "Tingkatkan Central"
+      "improveCentral": "Tingkatkan Field Data"
     }
   },
   "it": {
-    "title": "Aiuta a migliorare Central",
+    "title": "Aiuta a migliorare Field Data",
     "introduction": [
       {
-        "full": "Nella scheda {usageReporting} in Impostazioni di sistema, puoi scegliere di condividere dati di utilizzo anonimi o informazioni di contatto con il team Central.",
+        "full": "Nella scheda {usageReporting} in Impostazioni di sistema, puoi scegliere di condividere dati di utilizzo anonimi o informazioni di contatto con il team Field Data.",
         "usageReporting": "Report di utilizzo"
       },
       "Lì, puoi anche scegliere di non vedere più questo messaggio."
     ],
     "action": {
-      "improveCentral": "Migliora Central"
+      "improveCentral": "Migliora Field Data"
     }
   },
   "ja": {
@@ -170,20 +170,20 @@ const hideAndNavigate = (navigate, event) => {
     }
   },
   "pt": {
-    "title": "Ajude a melhorar o Central!",
+    "title": "Ajude a melhorar o Field Data!",
     "introduction": [
       {
-        "full": "Na aba de {usageReporting} das configurações do sistema você pode escolher compartilhar dados anônimos de uso ou suas informações de contato com a equipe do Central.",
+        "full": "Na aba de {usageReporting} das configurações do sistema você pode escolher compartilhar dados anônimos de uso ou suas informações de contato com a equipe do Field Data.",
         "usageReporting": "Relatório de uso"
       },
       "Lá você pode escolher não ver mais essa mensagem novamente."
     ],
     "action": {
-      "improveCentral": "Aprimorar o Central"
+      "improveCentral": "Aprimorar o Field Data"
     }
   },
   "sw": {
-    "title": "Saidia Kuboresha Central!",
+    "title": "Saidia Kuboresha Field Data!",
     "introduction": [
       {
         "full": "Katika kichupo cha {usageReporting} katika Mipangilio ya Mfumo, unaweza kuchagua kushiriki data ya matumizi isiyojulikana au maelezo ya mawasiliano na timu ya Kati.",
@@ -192,7 +192,7 @@ const hideAndNavigate = (navigate, event) => {
       "Huko, unaweza pia kuchagua kutouona ujumbe huu tena"
     ],
     "action": {
-      "improveCentral": "Boresha Central"
+      "improveCentral": "Boresha Field Data"
     }
   },
   "zh": {
@@ -205,20 +205,20 @@ const hideAndNavigate = (navigate, event) => {
       "您也可以选择不再显示此提示信息。"
     ],
     "action": {
-      "improveCentral": "完善Central"
+      "improveCentral": "完善Field Data"
     }
   },
   "zh-Hant": {
-    "title": "幫助改善 Central!",
+    "title": "幫助改善 Field Data!",
     "introduction": [
       {
-        "full": "在 {usageReporting}系統設定頁簽中，您可以選擇與 Central 團隊分享匿名使用資料或聯絡資訊。",
+        "full": "在 {usageReporting}系統設定頁簽中，您可以選擇與 Field Data 團隊分享匿名使用資料或聯絡資訊。",
         "usageReporting": "使用情況報告"
       },
       "在那裡，您還可以選擇不再看到此訊息。"
     ],
     "action": {
-      "improveCentral": "改善 Central"
+      "improveCentral": "改善 Field Data"
     }
   }
 }

@@ -89,7 +89,7 @@ const convert = ref(null);
       "changeSetting": "Change setting"
     },
     "explanation": {
-      "userAction": "You are setting Entity creation to occur when Submissions are first received by Central.",
+      "userAction": "You are setting Entity creation to occur when Submissions are first received by Field Data.",
       "implication": {
         "full": "You currently have {records} not marked Approved nor Rejected. | You currently have {records} not marked Approved nor Rejected.",
         "records": "{count} pending record | {count} pending records"
@@ -116,7 +116,7 @@ const convert = ref(null);
       "changeSetting": "Změnit nastavení"
     },
     "explanation": {
-      "userAction": "Nastavujete vytvoření entit tak, aby k němu došlo při prvním přijetí Podání do Central."
+      "userAction": "Nastavujete vytvoření entit tak, aby k němu došlo při prvním přijetí Podání do Field Data."
     },
     "dontConvert": {
       "label": "Rozumím tomu a nepředstavuje to pro mě problém."
@@ -128,7 +128,7 @@ const convert = ref(null);
       "changeSetting": "Einstellung ändern"
     },
     "explanation": {
-      "userAction": "Sie legen fest, dass die Erstellung von Objekte erfolgt, wenn die Übermittlungen erstmals von Central empfangen werden.",
+      "userAction": "Sie legen fest, dass die Erstellung von Objekte erfolgt, wenn die Übermittlungen erstmals von Field Data empfangen werden.",
       "implication": {
         "full": "Sie haben derzeit {records} Aufzeichnung, die weder als „Genehmigt“ noch als „Abgelehnt“ gekennzeichnet ist. | Sie haben derzeit {records} Aufzeichnungen, die weder als „Genehmigt“ noch als „Abgelehnt“ gekennzeichnet sind.",
         "records": "{count} Hervorragender Rekord | {count} Ausstehende Aufzeichnungen"
@@ -149,7 +149,7 @@ const convert = ref(null);
       "changeSetting": "Cambiar ajustes"
     },
     "explanation": {
-      "userAction": "Está configurando la creación de la Entidad para que ocurra cuando Central recibe los Envíos por primera vez.",
+      "userAction": "Está configurando la creación de la Entidad para que ocurra cuando Field Data recibe los Envíos por primera vez.",
       "implication": {
         "full": "Actualmente tiene {records} ni Aprobado ni Rechazado. | Actualmente tiene {records} ni Aprobados ni Rechazados. | Actualmente tiene {records} ni Aprobados ni Rechazados.",
         "records": "{count} registro pendiente | {count} registros pendientes | {count} registros pendientes"
@@ -170,7 +170,7 @@ const convert = ref(null);
       "changeSetting": "Modifier le paramètre"
     },
     "explanation": {
-      "userAction": "Vous paramétrez la Création d'Entités pour qu'elle survienne dés la réception des Soumissions par Central",
+      "userAction": "Vous paramétrez la Création d'Entités pour qu'elle survienne dés la réception des Soumissions par Field Data",
       "implication": {
         "full": "Vous avez actuellement {records} marqué ni Approuvé ni Rejeté | Vous avez actuellement {records} marqué(s) ni Approuvé ni Rejeté | Vous avez actuellement {records} marqué ni Approuvé ni Rejeté",
         "records": "{count} enregistrement en attente | {count} enregistrements en attente | {count} enregistrement(s) en attente"
@@ -191,7 +191,7 @@ const convert = ref(null);
       "changeSetting": "Cambia le impostazioni"
     },
     "explanation": {
-      "userAction": "Stai impostando la creazione dell'Entità in modo che avvenga quando gli invii vengono ricevuti per la prima volta da Central.",
+      "userAction": "Stai impostando la creazione dell'Entità in modo che avvenga quando gli invii vengono ricevuti per la prima volta da Field Data.",
       "implication": {
         "full": "Al momento non avete segnato {records} né Approvato né Rifiutato. | Al momento non avete segnato {records} né Approvati né Rifiutati. | Al momento non avete segnato {records} né Approvati né Rifiutati.",
         "records": "{count} registrazione in sospeso | {count} registrazioni in sospeso | {count} registrazioni in sospeso"
@@ -212,7 +212,7 @@ const convert = ref(null);
       "changeSetting": "Alterar configuração"
     },
     "explanation": {
-      "userAction": "Você está definindo a criação da Entidade para ocorrer quando as Respostas forem recebidas pelo Central.",
+      "userAction": "Você está definindo a criação da Entidade para ocorrer quando as Respostas forem recebidas pelo Field Data.",
       "implication": {
         "full": "Você tem atualmente {records} não marcado como Aprovado ou Rejeitado. | Você tem atualmente {records} não marcados como Aprovado ou Rejeitado. | Você tem atualmente {records} não marcado como Aprovado ou Rejeitado.",
         "records": "{count} registro pendente | {count} registros pendentes | {count} registro pendente"
@@ -228,7 +228,7 @@ const convert = ref(null);
       "changeSetting": "Badilisha mpangilio"
     },
     "explanation": {
-      "userAction": "Unaweka uundaji wa Huluki ufanyike wakati Mawasilisho yanapokewa kwa mara ya kwanza na Central."
+      "userAction": "Unaweka uundaji wa Huluki ufanyike wakati Mawasilisho yanapokewa kwa mara ya kwanza na Field Data."
     },
     "dontConvert": {
       "label": "Ninaelewa na hii sio shida kwangu."
@@ -261,7 +261,7 @@ const convert = ref(null);
       "changeSetting": "修改設定"
     },
     "explanation": {
-      "userAction": "您將設定實體建立在 Central 首次收到提交時進行。",
+      "userAction": "您將設定實體建立在 Field Data 首次收到提交時進行。",
       "implication": {
         "full": "您目前有未標示已核准或拒絕的項目{records}。",
         "records": "{count}筆待決記錄"

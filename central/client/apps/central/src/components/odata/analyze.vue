@@ -189,9 +189,9 @@ export default {
         "pageForPowerBi": "this page"
       },
       // {pyODK} is a link. Its text is "pyODK".
-      "python": "To connect to Central from Python, we recommend {pyODK}. pyODK is the official Python client for Central. It simplifies data analysis and workflow automation.",
+      "python": "To connect to Field Data from Python, we recommend {pyODK}. pyODK is the official Python client for Field Data. It simplifies data analysis and workflow automation.",
       // {ruODK} is a link. Its text is "ruODK".
-      "r": "To connect to Central from R, we recommend {ruODK}. ruODK is developed and supported by ODK community members.",
+      "r": "To connect to Field Data from R, we recommend {ruODK}. ruODK is developed and supported by ODK community members.",
       "other": {
         "full": "For a full description of our OData support, please see {article}.",
         "article": "this article"
@@ -215,7 +215,7 @@ export default {
         "pageForExcel": "této straně",
         "pageForPowerBi": "této straně"
       },
-      "r": "Pro připojení k Central z R doporučujeme {ruODK}. ruODK je vyvíjen a podporován členy komunity ODK.",
+      "r": "Pro připojení k Field Data z R doporučujeme {ruODK}. ruODK je vyvíjen a podporován členy komunity ODK.",
       "other": {
         "full": "Úplný popis podpory OData naleznete v {article}.",
         "article": "tomto článku"
@@ -238,8 +238,8 @@ export default {
         "pageForExcel": "diese Seite",
         "pageForPowerBi": "diese Seite"
       },
-      "python": "Um sich von Python aus mit Central zu verbinden, empfehlen wir {pyODK}. pyODK ist der offizielle Python-Client für Central. Es vereinfacht die Datenanalyse und Workflow-Automatisierung.",
-      "r": "Um sich von R aus mit Central zu verbinden, empfehlen wir {ruODK}. ruODK wird von Mitgliedern der ODK-Community entwickelt und unterstützt.",
+      "python": "Um sich von Python aus mit Field Data zu verbinden, empfehlen wir {pyODK}. pyODK ist der offizielle Python-Client für Field Data. Es vereinfacht die Datenanalyse und Workflow-Automatisierung.",
+      "r": "Um sich von R aus mit Field Data zu verbinden, empfehlen wir {ruODK}. ruODK wird von Mitgliedern der ODK-Community entwickelt und unterstützt.",
       "other": {
         "full": "Für eine ausführliche Beschreibung unserer OData-Unterstützung, bitte lesen Sie {article}.",
         "article": "diesen Artikel"
@@ -262,8 +262,8 @@ export default {
         "pageForExcel": "esta página",
         "pageForPowerBi": "esta página"
       },
-      "python": "Para conectarse a Central desde Python, recomendamos {pyODK}. pyODK es el cliente oficial de Python para Central. Simplifica el análisis de datos y la automatización del flujo de trabajo.",
-      "r": "Para conectarse a Central desde R, recomendamos {ruODK}. ruODK está desarrollado y respaldado por miembros de la comunidad ODK.",
+      "python": "Para conectarse a Field Data desde Python, recomendamos {pyODK}. pyODK es el cliente oficial de Python para Field Data. Simplifica el análisis de datos y la automatización del flujo de trabajo.",
+      "r": "Para conectarse a Field Data desde R, recomendamos {ruODK}. ruODK está desarrollado y respaldado por miembros de la comunidad ODK.",
       "other": {
         "full": "Para una descripción detallada del soporte realizado para OData, léa {article}.",
         "article": "este artículo"
@@ -286,8 +286,8 @@ export default {
         "pageForExcel": "cette page",
         "pageForPowerBi": "cette page"
       },
-      "python": "Pour vous connecter à Central via Python, nous recommandons {pyODK}. pyODK est le client Python officiel pour Central. Il simplifie l'analyse de données et l'automatisation des processus.",
-      "r": "Pour vous connecter à Central via R, nous recommandons {ruODK}. ruODK est développé et soutenu par des membres de la communauté ODK.",
+      "python": "Pour vous connecter à Field Data via Python, nous recommandons {pyODK}. pyODK est le client Python officiel pour Field Data. Il simplifie l'analyse de données et l'automatisation des processus.",
+      "r": "Pour vous connecter à Field Data via R, nous recommandons {ruODK}. ruODK est développé et soutenu par des membres de la communauté ODK.",
       "other": {
         "full": "Pour une description complète de notre intégration OData, veuillez consulter {article}.",
         "article": "cet article"
@@ -322,8 +322,8 @@ export default {
         "pageForExcel": "questa pagina",
         "pageForPowerBi": "questa pagina"
       },
-      "python": "Per connettersi a Central da Python, consigliamo {pyODK}. pyODK è il client Python ufficiale per Central. Semplifica l'analisi dei dati e l'automazione del flusso di lavoro.",
-      "r": "Per connetterti a Central da R, ti consigliamo {ruODK}. ruODK è sviluppato e supportato dai membri della comunità ODK.",
+      "python": "Per connettersi a Field Data da Python, consigliamo {pyODK}. pyODK è il client Python ufficiale per Field Data. Semplifica l'analisi dei dati e l'automazione del flusso di lavoro.",
+      "r": "Per connetterti a Field Data da R, ti consigliamo {ruODK}. ruODK è sviluppato e supportato dai membri della comunità ODK.",
       "other": {
         "full": "Per una descrizione completa del nostro supporto OData, vedere {article}.",
         "article": "questo articolo"
@@ -355,8 +355,8 @@ export default {
         "pageForExcel": "esta página",
         "pageForPowerBi": "esta página"
       },
-      "python": "Para conectar-se ao Central a partir do Python, recomendamos {pyODK}. O pyODK é o cliente Python oficial para o Central. Ele simplifica a análise de dados e a automação do fluxo de trabalho.",
-      "r": "Para conectar-se ao Central a partir do R, recomendamos {ruODK}. O ruODK é desenvolvido e suportado por membros da comunidade ODK.",
+      "python": "Para conectar-se ao Field Data a partir do Python, recomendamos {pyODK}. O pyODK é o cliente Python oficial para o Field Data. Ele simplifica a análise de dados e a automação do fluxo de trabalho.",
+      "r": "Para conectar-se ao Field Data a partir do R, recomendamos {ruODK}. O ruODK é desenvolvido e suportado por membros da comunidade ODK.",
       "other": {
         "full": "Para uma descrição detalhada do nosso suporte a OData, por favor veja {article}.",
         "article": "esse artigo"
@@ -378,8 +378,8 @@ export default {
         "pageForExcel": "ukurasa huu",
         "pageForPowerBi": "ukurasa huu"
       },
-      "python": "Ili kuunganisha kwa Central kutoka Python, tunapendekeza {pyODK}. pyODK ndiye mteja rasmi wa Python kwa Central. Inarahisisha uchanganuzi wa data na otomatiki wa mtiririko wa kazi.",
-      "r": "Ili kuunganisha kwa Central kutoka R, tunapendekeza {ruODK}. ruODK inatengenezwa na kuungwa mkono na wanajamii wa ODK",
+      "python": "Ili kuunganisha kwa Field Data kutoka Python, tunapendekeza {pyODK}. pyODK ndiye mteja rasmi wa Python kwa Field Data. Inarahisisha uchanganuzi wa data na otomatiki wa mtiririko wa kazi.",
+      "r": "Ili kuunganisha kwa Field Data kutoka R, tunapendekeza {ruODK}. ruODK inatengenezwa na kuungwa mkono na wanajamii wa ODK",
       "other": {
         "full": "Kwa maelezo kamili ya usaidizi wetu wa OData, tafadhali angalia {article}.",
         "article": "Makala hii"
@@ -426,7 +426,7 @@ export default {
         "pageForExcel": "這個網頁",
         "pageForPowerBi": "這個網頁"
       },
-      "python": "要從 Python 連接到 Central，我們建議使用 {pyODK}。 pyODK 是 Central 的官方 Python 用戶端。它簡化了數據分析和工作流程自動化。",
+      "python": "要從 Python 連接到 Central，我們建議使用 {pyODK}。 pyODK 是 Field Data 的官方 Python 用戶端。它簡化了數據分析和工作流程自動化。",
       "r": "要從 R 連接到 Central，我們建議使用 {ruODK}。 ruODK 由 ODK 社群成員開發和支援。",
       "other": {
         "full": "有關 OData 支援的完整說明，請參閱{article}。",

@@ -43,7 +43,7 @@ except according to the terms contained in the LICENSE file.
                   <input v-model="webformsEnabled" name="webformsEnabled" type="radio" :value="true"
                     @change="confirmationModal.show({ webformsEnabled: true })">
                   <span class="label-title">
-                    ODK Web Forms
+                    Web Forms
                   </span>
                   <span class="badge recommended">
                     {{ $t('common.recommended') }}
@@ -213,15 +213,15 @@ const hideAndReset = () => {
       // Description of a section. {formName} is replaced with the name of the Form
       "description": "Fill out, preview and edit your “{formName}” Form using",
       // This text is shown under the option of Enketo for Form settings.
-      "enketoDescription": "No longer actively developed. Use for specialized features not yet supported by ODK Web Forms.",
+      "enketoDescription": "No longer actively developed. Use for specialized features not yet supported by Web Forms.",
       "odkWebFormsDescription": {
         "full": "A modern experience that will replace Enketo over time. {preview}.",
         "preview": "See a preview"
       },
       // Success message when Enketo is selected as web form technology. {formName} is replaced with the name of the Form
       "enketoSelected": "You’re now using Enketo to fill out, preview and edit your “{formName}” form.",
-      // Success message when ODK Web Forms is selected as web form technology. {formName} is replaced with the name of the Form
-      "owfSelected": "You’re now using ODK Web Forms to fill out, preview and edit your “{formName}” form."
+      // Success message when Web Forms is selected as web form technology. {formName} is replaced with the name of the Form
+      "owfSelected": "You’re now using Web Forms to fill out, preview and edit your “{formName}” form."
     }
   }
 }
@@ -259,7 +259,7 @@ const hideAndReset = () => {
     "webFormsSetting": {
       "description": "Ausfüllen, anschauen und bearbeiten des Formulars \"{formName}\" mit",
       "enketoSelected": "Sie verwenden jetzt Enketo, um Ihr Formular \"{formName}“ auszufüllen, in der Vorschau anzuzeigen und zu bearbeiten.",
-      "owfSelected": "Sie verwenden jetzt ODK Web Forms, um Ihr Formular \"{formName}“ auszufüllen, in der Vorschau anzuzeigen und zu bearbeiten."
+      "owfSelected": "Sie verwenden jetzt Web Forms, um Ihr Formular \"{formName}“ auszufüllen, in der Vorschau anzuzeigen und zu bearbeiten."
     }
   },
   "es": {
@@ -279,7 +279,7 @@ const hideAndReset = () => {
     "webFormsSetting": {
       "description": "Rellene, previsualice y edite su Formulario “{formName}” utilizando",
       "enketoSelected": "Ahora estás utilizando Enketo para rellenar, previsualizar y editar tu formulario \"{formName}\".",
-      "owfSelected": "Ahora estás utilizando ODK Web Forms para rellenar, previsualizar y editar tu formulario \"{formName}\"."
+      "owfSelected": "Ahora estás utilizando Web Forms para rellenar, previsualizar y editar tu formulario \"{formName}\"."
     }
   },
   "fr": {
@@ -299,13 +299,13 @@ const hideAndReset = () => {
     "webFormsSetting": {
       "webForms": "Expérience de formulaire web",
       "description": "Remplissez, prévisualisez et éditez votre Formulaire \"{formName}\" en utilisant",
-      "enketoDescription": "N'est plus activement développé. Utilisez-le pour des fonctionnalités spécialisées qui ne sont pas encore disponibles dans ODK Web Forms.",
+      "enketoDescription": "N'est plus activement développé. Utilisez-le pour des fonctionnalités spécialisées qui ne sont pas encore disponibles dans Web Forms.",
       "odkWebFormsDescription": {
         "full": "Une expérience moderne qui remplacera Enketo au fil du temps. {preview}.",
         "preview": "Voir un aperçu"
       },
       "enketoSelected": "Vous utilisez maintenant Enketo pour remplir, prévisualiser et éditer votre formulaire \"{formName}\".",
-      "owfSelected": "Vous utilisez maintenant ODK Web Forms pour remplir, prévisualiser et éditer votre formulaire \"{formName}\"."
+      "owfSelected": "Vous utilisez maintenant Web Forms pour remplir, prévisualiser et éditer votre formulaire \"{formName}\"."
     }
   },
   "id": {
@@ -337,7 +337,7 @@ const hideAndReset = () => {
     "webFormsSetting": {
       "description": "Compilate, visualizzate in anteprima e modificate il vostro “{formName}” Formulario usando",
       "enketoSelected": "Ora stai utilizzando Enketo per compilare, visualizzare in anteprima e modificare il tuo formulario “{formName}\".",
-      "owfSelected": "Ora stai utilizzando ODK Web Forms per compilare, visualizzare in anteprima e modificare il tuo formulario “{formName}\"."
+      "owfSelected": "Ora stai utilizzando Web Forms per compilare, visualizzare in anteprima e modificare il tuo formulario “{formName}\"."
     }
   },
   "ja": {
@@ -393,7 +393,7 @@ const hideAndReset = () => {
     "webFormsSetting": {
       "description": "填写、预览和编辑您的“{formName}”表单，请使用",
       "enketoSelected": "您当前正在使用Enketo填写、预览和编辑“{formName}”表单。",
-      "owfSelected": "您当前正在使用ODK Web表单填写、预览和编辑“{formName}”表单。"
+      "owfSelected": "您当前正在使用Web表单填写、预览和编辑“{formName}”表单。"
     }
   },
   "zh-Hant": {

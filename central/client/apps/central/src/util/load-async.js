@@ -110,6 +110,50 @@ const loaders = new Map()
     /* webpackChunkName: "component-field-data-dashboard" */
     '../components/field-data/dashboard.vue'
   )))
+  .set('FieldDataExplore', loader(() => import(
+    /* webpackChunkName: "component-field-data-explore" */
+    '../components/field-data/explore.vue'
+  )))
+  .set('FieldDataTeam', loader(() => import(
+    /* webpackChunkName: "component-field-data-team" */
+    '../components/field-data/team.vue'
+  )))
+  .set('FieldDataReview', loader(() => import(
+    /* webpackChunkName: "component-field-data-review" */
+    '../components/field-data/review.vue'
+  )))
+  .set('FieldDataCleaning', loader(() => import(
+    /* webpackChunkName: "component-field-data-cleaning" */
+    '../components/field-data/cleaning.vue'
+  )))
+  .set('FieldDataTemplates', loader(() => import(
+    /* webpackChunkName: "component-field-data-templates" */
+    '../components/field-data/templates.vue'
+  )))
+  .set('FieldDataCases', loader(() => import(
+    /* webpackChunkName: "component-field-data-cases" */
+    '../components/field-data/cases.vue'
+  )))
+  .set('FieldDataCaseDetail', loader(() => import(
+    /* webpackChunkName: "component-field-data-case-detail" */
+    '../components/field-data/case-detail.vue'
+  )))
+  .set('FieldDataAssignments', loader(() => import(
+    /* webpackChunkName: "component-field-data-assignments" */
+    '../components/field-data/assignments.vue'
+  )))
+  .set('FieldDataReport', loader(() => import(
+    /* webpackChunkName: "component-field-data-report" */
+    '../components/field-data/report.vue'
+  )))
+  .set('FieldDataDhis2', loader(() => import(
+    /* webpackChunkName: "component-field-data-dhis2" */
+    '../components/field-data/dhis2.vue'
+  )))
+  .set('FieldDataPublicReport', loader(() => import(
+    /* webpackChunkName: "component-field-data-public-report" */
+    '../components/field-data/public-report.vue'
+  )))
   .set('FieldDataMedia', loader(() => import(
     /* webpackChunkName: "component-field-data-media" */
     '../components/field-data/media.vue'

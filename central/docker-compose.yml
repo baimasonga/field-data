@@ -47,6 +47,10 @@ services:
       - enketo
     volumes:
       - secrets:/etc/secrets
+      # Persist Field Data media-library uploads and manual backups across
+      # container rebuilds. The backend writes both under /data (see
+      # server/lib/resources/field-data.js).
+      - field_data:/data
     env_file:
       - ".env"
     environment:
@@ -172,3 +176,4 @@ volumes:
   postgres14:
   enketo_redis_main:
   enketo_redis_cache:
+  field_data:

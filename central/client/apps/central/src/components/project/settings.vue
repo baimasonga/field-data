@@ -144,7 +144,7 @@ export default {
             "full": "Submission data encryption is {enabled} for this Project.",
             "enabled": "enabled"
           },
-          "In this version of ODK Central, you may not disable encryption once it is turned on."
+          "In this version of Field Data, you may not disable encryption once it is turned on."
         ]
       },
       "action": {
@@ -157,7 +157,7 @@ export default {
       },
       "archived": [
         "This Project has been archived.",
-        "In this version of ODK Central, you may not unarchive a Project. However, the ability to unarchive a Project is planned for a future release."
+        "In this version of Field Data, you may not unarchive a Project. However, the ability to unarchive a Project is planned for a future release."
       ]
     },
     "alert": {
@@ -182,7 +182,7 @@ export default {
             "full": "Šifrování dat příspěvků je {enabled} pro tento projekt.",
             "enabled": "povoleno"
           },
-          "V této verzi ODK Central není možné šifrování zakázat, jakmile je zapnuto."
+          "V této verzi Field Data není možné šifrování zakázat, jakmile je zapnuto."
         ]
       },
       "action": {
@@ -195,7 +195,7 @@ export default {
       },
       "archived": [
         "Tento projekt byl archivován.",
-        "V této verzi ODK Central nelze archivovat Projekt. Schopnost vyjmout projekt z archivu je však naplánována na budoucí vydání."
+        "V této verzi Field Data nelze archivovat Projekt. Schopnost vyjmout projekt z archivu je však naplánována na budoucí vydání."
       ]
     }
   },
@@ -211,7 +211,7 @@ export default {
             "full": "Übermittlungsdatenverschlüsselung ist für dieses Projekt {enabled}.",
             "enabled": "aktiviert"
           },
-          "In dieser Version von ODK Central dürfen Sie die Verschlüsselung nicht mehr deaktivieren nachdem sie aktiviert wurde."
+          "In dieser Version von Field Data dürfen Sie die Verschlüsselung nicht mehr deaktivieren nachdem sie aktiviert wurde."
         ]
       },
       "action": {
@@ -224,7 +224,7 @@ export default {
       },
       "archived": [
         "Dieses Projekt wurde archiviert.",
-        "In dieser Version von ODK Central dürfen Sie ein Projekt nicht dearchivieren. Jedoch ist die Funktion zum Dearchivieren eines Projekts für eine zukünftige Version geplant."
+        "In dieser Version von Field Data dürfen Sie ein Projekt nicht dearchivieren. Jedoch ist die Funktion zum Dearchivieren eines Projekts für eine zukünftige Version geplant."
       ]
     },
     "alert": {
@@ -243,7 +243,7 @@ export default {
             "full": "El cifrado de datos de los envíos está {enabled} para este proyecto.",
             "enabled": "activado"
           },
-          "En esta versión de ODK Central, no podrá desactivar el cifrado una vez haya sido activada."
+          "En esta versión de Field Data, no podrá desactivar el cifrado una vez haya sido activada."
         ]
       },
       "action": {
@@ -256,7 +256,7 @@ export default {
       },
       "archived": [
         "Este proyecto ha sido archivado.",
-        "En esta versión de ODK Central, no podrá desarchivar proyectos. No obstante, dicha funcionalidad está planeada para futuros desarrollos."
+        "En esta versión de Field Data, no podrá desarchivar proyectos. No obstante, dicha funcionalidad está planeada para futuros desarrollos."
       ]
     },
     "alert": {
@@ -275,7 +275,7 @@ export default {
             "full": "Le chiffrement des données de soumission est {enabled} pour ce projet.",
             "enabled": "Activé"
           },
-          "Dans cette version d'ODK Central, vous ne pouvez pas désactiver le chiffrement une fois qu'il est activé."
+          "Dans cette version d'Field Data, vous ne pouvez pas désactiver le chiffrement une fois qu'il est activé."
         ]
       },
       "action": {
@@ -288,7 +288,7 @@ export default {
       },
       "archived": [
         "Le projet a été archivé.",
-        "Dans cette version d'ODK Central, vous ne pouvez pas désarchiver un projet. Cependant, la possibilité de désarchiver un projet est prévue pour une prochaine version."
+        "Dans cette version d'Field Data, vous ne pouvez pas désarchiver un projet. Cependant, la possibilité de désarchiver un projet est prévue pour une prochaine version."
       ]
     },
     "alert": {
@@ -307,7 +307,7 @@ export default {
             "full": "Enkripsi kiriman data {enabled} di Proyek ini.",
             "enabled": "diaktifkan"
           },
-          "Pada versi ODK Central sekarang, Anda tidak dapat menonaktifkan enkripsi setelah enkripsi diaktifkan."
+          "Pada versi Field Data sekarang, Anda tidak dapat menonaktifkan enkripsi setelah enkripsi diaktifkan."
         ]
       },
       "action": {
@@ -320,7 +320,7 @@ export default {
       },
       "archived": [
         "Proyek ini telah diarsipkan.",
-        "Pada versi ODK Central sekarang, Anda tidak dapat membatalkan pengarsipan sebuah Proyek. Namun, pilihan untuk membantalkan pengarsipan sebuah Proyek telah direncanakan untuk versi mendatang."
+        "Pada versi Field Data sekarang, Anda tidak dapat membatalkan pengarsipan sebuah Proyek. Namun, pilihan untuk membantalkan pengarsipan sebuah Proyek telah direncanakan untuk versi mendatang."
       ]
     }
   },
@@ -336,7 +336,7 @@ export default {
             "full": "La crittografia dei dati di invio è {enabled} per questo progetto.",
             "enabled": "abilitato"
           },
-          "In questa versione di ODK Central, non puoi disabilitare la crittografia una volta attivata."
+          "In questa versione di Field Data, non puoi disabilitare la crittografia una volta attivata."
         ]
       },
       "action": {
@@ -349,7 +349,7 @@ export default {
       },
       "archived": [
         "Il Progetto è stato archiviato",
-        "In questa versione di ODK Central, non puoi annullare l'archiviazione di un progetto. Tuttavia, la possibilità di annullare l'archiviazione di un progetto è prevista per una versione futura."
+        "In questa versione di Field Data, non puoi annullare l'archiviazione di un progetto. Tuttavia, la possibilità di annullare l'archiviazione di un progetto è prevista per una versione futura."
       ]
     },
     "alert": {
@@ -368,7 +368,7 @@ export default {
             "full": "このプロジェクトの提出されたフォームの暗号化は、{enabled}",
             "enabled": "有効にされています。"
           },
-          "このバージョンのODK Centralでは、一度有効にされた暗号化は無効にできません。"
+          "このバージョンのField Dataでは、一度有効にされた暗号化は無効にできません。"
         ]
       },
       "action": {
@@ -381,7 +381,7 @@ export default {
       },
       "archived": [
         "このプロジェクトはアーカイブされました。",
-        "このバージョンのODK Centralでは、プロジェクトの非アーカイブ化はできません。プロジェクトの非アーカイブ機能は将来的にリリースされる予定です。"
+        "このバージョンのField Dataでは、プロジェクトの非アーカイブ化はできません。プロジェクトの非アーカイブ機能は将来的にリリースされる予定です。"
       ]
     }
   },
@@ -397,7 +397,7 @@ export default {
             "full": "A encriptação de dados de respostas está {enabled} para esse projeto.",
             "enabled": "habilitado"
           },
-          "Nessa versão do ODK Central você não poderá desabilitar a encriptação uma vez que ela estive ligada."
+          "Nessa versão do Field Data você não poderá desabilitar a encriptação uma vez que ela estive ligada."
         ]
       },
       "action": {
@@ -410,7 +410,7 @@ export default {
       },
       "archived": [
         "O projeto foi arquivado.",
-        "Nessa versão do ODK Central você não pode desarquivar um projeto. Entretanto, essa funcionalidade está planejada para uma versão futura."
+        "Nessa versão do Field Data você não pode desarquivar um projeto. Entretanto, essa funcionalidade está planejada para uma versão futura."
       ]
     },
     "alert": {
@@ -429,7 +429,7 @@ export default {
             "full": "Usimbaji fiche wa data ya uwasilishaji {enabled} kwa Mradi huu.",
             "enabled": "imewezeshwa"
           },
-          "Katika toleo hili la ODK Central, huwezi kuzima usimbaji fiche mara tu inapowashwa."
+          "Katika toleo hili la Field Data, huwezi kuzima usimbaji fiche mara tu inapowashwa."
         ]
       },
       "action": {
@@ -442,7 +442,7 @@ export default {
       },
       "archived": [
         "Mradi huu umewekwa kwenye kumbukumbu.",
-        "Katika toleo hili la ODK Central, unaweza usiondoe Mradi kwenye kumbukumbu. Hata hivyo, uwezo wa kufuta Mradi umepangwa kwa ajili ya kutolewa siku zijazo."
+        "Katika toleo hili la Field Data, unaweza usiondoe Mradi kwenye kumbukumbu. Hata hivyo, uwezo wa kufuta Mradi umepangwa kwa ajili ya kutolewa siku zijazo."
       ]
     }
   },
@@ -458,7 +458,7 @@ export default {
             "full": "此项目{enabled}提交数据加密功能。",
             "enabled": "已启用"
           },
-          "此版本ODK Central中，加密功能一旦开启将无法禁用。"
+          "此版本Field Data中，加密功能一旦开启将无法禁用。"
         ]
       },
       "action": {
@@ -471,7 +471,7 @@ export default {
       },
       "archived": [
         "此项目已归档。",
-        "此版本ODK Central不支持项目取消归档，该功能计划在后续版本中推出。"
+        "此版本Field Data不支持项目取消归档，该功能计划在后续版本中推出。"
       ]
     },
     "alert": {
@@ -490,7 +490,7 @@ export default {
             "full": "此專案已{enabled}提交資料加密。",
             "enabled": "啟用"
           },
-          "在此版本的 ODK Central 中，加密一旦開啟就無法停用。"
+          "在此版本的 Field Data 中，加密一旦開啟就無法停用。"
         ]
       },
       "action": {
@@ -503,7 +503,7 @@ export default {
       },
       "archived": [
         "該專案已歸檔。",
-        "在此版本的 ODK Central 中，您無法取消專案的歸檔。但是，計劃在未來版本中提供專案取消歸檔的功能。"
+        "在此版本的 Field Data 中，您無法取消專案的歸檔。但是，計劃在未來版本中提供專案取消歸檔的功能。"
       ]
     },
     "alert": {

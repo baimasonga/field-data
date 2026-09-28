@@ -47,7 +47,7 @@ const { alert } = inject('container');
 
 
 const options = computed(() => [
-  { value: true, text: `ODK Web Forms (${t('common.recommended')})` },
+  { value: true, text: `Web Forms (${t('common.recommended')})` },
   { value: false, text: t('common.useEnketo') }
 ]);
 
@@ -98,7 +98,7 @@ const update = (newVal) => {
   "en": {
     "title": "New default web form experience",
     "description": {
-      "full": "Newly created Forms now use the ODK Web Forms experience by default for previews, web submissions and submission editing. Some advanced form features may not yet be fully supported, {learnMore}.",
+      "full": "Newly created Forms now use the Web Forms experience by default for previews, web submissions and submission editing. Some advanced form features may not yet be fully supported, {learnMore}.",
       "learnMore": "learn more"
     },
     "alert": {
@@ -114,7 +114,7 @@ const update = (newVal) => {
   "fr": {
     "title": "Nouvelle expérience de formulaire web par défaut",
     "description": {
-      "full": "Les formulaires nouvellement créés utilisent désormais par défaut l'interface ODK Web Forms pour les aperçus, les soumissions web et la modification des soumissions. Certaines fonctionnalités avancées des formulaires ne sont pas encore disponibles, {learnMore}.",
+      "full": "Les formulaires nouvellement créés utilisent désormais par défaut l'interface Web Forms pour les aperçus, les soumissions web et la modification des soumissions. Certaines fonctionnalités avancées des formulaires ne sont pas encore disponibles, {learnMore}.",
       "learnMore": "en savoir plus."
     },
     "alert": {

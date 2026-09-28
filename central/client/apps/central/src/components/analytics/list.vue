@@ -87,7 +87,7 @@ export default {
 {
   "en": {
     "heading": [
-      "Below, you can choose whether this Central server will share anonymous usage information with the Central team. This setting affects the entire server."
+      "Below, you can choose whether this Field Data server will share anonymous usage information with the Field Data team. This setting affects the entire server."
     ],
     // This is a title shown above a section of the page.
     "auditsTitle": "Latest Usage Reports"
@@ -100,31 +100,31 @@ export default {
 {
   "cs": {
     "heading": [
-      "Níže můžete zvolit, zda bude tento server Central sdílet anonymní informace o používání s týmem Central. Toto nastavení ovlivňuje celý server."
+      "Níže můžete zvolit, zda bude tento server Field Data sdílet anonymní informace o používání s týmem Field Data. Toto nastavení ovlivňuje celý server."
     ],
     "auditsTitle": "Nejnovější zprávy o použití"
   },
   "de": {
     "heading": [
-      "Weiter unten kannst du auswählen, ob dieser Central-Server anonyme Nutzungsinformationen mit dem Central-Team teilen soll oder nicht. Diese Einstellung gelten für den gesamten Server."
+      "Weiter unten kannst du auswählen, ob dieser Field Data-Server anonyme Nutzungsinformationen mit dem Field Data-Team teilen soll oder nicht. Diese Einstellung gelten für den gesamten Server."
     ],
     "auditsTitle": "Neueste Nutzungsberichte"
   },
   "es": {
     "heading": [
-      "A continuación, puede elegir si este servidor Central compartirá información de uso anónima con el equipo Central. Esta configuración afecta a todo el servidor."
+      "A continuación, puede elegir si este servidor Field Data compartirá información de uso anónima con el equipo Field Data. Esta configuración afecta a todo el servidor."
     ],
     "auditsTitle": "Últimos informes de uso"
   },
   "fr": {
     "heading": [
-      "Ci-dessous, vous pouvez choisir si ce serveur Central partagera les informations d'utilisation anonymisées avec l'équipe de Central. Ce paramètre affecte l'ensemble du serveur."
+      "Ci-dessous, vous pouvez choisir si ce serveur Field Data partagera les informations d'utilisation anonymisées avec l'équipe de Field Data. Ce paramètre affecte l'ensemble du serveur."
     ],
     "auditsTitle": "Dernier rapport d'utilisation"
   },
   "it": {
     "heading": [
-      "Di seguito, puoi scegliere se questo server Central condividerà le informazioni di utilizzo anonime con il team Central. Questa impostazione interessa l'intero server."
+      "Di seguito, puoi scegliere se questo server Field Data condividerà le informazioni di utilizzo anonime con il team Field Data. Questa impostazione interessa l'intero server."
     ],
     "auditsTitle": "Ultimo rapporto di utilizzo"
   },
@@ -136,13 +136,13 @@ export default {
   },
   "pt": {
     "heading": [
-      "Abaixo, você pode escolher se esse servidor Central irá compartilhar informações de uso anônimas com a equipe do Central. Essa configuração afeta o servidor como um todo."
+      "Abaixo, você pode escolher se esse servidor Field Data irá compartilhar informações de uso anônimas com a equipe do Field Data. Essa configuração afeta o servidor como um todo."
     ],
     "auditsTitle": "Relatórios de uso mais recentes"
   },
   "sw": {
     "heading": [
-      "Hapo chini, unaweza kuchagua kama seva hii ya Central itashiriki maelezo ya matumizi yasiyokutambulisha na timu ya Central. Mpangilio huu unaathiri seva nzima"
+      "Hapo chini, unaweza kuchagua kama seva hii ya Field Data itashiriki maelezo ya matumizi yasiyokutambulisha na timu ya Field Data. Mpangilio huu unaathiri seva nzima"
     ],
     "auditsTitle": "Ripoti za Matumizi ya Hivi Punde"
   },
@@ -154,7 +154,7 @@ export default {
   },
   "zh-Hant": {
     "heading": [
-      "在下方，您可以選擇此 Central 伺服器是否與 Central 團隊共用匿名使用資訊。此設定會影響整個伺服器。"
+      "在下方，您可以選擇此 Field Data 伺服器是否與 Field Data 團隊共用匿名使用資訊。此設定會影響整個伺服器。"
     ],
     "auditsTitle": "最新使用報告"
   }

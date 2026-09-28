@@ -226,6 +226,18 @@ const routes = [
     beforeEnter: () => (config.loadError == null ? '/login' : true)
   }),
 
+  // Field Data: public tokenized report (no login required).
+  asyncRoute({
+    path: '/report/:token',
+    component: 'FieldDataPublicReport',
+    loading: 'page',
+    meta: {
+      requireLogin: false,
+      restoreSession: false,
+      title: () => [i18n.t('fieldDataHome.tab.report')]
+    }
+  }),
+
   {
     path: '/account',
     component: AccountPage,
@@ -634,6 +646,105 @@ const routes = [
         loading: 'tab',
         meta: {
           title: () => [i18n.t('fieldDataHome.tab.dashboard'), i18n.t('fieldDataHome.title')],
+          fullWidth: true
+        }
+      }),
+      asyncRoute({
+        path: 'explore',
+        component: 'FieldDataExplore',
+        loading: 'tab',
+        meta: {
+          title: () => [i18n.t('fieldDataHome.tab.explore'), i18n.t('fieldDataHome.title')],
+          fullWidth: true
+        }
+      }),
+      asyncRoute({
+        path: 'review',
+        component: 'FieldDataReview',
+        loading: 'tab',
+        meta: {
+          title: () => [i18n.t('fieldDataHome.tab.review'), i18n.t('fieldDataHome.title')],
+          fullWidth: true
+        }
+      }),
+      asyncRoute({
+        path: 'cleaning',
+        component: 'FieldDataCleaning',
+        loading: 'tab',
+        meta: {
+          validateData: {
+            currentUser: () => currentUser.can('project.create')
+          },
+          title: () => [i18n.t('fieldDataHome.tab.cleaning'), i18n.t('fieldDataHome.title')],
+          fullWidth: true
+        }
+      }),
+      asyncRoute({
+        path: 'templates',
+        component: 'FieldDataTemplates',
+        loading: 'tab',
+        meta: {
+          validateData: {
+            currentUser: () => currentUser.can('project.create')
+          },
+          title: () => [i18n.t('fieldDataHome.tab.templates'), i18n.t('fieldDataHome.title')],
+          fullWidth: true
+        }
+      }),
+      asyncRoute({
+        path: 'team',
+        component: 'FieldDataTeam',
+        loading: 'tab',
+        meta: {
+          title: () => [i18n.t('fieldDataHome.tab.team'), i18n.t('fieldDataHome.title')],
+          fullWidth: true
+        }
+      }),
+      asyncRoute({
+        path: 'cases',
+        component: 'FieldDataCases',
+        loading: 'tab',
+        meta: {
+          title: () => [i18n.t('fieldDataHome.tab.cases'), i18n.t('fieldDataHome.title')],
+          fullWidth: true
+        }
+      }),
+      asyncRoute({
+        path: 'cases/:id',
+        component: 'FieldDataCaseDetail',
+        loading: 'tab',
+        meta: {
+          title: () => [i18n.t('fieldDataHome.tab.cases'), i18n.t('fieldDataHome.title')],
+          fullWidth: true
+        }
+      }),
+      asyncRoute({
+        path: 'assignments',
+        component: 'FieldDataAssignments',
+        loading: 'tab',
+        meta: {
+          title: () => [i18n.t('fieldDataHome.tab.assignments'), i18n.t('fieldDataHome.title')],
+          fullWidth: true
+        }
+      }),
+      asyncRoute({
+        path: 'report',
+        component: 'FieldDataReport',
+        loading: 'tab',
+        meta: {
+          title: () => [i18n.t('fieldDataHome.tab.report'), i18n.t('fieldDataHome.title')],
+          fullWidth: true
+        }
+      }),
+      asyncRoute({
+        path: 'dhis2',
+        component: 'FieldDataDhis2',
+        loading: 'tab',
+        meta: {
+          validateData: {
+            currentUser: () => currentUser.can('project.create')
+          },
+          title: () => [i18n.t('fieldDataHome.tab.dhis2'), i18n.t('fieldDataHome.title')],
           fullWidth: true
         }
       }),

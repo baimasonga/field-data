@@ -8,209 +8,145 @@ the LICENSE file found in the top-level directory of this distribution and at
 https://www.apache.org/licenses/LICENSE-2.0. No part of ODK Central,
 including this file, may be copied, modified, propagated, or distributed
 except according to the terms contained in the LICENSE file.
+
+Field Data: a greeting + a compact orientation strip replaces the original four
+Project/Users/Docs/Forum cards. Help links now live in a quiet footer on the
+home page.
 -->
 <template>
-  <div id="home-summary-container">
-    <div id="home-summary">
-      <home-summary-item icon="archive">
-        <template #header>
-          <template v-if="!projects.initiallyLoading">
-            {{ $n(projects.length, 'default') }}
-          </template>
-          <template v-else>
-            <spinner inline/>
-          </template>
-        </template>
-        <template #subheader>{{ $tc('plural.project', projects.length ?? 0) }}</template>
-        <template #body>{{ $t('projects.body') }}</template>
-      </home-summary-item>
-      <home-summary-item v-if="currentUser.can('user.list')" to="/users" icon="user-circle">
-        <template #header>
-          <template v-if="!users.initiallyLoading">
-            {{ $n(users.length, 'default') }}
-          </template>
-          <template v-else>
-            <spinner inline/>
-          </template>
-        </template>
-        <template #subheader>{{ $tc('plural.user', users.length ?? 0) }}</template>
-        <template #body>{{ $t('users.body') }}</template>
-      </home-summary-item>
-      <home-summary-item to="https://docs.getodk.org/central-intro/"
-        icon="book">
-        <template #header>{{ $t('common.docs') }}</template>
-        <template #body>{{ $t('docs.body') }}</template>
-      </home-summary-item>
-      <home-summary-item to="https://forum.getodk.org/" icon="comments-o">
-        <template #header>{{ $t('common.forum') }}</template>
-        <template #body>{{ $t('forum.body') }}</template>
-      </home-summary-item>
+  <div id="fd-home-summary">
+    <div class="fd-greet">
+      <h1>{{ greeting }}</h1>
+      <p>{{ $t('subtitle') }}</p>
+    </div>
+    <div class="fd-home-stats">
+      <div v-for="s of statCards" :key="s.key" class="fd-hstat">
+        <div class="fd-hstat-top">
+          <span class="l">{{ s.label }}</span>
+          <span class="fd-hstat-icon" :class="`tone-${s.tone}`">
+            <!-- eslint-disable-next-line vue/no-v-html -->
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+              stroke-linecap="round" stroke-linejoin="round" v-html="statIcons[s.icon]"></svg>
+          </span>
+        </div>
+        <div class="n"><template v-if="s.ready">{{ $n(s.value, 'default') }}</template><spinner v-else inline/></div>
+      </div>
     </div>
   </div>
 </template>
 
 <script setup>
-import HomeSummaryItem from './summary/item.vue';
+import { computed } from 'vue';
+import { useI18n } from 'vue-i18n';
+
 import Spinner from '../spinner.vue';
 
 import { noop } from '../../util/util';
 import { useRequestData } from '../../request-data';
 
-defineOptions({
-  name: 'HomeSummary'
-});
+defineOptions({ name: 'HomeSummary' });
 
+const { t } = useI18n();
 const { currentUser, projects, createResource } = useRequestData();
 const users = createResource('users');
-if (currentUser.can('user.list'))
-  users.request({ url: '/v1/users' }).catch(noop);
+if (currentUser.can('user.list')) users.request({ url: '/v1/users' }).catch(noop);
+
+const sumArray = (arr) => arr.reduce((a, b) => a + b, 0);
+const ready = computed(() => projects.dataExists);
+const projectCount = computed(() => (projects.dataExists ? projects.length : 0));
+const formCount = computed(() => (projects.dataExists
+  ? sumArray(projects.map(p => (p.formList ? p.formList.filter(f => f.publishedAt != null).length : 0)))
+  : 0));
+const submissionCount = computed(() => (projects.dataExists
+  ? sumArray(projects.map(p => (p.formList ? sumArray(p.formList.map(f => f.submissions || 0)) : 0)))
+  : 0));
+
+const greeting = computed(() => {
+  const hour = new Date().getHours();
+  const part = hour < 12 ? 'morning' : (hour < 18 ? 'afternoon' : 'evening');
+  const dn = currentUser.dataExists ? (currentUser.displayName || '') : '';
+  const name = (dn && !dn.includes('@')) ? dn : null;
+  return name ? t(`greet.${part}Name`, { name }) : t(`greet.${part}`);
+});
+
+const statIcons = {
+  folder: '<path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>',
+  file: '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>',
+  inbox: '<polyline points="22 12 16 12 14 15 10 15 8 12 2 12"/><path d="M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/>',
+  users: '<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>'
+};
+
+const statCards = computed(() => {
+  const cards = [
+    { key: 'projects', label: t('stat.projects'), value: projectCount.value, ready: ready.value, icon: 'folder', tone: 'blue' },
+    { key: 'forms', label: t('stat.forms'), value: formCount.value, ready: ready.value, icon: 'file', tone: 'teal' },
+    { key: 'subs', label: t('stat.submissions'), value: submissionCount.value, ready: ready.value, icon: 'inbox', tone: 'green' }
+  ];
+  if (currentUser.can('user.list'))
+    cards.push({ key: 'users', label: t('stat.users'), value: users.dataExists ? users.length : 0, ready: !users.initiallyLoading, icon: 'users', tone: 'violet' });
+  return cards;
+});
 </script>
 
 <style lang="scss">
-@use 'sass:math';
 @import '../../assets/scss/variables';
 
-#home-summary-container {
-  background-color: $color-subpanel-background;
-  margin-left: -15px;
-  margin-right: -15px;
-  padding: 20px;
-}
+#fd-home-summary {
+  margin-bottom: 6px;
 
-#home-summary {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 20px;
-
-  @media (max-width: $screen-sm-min) {
-    > * {
-      flex: 1 1 calc(50% - 20px);
-    }
+  .fd-greet {
+    h1 { font-size: 25px; font-weight: 750; letter-spacing: -0.015em; margin: 0 0 4px; color: #12303a; }
+    p { margin: 0 0 22px; color: #5f7278; font-size: 15px; }
   }
-  margin-left: auto;
-  margin-right: auto;
-  max-width: $max-width-page-body;
+
+  .fd-home-stats {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+    margin-bottom: 30px;
+
+    @media (max-width: $screen-sm-min) { grid-template-columns: repeat(2, 1fr); }
+  }
+  .fd-hstat {
+    background: #fff;
+    border: 1px solid #e4ebed;
+    border-radius: 12px;
+    padding: 15px 18px 17px;
+    box-shadow: 0 1px 2px rgba(18, 48, 58, 0.05);
+
+    .fd-hstat-top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px; }
+    .l { font-size: 12.5px; color: #5f7278; font-weight: 600; }
+    .fd-hstat-icon {
+      width: 32px; height: 32px; border-radius: 9px; flex-shrink: 0;
+      display: inline-flex; align-items: center; justify-content: center;
+      svg { width: 16px; height: 16px; }
+      &.tone-blue { background: #e3f0f6; color: #1C6FA6; }
+      &.tone-teal { background: #e0f0f2; color: #0E7490; }
+      &.tone-green { background: #e2f3ea; color: #2E8B5A; }
+      &.tone-violet { background: #eee9f7; color: #6b4fb0; }
+    }
+    .n { font-size: 27px; font-weight: 750; letter-spacing: -0.01em; line-height: 1; color: #12303a; }
+  }
 }
 </style>
 
 <i18n lang="json5">
 {
   "en": {
-    "projects": {
-      "body": "Central is organized into Projects, each containing its own Forms and related data."
+    "greet": {
+      "morning": "Good morning",
+      "afternoon": "Good afternoon",
+      "evening": "Good evening",
+      "morningName": "Good morning, {name}",
+      "afternoonName": "Good afternoon, {name}",
+      "eveningName": "Good evening, {name}"
     },
-    "users": {
-      "body": "Users can be assigned to Projects to manage them, collect data, or review Submissions."
-    },
-    "docs": {
-      "body": "A Getting Started Guide and user documentation are available on the ODK Docs website."
-    },
-    "forum": {
-      "body": "Need help? Visit the forum to ask questions or browse past discussions."
-    }
-  }
-}
-</i18n>
-
-<!-- Autogenerated by destructure.js -->
-<i18n>
-{
-  "de": {
-    "projects": {
-      "body": "Central ist in Projekte organisiert, die jeweils ihre eigenen Formulare und zugehörigen Daten enthalten."
-    },
-    "users": {
-      "body": "Benutzer können Projekten zugewiesen werden, um sie zu verwalten oder eingereichte Daten zu sammeln oder Übermittlungen zu überprüfen."
-    },
-    "docs": {
-      "body": "Es gibt ein Erste-Schritte-Tutorial und die Benutzerdokumentation auf der ODK Docs Webseite."
-    },
-    "forum": {
-      "body": "Brauchen Sie Hilfe? Besuchen Sie das Forum, um Fragen zu stellen oder frühere Diskussionen zu verfolgen."
-    }
-  },
-  "es": {
-    "projects": {
-      "body": "Central está organizada en Proyectos, cada uno de los cuales contiene sus propios Formularios y datos relacionados."
-    },
-    "users": {
-      "body": "Los usuarios pueden asignarse a Proyectos para administrarlos o para recopilar o revisar los datos enviados."
-    },
-    "docs": {
-      "body": "Hay una guía de inicio y documentación del usuario disponibles en el sitio web de ODK Docs."
-    },
-    "forum": {
-      "body": "¿Necesita ayuda? Visite el foro para hacer preguntas o consultar debates anteriores."
-    }
-  },
-  "fr": {
-    "projects": {
-      "body": "Central est organisé en Projets, ayant chacun ses propres formulaires et les données associées."
-    },
-    "users": {
-      "body": "Les utilisateurs peuvent être assignés à des Projets pour les gérer, collecter des données ou passer en revue les soumissions."
-    },
-    "docs": {
-      "body": "Un Guide de Démarrage et une documentation utilisateur sont disponibles sur le site web ODK Docs."
-    },
-    "forum": {
-      "body": "Besoin d'aide ? Visitez le forum pour poser des questions ou parcourir les anciennes discussions."
-    }
-  },
-  "it": {
-    "projects": {
-      "body": "Central è organizzato in Progetti, ognuno dei quali contiene i propri Formulari e i relativi dati."
-    },
-    "users": {
-      "body": "Gli utenti possono essere assegnati ai progetti per gestirli, per raccogliere o rivedere i dati inviati."
-    },
-    "docs": {
-      "body": "Sul sito Web di ODK Docs sono disponibili una guida introduttiva e una documentazione per l'utente."
-    },
-    "forum": {
-      "body": "Avete bisogno di aiuto? Visitate il forum per porre domande o consultare le discussioni precedenti."
-    }
-  },
-  "pt": {
-    "projects": {
-      "body": "O Central é organizado em Projetos, cada um contendo seus próprios Formulários e os dados relacionados a eles."
-    },
-    "users": {
-      "body": "Usuários podem ser atribuídos a Projetos para gerenciá-los, coletar dados ou revisar Respostas."
-    },
-    "docs": {
-      "body": "Um Guia de Início Rápido e a documentação de usuário estão disponíveis no site ODK Docs."
-    },
-    "forum": {
-      "body": "Precisa de ajuda? Visite o fórum para fazer perguntas ou visualizar discussões existentes."
-    }
-  },
-  "zh": {
-    "projects": {
-      "body": "Central采用项目制管理，每个项目包含独立的表单及相关数据。"
-    },
-    "users": {
-      "body": "用户可被分配至不同项目，以执行管理、数据收集或提交审核等任务。"
-    },
-    "docs": {
-      "body": "ODK文档网站提供入门指南和用户手册。"
-    },
-    "forum": {
-      "body": "需要帮助？欢迎访问论坛提问或浏览历史讨论。"
-    }
-  },
-  "zh-Hant": {
-    "projects": {
-      "body": "Central 以專案為單位組織，每個專案包含其表單與相關數據。"
-    },
-    "users": {
-      "body": "使用者可被指派至專案，以管理專案、收集資料或檢閱提交內容。"
-    },
-    "docs": {
-      "body": "ODK 文件網站上提供了入門指南和使用者文件。"
-    },
-    "forum": {
-      "body": "需要協助嗎？訪問論壇提問或瀏覽過去的討論。"
+    "subtitle": "Here's what's happening across your field operations.",
+    "stat": {
+      "projects": "Active projects",
+      "forms": "Published forms",
+      "submissions": "Total submissions",
+      "users": "Team members"
     }
   }
 }

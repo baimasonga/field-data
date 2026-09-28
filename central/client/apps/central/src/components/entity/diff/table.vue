@@ -174,7 +174,7 @@ const showsAccuracyWarning = computed(() =>
       // The value of an Entity property in a newer version of the Entity
       "newValue": "New value"
     },
-    // This is shown when Central displays a comparison of two versions of an
+    // This is shown when Field Data displays a comparison of two versions of an
     // Entity.
     "comparing": "Comparing",
     // {version} is a short identifier of an Entity version, for example, "v3".

@@ -97,7 +97,7 @@ const create = () => {
     "emptyTable": "No backups have been created yet.",
     "alert": {
       // Shown after a manual backup is triggered; it runs in the background.
-      "started": "Backup started. It will run in the background — refresh to see the result."
+      "started": "Backup started. It will run in the background - refresh to see the result."
     }
   }
 }
