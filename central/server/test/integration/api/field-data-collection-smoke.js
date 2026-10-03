@@ -18,7 +18,9 @@ describe('api: published form to Field Data explorer', () => {
     listing.text.should.containEql('<formID>simple2</formID>');
     listing.text.should.containEql('<name>Simple 2</name>');
     listing.text.should.containEql('<version>2.1</version>');
-    const downloadUrl = listing.text.match(/<downloadUrl>([^<]+)<\/downloadUrl>/)[1];
+    const downloadUrl = listing.text.match(
+      /<downloadUrl>([^<]*\/projects\/1\/forms\/simple2\.xml)<\/downloadUrl>/
+    )[1];
     downloadUrl.should.match(/\/projects\/1\/forms\/simple2\.xml$/);
     const download = await asAlice.get(new URL(downloadUrl).pathname).expect(200);
     download.text.should.equal(testData.forms.simple2);
