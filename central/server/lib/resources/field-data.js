@@ -12,10 +12,10 @@ const path = require('path');
 const http = require('http');
 const https = require('https');
 const { User, Project, Config, Form } = require('../model/frames');
-const { getOrNotFound } = require('../util/promise');
+const { getOrNotFound, reject } = require('../util/promise');
 const { success, contentDisposition } = require('../util/http');
-const { getEncryptedPgDumpStream } = require('../util/backup');
 const { webhookEvents } = require('../worker/webhooks');
+const { storage } = require('../external/field-data-storage');
 const { visibleProjects, actorIdOf } = require('../util/cross-project');
 const Problem = require('../util/problem');
 
@@ -32,7 +32,6 @@ const validateWebhookUrl = (url) => {
   if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:')
     throw Problem.user.unexpectedValue({ field: 'url', value: url, reason: 'must be an http(s) URL' });
 };
-
 const validateEvents = (events) => {
   if (!Array.isArray(events) || events.some(event => !webhookEvents.includes(event))) {
     throw Problem.user.unexpectedValue({ field: 'events', value: events,
@@ -71,27 +70,9 @@ const upload = multer({
 // so these survive container rebuilds; otherwise we fall back to the app tree.
 const storageBaseDir = fs.existsSync('/data') ? '/data' : path.join(__dirname, '../../..');
 const mediaDir = path.join(storageBaseDir, 'field-data-media');
-const backupsDir = path.join(storageBaseDir, 'field-data-backups');
 
 // Ensure directories exist
 if (!fs.existsSync(mediaDir)) fs.mkdirSync(mediaDir, { recursive: true });
-if (!fs.existsSync(backupsDir)) fs.mkdirSync(backupsDir, { recursive: true });
-
-// Resolve the passphrase used to encrypt a manual backup. Priority:
-//   1. an explicit passphrase supplied with the request,
-//   2. FIELD_DATA_BACKUP_PASSPHRASE from the environment,
-//   3. a persistent, randomly generated per-install secret stored alongside the
-//      backups (created on first use, owner-readable only).
-// This replaces the former hard-coded public passphrase, which gave the
-// encrypted dumps no real protection.
-const passphraseFile = path.join(backupsDir, '.passphrase');
-const resolveBackupPassphrase = (requested) => {
-  if (requested != null && requested !== '') return requested;
-  if (process.env.FIELD_DATA_BACKUP_PASSPHRASE) return process.env.FIELD_DATA_BACKUP_PASSPHRASE;
-  if (!fs.existsSync(passphraseFile))
-    fs.writeFileSync(passphraseFile, crypto.randomBytes(32).toString('hex'), { mode: 0o600 });
-  return fs.readFileSync(passphraseFile, 'utf8').trim();
-};
 
 const dayKey = (date) => new Date(date).toISOString().slice(0, 10);
 const monthPeriod = (date = new Date()) => `${date.getUTCFullYear()}${String(date.getUTCMonth() + 1).padStart(2, '0')}`;
@@ -116,6 +97,47 @@ const QUALITY_RULE_KEYS = new Set([
   'possibleDuplicate', 'offHours', 'unusualVolume'
 ]);
 
+const SYSTEM_STATUS_TTL = 30 * 1000;
+let systemStatusProbe = null;
+
+const probeSystemStatus = (db) => {
+  if (systemStatusProbe != null && Date.now() - systemStatusProbe.at < SYSTEM_STATUS_TTL)
+    return systemStatusProbe.value;
+
+  const value = (async () => {
+    let database = false;
+    try {
+      await db.oneFirst(sql`select 1`);
+      database = true;
+    } catch (e) { /* status probe is best-effort */ }
+
+    let fileStorage = false;
+    try {
+      const testKey = `health/${crypto.randomUUID()}`;
+      await storage.putBuffer(testKey, Buffer.from('ok'));
+      await storage.delete(testKey);
+      fileStorage = true;
+    } catch (e) { /* status probe is best-effort */ }
+
+    const enketoUrl = config.has('default.enketo.url') ? config.get('default.enketo.url') : null;
+    const enketo = enketoUrl ? await pingUrl(enketoUrl) : false;
+
+    const xlsConfig = config.has('default.xlsform') ? config.get('default.xlsform') : null;
+    const pyxform = xlsConfig
+      ? await pingUrl(`${xlsConfig.protocol || 'http'}://${xlsConfig.host}:${xlsConfig.port}/`)
+      : false;
+
+    const emailConfig = config.has('default.email') ? config.get('default.email') : null;
+    const emailService = Boolean(emailConfig && emailConfig.transport);
+
+    return { database, fileStorage, enketo, pyxform, emailService };
+  })();
+
+  systemStatusProbe = { at: Date.now(), value };
+  value.catch(() => { systemStatusProbe = null; });
+  return value;
+};
+
 module.exports = (service, endpoint, rootContainer, anonymousEndpoint) => {
   // The field_data_* tables backing these resources are created by the
   // 20260707-01-add-field-data-tables migration.
@@ -123,7 +145,7 @@ module.exports = (service, endpoint, rootContainer, anonymousEndpoint) => {
   const getAuthorizedScope = async (container, auth) => {
     const forms = await container.Forms.getAllByAuth(auth);
     const allowedForms = (await Promise.all(forms.map(async (form) =>
-      ((await auth.can('submission.list', form)) ? form : null))))
+      (((await auth.can('submission.list', form)) && (await auth.can('submission.read', form))) ? form : null))))
       .filter(form => form != null);
     return {
       formIds: allowedForms.map(form => form.id),
@@ -338,6 +360,8 @@ module.exports = (service, endpoint, rootContainer, anonymousEndpoint) => {
     };
   }));
 
+  require('./field-data-restored')(service, endpoint);
+
   ////////////////////////////////////////////////////////////////////////////////
   // DASHBOARD STATS
   service.get('/field-data/stats', endpoint(async (container, { auth }) => {
@@ -358,13 +382,7 @@ module.exports = (service, endpoint, rootContainer, anonymousEndpoint) => {
         projects: [],
         submissionsTrend: [],
         topForms: [],
-        systemStatus: {
-          database: true,
-          fileStorage: true,
-          enketo: false,
-          pyxform: false,
-          emailService: false
-        }
+        systemStatus: await auth.can('user.list', User.species) ? await probeSystemStatus(dbPool) : null
       };
     }
     const fids = sql.array(formIds, 'int4');
@@ -503,36 +521,7 @@ module.exports = (service, endpoint, rootContainer, anonymousEndpoint) => {
       order by count desc
     `);
 
-    // 5. System Status Checkers
-    let dbStatus = false;
-    try {
-      await dbPool.oneFirst(sql`select 1`);
-      dbStatus = true;
-    } catch (e) { /* status probe is best-effort */ }
-
-    let fileStorageStatus = false;
-    try {
-      const testFile = path.join(storageBaseDir, '.write-test');
-      fs.writeFileSync(testFile, 'test');
-      fs.unlinkSync(testFile);
-      fileStorageStatus = true;
-    } catch (e) { /* status probe is best-effort */ }
-
-    let enketoStatus = false;
-    const enketoUrl = config.has('default.enketo.url') ? config.get('default.enketo.url') : null;
-    if (enketoUrl) {
-      enketoStatus = await pingUrl(enketoUrl);
-    }
-
-    let pyxformStatus = false;
-    const xlsConfig = config.has('default.xlsform') ? config.get('default.xlsform') : null;
-    if (xlsConfig) {
-      pyxformStatus = await pingUrl(`http://${xlsConfig.host}:${xlsConfig.port}/`);
-    }
-
-    let emailServiceStatus = false;
-    const emailConfig = config.has('default.email') ? config.get('default.email') : null;
-    if (emailConfig && emailConfig.transport) emailServiceStatus = true;
+    const systemStatus = isAdmin ? await probeSystemStatus(dbPool) : null;
 
     return {
       kpi: {
@@ -557,13 +546,7 @@ module.exports = (service, endpoint, rootContainer, anonymousEndpoint) => {
       })),
       submissionsTrend: trend,
       topForms,
-      systemStatus: {
-        database: dbStatus,
-        fileStorage: fileStorageStatus,
-        enketo: enketoStatus,
-        pyxform: pyxformStatus,
-        emailService: emailServiceStatus
-      }
+      systemStatus
     };
   }));
 
@@ -1520,57 +1503,40 @@ module.exports = (service, endpoint, rootContainer, anonymousEndpoint) => {
   // BACKUPS
   service.get('/field-data/backups', endpoint(async (container, { auth }) => {
     await auth.canOrReject('backup.run', Config.species);
-    return container.db.any(sql`select * from field_data_backups order by date desc`);
+    return container.db.any(sql`
+      select id, date, type, size, status, "statusColor", "sizeBytes", error, "completedAt",
+        ("storageKey" is not null and status='Success') as downloadable
+      from field_data_backups order by date desc`);
   }));
 
-  service.post('/field-data/backups', endpoint(async (container, { auth, body }) => {
+  service.post('/field-data/backups', endpoint(async (container, { auth }, _, response) => {
     await auth.canOrReject('backup.run', Config.species);
-
-    const record = await container.db.one(sql`
+    const passphrase = process.env.FIELD_DATA_BACKUP_PASSPHRASE;
+    if (typeof passphrase !== 'string' || passphrase.length < 16) {
+      throw Problem.user.unexpectedValue({ field: 'passphrase', value: '[redacted]',
+        reason: 'set FIELD_DATA_BACKUP_PASSPHRASE to at least 16 characters' });
+    }
+    // Serialize enqueue operations within the request transaction. Repeated clicks
+    // reuse the outstanding job rather than launching concurrent database dumps.
+    await container.db.query(sql`select pg_advisory_xact_lock(74120, hashtext(current_schema()))`);
+    const existing = await container.db.maybeOne(sql`
+      select * from field_data_backups where status in ('Pending', 'Running') order by id limit 1`);
+    response.status(202);
+    if (existing != null) return { ...existing, downloadable: false };
+    return container.db.one(sql`
       insert into field_data_backups (type, size, status, "statusColor")
-      values ('Manual', 'Pending', 'Running', 'info')
-      returning *
-    `);
+      values ('Manual', 'Pending', 'Pending', 'info')
+      returning *, false as downloadable`);
+  }));
 
-    // Run actual backup asynchronously
-    (async () => {
-      try {
-        const passphrase = resolveBackupPassphrase(body.passphrase);
-        const backupStream = await getEncryptedPgDumpStream(passphrase);
-        const fileName = `manual-backup-${record.id}-${Date.now()}.pgdump.enc.bin`;
-        const backupFilePath = path.join(backupsDir, fileName);
-
-        const writeStream = fs.createWriteStream(backupFilePath);
-        backupStream.pipe(writeStream);
-
-        await new Promise((resolve, reject) => {
-          writeStream.on('finish', resolve);
-          writeStream.on('error', reject);
-        });
-
-        const stats = fs.statSync(backupFilePath);
-        const sizeStr = stats.size > 1024 * 1024
-          ? `${(stats.size / (1024 * 1024)).toFixed(1)} MB`
-          : `${(stats.size / 1024).toFixed(0)} KB`;
-
-        // Use the long-lived root container here: this runs after the request's
-        // write transaction has already committed, so `container.db` (the request
-        // transaction connection) is no longer usable.
-        await rootContainer.db.query(sql`
-          update field_data_backups
-          set size=${sizeStr}, status='Success', "statusColor"='success'
-          where id=${record.id}
-        `);
-      } catch (err) {
-        process.stderr.write(`Field Data manual backup ${record.id} failed: ${err.message}\n`);
-        await rootContainer.db.query(sql`
-          update field_data_backups
-          set size='0 KB', status='Failed', "statusColor"='danger'
-          where id=${record.id}
-        `);
-      }
-    })();
-
-    return record;
+  service.get('/field-data/backups/:id/download', endpoint(async (container, { params, auth }, _, response) => {
+    await auth.canOrReject('backup.run', Config.species);
+    const record = await container.maybeOne(sql`
+      select * from field_data_backups where id=${intParam(params.id)}
+    `).then(getOrNotFound);
+    if (!record.storageKey || record.status !== 'Success') return reject(Problem.user.notFound());
+    response.set('Content-Disposition', contentDisposition(`field-data-backup-${record.id}.pgdump.enc.bin`));
+    response.set('Content-Type', 'application/octet-stream');
+    return storage.getStream(record.storageKey);
   }));
 };
