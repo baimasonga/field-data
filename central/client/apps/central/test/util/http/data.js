@@ -76,20 +76,16 @@ const responsesByComponent = {
   AccountResetPassword: [],
   AccountClaim: [],
 
-  // A function, not an array, because the number of responses depends on the
-  // test data: the programme dashboard asks for one summary per unarchived
-  // Project after the list arrives. Declaring only the list left every spec
-  // that renders Home one response short per Project, which MockHttp reports
-  // as "request without response" without naming the request.
-  Home: () => [
+  // The dashboard asks for summaries only while Home remains mounted. Match
+  // them by URL so navigation tests do not expect requests after leaving Home.
+  Home: [
     ...componentResponses({ projects: () => testData.extendedProjects.sorted() }),
     // HomeSummary asks for users only when the actor has user.list.
     ...componentResponses({ users: [({ url }) => url === '/v1/users', responseDefaults.users] }),
-    ...testData.extendedProjects.sorted()
-      .filter(project => !project.archived)
-      .map(() => ['projectSummary', () => ({
-        submissions: 0, submissionsOverTime: [], overTime: [], forms: 0, lastSubmission: null
-      })])
+    ['projectSummary', [({ url }) => /^\/v1\/projects\/\d+\/summary$/.test(url), () => ({
+      submissions: 0, reviewStates: [], submissionsOverTime: [], overTime: [],
+      forms: 0, lastSubmission: null
+    })]]
   ],
   ProjectsPage: componentResponses({
     projects: () => testData.extendedProjects.sorted()
