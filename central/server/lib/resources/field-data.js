@@ -15,6 +15,7 @@ const { User, Project, Config, Form } = require('../model/frames');
 const { getOrNotFound } = require('../util/promise');
 const { success, contentDisposition } = require('../util/http');
 const { getEncryptedPgDumpStream } = require('../util/backup');
+const { webhookEvents } = require('../worker/webhooks');
 const { visibleProjects, actorIdOf } = require('../util/cross-project');
 const Problem = require('../util/problem');
 
@@ -30,6 +31,14 @@ const validateWebhookUrl = (url) => {
   }
   if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:')
     throw Problem.user.unexpectedValue({ field: 'url', value: url, reason: 'must be an http(s) URL' });
+};
+
+const validateEvents = (events) => {
+  if (!Array.isArray(events) || events.some(event => !webhookEvents.includes(event))) {
+    throw Problem.user.unexpectedValue({ field: 'events', value: events,
+      reason: 'must be an array of supported webhook event names' });
+  }
+  return [...new Set(events)];
 };
 
 const pingUrl = (urlStr) => new Promise((resolve) => {
@@ -1460,9 +1469,10 @@ module.exports = (service, endpoint, rootContainer, anonymousEndpoint) => {
     // Generate a signing secret so receivers can verify the HMAC-SHA256
     // signature sent with each delivery (X-FieldData-Signature header).
     const secret = crypto.randomBytes(24).toString('hex');
+    const events = validateEvents(body.events === undefined ? [] : body.events);
     return container.db.one(sql`
       insert into field_data_webhooks (name, url, events, secret)
-      values (${body.name}, ${body.url}, ${JSON.stringify(body.events || [])}, ${secret})
+      values (${body.name}, ${body.url}, ${JSON.stringify(events)}, ${secret})
       returning *
     `);
   }));
@@ -1488,7 +1498,7 @@ module.exports = (service, endpoint, rootContainer, anonymousEndpoint) => {
     const updated = {
       name: body.name !== undefined ? body.name : webhook.name,
       url: body.url !== undefined ? body.url : webhook.url,
-      events: body.events !== undefined ? JSON.stringify(body.events) : JSON.stringify(webhook.events),
+      events: body.events !== undefined ? JSON.stringify(validateEvents(body.events)) : JSON.stringify(webhook.events),
       active: body.active !== undefined ? body.active : webhook.active
     };
 
