@@ -47,7 +47,7 @@ ENV NODE_EXTRA_CA_CERTS=/usr/local/share/ca-certificates/supabase-root-2021.crt
 COPY --from=backend /usr/odk /usr/odk
 COPY --from=form-compiler /usr/local /usr/local
 COPY --from=form-compiler /opt/field-data-form-compiler/venv /opt/field-data-form-compiler/venv
-COPY cloudflare/form-compiler/app.py /opt/field-data-form-compiler/app.py
+COPY cloudflare/form-compiler/app.py cloudflare/form-compiler/data_exports.py /opt/field-data-form-compiler/
 # Python was copied from another stage; register its shared library and
 # fail the build if the compiler cannot load in the final runtime image.
 RUN ldconfig \

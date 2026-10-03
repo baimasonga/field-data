@@ -10,9 +10,7 @@ endpoint -- so pyxform's validation, drafts and publishing, versioning, and the
 list ODK Collect downloads from are all the existing ones. There is one path by
 which a Form comes into being, and this is a way of reaching it.
 
-That also means the spreadsheet is real, and downloadable. The builder does not
-do repeat groups or cascading selects; when somebody needs those they take what
-they have built to Excel rather than starting again.
+That also means the spreadsheet is real, and downloadable. Advanced authoring adds nested groups, repeats and XLSForm expressions.
 -->
 <template>
   <div id="form-builder">
@@ -28,7 +26,22 @@ they have built to Excel rather than starting again.
       </p>
     </div>
 
-    <ol class="question-list">
+    <label><input v-model="advanced" type="checkbox" :disabled="hasAdvancedFields"> Advanced authoring (groups, repeats, logic and translations)</label>
+    <div v-if="advanced">
+      <p>Question names must remain unique. Renaming or deleting a referenced question requires repairing its expressions.</p>
+      <label>Default language<input v-model="defaultLanguage" class="form-control"></label>
+      <label>Reusable choice lists (JSON object: list name → choice array)<textarea v-model="listsText" class="form-control" rows="4"></textarea></label>
+      <label>Reopen saved form ID<input v-model="reopenId" class="form-control"></label>
+      <button type="button" class="btn btn-default" @click="reopen">Load builder definition</button>
+      <p v-if="advancedError" role="alert">{{ advancedError }}</p>
+      <div v-for="(question, index) of draft.questions" :key="question.id || question.key">
+        <advanced-question :model-value="question" @update:model-value="draft.questions[index] = $event"/>
+        <button type="button" class="btn btn-default" :disabled="index === 0" @click="move(index, -1)">Move up</button>
+        <button type="button" class="btn btn-default" :disabled="index === draft.questions.length - 1" @click="move(index, 1)">Move down</button>
+        <button type="button" class="btn btn-default" @click="removeQuestion(index)">Remove question</button>
+      </div>
+    </div>
+    <ol v-else class="question-list">
       <li v-for="(question, index) of draft.questions" :key="question.key" class="question">
         <div class="question-head">
           <span class="question-number">{{ index + 1 }}</span>
@@ -116,10 +129,12 @@ they have built to Excel rather than starting again.
 </template>
 
 <script setup>
-import { computed, inject, reactive, ref } from 'vue';
+import { computed, inject, reactive, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 
 import Spinner from '../spinner.vue';
+import AdvancedQuestion from './advanced-question.vue';
+import { useRequestData } from '../../request-data';
 
 import useRequest from '../../composables/request';
 import { apiPaths } from '../../util/request';
@@ -135,6 +150,9 @@ const emit = defineEmits(['success']);
 const { t } = useI18n();
 const { request, awaitingResponse } = useRequest();
 const alert = inject('alert');
+const { currentUser } = useRequestData();
+const draftKey = `field-data:builder:v2:${currentUser.id}:${props.projectId}`;
+
 
 let key = 0;
 const nextKey = () => { key += 1; return key; };
@@ -149,6 +167,7 @@ request({ method: 'GET', url: apiPaths.formBuilderQuestionTypes() })
   .then(({ data }) => { questionTypes.value = data; })
   .catch(noop);
 
+const advanced = ref(false); const listsText = ref('{}'); const defaultLanguage = ref(''); const reopenId = ref(''); const advancedError = ref('');
 const draft = reactive({ title: '', formId: '', formIdEdited: false, questions: [] });
 
 // Names become XML node names. Suggesting one from the label saves most people
@@ -166,14 +185,15 @@ const needsChoices = (type) => questionTypes.value
   .find(entry => entry.name === type)?.needsChoices === true;
 
 const suggestName = (question) => {
-  if (question.nameEdited !== true) question.name = toName(question.label);
+  if (question.nameEdited !== true) Object.assign(question, { name: toName(question.label) });
 };
 const suggestChoiceName = (choice) => {
-  if (choice.nameEdited !== true) choice.name = toName(choice.label);
+  if (choice.nameEdited !== true) Object.assign(choice, { name: toName(choice.label) });
 };
 
 const addQuestion = () => {
   draft.questions.push({
+    id: crypto.randomUUID(),
     key: nextKey(), type: 'text', name: '', label: '', hint: '',
     required: false, nameEdited: false, choices: []
   });
@@ -196,7 +216,7 @@ const canCreate = computed(() => draft.title !== '' && draft.questions.length > 
 
 // What the server validates. Sent as it is built, so the message that comes
 // back names a question by its position here.
-const definition = () => ({
+const basicDefinition = () => ({
   title: draft.title,
   formId: effectiveFormId.value,
   questions: draft.questions.map(question => ({
@@ -211,10 +231,24 @@ const definition = () => ({
   }))
 });
 
-const xlsform = () => request({
+const definition = () => {
+  if (!advanced.value) return basicDefinition();
+  let lists; try { lists = JSON.parse(listsText.value); } catch { advancedError.value = 'Reusable lists must be valid JSON.'; throw new Error(advancedError.value); }
+  return { schemaVersion: 2, title: draft.title, formId: effectiveFormId.value, defaultLanguage: defaultLanguage.value, lists, questions: draft.questions };
+};
+const reopen = async () => {
+  try {
+    const { data } = await request({ method: 'GET', url: `/v1/projects/${props.projectId}/forms/${encodeURIComponent(reopenId.value)}/builder-definition` });
+    if (!data.definition) { advancedError.value = 'This uploaded form has no editable builder definition. Download and edit its original XLSForm.'; return; }
+    const d = data.definition; draft.title = d.title; draft.formId = d.formId; draft.formIdEdited = true;
+    draft.questions = d.questions.map(q => ({ ...q, key: nextKey(), id: q.id || crypto.randomUUID(), choices: q.choices || [] }));
+    listsText.value = JSON.stringify(d.lists || {}, null, 2); defaultLanguage.value = d.defaultLanguage || ''; advancedError.value = '';
+  } catch { advancedError.value = 'The saved definition could not be loaded.'; }
+};
+const xlsform = (snapshot = definition()) => request({
   method: 'POST',
   url: apiPaths.formBuilderXlsform(props.projectId),
-  data: definition(),
+  data: snapshot,
   responseType: 'blob'
 });
 
@@ -234,7 +268,8 @@ const download = () => {
 
 const create = () => {
   if (!canCreate.value) return;
-  xlsform()
+  const snapshot = definition();
+  xlsform(snapshot)
     .then(({ data }) => request({
       method: 'POST',
       // The ordinary upload endpoint. Warnings are accepted: the builder
@@ -252,17 +287,26 @@ const create = () => {
       // is one somebody uses once.
       method: 'PUT',
       url: apiPaths.formBuilderDefinition(props.projectId, form.xmlFormId),
-      data: definition()
+      data: snapshot
     }).catch(() => {
       // The Form exists; losing the definition costs the ability to reopen it
       // and nothing else, so it is said rather than thrown.
       alert.warning(t('alert.definitionNotSaved'));
     }).then(() => form))
-    .then((form) => { emit('success', form); })
+    .then((form) => { sessionStorage.removeItem(draftKey); emit('success', form); })
     .catch(noop);
 };
 
-addQuestion();
+const hasAdvancedFields = computed(() => advanced.value && (listsText.value !== '{}' || defaultLanguage.value !== '' || draft.questions.some(q => ['group', 'repeat', 'calculate'].includes(q.type) || ['relevant', 'constraint', 'calculation', 'choiceFilter'].some(k => q[k]) || Object.keys(q.translations || {}).length)));
+try {
+  const saved = JSON.parse(sessionStorage.getItem(draftKey));
+  if (saved) { Object.assign(draft, saved.draft); advanced.value = saved.advanced; listsText.value = saved.listsText; defaultLanguage.value = saved.defaultLanguage; }
+} catch { /* An incompatible local draft does not replace the saved server definition. */ }
+key = Math.max(key, ...draft.questions.map(q => Number(q.key) || 0));
+if (!draft.questions.length) addQuestion();
+watch([draft, advanced, listsText, defaultLanguage], () => {
+  try { sessionStorage.setItem(draftKey, JSON.stringify({ draft, advanced: advanced.value, listsText: listsText.value, defaultLanguage: defaultLanguage.value })); } catch { advancedError.value = 'Local draft could not be saved. Download the XLSForm to preserve your work.'; }
+}, { deep: true });
 </script>
 
 <i18n lang="json5">
@@ -270,7 +314,7 @@ addQuestion();
   "en": {
     "lead": "Add the questions, and Field Data writes the XLSForm for you. The Form is created the same way an uploaded spreadsheet is, so it publishes, versions and downloads to phones exactly the same.",
     "noQuestions": "No questions yet.",
-    "footerNote": "Repeat groups and cascading selects are not in the builder. Download the spreadsheet to add them in Excel.",
+    "footerNote": "Use advanced authoring for nested groups, repeats, calculations, cascading choices and translations. Download the XLSForm for further editing.",
     "field": {
       "title": "Form title",
       "titlePlaceholder": "For example, Housing Survey 2026",

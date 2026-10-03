@@ -182,6 +182,21 @@ def create_app():
     def too_large(_error):
         return _response(status=413, error="The XLSForm exceeds the configured upload limit.")
 
+
+    @app.post('/api/v1/data-export/<fmt>')
+    def data_export(fmt):
+        # Internal-only listener. Central validates source permissions before calling.
+        from data_exports import write_export
+        from flask import Response
+        try:
+            payload = request.get_json()
+            if not isinstance(payload, dict) or len(payload.get('rows', [])) > 5000:
+                return jsonify(message='Export is limited to 5000 submissions.'), 400
+            content, mime, extension = write_export(payload, fmt)
+            return Response(content, mimetype=mime, headers={'Content-Disposition': f'attachment; filename="analysis.{extension}"'})
+        except (ValueError, KeyError, TypeError) as error:
+            return jsonify(message=str(error)), 400
+
     return app
 
 

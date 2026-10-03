@@ -35,9 +35,9 @@ shown as dead links.
     </nav>
 
     <div class="fd-status">
-      <span class="fd-status-dot"></span>
+      <span class="fd-status-dot" style="background: #64748b"></span>
       <div class="fd-status-text">
-        <span class="fd-status-title">{{ $t('operational') }}</span>
+        <span class="fd-status-title">Service status available in Operations</span>
         <span class="fd-status-ver">Field Data {{ version }}</span>
       </div>
     </div>
@@ -93,6 +93,8 @@ const groups = computed(() => [
     key: 'collection', label: t('group.collection'), items: [
       { to: '/', icon: 'projects', label: t('nav.projects'), show: true, exact: true },
       { to: '/field-data/templates', icon: 'templates', label: t('nav.templates'), show: can('project.create') },
+      { to: '/field-data/catalog', icon: 'report', label: 'Public catalogue', show: can('project.create') },
+      { to: '/field-data/analysis', icon: 'explore', label: 'Analysis', show: true },
       { to: '/field-data/explore', icon: 'explore', label: t('nav.explore'), show: true },
       { to: '/field-data/media', icon: 'media', label: t('nav.media'), show: can('project.create') }
     ]
@@ -115,6 +117,7 @@ const groups = computed(() => [
       { to: '/field-data/dhis2', icon: 'dhis2', label: t('nav.dhis2'), show: can('project.create') },
       { to: '/field-data/webhooks', icon: 'webhooks', label: t('nav.webhooks'), show: can('config.set') },
       { to: '/system/audits', icon: 'audits', label: t('nav.audits'), show: can('audit.read') },
+      { to: '/field-data/operations', icon: 'settings', label: 'Operations', show: can('backup.run') },
       { to: '/field-data/backups', icon: 'backups', label: t('nav.backups'), show: can('backup.run') },
       { to: '/account/edit', icon: 'settings', label: t('nav.settings'), show: true }
     ]

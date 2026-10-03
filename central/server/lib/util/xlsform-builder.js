@@ -17,6 +17,7 @@
 // download and finish in Excel when the builder runs out of road.
 
 const ExcelJS = require('exceljs');
+const { normalizeAdvanced, buildAdvanced } = require('./advanced-form-builder');
 
 // Names become XML node names, so they take the same shape the rest of this
 // codebase requires of a field path segment.
@@ -126,6 +127,7 @@ Everything here is refused before a workbook is written, because pyxform's
 errors are about a spreadsheet somebody never saw and cannot act on.
 */
 const normalizeFormDefinition = (body) => {
+  if (body?.schemaVersion != null) return normalizeAdvanced(body);
   const title = text(body?.title);
   if (title === '') throw invalid('title', body?.title, 'give the Form a title');
 
@@ -171,6 +173,7 @@ it exists to remove; the cost is that two questions offering the same choices
 write the list twice, which pyxform does not mind.
 */
 const buildWorkbook = async (definition) => {
+  if (definition.schemaVersion === 2) return buildAdvanced(definition);
   const workbook = new ExcelJS.Workbook();
 
   const survey = workbook.addWorksheet('survey');

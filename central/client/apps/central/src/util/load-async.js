@@ -110,6 +110,9 @@ const loaders = new Map()
     /* webpackChunkName: "component-field-data-home" */
     '../components/field-data/home.vue'
   )))
+  .set('FieldDataOperations', loader(() => import('../components/field-data/operations.vue')))
+  .set('FieldDataCatalog', loader(() => import('../components/field-data/catalog.vue')))
+  .set('FieldDataAnalysis', loader(() => import('../components/field-data/analysis.vue')))
   .set('FieldDataDashboard', loader(() => import(
     /* webpackChunkName: "component-field-data-dashboard" */
     '../components/field-data/dashboard.vue'
