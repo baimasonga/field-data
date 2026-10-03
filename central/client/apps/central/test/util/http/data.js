@@ -83,7 +83,8 @@ const responsesByComponent = {
   // as "request without response" without naming the request.
   Home: () => [
     ...componentResponses({ projects: () => testData.extendedProjects.sorted() }),
-    ...componentResponses({ users: true }),
+    // HomeSummary asks for users only when the actor has user.list.
+    ...componentResponses({ users: [({ url }) => url === '/v1/users', responseDefaults.users] }),
     ...testData.extendedProjects.sorted()
       .filter(project => !project.archived)
       .map(() => ['projectSummary', () => ({
