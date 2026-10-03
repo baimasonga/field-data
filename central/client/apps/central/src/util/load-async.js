@@ -276,6 +276,10 @@ const loaders = new Map()
     /* webpackChunkName: "component-field-data-organizations" */
     '../components/field-data/organizations.vue'
   )))
+  .set('OutdatedVersion', loader(() => import(
+    /* webpackChunkName: "component-outdated-version" */
+    '../components/outdated-version.vue'
+  )))
   .set('NotFound', loader(() => import(
     /* webpackChunkName: "component-not-found" */
     '../components/not-found.vue'
