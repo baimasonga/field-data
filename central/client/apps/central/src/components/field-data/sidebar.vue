@@ -106,7 +106,7 @@ const groups = computed(() => [
   ] },
   { key: 'system', label: t('group.system'), items: [
     { to: '/system/audits', icon: 'audits', label: t('nav.audits'), show: can('audit.read') },
-    { to: '/field-data/backups', icon: 'backups', label: t('nav.backups'), show: can('backup.run') }
+    { to: '/field-data/backups', icon: 'backups', label: t('nav.backups'), show: can('backup.run') },
     { to: '/account/edit', icon: 'settings', label: t('nav.settings'), show: true }
   ] }
 ]);
