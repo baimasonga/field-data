@@ -15,6 +15,7 @@ const { User, Project, Form } = require('../model/frames');
 const { getOrNotFound } = require('../util/promise');
 const { success, contentDisposition } = require('../util/http');
 const { getEncryptedPgDumpStream } = require('../util/backup');
+const { visibleProjects, actorIdOf } = require('../util/cross-project');
 const Problem = require('../util/problem');
 
 // Reject anything that is not a syntactically valid http(s) URL. We deliberately
@@ -94,6 +95,13 @@ const csvTable = (columns, rows) => [
   columns.map(col => csvValue(col.header)).join(','),
   ...rows.map(row => columns.map(col => csvValue(col.value(row))).join(','))
 ].join('\r\n') + '\r\n';
+const MAP_MAX_FEATURES = 2000;
+const MAP_MAX_FORMS = 100;
+const intParam = (value) => {
+  const parsed = Number.parseInt(value, 10);
+  if (!Number.isInteger(parsed)) throw Problem.user.notFound();
+  return parsed;
+};
 const QUALITY_RULE_KEYS = new Set([
   'noLocation', 'noSubmitter', 'hasIssues', 'rapidSuccession',
   'possibleDuplicate', 'offHours', 'unusualVolume'
@@ -153,6 +161,173 @@ module.exports = (service, endpoint, rootContainer, anonymousEndpoint) => {
       dataElements: { ...defaults.dataElements, ...(settings.dataElements || {}) }
     };
   };
+
+  ////////////////////////////////////////////////////////////////////////////////
+  // ACROSS EVERY PROJECT
+  //
+  // A form lives in a project and a submission lives in a form, so the API
+  // could only ever be asked about one project at a time. That is fine until
+  // somebody runs eight of them and wants to know which forms have gone quiet,
+  // or to work through everything flagged this week without opening each form
+  // in turn.
+
+  // Every form the actor may list, from every project, with the counts the
+  // list is sorted and triaged by. Counted in the database: totalling the
+  // OData feed instead would describe whatever the client managed to download.
+  service.get('/field-data/forms', endpoint(async (container, { auth }) => {
+    const rows = await container.db.any(sql`
+      ${visibleProjects(actorIdOf(auth), ['project.read', 'form.list'])}
+      select p.id as "projectId", p.name as "projectName",
+        f."xmlFormId", coalesce(fd.name, dd.name, f."xmlFormId") as name,
+        f.state, fd.version,
+        (f."currentDefId" is not null) as published,
+        (f."draftDefId" is not null) as "hasDraft",
+        coalesce(counts.submissions, 0) as submissions,
+        counts."lastSubmission"
+      from forms f
+      join visible on visible.id = f."projectId"
+      join projects p on p.id = f."projectId"
+      left join form_defs fd on fd.id = f."currentDefId"
+      -- A Form with no published version still has a title, on its draft.
+      -- Without this a draft lists under its xmlFormId, which is a slug.
+      left join form_defs dd on dd.id = f."draftDefId"
+      left join lateral (
+        select count(*)::integer as submissions, max(s."createdAt") as "lastSubmission"
+        from submissions s
+        where s."formId" = f.id and s."deletedAt" is null and s.draft = false
+      ) as counts on true
+      where f."deletedAt" is null
+      order by counts."lastSubmission" desc nulls last, p.name asc, name asc`);
+    return { forms: rows, total: rows.length };
+  }));
+
+  // Every submission the actor may read, from every form, newest first. Paged,
+  // because a programme of any size has more of these than a page can hold,
+  // and the filters are the ones somebody triaging actually reaches for.
+  service.get('/field-data/submissions', endpoint(async (container, { auth, query }) => {
+    const limit = Math.min(Math.max(intParam(query.limit ?? '100'), 1), 500);
+    const offset = Math.max(intParam(query.offset ?? '0'), 0);
+
+    const conditions = [sql`s."deletedAt" is null`, sql`s.draft = false`,
+      sql`f."deletedAt" is null`];
+    if (query.projectId != null)
+      conditions.push(sql`p.id = ${intParam(query.projectId)}`);
+    if (query.xmlFormId != null)
+      conditions.push(sql`f."xmlFormId" = ${query.xmlFormId}`);
+    if (query.reviewState != null) {
+      // 'received' is the absence of a review state rather than a value, which
+      // is why filtering on it cannot be a plain equality.
+      conditions.push(query.reviewState === 'received'
+        ? sql`s."reviewState" is null`
+        : sql`s."reviewState" = ${query.reviewState}`);
+    }
+    if (query.since != null) conditions.push(sql`s."createdAt" >= ${query.since}`);
+    const where = sql.join(conditions, sql` and `);
+
+    const from = sql`
+      from submissions s
+      join forms f on f.id = s."formId"
+      join visible on visible.id = f."projectId"
+      join projects p on p.id = f."projectId"
+      left join form_defs fd on fd.id = f."currentDefId"
+      left join actors submitter on submitter.id = s."submitterId"
+      where ${where}`;
+
+    const prefix = visibleProjects(actorIdOf(auth),
+      ['project.read', 'submission.list', 'submission.read']);
+    const total = await container.db.oneFirst(sql`
+      ${prefix} select count(*)::integer ${from}`);
+    const submissions = await container.db.any(sql`
+      ${prefix}
+      select s."instanceId", s."createdAt", s."updatedAt",
+        coalesce(s."reviewState", 'received') as "reviewState",
+        submitter."displayName" as "submitterName",
+        p.id as "projectId", p.name as "projectName",
+        f."xmlFormId", coalesce(fd.name, f."xmlFormId") as "formName"
+      ${from}
+      order by s."createdAt" desc, s.id desc
+      limit ${limit} offset ${offset}`);
+    return { total, limit, offset, submissions };
+  }));
+
+  // Where collection is happening, across every Project at once. The per-Form
+  // map answers this one Form at a time, which is no help when the question is
+  // which district has gone quiet.
+  //
+  // The geometry comes from GeoExtracts, the same query the per-Form map uses,
+  // rather than a second reading of the submission XML: the extraction knows
+  // about repeat groups, edit lineages and its own cache, and a reimplementation
+  // here would quietly disagree with the map people already trust.
+  service.get('/field-data/map', endpoint(async (container, { auth, query }) => {
+    const limit = Math.min(
+      Math.max(intParam(query.limit ?? String(MAP_MAX_FEATURES)), 1),
+      MAP_MAX_FEATURES
+    );
+
+    const conditions = [sql`f."deletedAt" is null`];
+    if (query.projectId != null)
+      conditions.push(sql`p.id = ${intParam(query.projectId)}`);
+    if (query.xmlFormId != null)
+      conditions.push(sql`f."xmlFormId" = ${query.xmlFormId}`);
+
+    // Only Forms that have a default geo field and at least one Submission:
+    // asking GeoExtracts about the rest returns an empty collection at the
+    // cost of a query each.
+    const forms = await container.db.any(sql`
+      ${visibleProjects(actorIdOf(auth),
+    ['project.read', 'form.list', 'submission.list', 'submission.read'])}
+      select f.id, f."xmlFormId", coalesce(fd.name, f."xmlFormId") as "formName",
+        p.id as "projectId", p.name as "projectName",
+        count(s.*)::integer as submissions,
+        max(s."createdAt") as "lastSubmission"
+      from forms f
+      join visible on visible.id = f."projectId"
+      join projects p on p.id = f."projectId"
+      join form_defs fd on fd.id = f."currentDefId"
+      join submissions s on s."formId" = f.id
+        and s."deletedAt" is null and s.draft = false
+      where ${sql.join(conditions, sql` and `)}
+        and exists (
+          select 1 from form_field_geo g
+          where g.formschema_id = fd."schemaId" and g.is_default
+        )
+      group by f.id, f."xmlFormId", fd.name, p.id, p.name
+      order by max(s."createdAt") desc
+      limit ${MAP_MAX_FORMS}`);
+
+    const features = [];
+    for (const form of forms) {
+      if (features.length >= limit) break;
+      // Deliberately serial: each Form's budget is what the ones before it
+      // left, so there is nothing to run in parallel.
+      // eslint-disable-next-line no-await-in-loop
+      const collection = await container.GeoExtracts.getSubmissionFeatureCollectionGeoJson(
+        form.id, query.$filter ?? null, [], limit - features.length
+      );
+      for (const feature of JSON.parse(collection).features) {
+        features.push({
+          ...feature,
+          properties: {
+            ...(feature.properties ?? {}),
+            projectId: form.projectId,
+            projectName: form.projectName,
+            xmlFormId: form.xmlFormId,
+            formName: form.formName
+          }
+        });
+      }
+    }
+
+    return {
+      type: 'FeatureCollection',
+      features: features.slice(0, limit),
+      // Filling the budget means there may be more, whether that happened
+      // across several Forms or inside one: the page says it is showing the
+      // first so many rather than implying it has drawn everything.
+      truncated: features.length >= limit,
+      forms: forms.map(({ id, ...rest }) => rest)
+    };
+  }));
 
   ////////////////////////////////////////////////////////////////////////////////
   // DASHBOARD STATS
