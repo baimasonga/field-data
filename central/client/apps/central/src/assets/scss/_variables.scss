@@ -34,6 +34,7 @@ $z-index-modal-backdrop: 1040;
 $color-text: #333;
 $font-family-monospace: Monaco, Menlo, Consolas, "Courier New", monospace;
 $color-text-secondary: #9499A5;
+$color-text-muted: #68687a;
 
 // Icons
 $margin-right-icon: 6px;
@@ -52,6 +53,10 @@ $color-danger: #de2a11;
 $color-danger-lighter: #dd5454; // Between $color-danger and $color-danger-light
 $color-danger-light: #ffe6e6;
 $color-danger-dark: darken($color-danger, 10%);
+// Text counterparts for contextual colors on light surfaces.
+$color-success-text: #1f7a4c;
+$color-warning-text: #a86f14;
+$color-danger-text: #b42a2f;
 $color-highlight: #faf1cd;
 
 // Buttons and inputs

@@ -113,8 +113,38 @@ test('Supabase upload cancels the producer after a remote rejection', async () =
 
 const routes = new Map();
 const service = Object.fromEntries(['get', 'post', 'put', 'patch', 'delete'].map(method => [method,
-  (url, ...handlers) => routes.set(`${method} ${url}`, handlers.at(-1))]));
-require('../../lib/resources/field-data')(service, handler => handler);
+  (url, ...handlers) => {
+    const key = `${method} ${url}`;
+    assert.equal(routes.has(key), false, `duplicate route: ${key}`);
+    routes.set(key, handlers.at(-1));
+  }]));
+const endpoint = Object.assign(handler => handler, { plain: handler => handler });
+require('../../lib/resources/field-data')(service, endpoint);
+require('../../lib/resources/field-data-workspaces')(service, endpoint);
+
+test('workspace APIs coexist with the hardened APIs without replacing them', () => {
+  for (const route of [
+    'get /field-data/explore', 'get /field-data/explore.csv', 'get /field-data/team',
+    'get /field-data/report', 'get /field-data/review', 'get /field-data/quality-rules',
+    'get /field-data/cases', 'get /field-data/assignments', 'get /field-data/templates',
+    'get /field-data/dhis2', 'get /field-data/shares',
+    'get /field-data/stats', 'get /field-data/backups',
+    'get /projects/:projectId/forms/:xmlFormId/integrity',
+    'get /projects/:projectId/filtered-datasets/:id/data'
+  ]) assert.equal(typeof routes.get(route), 'function', `${route} is missing`);
+});
+
+test('workspace explorer requires both submission read and list permissions', async () => {
+  const forms = [{ id: 1, projectId: 1 }, { id: 2, projectId: 2 }];
+  const result = await routes.get('get /field-data/explore')({
+    Forms: { getAllByAuth: async () => forms },
+    db: { any: () => assert.fail('unauthorized submissions must not be queried') }
+  }, { auth: { can: async (verb, form) =>
+    ((form.id === 1 && verb === 'submission.list') ||
+      (form.id === 2 && verb === 'submission.read')) }, query: {} });
+  assert.deepEqual(result.rows, []);
+  assert.deepEqual(result.photos, []);
+});
 
 test('dashboard submission queries exclude projects without both read and list permissions', async () => {
   const submissionQueries = [];

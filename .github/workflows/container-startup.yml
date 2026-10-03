@@ -45,6 +45,7 @@ jobs:
             -v /tmp/smoke-tls/server.crt:/tmp/smoke-ca.crt:ro \
             -e NODE_EXTRA_CA_CERTS=/tmp/smoke-ca.crt \
             -e DOMAIN=localhost -e SYSADMIN_EMAIL=admin@example.test \
+            -e FIELD_DATA_ADMIN_PASSWORD=smoke-only-admin-password \
             -e PGHOST=database -e PGPORT=5432 -e PGDATABASE=postgres \
             -e PGUSER=postgres -e PGPASSWORD=smoke-only-password \
             -e SUPABASE_S3_ENDPOINT=https://example.test/storage/v1/s3 \
@@ -56,10 +57,26 @@ jobs:
             -e FIELD_DATA_WEBHOOK_ENCRYPTION_KEY=0000000000000000000000000000000000000000000000000000000000000000 \
             -e EMAIL_HOST=localhost field-data-smoke
           for attempt in $(seq 1 60); do
-            if curl --fail --silent http://localhost:8080/healthz; then exit 0; fi
+            if curl --fail --silent http://localhost:8080/healthz; then break; fi
             if [ "$(docker inspect -f '{{.State.Running}}' app)" != true ]; then break; fi
             sleep 3
           done
+          curl --fail --silent http://localhost:8080/healthz
+          # nginx health alone does not prove migrations and administrator
+          # bootstrap worked. Exercise a real database-backed login too.
+          for attempt in $(seq 1 60); do
+            code=$(curl --silent --output /tmp/smoke-session.json --write-out '%{http_code}' \
+              -H 'Content-Type: application/json' \
+              --data '{"email":"admin@example.test","password":"smoke-only-admin-password"}' \
+              http://localhost:8080/v1/sessions || true)
+            if [ "$code" = 200 ]; then
+              node -e 'const s = require("/tmp/smoke-session.json"); if (typeof s.token !== "string" || s.token.length === 0) process.exit(1)'
+              exit 0
+            fi
+            if [ "$(docker inspect -f '{{.State.Running}}' app)" != true ]; then break; fi
+            sleep 3
+          done
+          echo "Administrator login never succeeded (last status $code)."
           exit 1
       - name: Exercise startup without /dev/shm
         run: |

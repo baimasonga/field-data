@@ -23,10 +23,12 @@ shown as dead links.
         <router-link v-for="item of group.items.filter(i => i.show)" :key="item.to"
           :to="item.to" class="fd-nav-item"
           :class="{ active: isActive(item) }">
-          <!-- eslint-disable-next-line vue/no-v-html -->
+          <!-- Icons come from the static iconPaths map below. -->
+          <!-- eslint-disable vue/no-v-html -->
           <svg class="fd-nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
             stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
-            v-html="iconPaths[item.icon]"></svg>
+            v-html="iconPaths[item.icon]"/>
+          <!-- eslint-enable vue/no-v-html -->
           <span class="fd-nav-label">{{ item.label }}</span>
         </router-link>
       </template>
@@ -80,35 +82,47 @@ const iconPaths = {
 };
 
 const groups = computed(() => [
-  { key: 'main', label: t('group.overview'), items: [
-    { to: '/field-data', icon: 'dashboard', label: t('nav.dashboard'), show: true, exact: false },
-    { to: '/field-data/review', icon: 'review', label: t('nav.review'), show: can('project.create') },
-    { to: '/field-data/report', icon: 'report', label: t('nav.report'), show: true }
-  ] },
-  { key: 'collection', label: t('group.collection'), items: [
-    { to: '/', icon: 'projects', label: t('nav.projects'), show: true, exact: true },
-    { to: '/field-data/templates', icon: 'templates', label: t('nav.templates'), show: can('project.create') },
-    { to: '/field-data/explore', icon: 'explore', label: t('nav.explore'), show: true },
-    { to: '/field-data/media', icon: 'media', label: t('nav.media'), show: can('project.create') }
-  ] },
-  { key: 'casework', label: t('group.casework'), items: [
-    { to: '/field-data/cleaning', icon: 'cleaning', label: t('nav.cleaning'), show: can('project.create') },
-    { to: '/field-data/cases', icon: 'cases', label: t('nav.cases'), show: can('project.create') },
-    { to: '/field-data/assignments', icon: 'assignments', label: t('nav.assignments'), show: can('project.create') }
-  ] },
-  { key: 'access', label: t('group.access'), items: [
-    { to: '/users', icon: 'users', label: t('nav.users'), show: can('user.list') },
-    { to: '/field-data/team', icon: 'team', label: t('nav.team'), show: true }
-  ] },
-  { key: 'integrations', label: t('group.integrations'), items: [
-    { to: '/field-data/dhis2', icon: 'dhis2', label: t('nav.dhis2'), show: can('project.create') },
-    { to: '/field-data/webhooks', icon: 'webhooks', label: t('nav.webhooks'), show: can('project.create') }
-  ] },
-  { key: 'system', label: t('group.system'), items: [
-    { to: '/system/audits', icon: 'audits', label: t('nav.audits'), show: can('audit.read') },
-    { to: '/field-data/backups', icon: 'backups', label: t('nav.backups'), show: can('project.create') },
-    { to: '/account/edit', icon: 'settings', label: t('nav.settings'), show: true }
-  ] }
+  {
+    key: 'main', label: t('group.overview'), items: [
+      { to: '/field-data', icon: 'dashboard', label: t('nav.dashboard'), show: true, exact: false },
+      { to: '/field-data/review', icon: 'review', label: t('nav.review'), show: can('project.create') },
+      { to: '/field-data/report', icon: 'report', label: t('nav.report'), show: true }
+    ]
+  },
+  {
+    key: 'collection', label: t('group.collection'), items: [
+      { to: '/', icon: 'projects', label: t('nav.projects'), show: true, exact: true },
+      { to: '/field-data/templates', icon: 'templates', label: t('nav.templates'), show: can('project.create') },
+      { to: '/field-data/explore', icon: 'explore', label: t('nav.explore'), show: true },
+      { to: '/field-data/media', icon: 'media', label: t('nav.media'), show: can('project.create') }
+    ]
+  },
+  {
+    key: 'casework', label: t('group.casework'), items: [
+      { to: '/field-data/cleaning', icon: 'cleaning', label: t('nav.cleaning'), show: can('project.create') },
+      { to: '/field-data/cases', icon: 'cases', label: t('nav.cases'), show: can('project.create') },
+      { to: '/field-data/assignments', icon: 'assignments', label: t('nav.assignments'), show: can('project.create') }
+    ]
+  },
+  {
+    key: 'access', label: t('group.access'), items: [
+      { to: '/users', icon: 'users', label: t('nav.users'), show: can('user.list') },
+      { to: '/field-data/team', icon: 'team', label: t('nav.team'), show: true }
+    ]
+  },
+  {
+    key: 'integrations', label: t('group.integrations'), items: [
+      { to: '/field-data/dhis2', icon: 'dhis2', label: t('nav.dhis2'), show: can('project.create') },
+      { to: '/field-data/webhooks', icon: 'webhooks', label: t('nav.webhooks'), show: can('config.set') }
+    ]
+  },
+  {
+    key: 'system', label: t('group.system'), items: [
+      { to: '/system/audits', icon: 'audits', label: t('nav.audits'), show: can('audit.read') },
+      { to: '/field-data/backups', icon: 'backups', label: t('nav.backups'), show: can('backup.run') },
+      { to: '/account/edit', icon: 'settings', label: t('nav.settings'), show: true }
+    ]
+  }
 ]);
 
 const isActive = (item) => (item.exact

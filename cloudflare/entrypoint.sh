@@ -138,16 +138,17 @@ done
 note() {
   local outcome=$1 detail=$2
   echo "bootstrap: $detail"
-  psql --no-password --quiet \
+  psql --no-password --quiet --set=ON_ERROR_STOP=1 \
     --set=schema="$FIELD_DATA_DB_SCHEMA" --set=outcome="$outcome" \
-    --set=detail="$detail" --command '
+    --set=detail="$detail" >/dev/null 2>&1 <<'SQL' || true
       create table if not exists :"schema".bootstrap_log (
         id bigserial primary key,
         at timestamptz not null default clock_timestamp(),
         outcome text not null,
         detail text not null);
       insert into :"schema".bootstrap_log (outcome, detail)
-      values (:'"'"'outcome'"'"', :'"'"'detail'"'"');' >/dev/null 2>&1 || true
+      values (:'outcome', :'detail');
+SQL
 }
 
 bootstrap_admin() {
@@ -166,10 +167,13 @@ bootstrap_admin() {
   # Schema-qualified rather than relying on PGOPTIONS reaching the server: the
   # connection goes through a pooler, and an unqualified name here fails with
   # an error this function used to swallow.
+  # psql expands variables in script input, but not in --command SQL.
   probe=$(psql --no-password --quiet --tuples-only --no-align \
-    --set=email="$SYSADMIN_EMAIL" --set=schema="$FIELD_DATA_DB_SCHEMA" \
-    --command 'select 1 from :"schema".users where email = :'"'"'email'"'"' limit 1' 2>&1) \
-    || { note failed "could not query for an existing administrator: $probe"
+    --set=ON_ERROR_STOP=1 --set=email="$SYSADMIN_EMAIL" \
+    --set=schema="$FIELD_DATA_DB_SCHEMA" 2>&1 <<'SQL'
+      select 1 from :"schema".users where email = :'email' limit 1;
+SQL
+  ) || { note failed "could not query for an existing administrator: $probe"
          return 1; }
   existing=$probe
 
@@ -202,12 +206,12 @@ bootstrap_admin() {
   # it wraps instead: they read the environment and print the real error.
   node -e 'const { run } = require("/usr/odk/lib/task/task");
     const { createUser } = require("/usr/odk/lib/task/account");
-    run(createUser(process.env.SYSADMIN_EMAIL, process.env.FIELD_DATA_ADMIN_PASSWORD));' \
+    run(createUser(process.env.SYSADMIN_EMAIL, process.env.FIELD_DATA_ADMIN_PASSWORD));' bootstrap-user-create \
     || { note failed "creating $SYSADMIN_EMAIL failed; the reason is on the line above this one."
          return 1; }
   node -e 'const { run } = require("/usr/odk/lib/task/task");
     const { promoteUser } = require("/usr/odk/lib/task/account");
-    run(promoteUser(process.env.SYSADMIN_EMAIL));' \
+    run(promoteUser(process.env.SYSADMIN_EMAIL));' bootstrap-user-promote \
     || { note failed "promoting $SYSADMIN_EMAIL failed; the reason is on the line above this one."
          return 1; }
   note created "created administrator $SYSADMIN_EMAIL."

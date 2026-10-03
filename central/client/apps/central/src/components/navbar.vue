@@ -42,7 +42,7 @@ except according to the terms contained in the LICENSE file.
             </a>
             <ul class="nav navbar-nav">
               <li v-if="visiblyLoggedIn" id="fd-topbar-noti">
-                <a href="#" title="Notifications" @click.prevent>
+                <a href="#" title="Notifications" aria-label="Notifications" @click.prevent>
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
                     stroke-linecap="round" stroke-linejoin="round">
                     <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
@@ -68,7 +68,6 @@ import { defineAsyncComponent } from 'vue';
 
 import NavbarActions from './navbar/actions.vue';
 import NavbarHelpDropdown from './navbar/help-dropdown.vue';
-import NavbarLinks from './navbar/links.vue';
 import NavbarLocaleDropdown from './navbar/locale-dropdown.vue';
 
 import useRoutes from '../composables/routes';
@@ -82,7 +81,6 @@ export default {
     AnalyticsIntroduction: defineAsyncComponent(loadAsync('AnalyticsIntroduction')),
     NavbarActions,
     NavbarHelpDropdown,
-    NavbarLinks,
     NavbarLocaleDropdown
   },
   inject: ['config', 'visiblyLoggedIn'],

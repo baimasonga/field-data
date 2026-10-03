@@ -102,6 +102,10 @@ const loaders = new Map()
     /* webpackChunkName: "component-feedback-button" */
     '../components/feedback-button.vue'
   )))
+  .set('OutdatedVersion', loader(() => import(
+    /* webpackChunkName: "component-outdated-version" */
+    '../components/outdated-version.vue'
+  )))
   .set('FieldDataHome', loader(() => import(
     /* webpackChunkName: "component-field-data-home" */
     '../components/field-data/home.vue'

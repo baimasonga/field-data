@@ -3,6 +3,12 @@
 node_modules
 **/node_modules
 **/npm-debug.log
+**/.nginx
+**/.turbo
+**/dist
+**/dist-demo
+**/*.tsbuildinfo
+**/__pycache__
 central/test
 central/client/**/e2e
 central/client/**/tests
