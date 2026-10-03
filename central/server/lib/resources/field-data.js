@@ -146,11 +146,11 @@ module.exports = (service, endpoint, rootContainer, anonymousEndpoint) => {
       select config from field_data_dhis2_settings where id = true
     `);
     const defaults = defaultDhis2Settings();
-    const config = row?.config || {};
+    const settings = row?.config || {};
     return {
       ...defaults,
-      ...config,
-      dataElements: { ...defaults.dataElements, ...(config.dataElements || {}) }
+      ...settings,
+      dataElements: { ...defaults.dataElements, ...(settings.dataElements || {}) }
     };
   };
 
