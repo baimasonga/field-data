@@ -14,7 +14,7 @@ review · Last submission · Status) instead of the original cryptic icon column
 -->
 <template>
   <tr class="fd-form-row">
-    <td class="f-name">
+    <td class="f-name form-name">
       <span class="f-dot"></span>
       <template v-if="canLinkToDraftStatus">
         <form-link :form="form"/>

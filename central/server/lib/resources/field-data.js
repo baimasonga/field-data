@@ -11,10 +11,12 @@ const fs = require('fs');
 const path = require('path');
 const http = require('http');
 const https = require('https');
-const { User, Project, Form } = require('../model/frames');
-const { getOrNotFound } = require('../util/promise');
+const { User, Project, Config, Form } = require('../model/frames');
+const { getOrNotFound, reject } = require('../util/promise');
 const { success, contentDisposition } = require('../util/http');
-const { getEncryptedPgDumpStream } = require('../util/backup');
+const { webhookEvents } = require('../worker/webhooks');
+const { storage } = require('../external/field-data-storage');
+const { visibleProjects, actorIdOf } = require('../util/cross-project');
 const Problem = require('../util/problem');
 
 // Reject anything that is not a syntactically valid http(s) URL. We deliberately
@@ -29,6 +31,13 @@ const validateWebhookUrl = (url) => {
   }
   if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:')
     throw Problem.user.unexpectedValue({ field: 'url', value: url, reason: 'must be an http(s) URL' });
+};
+const validateEvents = (events) => {
+  if (!Array.isArray(events) || events.some(event => !webhookEvents.includes(event))) {
+    throw Problem.user.unexpectedValue({ field: 'events', value: events,
+      reason: 'must be an array of supported webhook event names' });
+  }
+  return [...new Set(events)];
 };
 
 const pingUrl = (urlStr) => new Promise((resolve) => {
@@ -61,27 +70,9 @@ const upload = multer({
 // so these survive container rebuilds; otherwise we fall back to the app tree.
 const storageBaseDir = fs.existsSync('/data') ? '/data' : path.join(__dirname, '../../..');
 const mediaDir = path.join(storageBaseDir, 'field-data-media');
-const backupsDir = path.join(storageBaseDir, 'field-data-backups');
 
 // Ensure directories exist
 if (!fs.existsSync(mediaDir)) fs.mkdirSync(mediaDir, { recursive: true });
-if (!fs.existsSync(backupsDir)) fs.mkdirSync(backupsDir, { recursive: true });
-
-// Resolve the passphrase used to encrypt a manual backup. Priority:
-//   1. an explicit passphrase supplied with the request,
-//   2. FIELD_DATA_BACKUP_PASSPHRASE from the environment,
-//   3. a persistent, randomly generated per-install secret stored alongside the
-//      backups (created on first use, owner-readable only).
-// This replaces the former hard-coded public passphrase, which gave the
-// encrypted dumps no real protection.
-const passphraseFile = path.join(backupsDir, '.passphrase');
-const resolveBackupPassphrase = (requested) => {
-  if (requested != null && requested !== '') return requested;
-  if (process.env.FIELD_DATA_BACKUP_PASSPHRASE) return process.env.FIELD_DATA_BACKUP_PASSPHRASE;
-  if (!fs.existsSync(passphraseFile))
-    fs.writeFileSync(passphraseFile, crypto.randomBytes(32).toString('hex'), { mode: 0o600 });
-  return fs.readFileSync(passphraseFile, 'utf8').trim();
-};
 
 const dayKey = (date) => new Date(date).toISOString().slice(0, 10);
 const monthPeriod = (date = new Date()) => `${date.getUTCFullYear()}${String(date.getUTCMonth() + 1).padStart(2, '0')}`;
@@ -94,10 +85,58 @@ const csvTable = (columns, rows) => [
   columns.map(col => csvValue(col.header)).join(','),
   ...rows.map(row => columns.map(col => csvValue(col.value(row))).join(','))
 ].join('\r\n') + '\r\n';
+const MAP_MAX_FEATURES = 2000;
+const MAP_MAX_FORMS = 100;
+const intParam = (value) => {
+  const parsed = Number.parseInt(value, 10);
+  if (!Number.isInteger(parsed)) throw Problem.user.notFound();
+  return parsed;
+};
 const QUALITY_RULE_KEYS = new Set([
   'noLocation', 'noSubmitter', 'hasIssues', 'rapidSuccession',
   'possibleDuplicate', 'offHours', 'unusualVolume'
 ]);
+
+const SYSTEM_STATUS_TTL = 30 * 1000;
+let systemStatusProbe = null;
+
+const probeSystemStatus = (db) => {
+  if (systemStatusProbe != null && Date.now() - systemStatusProbe.at < SYSTEM_STATUS_TTL)
+    return systemStatusProbe.value;
+
+  const value = (async () => {
+    let database = false;
+    try {
+      await db.oneFirst(sql`select 1`);
+      database = true;
+    } catch (e) { /* status probe is best-effort */ }
+
+    let fileStorage = false;
+    try {
+      const testKey = `health/${crypto.randomUUID()}`;
+      await storage.putBuffer(testKey, Buffer.from('ok'));
+      await storage.delete(testKey);
+      fileStorage = true;
+    } catch (e) { /* status probe is best-effort */ }
+
+    const enketoUrl = config.has('default.enketo.url') ? config.get('default.enketo.url') : null;
+    const enketo = enketoUrl ? await pingUrl(enketoUrl) : false;
+
+    const xlsConfig = config.has('default.xlsform') ? config.get('default.xlsform') : null;
+    const pyxform = xlsConfig
+      ? await pingUrl(`${xlsConfig.protocol || 'http'}://${xlsConfig.host}:${xlsConfig.port}/`)
+      : false;
+
+    const emailConfig = config.has('default.email') ? config.get('default.email') : null;
+    const emailService = Boolean(emailConfig && emailConfig.transport);
+
+    return { database, fileStorage, enketo, pyxform, emailService };
+  })();
+
+  systemStatusProbe = { at: Date.now(), value };
+  value.catch(() => { systemStatusProbe = null; });
+  return value;
+};
 
 module.exports = (service, endpoint, rootContainer, anonymousEndpoint) => {
   // The field_data_* tables backing these resources are created by the
@@ -106,7 +145,7 @@ module.exports = (service, endpoint, rootContainer, anonymousEndpoint) => {
   const getAuthorizedScope = async (container, auth) => {
     const forms = await container.Forms.getAllByAuth(auth);
     const allowedForms = (await Promise.all(forms.map(async (form) =>
-      ((await auth.can('submission.list', form)) ? form : null))))
+      (((await auth.can('submission.list', form)) && (await auth.can('submission.read', form))) ? form : null))))
       .filter(form => form != null);
     return {
       formIds: allowedForms.map(form => form.id),
@@ -146,13 +185,182 @@ module.exports = (service, endpoint, rootContainer, anonymousEndpoint) => {
       select config from field_data_dhis2_settings where id = true
     `);
     const defaults = defaultDhis2Settings();
-    const config = row?.config || {};
+    const settings = row?.config || {};
     return {
       ...defaults,
-      ...config,
-      dataElements: { ...defaults.dataElements, ...(config.dataElements || {}) }
+      ...settings,
+      dataElements: { ...defaults.dataElements, ...(settings.dataElements || {}) }
     };
   };
+
+  ////////////////////////////////////////////////////////////////////////////////
+  // ACROSS EVERY PROJECT
+  //
+  // A form lives in a project and a submission lives in a form, so the API
+  // could only ever be asked about one project at a time. That is fine until
+  // somebody runs eight of them and wants to know which forms have gone quiet,
+  // or to work through everything flagged this week without opening each form
+  // in turn.
+
+  // Every form the actor may list, from every project, with the counts the
+  // list is sorted and triaged by. Counted in the database: totalling the
+  // OData feed instead would describe whatever the client managed to download.
+  service.get('/field-data/forms', endpoint(async (container, { auth }) => {
+    const rows = await container.db.any(sql`
+      ${visibleProjects(actorIdOf(auth), ['project.read', 'form.list'])}
+      select p.id as "projectId", p.name as "projectName",
+        f."xmlFormId", coalesce(fd.name, dd.name, f."xmlFormId") as name,
+        f.state, fd.version,
+        (f."currentDefId" is not null) as published,
+        (f."draftDefId" is not null) as "hasDraft",
+        coalesce(counts.submissions, 0) as submissions,
+        counts."lastSubmission"
+      from forms f
+      join visible on visible.id = f."projectId"
+      join projects p on p.id = f."projectId"
+      left join form_defs fd on fd.id = f."currentDefId"
+      -- A Form with no published version still has a title, on its draft.
+      -- Without this a draft lists under its xmlFormId, which is a slug.
+      left join form_defs dd on dd.id = f."draftDefId"
+      left join lateral (
+        select count(*)::integer as submissions, max(s."createdAt") as "lastSubmission"
+        from submissions s
+        where s."formId" = f.id and s."deletedAt" is null and s.draft = false
+      ) as counts on true
+      where f."deletedAt" is null
+      order by counts."lastSubmission" desc nulls last, p.name asc, name asc`);
+    return { forms: rows, total: rows.length };
+  }));
+
+  // Every submission the actor may read, from every form, newest first. Paged,
+  // because a programme of any size has more of these than a page can hold,
+  // and the filters are the ones somebody triaging actually reaches for.
+  service.get('/field-data/submissions', endpoint(async (container, { auth, query }) => {
+    const limit = Math.min(Math.max(intParam(query.limit ?? '100'), 1), 500);
+    const offset = Math.max(intParam(query.offset ?? '0'), 0);
+
+    const conditions = [sql`s."deletedAt" is null`, sql`s.draft = false`,
+      sql`f."deletedAt" is null`];
+    if (query.projectId != null)
+      conditions.push(sql`p.id = ${intParam(query.projectId)}`);
+    if (query.xmlFormId != null)
+      conditions.push(sql`f."xmlFormId" = ${query.xmlFormId}`);
+    if (query.reviewState != null) {
+      // 'received' is the absence of a review state rather than a value, which
+      // is why filtering on it cannot be a plain equality.
+      conditions.push(query.reviewState === 'received'
+        ? sql`s."reviewState" is null`
+        : sql`s."reviewState" = ${query.reviewState}`);
+    }
+    if (query.since != null) conditions.push(sql`s."createdAt" >= ${query.since}`);
+    const where = sql.join(conditions, sql` and `);
+
+    const from = sql`
+      from submissions s
+      join forms f on f.id = s."formId"
+      join visible on visible.id = f."projectId"
+      join projects p on p.id = f."projectId"
+      left join form_defs fd on fd.id = f."currentDefId"
+      left join actors submitter on submitter.id = s."submitterId"
+      where ${where}`;
+
+    const prefix = visibleProjects(actorIdOf(auth),
+      ['project.read', 'submission.list', 'submission.read']);
+    const total = await container.db.oneFirst(sql`
+      ${prefix} select count(*)::integer ${from}`);
+    const submissions = await container.db.any(sql`
+      ${prefix}
+      select s."instanceId", s."createdAt", s."updatedAt",
+        coalesce(s."reviewState", 'received') as "reviewState",
+        submitter."displayName" as "submitterName",
+        p.id as "projectId", p.name as "projectName",
+        f."xmlFormId", coalesce(fd.name, f."xmlFormId") as "formName"
+      ${from}
+      order by s."createdAt" desc, s.id desc
+      limit ${limit} offset ${offset}`);
+    return { total, limit, offset, submissions };
+  }));
+
+  // Where collection is happening, across every Project at once. The per-Form
+  // map answers this one Form at a time, which is no help when the question is
+  // which district has gone quiet.
+  //
+  // The geometry comes from GeoExtracts, the same query the per-Form map uses,
+  // rather than a second reading of the submission XML: the extraction knows
+  // about repeat groups, edit lineages and its own cache, and a reimplementation
+  // here would quietly disagree with the map people already trust.
+  service.get('/field-data/map', endpoint(async (container, { auth, query }) => {
+    const limit = Math.min(
+      Math.max(intParam(query.limit ?? String(MAP_MAX_FEATURES)), 1),
+      MAP_MAX_FEATURES
+    );
+
+    const conditions = [sql`f."deletedAt" is null`];
+    if (query.projectId != null)
+      conditions.push(sql`p.id = ${intParam(query.projectId)}`);
+    if (query.xmlFormId != null)
+      conditions.push(sql`f."xmlFormId" = ${query.xmlFormId}`);
+
+    // Only Forms that have a default geo field and at least one Submission:
+    // asking GeoExtracts about the rest returns an empty collection at the
+    // cost of a query each.
+    const forms = await container.db.any(sql`
+      ${visibleProjects(actorIdOf(auth),
+    ['project.read', 'form.list', 'submission.list', 'submission.read'])}
+      select f.id, f."xmlFormId", coalesce(fd.name, f."xmlFormId") as "formName",
+        p.id as "projectId", p.name as "projectName",
+        count(s.*)::integer as submissions,
+        max(s."createdAt") as "lastSubmission"
+      from forms f
+      join visible on visible.id = f."projectId"
+      join projects p on p.id = f."projectId"
+      join form_defs fd on fd.id = f."currentDefId"
+      join submissions s on s."formId" = f.id
+        and s."deletedAt" is null and s.draft = false
+      where ${sql.join(conditions, sql` and `)}
+        and exists (
+          select 1 from form_field_geo g
+          where g.formschema_id = fd."schemaId" and g.is_default
+        )
+      group by f.id, f."xmlFormId", fd.name, p.id, p.name
+      order by max(s."createdAt") desc
+      limit ${MAP_MAX_FORMS}`);
+
+    const features = [];
+    for (const form of forms) {
+      if (features.length >= limit) break;
+      // Deliberately serial: each Form's budget is what the ones before it
+      // left, so there is nothing to run in parallel.
+      // eslint-disable-next-line no-await-in-loop
+      const collection = await container.GeoExtracts.getSubmissionFeatureCollectionGeoJson(
+        form.id, query.$filter ?? null, [], limit - features.length
+      );
+      for (const feature of JSON.parse(collection).features) {
+        features.push({
+          ...feature,
+          properties: {
+            ...(feature.properties ?? {}),
+            projectId: form.projectId,
+            projectName: form.projectName,
+            xmlFormId: form.xmlFormId,
+            formName: form.formName
+          }
+        });
+      }
+    }
+
+    return {
+      type: 'FeatureCollection',
+      features: features.slice(0, limit),
+      // Filling the budget means there may be more, whether that happened
+      // across several Forms or inside one: the page says it is showing the
+      // first so many rather than implying it has drawn everything.
+      truncated: features.length >= limit,
+      forms: forms.map(({ id, ...rest }) => rest)
+    };
+  }));
+
+  require('./field-data-restored')(service, endpoint);
 
   ////////////////////////////////////////////////////////////////////////////////
   // DASHBOARD STATS
@@ -174,13 +382,7 @@ module.exports = (service, endpoint, rootContainer, anonymousEndpoint) => {
         projects: [],
         submissionsTrend: [],
         topForms: [],
-        systemStatus: {
-          database: true,
-          fileStorage: true,
-          enketo: false,
-          pyxform: false,
-          emailService: false
-        }
+        systemStatus: await auth.can('user.list', User.species) ? await probeSystemStatus(dbPool) : null
       };
     }
     const fids = sql.array(formIds, 'int4');
@@ -319,36 +521,7 @@ module.exports = (service, endpoint, rootContainer, anonymousEndpoint) => {
       order by count desc
     `);
 
-    // 5. System Status Checkers
-    let dbStatus = false;
-    try {
-      await dbPool.oneFirst(sql`select 1`);
-      dbStatus = true;
-    } catch (e) { /* status probe is best-effort */ }
-
-    let fileStorageStatus = false;
-    try {
-      const testFile = path.join(storageBaseDir, '.write-test');
-      fs.writeFileSync(testFile, 'test');
-      fs.unlinkSync(testFile);
-      fileStorageStatus = true;
-    } catch (e) { /* status probe is best-effort */ }
-
-    let enketoStatus = false;
-    const enketoUrl = config.has('default.enketo.url') ? config.get('default.enketo.url') : null;
-    if (enketoUrl) {
-      enketoStatus = await pingUrl(enketoUrl);
-    }
-
-    let pyxformStatus = false;
-    const xlsConfig = config.has('default.xlsform') ? config.get('default.xlsform') : null;
-    if (xlsConfig) {
-      pyxformStatus = await pingUrl(`http://${xlsConfig.host}:${xlsConfig.port}/`);
-    }
-
-    let emailServiceStatus = false;
-    const emailConfig = config.has('default.email') ? config.get('default.email') : null;
-    if (emailConfig && emailConfig.transport) emailServiceStatus = true;
+    const systemStatus = isAdmin ? await probeSystemStatus(dbPool) : null;
 
     return {
       kpi: {
@@ -373,13 +546,7 @@ module.exports = (service, endpoint, rootContainer, anonymousEndpoint) => {
       })),
       submissionsTrend: trend,
       topForms,
-      systemStatus: {
-        database: dbStatus,
-        fileStorage: fileStorageStatus,
-        enketo: enketoStatus,
-        pyxform: pyxformStatus,
-        emailService: emailServiceStatus
-      }
+      systemStatus
     };
   }));
 
@@ -1273,27 +1440,28 @@ module.exports = (service, endpoint, rootContainer, anonymousEndpoint) => {
   ////////////////////////////////////////////////////////////////////////////////
   // WEBHOOKS
   service.get('/field-data/webhooks', endpoint(async (container, { auth }) => {
-    await auth.canOrReject('project.create', Project.species);
+    await auth.canOrReject('config.set', Config.species);
     return container.db.any(sql`select * from field_data_webhooks order by "createdAt" desc`);
   }));
 
   service.post('/field-data/webhooks', endpoint(async (container, { body, auth }) => {
-    await auth.canOrReject('project.create', Project.species);
+    await auth.canOrReject('config.set', Config.species);
     if (body.name == null || body.name === '')
       throw Problem.user.unexpectedValue({ field: 'name', value: body.name, reason: 'is required' });
     validateWebhookUrl(body.url);
     // Generate a signing secret so receivers can verify the HMAC-SHA256
     // signature sent with each delivery (X-FieldData-Signature header).
     const secret = crypto.randomBytes(24).toString('hex');
+    const events = validateEvents(body.events === undefined ? [] : body.events);
     return container.db.one(sql`
       insert into field_data_webhooks (name, url, events, secret)
-      values (${body.name}, ${body.url}, ${JSON.stringify(body.events || [])}, ${secret})
+      values (${body.name}, ${body.url}, ${JSON.stringify(events)}, ${secret})
       returning *
     `);
   }));
 
   service.get('/field-data/webhooks/:id/deliveries', endpoint(async (container, { params, auth }) => {
-    await auth.canOrReject('project.create', Project.species);
+    await auth.canOrReject('config.set', Config.species);
     return container.db.any(sql`
       select * from field_data_webhook_deliveries
       where "webhookId" = ${params.id}
@@ -1303,7 +1471,7 @@ module.exports = (service, endpoint, rootContainer, anonymousEndpoint) => {
   }));
 
   service.patch('/field-data/webhooks/:id', endpoint(async (container, { params, body, auth }) => {
-    await auth.canOrReject('project.create', Project.species);
+    await auth.canOrReject('config.set', Config.species);
     const webhook = await container.maybeOne(sql`
       select * from field_data_webhooks where id = ${params.id}
     `).then(getOrNotFound);
@@ -1313,7 +1481,7 @@ module.exports = (service, endpoint, rootContainer, anonymousEndpoint) => {
     const updated = {
       name: body.name !== undefined ? body.name : webhook.name,
       url: body.url !== undefined ? body.url : webhook.url,
-      events: body.events !== undefined ? JSON.stringify(body.events) : JSON.stringify(webhook.events),
+      events: body.events !== undefined ? JSON.stringify(validateEvents(body.events)) : JSON.stringify(webhook.events),
       active: body.active !== undefined ? body.active : webhook.active
     };
 
@@ -1326,7 +1494,7 @@ module.exports = (service, endpoint, rootContainer, anonymousEndpoint) => {
   }));
 
   service.delete('/field-data/webhooks/:id', endpoint(async (container, { params, auth }) => {
-    await auth.canOrReject('project.create', Project.species);
+    await auth.canOrReject('config.set', Config.species);
     await container.db.query(sql`delete from field_data_webhooks where id = ${params.id}`);
     return success();
   }));
@@ -1334,58 +1502,41 @@ module.exports = (service, endpoint, rootContainer, anonymousEndpoint) => {
   ////////////////////////////////////////////////////////////////////////////////
   // BACKUPS
   service.get('/field-data/backups', endpoint(async (container, { auth }) => {
-    await auth.canOrReject('project.create', Project.species); // restrict to admin/managers
-    return container.db.any(sql`select * from field_data_backups order by date desc`);
+    await auth.canOrReject('backup.run', Config.species);
+    return container.db.any(sql`
+      select id, date, type, size, status, "statusColor", "sizeBytes", error, "completedAt",
+        ("storageKey" is not null and status='Success') as downloadable
+      from field_data_backups order by date desc`);
   }));
 
-  service.post('/field-data/backups', endpoint(async (container, { auth, body }) => {
-    await auth.canOrReject('project.create', Project.species);
-
-    const record = await container.db.one(sql`
+  service.post('/field-data/backups', endpoint(async (container, { auth }, _, response) => {
+    await auth.canOrReject('backup.run', Config.species);
+    const passphrase = process.env.FIELD_DATA_BACKUP_PASSPHRASE;
+    if (typeof passphrase !== 'string' || passphrase.length < 16) {
+      throw Problem.user.unexpectedValue({ field: 'passphrase', value: '[redacted]',
+        reason: 'set FIELD_DATA_BACKUP_PASSPHRASE to at least 16 characters' });
+    }
+    // Serialize enqueue operations within the request transaction. Repeated clicks
+    // reuse the outstanding job rather than launching concurrent database dumps.
+    await container.db.query(sql`select pg_advisory_xact_lock(74120, hashtext(current_schema()))`);
+    const existing = await container.db.maybeOne(sql`
+      select * from field_data_backups where status in ('Pending', 'Running') order by id limit 1`);
+    response.status(202);
+    if (existing != null) return { ...existing, downloadable: false };
+    return container.db.one(sql`
       insert into field_data_backups (type, size, status, "statusColor")
-      values ('Manual', 'Pending', 'Running', 'info')
-      returning *
-    `);
+      values ('Manual', 'Pending', 'Pending', 'info')
+      returning *, false as downloadable`);
+  }));
 
-    // Run actual backup asynchronously
-    (async () => {
-      try {
-        const passphrase = resolveBackupPassphrase(body.passphrase);
-        const backupStream = await getEncryptedPgDumpStream(passphrase);
-        const fileName = `manual-backup-${record.id}-${Date.now()}.pgdump.enc.bin`;
-        const backupFilePath = path.join(backupsDir, fileName);
-
-        const writeStream = fs.createWriteStream(backupFilePath);
-        backupStream.pipe(writeStream);
-
-        await new Promise((resolve, reject) => {
-          writeStream.on('finish', resolve);
-          writeStream.on('error', reject);
-        });
-
-        const stats = fs.statSync(backupFilePath);
-        const sizeStr = stats.size > 1024 * 1024
-          ? `${(stats.size / (1024 * 1024)).toFixed(1)} MB`
-          : `${(stats.size / 1024).toFixed(0)} KB`;
-
-        // Use the long-lived root container here: this runs after the request's
-        // write transaction has already committed, so `container.db` (the request
-        // transaction connection) is no longer usable.
-        await rootContainer.db.query(sql`
-          update field_data_backups
-          set size=${sizeStr}, status='Success', "statusColor"='success'
-          where id=${record.id}
-        `);
-      } catch (err) {
-        process.stderr.write(`Field Data manual backup ${record.id} failed: ${err.message}\n`);
-        await rootContainer.db.query(sql`
-          update field_data_backups
-          set size='0 KB', status='Failed', "statusColor"='danger'
-          where id=${record.id}
-        `);
-      }
-    })();
-
-    return record;
+  service.get('/field-data/backups/:id/download', endpoint(async (container, { params, auth }, _, response) => {
+    await auth.canOrReject('backup.run', Config.species);
+    const record = await container.maybeOne(sql`
+      select * from field_data_backups where id=${intParam(params.id)}
+    `).then(getOrNotFound);
+    if (!record.storageKey || record.status !== 'Success') return reject(Problem.user.notFound());
+    response.set('Content-Disposition', contentDisposition(`field-data-backup-${record.id}.pgdump.enc.bin`));
+    response.set('Content-Type', 'application/octet-stream');
+    return storage.getStream(record.storageKey);
   }));
 };

@@ -8,7 +8,8 @@ describe('Home', () => {
     it('sends the correct requests', () => {
       mockLogin();
       return load('/', { root: false }).testRequests([
-        { url: '/v1/projects?forms=true&datasets=true' }
+        { url: '/v1/projects?forms=true&datasets=true' },
+        { url: '/v1/users' }
       ]);
     });
 

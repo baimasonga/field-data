@@ -102,11 +102,11 @@ const groups = computed(() => [
   ] },
   { key: 'integrations', label: t('group.integrations'), items: [
     { to: '/field-data/dhis2', icon: 'dhis2', label: t('nav.dhis2'), show: can('project.create') },
-    { to: '/field-data/webhooks', icon: 'webhooks', label: t('nav.webhooks'), show: can('project.create') }
+    { to: '/field-data/webhooks', icon: 'webhooks', label: t('nav.webhooks'), show: can('config.set') }
   ] },
   { key: 'system', label: t('group.system'), items: [
     { to: '/system/audits', icon: 'audits', label: t('nav.audits'), show: can('audit.read') },
-    { to: '/field-data/backups', icon: 'backups', label: t('nav.backups'), show: can('project.create') },
+    { to: '/field-data/backups', icon: 'backups', label: t('nav.backups'), show: can('backup.run') },
     { to: '/account/edit', icon: 'settings', label: t('nav.settings'), show: true }
   ] }
 ]);

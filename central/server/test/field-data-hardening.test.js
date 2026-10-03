@@ -89,7 +89,8 @@ test('permanent webhook errors are not retried', async () => {
 test('global webhook and backup endpoints reject project-only managers before data access', async () => {
   const routes = [];
   const service = Object.fromEntries(['get', 'post', 'put', 'patch', 'delete'].map(method => [method, (path, ...handlers) => routes.push({ path, handler: handlers.at(-1) })]));
-  require('../lib/resources/field-data')(service, handler => handler);
+  const endpoint = Object.assign(handler => handler, { plain: handler => handler });
+  require('../lib/resources/field-data')(service, endpoint);
   for (const route of routes.filter(r => /\/field-data\/(backups|webhooks)/.test(r.path))) {
     const verb = route.path.includes('/backups') ? 'backup.run' : 'config.set';
     const auth = { canOrReject: async requested => { assert.equal(requested, verb); throw new Error('permission denied'); } };
@@ -107,11 +108,11 @@ test('managed-schema mode rejects whole-database restore', () => {
 test('client navigation uses the same permissions as protected Field Data APIs', () => {
   const routes = fs.readFileSync(path.join(__dirname,
     '../../client/apps/central/src/routes.js'), 'utf8');
-  const home = fs.readFileSync(path.join(__dirname,
-    '../../client/apps/central/src/components/field-data/home.vue'), 'utf8');
+  const sidebar = fs.readFileSync(path.join(__dirname,
+    '../../client/apps/central/src/components/field-data/sidebar.vue'), 'utf8');
 
   assert.match(routes, /path: 'integrations'[\s\S]*?currentUser\.can\('config\.set'\)/);
   assert.match(routes, /path: 'backups'[\s\S]*?currentUser\.can\('backup\.run'\)/);
-  assert.match(home, /v-if="canConfigure"[\s\S]*?tabClass\('integrations'\)/);
-  assert.match(home, /v-if="canBackup"[\s\S]*?tabClass\('backups'\)/);
+  assert.match(sidebar, /to: '\/field-data\/webhooks'[^\n]*show: can\('config\.set'\)/);
+  assert.match(sidebar, /to: '\/field-data\/backups'[^\n]*show: can\('backup\.run'\)/);
 });

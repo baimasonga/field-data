@@ -68,7 +68,6 @@ import { defineAsyncComponent } from 'vue';
 
 import NavbarActions from './navbar/actions.vue';
 import NavbarHelpDropdown from './navbar/help-dropdown.vue';
-import NavbarLinks from './navbar/links.vue';
 import NavbarLocaleDropdown from './navbar/locale-dropdown.vue';
 
 import useRoutes from '../composables/routes';
@@ -82,7 +81,6 @@ export default {
     AnalyticsIntroduction: defineAsyncComponent(loadAsync('AnalyticsIntroduction')),
     NavbarActions,
     NavbarHelpDropdown,
-    NavbarLinks,
     NavbarLocaleDropdown
   },
   inject: ['config', 'visiblyLoggedIn'],

@@ -121,6 +121,10 @@ module.exports = (container) => {
   require('../resources/user-preferences')(service, endpoint);
   require('../resources/actor-properties')(service, endpoint);
   require('../resources/field-data')(service, endpoint, container, anonymousEndpoint);
+  require('../resources/field-data-claims')(service, endpoint);
+  require('../resources/field-data-evidence')(service, endpoint);
+  require('../resources/field-data-reviews')(service, endpoint);
+  require('../resources/field-data-backchecks')(service, endpoint);
 
   ////////////////////////////////////////////////////////////////////////////////
   // POSTRESOURCE HANDLERS
