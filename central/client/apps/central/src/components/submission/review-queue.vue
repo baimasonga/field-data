@@ -4,12 +4,13 @@
     <h2 id="review-queue-title">Claim review queue</h2>
     <p>Submissions flagged for review appear here. A flag is a question, not a finding of fraud.</p>
     <div class="btn-group" role="group" aria-label="Review case status">
-      <button v-for="value of ['open', 'in-review', 'resolved']" :key="value" type="button"
+      <button v-for="value of ['open', 'in-review', 'resolved', 'superseded']" :key="value" type="button"
         class="btn btn-default" :class="{ active: status === value }"
         :aria-pressed="status === value" @click="status = value">
-        {{ value === 'in-review' ? 'In review' : value === 'open' ? 'Open' : 'Resolved' }}
+        {{ value === 'in-review' ? 'In review' : value === 'open' ? 'Open' : value === 'resolved' ? 'Resolved' : 'Superseded' }}
       </button>
     </div>
+    <button type="button" class="btn btn-default" :disabled="loading" @click="load()">Refresh cases</button>
     <p v-if="loading && items.length === 0">Loading review cases…</p>
     <div v-else-if="error" role="alert">
       Review cases could not be loaded.
@@ -19,7 +20,7 @@
     </div>
     <p v-else-if="items.length === 0">No {{ status }} claim review cases for this form.</p>
     <ul v-else class="list-group">
-      <li v-for="item of items" :key="item.id" class="list-group-item">
+      <li v-for="item of items" :key="`${item.id}:${item.revision}`" class="list-group-item">
         <router-link :to="submissionPath(item.claim.rootInstanceId)">
           {{ item.claim.rootInstanceId }}
         </router-link>
@@ -39,11 +40,23 @@
         </button>
         <details @toggle="inspect($event, item)">
           <summary>Inspect evidence and decision history</summary>
-          <p v-if="inspecting === item.id">Loading case evidence…</p>
+          <p v-if="inspecting[item.id]">Loading case evidence…</p>
           <p v-else-if="inspectionError[item.id]" role="alert">
             Evidence could not be loaded. Close and reopen to retry.
           </p>
           <template v-else-if="inspections[item.id]">
+            <h3>Claim provenance</h3>
+            <dl v-if="inspections[item.id].claim.provenance">
+              <dt>Origin</dt><dd>{{ inspections[item.id].claim.provenance.origin }}</dd>
+              <dt>Captured</dt><dd>{{ inspections[item.id].claim.provenance.capturedAt || 'Unknown' }}</dd>
+              <dt>Received</dt><dd>{{ inspections[item.id].claim.provenance.receivedAt || 'Unknown' }}</dd>
+              <dt>Integrity hash</dt><dd>{{ inspections[item.id].claim.provenance.integrityHash || 'Unknown' }}</dd>
+            </dl>
+            <p v-else>Provenance was not recorded for this claim version.</p>
+            <p v-if="inspections[item.id].claim.degraded || inspections[item.id].claim.provenance?.degraded">
+              Provenance has limitations:
+              {{ inspections[item.id].claim.degraded || inspections[item.id].claim.provenance.degraded }}
+            </p>
             <p>Linked originals and their integrity at the time of inspection:</p>
             <ul>
               <li v-for="entry of inspections[item.id].evidence" :key="entry.id">
@@ -56,6 +69,7 @@
             <ul>
               <li v-for="decision of inspections[item.id].decisions" :key="decision.id">
                 {{ decision.outcome }} · {{ decision.reasonCode }} · {{ decision.note }}
+                · Reviewer {{ decision.reviewerId }} · {{ decision.createdAt }}
               </li>
             </ul>
             <p v-if="inspections[item.id].decisions.length === 0">No prior decisions.</p>
@@ -119,6 +133,12 @@ The assigned App User collects a second submission of this form in ODK Collect,
               </button>
             </div>
             <div v-if="canReview && status === 'in-review' && item.assignedTo === currentUser.id">
+              <label :for="`review-reason-${item.id}`">Reason code</label>
+              <select :id="`review-reason-${item.id}`" class="form-control"
+                :value="selectedReasons[item.id] || item.reasonCodes[0]"
+                @change="selectedReasons[item.id] = $event.target.value">
+                <option v-for="reason of item.reasonCodes" :key="reason" :value="reason">{{ reason }}</option>
+              </select>
               <label :for="`review-note-${item.id}`">Decision reason</label>
               <textarea :id="`review-note-${item.id}`" v-model="notes[item.id]"
                 class="form-control" maxlength="4000"></textarea>
@@ -128,15 +148,20 @@ The assigned App User collects a second submission of this form in ODK Collect,
                 Record needs evidence
               </button>
               <button type="button" class="btn btn-default"
-                :disabled="!notes[item.id]?.trim() || assigning === item.id || !item.claim.current"
+                :disabled="!notes[item.id]?.trim() || assigning === item.id || !item.claim.current
+                  || inspections[item.id].backchecks.some(b => b.status === 'requested')"
                 @click="recordDecision(item, 'accepted')">
                 Accept claim
               </button>
               <button type="button" class="btn btn-default"
-                :disabled="!notes[item.id]?.trim() || assigning === item.id || !item.claim.current"
+                :disabled="!notes[item.id]?.trim() || assigning === item.id || !item.claim.current
+                  || inspections[item.id].backchecks.some(b => b.status === 'requested')"
                 @click="recordDecision(item, 'rejected')">
                 Reject claim
               </button>
+              <p v-if="inspections[item.id].backchecks.some(b => b.status === 'requested')">
+                Link the pending back-check before accepting or rejecting this claim.
+              </p>
               <p>Acceptance requires verified linked evidence, intact provenance and no unresolved findings.</p>
             </div>
           </template>
@@ -151,7 +176,7 @@ The assigned App User collects a second submission of this form in ODK Collect,
 </template>
 
 <script setup>
-import { ref, watch } from 'vue';
+import { onBeforeUnmount, ref, watch } from 'vue';
 import useRequest from '../../composables/request';
 import { apiPaths } from '../../util/request';
 import { useRequestData } from '../../request-data';
@@ -167,10 +192,11 @@ const { currentUser } = useRequestData();
 const items = ref([]);
 const status = ref('open');
 const assigning = ref(null);
-const inspecting = ref(null);
+const inspecting = ref({});
 const inspections = ref({});
 const inspectionError = ref({});
 const notes = ref({});
+const selectedReasons = ref({});
 const questions = ref({});
 const dueDates = ref({});
 const responses = ref({});
@@ -178,10 +204,21 @@ const assigneesSelected = ref({});
 const nextCursor = ref(null);
 const loading = ref(false);
 const error = ref(false);
+const mutationKeys = new Map();
+const retryKey = (operation, item, data) => {
+  const signature = JSON.stringify([operation, item.id, item.etag, data]);
+  if (!mutationKeys.has(signature)) mutationKeys.set(signature, crypto.randomUUID());
+  return mutationKeys.get(signature);
+};
 const submissionPath = (instanceId) => `/projects/${props.projectId}/forms/` +
   `${encodeURIComponent(props.xmlFormId)}/submissions/${encodeURIComponent(instanceId)}`;
 
+let loadGeneration = 0;
+let disposed = false;
+onBeforeUnmount(() => { disposed = true; loadGeneration += 1; });
 const load = async (cursor = null) => {
+  loadGeneration += 1;
+  const generation = loadGeneration;
   loading.value = true;
   error.value = false;
   try {
@@ -190,18 +227,23 @@ const load = async (cursor = null) => {
       url: apiPaths.reviewQueue(props.projectId, props.xmlFormId, cursor, status.value),
       alert: false
     });
+    if (disposed || generation !== loadGeneration) return;
+    for (const item of data.items) {
+      if (inspections.value[item.id]?.revision !== item.revision)
+        delete inspections.value[item.id];
+    }
     items.value = cursor == null ? data.items : [...items.value, ...data.items];
     nextCursor.value = data.nextCursor;
   } catch {
-    error.value = true;
+    if (!disposed && generation === loadGeneration) error.value = true;
   } finally {
-    loading.value = false;
+    if (!disposed && generation === loadGeneration) loading.value = false;
   }
 };
 const loadMore = () => load(nextCursor.value);
 const inspect = async (event, item) => {
   if (!event.target.open || inspections.value[item.id]) return;
-  inspecting.value = item.id;
+  inspecting.value[item.id] = true;
   inspectionError.value[item.id] = false;
   try {
     const [detail, evidence, backchecks, assignees] = await Promise.all([
@@ -212,7 +254,10 @@ const inspect = async (event, item) => {
         ? request({ method: 'GET', url: apiPaths.reviewCaseBackcheckAssignees(item.id), alert: false })
         : Promise.resolve({ data: [] })
     ]);
+    if (disposed) return;
     inspections.value[item.id] = {
+      revision: item.revision,
+      claim: detail.data.claim,
       decisions: detail.data.decisions,
       evidence: evidence.data.items,
       backchecks: backchecks.data,
@@ -221,24 +266,27 @@ const inspect = async (event, item) => {
   } catch {
     inspectionError.value[item.id] = true;
   } finally {
-    inspecting.value = null;
+    inspecting.value[item.id] = false;
   }
 };
 const refreshBackchecks = async (item) => {
   const { data } = await request({ method: 'GET', url: apiPaths.reviewCaseBackchecks(item.id) });
-  inspections.value[item.id].backchecks = data;
+  if (inspections.value[item.id] != null) {
+    inspections.value[item.id].backchecks = data;
+    inspections.value[item.id].revision = items.value.find(row => row.id === item.id)?.revision;
+  }
 };
 const requestBackcheck = async (item) => {
+  const data = {
+    assignedTo: assigneesSelected.value[item.id], question: questions.value[item.id].trim(),
+    dueAt: dueDates.value[item.id] ? `${dueDates.value[item.id]}T23:59:59Z` : null
+  };
   assigning.value = item.id;
   try {
     const response = await request({
       method: 'POST', url: apiPaths.reviewCaseBackchecks(item.id),
       headers: { 'If-Match': item.etag },
-      data: {
-        requestId: crypto.randomUUID(), assignedTo: assigneesSelected.value[item.id],
-        question: questions.value[item.id].trim(),
-        dueAt: dueDates.value[item.id] ? `${dueDates.value[item.id]}T23:59:59Z` : null
-      }
+      data: { ...data, requestId: retryKey('backcheck', item, data) }
     });
     items.value = items.value.map((row) => (row.id === item.id
       ? { ...row, etag: response.headers.etag, revision: row.revision + 1 } : row));
@@ -268,17 +316,17 @@ const linkBackcheck = async (item, backcheck) => {
   }
 };
 const recordDecision = async (item, outcome) => {
+  const data = {
+    outcome, override: false, reasonCode: selectedReasons.value[item.id] || item.reasonCodes[0],
+    note: notes.value[item.id].trim(), evidenceIds: [], integrityFindingIds: []
+  };
   assigning.value = item.id;
   try {
     await request({
       method: 'POST',
       url: apiPaths.reviewCaseDecisions(item.id),
-      headers: { 'If-Match': item.etag, 'Idempotency-Key': crypto.randomUUID() },
-      data: {
-        outcome, override: false,
-        reasonCode: item.reasonCodes[0], note: notes.value[item.id].trim(),
-        evidenceIds: [], integrityFindingIds: []
-      }
+      headers: { 'If-Match': item.etag, 'Idempotency-Key': retryKey('decision', item, data) },
+      data
     });
     items.value = items.value.filter((row) => row.id !== item.id);
     delete inspections.value[item.id];
@@ -290,16 +338,16 @@ const recordDecision = async (item, outcome) => {
   }
 };
 const assign = async (item, releasing = false) => {
+  const data = {
+    assignedTo: releasing ? null : currentUser.id, status: releasing ? 'open' : 'in-review'
+  };
   assigning.value = item.id;
   try {
     await request({
       method: 'PATCH',
       url: apiPaths.reviewCaseAssignment(item.id),
-      headers: { 'If-Match': item.etag, 'Idempotency-Key': crypto.randomUUID() },
-      data: {
-        assignedTo: releasing ? null : currentUser.id,
-        status: releasing ? 'open' : 'in-review'
-      }
+      headers: { 'If-Match': item.etag, 'Idempotency-Key': retryKey('assignment', item, data) },
+      data
     });
     items.value = items.value.filter((row) => row.id !== item.id);
   } catch {

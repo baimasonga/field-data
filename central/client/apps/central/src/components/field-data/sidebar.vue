@@ -85,7 +85,7 @@ const groups = computed(() => [
   {
     key: 'main', label: t('group.overview'), items: [
       { to: '/field-data', icon: 'dashboard', label: t('nav.dashboard'), show: true, exact: true },
-      { to: '/field-data/review', icon: 'review', label: t('nav.review'), show: can('project.create') },
+      { to: '/field-data/review', icon: 'review', label: t('nav.review'), show: true },
       { to: '/field-data/report', icon: 'report', label: t('nav.report'), show: true }
     ]
   },
