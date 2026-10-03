@@ -83,6 +83,7 @@ const responsesByComponent = {
   // as "request without response" without naming the request.
   Home: () => [
     ...componentResponses({ projects: () => testData.extendedProjects.sorted() }),
+    ...componentResponses({ users: true }),
     ...testData.extendedProjects.sorted()
       .filter(project => !project.archived)
       .map(() => ['projectSummary', () => ({
