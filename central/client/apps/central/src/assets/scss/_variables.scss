@@ -53,6 +53,9 @@ $color-danger: #de2a11;
 $color-danger-lighter: #dd5454; // Between $color-danger and $color-danger-light
 $color-danger-light: #ffe6e6;
 $color-danger-dark: darken($color-danger, 10%);
+$color-success-text: $color-success-dark;
+$color-warning-text: $color-warning-dark;
+$color-danger-text: $color-danger-dark;
 $color-highlight: #faf1cd;
 
 // Buttons and inputs
