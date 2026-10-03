@@ -11,7 +11,7 @@ const fs = require('fs');
 const path = require('path');
 const http = require('http');
 const https = require('https');
-const { User, Project, Form } = require('../model/frames');
+const { User, Project, Config, Form } = require('../model/frames');
 const { getOrNotFound } = require('../util/promise');
 const { success, contentDisposition } = require('../util/http');
 const { getEncryptedPgDumpStream } = require('../util/backup');
@@ -1448,12 +1448,12 @@ module.exports = (service, endpoint, rootContainer, anonymousEndpoint) => {
   ////////////////////////////////////////////////////////////////////////////////
   // WEBHOOKS
   service.get('/field-data/webhooks', endpoint(async (container, { auth }) => {
-    await auth.canOrReject('project.create', Project.species);
+    await auth.canOrReject('config.set', Config.species);
     return container.db.any(sql`select * from field_data_webhooks order by "createdAt" desc`);
   }));
 
   service.post('/field-data/webhooks', endpoint(async (container, { body, auth }) => {
-    await auth.canOrReject('project.create', Project.species);
+    await auth.canOrReject('config.set', Config.species);
     if (body.name == null || body.name === '')
       throw Problem.user.unexpectedValue({ field: 'name', value: body.name, reason: 'is required' });
     validateWebhookUrl(body.url);
@@ -1468,7 +1468,7 @@ module.exports = (service, endpoint, rootContainer, anonymousEndpoint) => {
   }));
 
   service.get('/field-data/webhooks/:id/deliveries', endpoint(async (container, { params, auth }) => {
-    await auth.canOrReject('project.create', Project.species);
+    await auth.canOrReject('config.set', Config.species);
     return container.db.any(sql`
       select * from field_data_webhook_deliveries
       where "webhookId" = ${params.id}
@@ -1478,7 +1478,7 @@ module.exports = (service, endpoint, rootContainer, anonymousEndpoint) => {
   }));
 
   service.patch('/field-data/webhooks/:id', endpoint(async (container, { params, body, auth }) => {
-    await auth.canOrReject('project.create', Project.species);
+    await auth.canOrReject('config.set', Config.species);
     const webhook = await container.maybeOne(sql`
       select * from field_data_webhooks where id = ${params.id}
     `).then(getOrNotFound);
@@ -1501,7 +1501,7 @@ module.exports = (service, endpoint, rootContainer, anonymousEndpoint) => {
   }));
 
   service.delete('/field-data/webhooks/:id', endpoint(async (container, { params, auth }) => {
-    await auth.canOrReject('project.create', Project.species);
+    await auth.canOrReject('config.set', Config.species);
     await container.db.query(sql`delete from field_data_webhooks where id = ${params.id}`);
     return success();
   }));
@@ -1509,12 +1509,12 @@ module.exports = (service, endpoint, rootContainer, anonymousEndpoint) => {
   ////////////////////////////////////////////////////////////////////////////////
   // BACKUPS
   service.get('/field-data/backups', endpoint(async (container, { auth }) => {
-    await auth.canOrReject('project.create', Project.species); // restrict to admin/managers
+    await auth.canOrReject('backup.run', Config.species);
     return container.db.any(sql`select * from field_data_backups order by date desc`);
   }));
 
   service.post('/field-data/backups', endpoint(async (container, { auth, body }) => {
-    await auth.canOrReject('project.create', Project.species);
+    await auth.canOrReject('backup.run', Config.species);
 
     const record = await container.db.one(sql`
       insert into field_data_backups (type, size, status, "statusColor")
