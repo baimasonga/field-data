@@ -60,7 +60,8 @@ distribution and at https://www.apache.org/licenses/LICENSE-2.0.
       <div class="panel-row">
         <div class="panel panel-2">
           <div class="panel-head"><h2>{{ $t('recentSubmissions') }}</h2></div>
-          <table class="fd-table">
+          <div class="fd-table-scroll" role="region" aria-label="Scrollable data table" tabindex="0">
+<table class="fd-table">
             <thead>
               <tr>
                 <th>{{ $t('header.id') }}</th>
@@ -78,6 +79,7 @@ distribution and at https://www.apache.org/licenses/LICENSE-2.0.
               </tr>
             </tbody>
           </table>
+</div>
           <p v-show="stats.data.recentSubmissions.length === 0" class="empty-msg">{{ $t('noSubmissions') }}</p>
         </div>
 
@@ -206,6 +208,7 @@ const buildTrend = () => {
       ]
     },
     options: {
+      animation: false,
       responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false },
       plugins: { legend: { position: 'top', labels: { boxWidth: 12, usePointStyle: true, pointStyle: 'circle' } } },
       scales: { y: { beginAtZero: true, grid: { color: '#eef2f3' } }, x: { grid: { display: false } } }

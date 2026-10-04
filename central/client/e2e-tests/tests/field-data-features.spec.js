@@ -66,7 +66,7 @@ test('advanced authoring flags references immediately and links compiler diagnos
   });
   await page.goto(`${appUrl}/projects/1/new-form`); await page.getByRole('tab', { name: 'Build a Form' }).click();
   await page.getByLabel('Advanced authoring').check(); await page.getByLabel('Reopen saved form ID').fill('logic'); await page.getByRole('button', { name: 'Load builder definition' }).click();
-  await expect(page.getByRole('heading', { name: 'Expression dependencies' })).toBeVisible();
+  await page.locator('summary').filter({ hasText: 'Expression dependencies' }).click();
   await page.locator('#builder-question-age').getByLabel('Name', { exact: true }).fill('renamed');
   await expect(page.getByText('— missing: repair this reference before compiling')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Validate with compiler' })).toBeDisabled();
@@ -223,6 +223,7 @@ test('imported forms have visual translations, condition authoring and entity co
   await page.locator('.advanced-question').getByText('Logic, translations and choices', { exact: true }).click();
   const labels = page.getByRole('group', { name: 'Translated labels', exact: true }); await labels.getByLabel('Language').fill('French'); await labels.getByRole('button', { name: 'Add Language' }).click(); await labels.getByLabel('French', { exact: true }).fill('Personne');
   const condition = page.getByRole('group', { name: 'Build a condition' }); await condition.getByLabel('Field', { exact: true }).selectOption('person'); await condition.getByLabel('Value', { exact: true }).fill('Yes'); await condition.getByRole('button', { name: 'Apply condition' }).click();
+  await page.getByText('External data and entity workflow', { exact: true }).click();
   await page.getByLabel('Entity list name', { exact: true }).fill('people'); await page.getByLabel('Entity label field', { exact: true }).selectOption('person'); await page.getByRole('button', { name: 'Configure entity creation' }).click();
   await page.getByRole('button', { name: 'Validate with compiler' }).click();
   await expect(page.getByRole('region', { name: 'Compiler diagnostics' })).toContainText('Compilation passed');
@@ -300,4 +301,62 @@ test('public dataset renders approved answers and rechecks revocation before med
   expect((await download).suggestedFilename()).toBe('public-fixture-release-0.png');
   revoked = true; await page.getByRole('button', { name: 'Accept licence and download media' }).click();
   await expect(page.getByRole('alert')).toContainText('Release revoked');
+});
+
+const interfaceUser = { id: 1, displayName: 'Fixture Administrator', email: 'fixture@example.test', createdAt: '2026-01-01T00:00:00Z', verbs: ['project.create', 'user.list', 'audit.read', 'backup.run', 'config.set'], preferences: { site: {}, projects: {} } };
+const interfaceFixtures = {
+  '/v1/users/current': interfaceUser,
+  '/v1/users/1': { id: 1, displayName: 'Fixture Administrator', email: 'fixture@example.test', createdAt: '2026-01-01T00:00:00Z' },
+  '/v1/field-data/stats': { kpi: { projects: 1, forms: 0, submissions: 0, users: 1 }, recentSubmissions: [], projects: [], submissionsTrend: [], topForms: [], systemStatus: null },
+  '/v1/field-data/templates': { templates: [], qualityRules: [] },
+  '/v1/field-data/team': { members: [], totals: { enumerators: 0, submissions: 0, avgApproval: 0 } },
+  '/v1/field-data/cases': { cases: [], counts: { total: 0, active: 0, closed: 0 } },
+  '/v1/field-data/assignments': { assignments: [], counts: { open: 0, overdue: 0, done: 0 } },
+  '/v1/field-data/cleaning': { items: [], counts: { open: 0, corrected: 0, rejected: 0 } },
+  '/v1/field-data/dhis2-settings': {},
+  '/v1/field-data/operations': { checks: [], alerts: [], events: [], policy: {}, backupEncryptionConfigured: true },
+  '/v1/field-data/explore': { forms: [], rows: [], photos: [], points: [], charts: { byDistrict: [], byStatus: [], byForm: [], trend: [] } },
+  '/v1/field-data/report': { generatedAt: '2026-10-04T00:00:00Z', kpi: { submissions: 0, approved: 0, rejected: 0, inReview: 0, forms: 0 }, approvalRate: 0, trend: [], topForms: [], team: [], districtCounts: [] }
+};
+for (const width of [1280, 320]) test(`page layouts reflow at ${width}px with keyboard-accessible navigation`, async ({ page }) => {
+  test.setTimeout(120000); const errors = []; page.on('pageerror', error => errors.push(`${page.url()}: ${error.stack}`));
+  await page.setViewportSize({ width, height: 900 }); await page.emulateMedia({ reducedMotion: 'reduce' });
+  await api(page, async (route, path) => {
+    if (Object.hasOwn(interfaceFixtures, path)) { await route.fulfill({ json: interfaceFixtures[path] }); return true; }
+    if (path.endsWith('/sources')) { await route.fulfill({ json: { forms: [], filtered: [], merged: [] } }); return true; }
+    return false;
+  });
+  for (const path of ['/', '/users', '/account/edit', '/system/audits', '/field-data', '/field-data/form-builder', '/field-data/templates', '/field-data/catalog', '/field-data/analysis', '/field-data/explore', '/field-data/media', '/field-data/cases', '/field-data/assignments', '/field-data/cleaning', '/field-data/team', '/field-data/dhis2', '/field-data/webhooks', '/field-data/backups', '/field-data/operations', '/field-data/report']) {
+    await page.goto(`${appUrl}${path}`); await expect(page.locator('#fd-main-content')).toBeVisible(); await expect(page.locator('.fd-shell')).toBeVisible();
+    await expect(page.locator('#fd-main-content h1:visible').first()).toBeVisible();
+    const spills = await page.evaluate(() => Array.from(document.querySelectorAll('body *')).filter(el => el.getBoundingClientRect().right > window.innerWidth + 1 && window.getComputedStyle(el).display !== 'none').map(el => `${el.tagName}.${el.className} ${Math.round(el.getBoundingClientRect().right)}`).slice(0, 15));
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), `${path}: ${spills.join(', ')}`).toBe(true);
+    if (width === 320) {
+      const toggle = page.getByRole('button', { name: 'Open navigation', exact: true }); await toggle.focus(); await page.keyboard.press('Enter');
+      await expect(page.getByRole('navigation', { name: 'Primary navigation' })).toBeVisible();
+      await page.getByRole('button', { name: 'Close navigation' }).press('Escape'); await expect(toggle).toBeFocused();
+    }
+    if (['/field-data', '/field-data/form-builder', '/field-data/dhis2', '/field-data/analysis'].includes(path)) await page.screenshot({ path: `/tmp/ui-${path.split('/').at(-1)}-${width}.png`, fullPage: true });
+  }
+  expect(errors).toEqual([]);
+});
+
+test('builder removal can be undone and mobile navigation reaches the builder', async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 900 }); await api(page, async () => false);
+  await page.goto(`${appUrl}/field-data`); await page.getByRole('button', { name: 'Open navigation' }).click();
+  await page.getByRole('navigation', { name: 'Primary navigation' }).getByRole('link', { name: 'Form Builder', exact: true }).click();
+  await page.getByLabel('Project', { exact: true }).selectOption('1'); await page.getByRole('link', { name: 'Open advanced form builder' }).click();
+  await page.getByRole('button', { name: 'Add question', exact: true }).click();
+  const last = page.locator('.builder-question-card').last(); await last.getByLabel('Label', { exact: true }).fill('Keep this question');
+  const count = await page.locator('.builder-question-card').count(); await last.getByRole('button', { name: 'Remove question', exact: true }).click();
+  await expect(page.locator('.builder-question-card')).toHaveCount(count - 1); await page.getByRole('button', { name: 'Undo removal' }).click();
+  await expect(page.locator('.builder-question-card')).toHaveCount(count); await expect(page.locator('.builder-question-card').last().getByLabel('Label', { exact: true })).toHaveValue('Keep this question');
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+});
+
+test('explorer tabs support arrow keys and expose the selected state', async ({ page }) => {
+  await api(page, async (route, path) => { if (path === '/v1/field-data/explore') { await route.fulfill({ json: interfaceFixtures[path] }); return true; } return false; });
+  await page.goto(`${appUrl}/field-data/explore`); const table = page.getByRole('tab', { name: /Table/ }); await table.focus(); await table.press('ArrowRight');
+  await expect(page.getByRole('tab', { name: /Map/ })).toBeFocused(); await expect(page.getByRole('tab', { name: /Map/ })).toHaveAttribute('aria-selected', 'true');
+  await page.getByRole('tab', { name: /Map/ }).press('Home'); await expect(table).toHaveAttribute('aria-selected', 'true');
 });

@@ -43,7 +43,8 @@
 <h2>{{ detail.title }}</h2><p>{{ detail.release.label }}</p><p>{{ detail.release.disclosure }}</p>
         <div v-if="detail.release.kind === 'dataset'" class="public-dataset-table">
           <p>Showing the first 20 records. Download the complete snapshot below.</p>
-          <table class="table">
+          <div class="fd-table-scroll" role="region" aria-label="Scrollable data table" tabindex="0">
+<table class="table">
 <thead><tr><th v-for="field of detail.release.fields" :key="field.label">{{ field.label }}</th></tr></thead>
             <tbody>
 <tr v-for="(record, index) of detail.release.records.slice(0, 20)" :key="index">
@@ -53,8 +54,9 @@
 </tr>
 </tbody>
 </table>
+</div>
         </div>
-        <table v-else class="table"><thead><tr><th>Approved category</th><th>Records</th></tr></thead><tbody><tr v-for="v of detail.release.values" :key="v.value"><td>{{ v.value }}</td><td>{{ v.count }}</td></tr></tbody></table>
+        <div v-else class="fd-table-scroll" role="region" aria-label="Scrollable data table" tabindex="0"><table class="table"><thead><tr><th>Approved category</th><th>Records</th></tr></thead><tbody><tr v-for="v of detail.release.values" :key="v.value"><td>{{ v.value }}</td><td>{{ v.count }}</td></tr></tbody></table></div>
         <p>Download under {{ detail.license }} with attribution: {{ detail.attribution }}.</p><button type="button" class="btn btn-default" @click="download">Accept terms and download JSON</button>
 </article>
     </template>

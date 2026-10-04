@@ -12,7 +12,7 @@ except according to the terms contained in the LICENSE file.
 <template>
   <div id="user-edit-basic-details" class="panel panel-simple">
     <div class="panel-heading">
-      <h1 class="panel-title">{{ $t('title') }}</h1>
+      <h2 class="panel-title">{{ $t('title') }}</h2>
     </div>
     <div class="panel-body">
       <form @submit.prevent="submit">

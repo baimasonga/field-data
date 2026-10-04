@@ -1,3 +1,27 @@
 .p-dialog {
   max-width: 800px;
 }
+
+:root {
+  --odk-font-family: system-ui, sans-serif;
+  --odk-muted-text-color: #526a73;
+}
+
+:focus-visible {
+  outline: 2px solid #0e7490;
+  outline-offset: 3px;
+}
+
+@media (max-width: 600px) {
+  .p-dialog {
+    max-width: calc(100vw - 24px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

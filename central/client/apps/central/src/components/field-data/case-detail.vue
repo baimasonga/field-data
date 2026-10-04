@@ -35,8 +35,10 @@ Case detail: identity, visit timeline (linked submissions), and assignments.
             <li v-for="v of detail.data.timeline" :key="v.id">
               <span class="tdot" :class="dotClass(v.reviewState)"></span>
               <div class="tbody">
-                <div class="trow1"><b>{{ v.formName || v.form }}</b>
-                  <span class="fd-pill sm" :class="pillClass(v.reviewState)">{{ statusLabel(v.reviewState) }}</span></div>
+                <div class="trow1">
+<b>{{ v.formName || v.form }}</b>
+                  <span class="fd-pill sm" :class="pillClass(v.reviewState)">{{ statusLabel(v.reviewState) }}</span>
+</div>
                 <div class="trow2">{{ v.submitter || $t('unknown') }} · <date-time :iso="v.createdAt"/></div>
               </div>
             </li>
@@ -48,12 +50,12 @@ Case detail: identity, visit timeline (linked submissions), and assignments.
         <div class="fd-panel">
           <h2>{{ $t('assignments') }}</h2>
           <form class="fd-assign-form" @submit.prevent="assign">
-            <select v-model="draft.actorId" class="form-control" required>
+            <label class="fd-control-label">{{ $t('field.enumerator') }}<select v-model="draft.actorId" class="form-control" required>
               <option value="" disabled>{{ $t('field.enumerator') }}</option>
               <option v-for="m of enumerators" :key="m.submitterId" :value="m.submitterId">{{ m.name }}</option>
-            </select>
-            <input v-model="draft.dueDate" type="date" class="form-control">
-            <input v-model.trim="draft.note" type="text" class="form-control note" :placeholder="$t('field.note')">
+            </select></label>
+            <label class="fd-control-label">Due date<input v-model="draft.dueDate" type="date" class="form-control"></label>
+            <label class="fd-control-label">{{ $t('field.note') }}<input v-model.trim="draft.note" type="text" class="form-control note" :placeholder="$t('field.note')"></label>
             <button type="submit" class="fd-btn-primary" :aria-disabled="awaitingResponse || !draft.actorId">{{ $t('action.assign') }}</button>
           </form>
           <ul v-if="detail.data.assignments.length > 0" class="fd-assign-list">

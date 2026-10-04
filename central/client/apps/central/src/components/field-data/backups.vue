@@ -8,6 +8,7 @@ distribution and at https://www.apache.org/licenses/LICENSE-2.0.
 -->
 <template>
   <div id="field-data-backups">
+    <header class="fd-page-intro"><h1>{{ $t('title') }}</h1><p>{{ $t('subtitle') }}</p></header>
     <div class="table-actions-bar">
       <button type="button" class="btn btn-primary" :aria-disabled="awaitingResponse"
         @click="create">
@@ -22,7 +23,8 @@ distribution and at https://www.apache.org/licenses/LICENSE-2.0.
     <label><input v-model="complete" type="checkbox"> Include referenced objects and external attachments in an encrypted recovery bundle</label>
 
     <loading :state="backups.initiallyLoading"/>
-    <table v-show="backups.dataExists" class="table">
+    <div v-show="backups.dataExists" class="fd-table-scroll" role="region" aria-label="Scrollable data table" tabindex="0">
+<table class="table">
       <thead>
         <tr>
           <th>{{ $t('header.date') }}</th>
@@ -40,6 +42,7 @@ distribution and at https://www.apache.org/licenses/LICENSE-2.0.
         </tr>
       </tbody>
     </table>
+</div>
     <p v-show="backups.dataExists && backups.data.length === 0" class="empty-table-message">
       {{ $t('emptyTable') }}
     </p>
@@ -92,6 +95,8 @@ const create = () => {
 <i18n lang="json5">
 {
   "en": {
+    "title": "Backups",
+    "subtitle": "Create encrypted recovery backups and review completed downloads.",
     "action": {
       "backupNow": "Back up now",
       "refresh": "Refresh"

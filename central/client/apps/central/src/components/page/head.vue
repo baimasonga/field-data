@@ -13,7 +13,7 @@ except according to the terms contained in the LICENSE file.
   <div id="page-head" class="row">
     <div class="col-xs-12">
       <div id="page-head-title-infonav">
-        <div id="page-head-title" class="h1" v-tooltip.text><slot name="title"></slot></div>
+        <h1 id="page-head-title" class="h1" v-tooltip.text><slot name="title"></slot></h1>
         <slot name="infonav"></slot>
       </div>
       <div id="page-description"><slot name="description"></slot></div>

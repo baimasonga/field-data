@@ -26,8 +26,8 @@ gallery, or Charts.
     </header>
 
     <div class="fd-tabs" role="tablist">
-      <button v-for="tb of tabs" :key="tb.key" type="button" role="tab"
-        :class="{ on: activeTab === tb.key }" @click="setTab(tb.key)">
+      <button v-for="(tb, index) of tabs" :id="`explore-tab-${tb.key}`" :key="tb.key" type="button"
+        role="tab" :class="{ on: activeTab === tb.key }" :aria-selected="activeTab === tb.key" :tabindex="activeTab === tb.key ? 0 : -1" aria-controls="fd-explorer-panel" @keydown="tabKey($event, index)" @click="setTab(tb.key)">
         <!-- eslint-disable vue/no-v-html -->
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
           stroke-linecap="round" stroke-linejoin="round" v-html="tabIcons[tb.key]"/>
@@ -37,11 +37,12 @@ gallery, or Charts.
 
     <loading :state="explore.initiallyLoading"/>
 
-    <div v-if="explore.dataExists" class="fd-explore-body">
+    <div v-if="explore.dataExists" id="fd-explorer-panel" role="tabpanel" :aria-labelledby="`explore-tab-${activeTab}`" class="fd-explore-body">
       <!-- TABLE -->
       <div v-if="activeTab === 'table'" class="fd-panel">
         <div class="fd-panel-scroll">
-          <table class="fd-table">
+          <div class="fd-table-scroll" role="region" aria-label="Scrollable data table" tabindex="0">
+<table class="fd-table">
             <thead>
 <tr>
               <th>{{ $t('th.id') }}</th><th>{{ $t('th.form') }}</th><th>{{ $t('th.submitter') }}</th>
@@ -59,6 +60,7 @@ gallery, or Charts.
               </tr>
             </tbody>
           </table>
+</div>
         </div>
         <p v-if="rows.length === 0" class="fd-empty">{{ $t('empty.rows') }}</p>
       </div>
@@ -299,6 +301,7 @@ const barChart = (canvas, data, color) => new Chart(canvas, {
   type: 'bar',
   data: { labels: data.map(d => d.label), datasets: [{ data: data.map(d => d.count), backgroundColor: color, borderRadius: 4 }] },
   options: {
+    animation: false,
     responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } },
     scales: { y: { beginAtZero: true, grid: { color: '#eef2f3' } }, x: { grid: { display: false } } }
   }
@@ -312,7 +315,7 @@ const buildCharts = () => {
       labels: st.map(s => statusInfo(s.label).label),
       datasets: [{ data: st.map(s => s.count), backgroundColor: st.map(s => STATUS_COLORS[s.label] || STATUS_COLORS.received), borderWidth: 0 }]
     },
-    options: { responsive: true, maintainAspectRatio: false, cutout: '65%', plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, usePointStyle: true } } } }
+    options: { animation: false, responsive: true, maintainAspectRatio: false, cutout: '65%', plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, usePointStyle: true } } } }
   });
   if (districtCanvas.value) chartObjs.district = barChart(districtCanvas.value, charts.value.byDistrict || [], TEAL);
   if (formCanvas.value) chartObjs.form = barChart(formCanvas.value, charts.value.byForm || [], '#2E8B5A');
@@ -323,6 +326,7 @@ const buildCharts = () => {
       datasets: [{ data: tr.map(d => d.count), borderColor: TEAL, backgroundColor: 'rgba(14,116,144,0.08)', fill: true, tension: 0.35, pointRadius: 2 }]
     },
     options: {
+      animation: false,
       responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } },
       scales: { y: { beginAtZero: true, grid: { color: '#eef2f3' } }, x: { grid: { display: false } } }
     }
@@ -330,6 +334,16 @@ const buildCharts = () => {
 };
 
 const setTab = (key) => { activeTab.value = key; };
+const tabKey = (event, index) => {
+  let next;
+  if (event.key === 'ArrowRight') next = (index + 1) % tabs.value.length;
+  else if (event.key === 'ArrowLeft') next = (index + tabs.value.length - 1) % tabs.value.length;
+  else if (event.key === 'Home') next = 0;
+  else if (event.key === 'End') next = tabs.value.length - 1;
+  else return;
+  event.preventDefault(); setTab(tabs.value[next].key);
+  event.currentTarget.parentElement.querySelectorAll('[role="tab"]')[next].focus();
+};
 
 watch([activeTab, () => explore.data], () => {
   if (!explore.dataExists) return;

@@ -8,6 +8,7 @@ distribution and at https://www.apache.org/licenses/LICENSE-2.0.
 -->
 <template>
   <div id="field-data-media">
+    <header class="fd-page-intro"><h1>{{ $t('title') }}</h1><p>{{ $t('subtitle') }}</p></header>
     <div class="table-actions-bar">
       <button type="button" class="btn btn-primary" :aria-disabled="uploading"
         @click="fileInput.click()">
@@ -19,7 +20,8 @@ distribution and at https://www.apache.org/licenses/LICENSE-2.0.
     </div>
 
     <loading :state="media.initiallyLoading"/>
-    <table v-show="media.dataExists" class="table">
+    <div v-show="media.dataExists" class="fd-table-scroll" role="region" aria-label="Scrollable data table" tabindex="0">
+<table class="table">
       <thead>
         <tr>
           <th>{{ $t('header.name') }}</th>
@@ -47,6 +49,7 @@ distribution and at https://www.apache.org/licenses/LICENSE-2.0.
         </tr>
       </tbody>
     </table>
+</div>
     <p v-show="media.dataExists && media.data.length === 0" class="empty-table-message">
       {{ $t('emptyTable') }}
     </p>
@@ -116,6 +119,8 @@ const del = (item) => {
 <i18n lang="json5">
 {
   "en": {
+    "title": "Media library",
+    "subtitle": "Upload, browse and download files shared across your projects.",
     "action": {
       "upload": "Upload file",
       "download": "Download",

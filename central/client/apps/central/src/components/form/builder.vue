@@ -14,6 +14,10 @@ That also means the spreadsheet is real, and downloadable. Advanced authoring ad
 -->
 <template>
   <div id="form-builder">
+    <div class="builder-workspace-heading">
+      <div><h2>{{ advanced ? 'Advanced form builder' : 'Form builder' }}</h2><p>Build your questions, check the form, then save a draft.</p></div>
+      <span class="builder-count">{{ draft.questions.length }} questions</span>
+    </div>
     <p class="section-lead">{{ $t('lead') }}</p>
 
     <div class="form-group builder-title">
@@ -29,19 +33,30 @@ That also means the spreadsheet is real, and downloadable. Advanced authoring ad
     <p v-if="advancedError" role="alert">{{ advancedError }}</p>
     <label>Import XLSForm into builder<input type="file" accept=".xlsx" @change="importXlsform"></label>
     <label><input v-model="advanced" type="checkbox" :disabled="hasAdvancedFields"> Advanced authoring (groups, repeats, logic and translations)</label>
-    <div v-if="advanced">
+    <div v-if="advanced" class="builder-advanced">
       <p>Question names must remain unique. Renaming or deleting a referenced question requires repairing its expressions.</p>
+      <details class="builder-settings">
+<summary>Form settings</summary>
       <label>Form ID<input v-model.trim="draft.formId" class="form-control" @input="draft.formIdEdited = true"></label>
       <label><input v-model="updateExisting" type="checkbox">Save as a new draft of this existing form ID</label>
       <label>Default language<input v-model="defaultLanguage" class="form-control"></label>
+      </details>
+      <details class="builder-settings">
+<summary>Reusable choice lists</summary>
       <fieldset>
-<legend>Reusable choice lists</legend>
+<legend>Choice list editor</legend>
         <div v-for="(choices, name) of visualLists" :key="name"><h3>{{ name }}</h3><builder-choices :model-value="choices" @update:model-value="setList(name, $event)"/><button type="button" class="btn btn-default" @click="removeList(name)">Remove list</button></div>
         <label>New list name<input v-model.trim="newListName" class="form-control"></label><button type="button" class="btn btn-default" :disabled="!newListName" @click="setList(newListName, [])">Add reusable list</button>
       </fieldset>
+      </details>
+      <details class="builder-settings">
+<summary>Additional form settings</summary>
       <builder-properties v-model="settingsExtra" title="Additional XLSForm settings" key-label="Setting"/>
+      </details>
+      <details class="builder-settings">
+<summary>External data and entity workflow</summary>
       <fieldset>
-<legend>External data and entity workflow</legend>
+<legend>Connect external data</legend>
         <label>External CSV filename<input v-model.trim="externalFile" class="form-control" placeholder="households.csv"></label>
         <label>Lookup output column<input v-model.trim="externalColumn" class="form-control"></label>
         <label>Lookup key column<input v-model.trim="externalKey" class="form-control"></label>
@@ -57,10 +72,12 @@ That also means the spreadsheet is real, and downloadable. Advanced authoring ad
         <button type="button" class="btn btn-default" @click="configureEntities">Configure entity creation</button>
         <p>Map answers to entity properties in each question's entity property control.</p>
       </fieldset>
+      </details>
       <details><summary>Advanced list JSON</summary><label>Reusable choice lists (JSON object: list name → choice array)<textarea v-model="listsText" class="form-control" rows="4"></textarea></label></details>
       <label>Reopen saved form ID<input v-model="reopenId" class="form-control"></label>
       <button type="button" class="btn btn-default" @click="reopen">Load builder definition</button>
-      <h2>Expression dependencies</h2>
+      <details class="builder-settings">
+<summary>Expression dependencies <span v-if="dependencies.some(d => d.missing)" class="builder-reference-warning">— repair missing references</span></summary>
       <p v-if="!dependencies.length">No field references.</p>
       <ul>
 <li v-for="(d, i) of dependencies" :key="i">
@@ -68,11 +85,17 @@ That also means the spreadsheet is real, and downloadable. Advanced authoring ad
         refers to {{ d.reference }} <strong v-if="d.missing" role="alert">— missing: repair this reference before compiling</strong>
       </li>
 </ul>
-      <div v-for="(question, index) of draft.questions" :key="question.id || question.key">
+      </details>
+      <h2 class="builder-questions-heading">Questions</h2>
+      <p class="field-help">Add questions below. Open a question’s options to add logic, translations and choices.</p>
+      <div v-for="(question, index) of draft.questions" :key="question.id || question.key" class="builder-question-card">
+        <span class="builder-question-index">Question {{ index + 1 }}</span>
         <advanced-question :model-value="question" :fields="questionNames" @update:model-value="draft.questions[index] = $event"/>
+        <div class="builder-question-toolbar">
         <button type="button" class="btn btn-default" :disabled="index === 0" @click="move(index, -1)">Move up</button>
         <button type="button" class="btn btn-default" :disabled="index === draft.questions.length - 1" @click="move(index, 1)">Move down</button>
-        <button type="button" class="btn btn-default" @click="removeQuestion(index)">Remove question</button>
+        <button type="button" class="btn btn-danger" @click="removeQuestion(index)">Remove question</button>
+        </div>
       </div>
     </div>
     <ol v-else class="question-list">
@@ -147,6 +170,7 @@ That also means the spreadsheet is real, and downloadable. Advanced authoring ad
       <span class="icon-plus-circle" aria-hidden="true"></span> {{ $t('action.addQuestion') }}
     </button>
 
+    <div v-if="removedQuestion" class="builder-undo" role="status">Question removed. <button type="button" class="btn btn-default" @click="undoRemoveQuestion">Undo removal</button></div>
     <div class="builder-footer">
       <button type="button" class="btn btn-default" :disabled="!canCreate || validating" @click="validate">Validate with compiler</button>
       <button type="button" class="btn btn-primary" :aria-disabled="!canCreate || awaitingResponse"
@@ -256,7 +280,9 @@ const addQuestion = () => {
     required: false, nameEdited: false, choices: []
   });
 };
-const removeQuestion = (index) => { draft.questions.splice(index, 1); };
+const removedQuestion = ref(null);
+const removeQuestion = (index) => { removedQuestion.value = { index, question: draft.questions[index] }; draft.questions.splice(index, 1); };
+const undoRemoveQuestion = () => { const removed = removedQuestion.value; if (removed) draft.questions.splice(Math.min(removed.index, draft.questions.length), 0, removed.question); removedQuestion.value = null; };
 const move = (index, by) => {
   const to = index + by;
   if (to < 0 || to >= draft.questions.length) return;
@@ -295,6 +321,7 @@ const definition = () => {
   return { schemaVersion: 2, title: draft.title, formId: effectiveFormId.value, defaultLanguage: defaultLanguage.value, lists, questions: draft.questions, settingsExtra: settingsExtra.value, extraSheets: extraSheets.value };
 };
 const loadDefinition = d => {
+  removedQuestion.value = null;
   draft.title = d.title; draft.formId = d.formId; draft.formIdEdited = true; advanced.value = d.schemaVersion === 2;
   draft.questions = d.questions.map(q => ({ ...q, key: nextKey(), id: q.id || crypto.randomUUID(), choices: q.choices || [] }));
   listsText.value = JSON.stringify(d.lists || {}, null, 2); defaultLanguage.value = d.defaultLanguage || '';

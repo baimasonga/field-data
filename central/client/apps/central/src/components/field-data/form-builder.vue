@@ -1,13 +1,13 @@
 <template>
   <section id="fd-form-builder">
-    <h1>Form Builder</h1>
+    <h1>Form builder</h1>
     <p>Create forms with groups, repeats, calculations, validation rules, cascading choices, and translations.</p>
     <p v-if="loading" role="status">Loading projects…</p>
     <div v-else-if="error" role="alert">
       <p>{{ error }}</p>
       <button type="button" class="btn btn-default" @click="load">Retry</button>
     </div>
-    <template v-else-if="projects.length">
+    <div v-else-if="projects.length" class="builder-launch-card">
       <label for="builder-project">Project</label>
       <select id="builder-project" v-model="projectId" class="form-control">
         <option value="" disabled>Select a project</option>
@@ -15,10 +15,10 @@
       </select>
       <router-link v-if="projectId" class="btn btn-primary"
         :to="`/projects/${projectId}/new-form?builder=advanced`">
-Open Advanced Form Builder
+Open advanced form builder
 </router-link>
       <p>Select a project, then create a draft or load an existing builder definition. Validate the form before publishing.</p>
-    </template>
+    </div>
     <p v-else>You need permission to create forms in a project. Ask a project manager for access.</p>
   </section>
 </template>

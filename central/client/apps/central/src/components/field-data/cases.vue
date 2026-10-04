@@ -21,17 +21,17 @@ Cases: registered beneficiaries/sites tracked across visits.
     </header>
 
     <form v-if="creating" class="fd-create" @submit.prevent="create">
-      <input v-model.trim="draft.name" type="text" class="form-control" :placeholder="$t('field.name')" required>
-      <select v-model="draft.type" class="form-control">
+      <label class="fd-control-label">{{ $t('field.name') }}<input v-model.trim="draft.name" type="text" class="form-control" :placeholder="$t('field.name')" required></label>
+      <label class="fd-control-label">{{ $t('th.type') }}<select v-model="draft.type" class="form-control">
         <option value="household">{{ $t('type.household') }}</option>
         <option value="facility">{{ $t('type.facility') }}</option>
         <option value="school">{{ $t('type.school') }}</option>
         <option value="other">{{ $t('type.other') }}</option>
-      </select>
-      <select v-model="draft.district" class="form-control">
+      </select></label>
+      <label class="fd-control-label">{{ $t('field.district') }}<select v-model="draft.district" class="form-control">
         <option value="">{{ $t('field.district') }}</option>
         <option v-for="d of DISTRICTS" :key="d" :value="d">{{ d }}</option>
-      </select>
+      </select></label>
       <button type="submit" class="fd-btn-primary" :aria-disabled="awaitingResponse">{{ $t('action.create') }}</button>
     </form>
 
@@ -45,8 +45,10 @@ Cases: registered beneficiaries/sites tracked across visits.
       </div>
 
       <div class="fd-panel">
-        <table class="fd-table">
-          <thead><tr>
+        <div class="fd-table-scroll" role="region" aria-label="Scrollable data table" tabindex="0">
+<table class="fd-table">
+          <thead>
+<tr>
             <th>{{ $t('th.name') }}</th>
             <th>{{ $t('th.type') }}</th>
             <th>{{ $t('th.district') }}</th>
@@ -54,7 +56,8 @@ Cases: registered beneficiaries/sites tracked across visits.
             <th class="r">{{ $t('th.lastVisit') }}</th>
             <th class="r">{{ $t('th.open') }}</th>
             <th>{{ $t('th.status') }}</th>
-          </tr></thead>
+          </tr>
+</thead>
           <tbody>
             <tr v-for="c of cases.data.cases" :key="c.id" class="rowlink" @click="openCase(c)">
               <td class="name">{{ c.name }}</td>
@@ -67,6 +70,7 @@ Cases: registered beneficiaries/sites tracked across visits.
             </tr>
           </tbody>
         </table>
+</div>
         <p v-if="cases.data.cases.length === 0" class="fd-empty">{{ $t('empty') }}</p>
       </div>
     </template>

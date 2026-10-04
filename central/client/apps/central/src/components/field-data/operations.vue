@@ -8,7 +8,7 @@
       <p>Authenticated API: {{ apiLatency }} ms. Frontend static file: {{ frontendStatus }}.</p>
       <p v-if="!result.backupEncryptionConfigured" role="alert">Scheduled backup encryption is not configured. An operator must configure the backup passphrase before scheduled backups can run.</p>
       <p v-if="!result.checks.length">No monitoring samples yet. Allow five minutes for the first scheduled check.</p>
-      <table class="table"><thead><tr><th>Service</th><th>Status</th><th>Latency</th><th>Last check</th><th>Details</th></tr></thead><tbody><tr v-for="check of result.checks" :key="check.name"><td>{{ check.name }}</td><td>{{ stale(check) ? 'Stale — monitoring unverified' : check.status }} {{ check.alert ? '(active alert)' : '' }}</td><td>{{ check.latencyMs == null ? '—' : `${check.latencyMs} ms` }}</td><td>{{ check.checkedAt }}</td><td>{{ check.detail }}</td></tr></tbody></table>
+      <div class="fd-table-scroll" role="region" aria-label="Scrollable data table" tabindex="0"><table class="table"><thead><tr><th>Service</th><th>Status</th><th>Latency</th><th>Last check</th><th>Details</th></tr></thead><tbody><tr v-for="check of result.checks" :key="check.name"><td>{{ check.name }}</td><td>{{ stale(check) ? 'Stale — monitoring unverified' : check.status }} {{ check.alert ? '(active alert)' : '' }}</td><td>{{ check.latencyMs == null ? '—' : `${check.latencyMs} ms` }}</td><td>{{ check.checkedAt }}</td><td>{{ check.detail }}</td></tr></tbody></table></div>
       <fieldset v-if="canConfigure">
 <legend>Backup and alert policy</legend>
         <label>Responsible operator<input v-model="policy.operator" class="form-control" maxlength="255"></label>

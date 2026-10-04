@@ -49,6 +49,7 @@ Export {{ format.toUpperCase() }}
 </button>
       </div>
       <div v-if="tab === 'table'" class="analysis-table">
+<div class="fd-table-scroll" role="region" aria-label="Scrollable data table" tabindex="0">
 <table class="table">
 <thead>
 <tr>
@@ -60,7 +61,8 @@ Export {{ format.toUpperCase() }}
           <td>{{ row.instanceId }}</td><td>{{ row.sourceForm }}</td><td v-for="f of result.fields" :key="f.path">{{ row.data[f.path] }}</td>
         </tr>
 </tbody>
-</table><p v-if="result.rows.length === 0">No records match this selection.</p>
+</table>
+</div><p v-if="result.rows.length === 0">No records match this selection.</p>
 </div>
       <div v-if="tab === 'chart'">
         <div class="analysis-controls">
@@ -74,10 +76,12 @@ Export {{ format.toUpperCase() }}
         <template v-if="result.chart">
 <p>{{ result.chart.coverage.answered }} answered out of {{ result.chart.coverage.total }} records.</p>
           <p v-if="result.chart.unavailable">{{ result.chart.unavailable }}</p>
-          <table class="table">
+          <div class="fd-table-scroll" role="region" aria-label="Scrollable data table" tabindex="0">
+<table class="table">
 <caption>{{ aggregation }} by category — table alternative to the bars</caption><thead><tr><th>Category</th><th>Value</th><th>Contributing records</th></tr></thead>
             <tbody><tr v-for="r of result.chart.rows" :key="r.key"><td>{{ r.key }}</td><td><span class="analysis-bar" :style="{ width: barWidth(r.value) }"></span>{{ r.value }}</td><td>{{ r.count }}</td></tr></tbody>
 </table>
+</div>
           <p v-if="result.chart.omitted">Additional categories omitted: {{ result.chart.omitted.groups || result.chart.omitted.categories }}. Add filters to inspect them.</p>
 </template>
       </div>

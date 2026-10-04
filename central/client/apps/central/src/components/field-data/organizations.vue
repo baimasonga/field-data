@@ -62,7 +62,8 @@ is hard to see the consequences of and easy to get wrong.
 
           <template v-if="!membersLoading">
             <div v-if="members.length > 0" class="table-responsive">
-            <table class="table">
+            <div class="fd-table-scroll" role="region" aria-label="Scrollable data table" tabindex="0">
+<table class="table">
               <thead>
                 <tr>
                   <th>{{ $t('header.person') }}</th>
@@ -86,6 +87,7 @@ is hard to see the consequences of and easy to get wrong.
                 </tr>
               </tbody>
             </table>
+</div>
             </div>
             <p v-else class="empty-table-message">{{ $t('noMembers') }}</p>
 

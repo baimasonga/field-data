@@ -11,6 +11,7 @@ except according to the terms contained in the LICENSE file.
 -->
 <template>
   <div :class="{ 'fd-shell': visiblyLoggedIn }">
+    <a class="fd-skip-link" href="#fd-main-content">Skip to content</a>
     <!-- Field Data: a left sidebar replaces the horizontal nav once logged in.
     Logged out (e.g. the login page) keeps the plain top navbar. -->
     <field-data-sidebar v-if="visiblyLoggedIn"/>
@@ -21,9 +22,9 @@ except according to the terms contained in the LICENSE file.
       <outdated-version/>
       <alerts/>
       <feedback-button v-if="showsFeedbackButton"/>
-      <div ref="containerEl" class="container-fluid">
+      <main id="fd-main-content" ref="containerEl" class="container-fluid" tabindex="-1">
         <router-view/>
-      </div>
+      </main>
     </div>
 
     <div id="modals"></div>

@@ -52,10 +52,12 @@ Background map unavailable. Submission locations and reference layers remain vis
         <button v-if="editing" type="button" class="btn btn-default" @click="editing = null">Cancel editing</button>
       </template>
     </fieldset>
-    <table class="table">
+    <div class="fd-table-scroll" role="region" aria-label="Scrollable data table" tabindex="0">
+<table class="table">
 <caption>Mapped submission coordinates (first 100; download KML for all locations)</caption><thead><tr><th>Submission</th><th>Longitude</th><th>Latitude</th></tr></thead>
       <tbody><tr v-for="(f, index) of data.features.slice(0, 100)" :key="index"><td>{{ f.properties.instanceId }}</td><td>{{ f.geometry.coordinates[0] }}</td><td>{{ f.geometry.coordinates[1] }}</td></tr></tbody>
 </table>
+</div>
   </div>
 </template>
 <script setup>

@@ -15,7 +15,7 @@ map renders district polygons on a plain background (no tile requests).
     <div class="rb-head">
       <img src="../../assets/images/field-data-logo.png" alt="Field Data" class="rb-logo">
       <div>
-        <h1>{{ $t('title') }}</h1>
+        <component :is="headingLevel === 1 ? 'h1' : 'h2'">{{ $t('title') }}</component>
         <p class="rb-meta">{{ $t('generated') }} <date-time :iso="data.generatedAt"/></p>
       </div>
     </div>
@@ -43,7 +43,8 @@ map renders district polygons on a plain background (no tile requests).
     <div class="rb-grid">
       <section class="rb-card">
         <h2>{{ $t('sec.forms') }}</h2>
-        <table class="rb-table">
+        <div class="fd-table-scroll" role="region" aria-label="Scrollable data table" tabindex="0">
+<table class="rb-table">
           <thead><tr><th>{{ $t('th.form') }}</th><th class="r">{{ $t('th.submissions') }}</th><th class="r">{{ $t('th.approved') }}</th></tr></thead>
           <tbody>
             <tr v-for="f of data.topForms" :key="f.form">
@@ -51,10 +52,12 @@ map renders district polygons on a plain background (no tile requests).
             </tr>
           </tbody>
         </table>
+</div>
       </section>
       <section class="rb-card">
         <h2>{{ $t('sec.team') }}</h2>
-        <table class="rb-table">
+        <div class="fd-table-scroll" role="region" aria-label="Scrollable data table" tabindex="0">
+<table class="rb-table">
           <thead><tr><th>{{ $t('th.enumerator') }}</th><th class="r">{{ $t('th.submissions') }}</th><th class="r">{{ $t('th.approved') }}</th><th class="r">{{ $t('th.rejected') }}</th></tr></thead>
           <tbody>
             <tr v-for="m of data.team" :key="m.name">
@@ -62,6 +65,7 @@ map renders district polygons on a plain background (no tile requests).
             </tr>
           </tbody>
         </table>
+</div>
       </section>
     </div>
 
@@ -82,7 +86,8 @@ Chart.register(LineController, LineElement, PointElement, LinearScale, CategoryS
 
 defineOptions({ name: 'FieldDataReportBody' });
 const props = defineProps({
-  data: { type: Object, required: true }
+  data: { type: Object, required: true },
+  headingLevel: { type: Number, default: 1 }
 });
 
 const trendCanvas = ref(null);
@@ -101,10 +106,15 @@ onMounted(() => nextTick(() => {
   if (trendCanvas.value) {
     chart = new Chart(trendCanvas.value, {
       type: 'line',
-      data: { labels: tr.map(d => new Date(d.day).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })),
-        datasets: [{ data: tr.map(d => d.count), borderColor: '#0E7490', backgroundColor: 'rgba(14,116,144,0.08)', fill: true, tension: 0.35, pointRadius: 2 }] },
-      options: { responsive: true, maintainAspectRatio: false, animation: false, plugins: { legend: { display: false } },
-        scales: { y: { beginAtZero: true, grid: { color: '#eef2f3' } }, x: { grid: { display: false } } } }
+      data: {
+        labels: tr.map(d => new Date(d.day).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })),
+        datasets: [{ data: tr.map(d => d.count), borderColor: '#0E7490', backgroundColor: 'rgba(14,116,144,0.08)', fill: true, tension: 0.35, pointRadius: 2 }]
+      },
+      options: {
+        animation: false,
+        responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } },
+        scales: { y: { beginAtZero: true, grid: { color: '#eef2f3' } }, x: { grid: { display: false } } }
+      }
     });
   }
   if (mapEl.value) {

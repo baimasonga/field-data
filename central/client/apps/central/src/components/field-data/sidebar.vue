@@ -11,22 +11,23 @@ whose features don't exist yet in Field Data are intentionally omitted rather th
 shown as dead links.
 -->
 <template>
-  <aside id="fd-sidebar">
+  <aside id="fd-sidebar" :class="{ 'mobile-open': mobileOpen }" @keydown.esc="closeMenu">
     <div class="fd-brand">
       <img src="../../assets/images/field-data-logo.png" alt="Field Data">
       <span class="fd-brand-sub">{{ $t('platform') }}</span>
     </div>
 
-    <nav class="fd-nav">
+    <button ref="menuToggle" type="button" class="fd-menu-toggle btn btn-default" :aria-expanded="mobileOpen" aria-controls="fd-primary-nav" @click="mobileOpen = !mobileOpen">{{ mobileOpen ? 'Close navigation' : 'Open navigation' }}</button>
+    <nav id="fd-primary-nav" class="fd-nav" aria-label="Primary navigation">
       <template v-for="group of groups" :key="group.key">
         <p v-if="group.items.some(i => i.show)" class="fd-nav-heading">{{ group.label }}</p>
         <router-link v-for="item of group.items.filter(i => i.show)" :key="item.to"
           :to="item.to" class="fd-nav-item"
-          :class="{ active: isActive(item) }">
+          :class="{ active: isActive(item) }" :aria-current="isActive(item) ? 'page' : undefined">
           <!-- Icons come from the static iconPaths map below. -->
           <!-- eslint-disable vue/no-v-html -->
           <svg class="fd-nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-            stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+            aria-hidden="true" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
             v-html="iconPaths[item.icon]"/>
           <!-- eslint-enable vue/no-v-html -->
           <span class="fd-nav-label">{{ item.label }}</span>
@@ -45,7 +46,7 @@ shown as dead links.
 </template>
 
 <script setup>
-import { computed } from 'vue';
+import { computed, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useRoute } from 'vue-router';
 
@@ -55,6 +56,10 @@ defineOptions({ name: 'FieldDataSidebar' });
 
 const { t } = useI18n();
 const route = useRoute();
+const mobileOpen = ref(false);
+const menuToggle = ref(null);
+const closeMenu = () => { if (mobileOpen.value) { mobileOpen.value = false; menuToggle.value?.focus(); } };
+watch(() => route.fullPath, () => { mobileOpen.value = false; });
 const { currentUser, centralVersion } = useRequestData();
 
 const can = (verb) => currentUser.dataExists && currentUser.can(verb);

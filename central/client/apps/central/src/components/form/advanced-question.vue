@@ -2,6 +2,7 @@
 <template>
   <fieldset :id="`builder-question-${modelValue.id}`" class="advanced-question" tabindex="-1">
     <legend>{{ modelValue.name || 'New question' }}</legend>
+    <div class="builder-question-fields">
     <label>Type<select class="form-control" :value="modelValue.type" @change="set('type', $event.target.value)"><option v-for="type of types" :key="type">{{ type }}</option></select></label>
     <label>Name<input class="form-control" :value="modelValue.name" maxlength="64" @input="set('name', $event.target.value)"></label>
     <label>Label<input class="form-control" :value="modelValue.label" @input="set('label', $event.target.value)"></label>
@@ -9,6 +10,7 @@
 <label v-if="modelValue.type.endsWith('_from_file')">CSV attachment filename<input class="form-control" :value="modelValue.sourceFile" @input="set('sourceFile', $event.target.value)"></label>
     <label>Entity property (save answer to)<input class="form-control" :value="modelValue.xlsExtra?.save_to || ''" @input="set('xlsExtra', { ...modelValue.xlsExtra, save_to: $event.target.value })"></label>
     <label>Required expression (blank, yes, or XPath)<input class="form-control" :value="requiredText" @input="set('required', $event.target.value === 'yes' ? true : $event.target.value)"></label>
+    </div>
     <details>
 <summary>Logic, translations and choices</summary>
       <label v-for="field of logicFields" :key="field">{{ field }}<input class="form-control" :value="modelValue[field]" @input="set(field, $event.target.value)"></label>
@@ -40,7 +42,7 @@
         <advanced-question :model-value="child" :fields="fields" @update:model-value="replaceChild(index, $event)"/>
         <button type="button" class="btn btn-default" :disabled="index === 0" @click="moveChild(index, -1)">Move child up</button>
         <button type="button" class="btn btn-default" :disabled="index === modelValue.children.length - 1" @click="moveChild(index, 1)">Move child down</button>
-        <button type="button" class="btn btn-default" @click="removeChild(index)">Remove child</button>
+        <button type="button" class="btn btn-danger" @click="removeChild(index)">Remove child</button>
       </div>
       <button type="button" class="btn btn-default" @click="addChild">Add child question</button>
     </template>
