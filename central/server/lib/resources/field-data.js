@@ -38,6 +38,8 @@ const { visibleProjects, actorIdOf } = require('../util/cross-project');
 const { MAX_IMPORT_BYTES, templateCsv, inspectCsv, submissionXml } = require('../util/submission-csv-import');
 const { buildEnvelope, validateEnvelope } = require('../util/provenance');
 
+const { webFormsHealth } = require('../util/web-forms-health');
+
 const pingUrl = (urlStr) => new Promise((resolve) => {
   try {
     const parsed = new URL(urlStr);
@@ -323,8 +325,8 @@ const probeSystemStatus = (db) => {
       fileStorage = true;
     } catch (e) { /* status probe is best-effort */ }
 
-    const enketoUrl = config.has('default.enketo.url') ? config.get('default.enketo.url') : null;
-    const enketo = enketoUrl ? await pingUrl(enketoUrl) : false;
+    // Keep the existing response key for dashboard clients; the runtime is native Web Forms.
+    const enketo = await webFormsHealth();
 
     const xlsConfig = config.has('default.xlsform') ? config.get('default.xlsform') : null;
     const pyxform = xlsConfig

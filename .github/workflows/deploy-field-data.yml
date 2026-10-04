@@ -468,6 +468,12 @@ jobs:
           get "cross-project Forms"       "/v1/field-data/forms?limit=1" || true
           get "cross-project Submissions" "/v1/field-data/submissions?limit=1" || true
           get "cross-project Map"         "/v1/field-data/map?limit=1" || true
+          if get "native Web Forms health" "/v1/field-data/stats"; then
+            if ! printf '%s' "$body" | jq -e '.systemStatus.enketo == true' >/dev/null; then
+              echo "::error title=Web Forms health check failed::The bundled Web Forms app or its JavaScript assets are unavailable."
+              failed=1
+            fi
+          fi
 
           if [[ "$failed" != 0 ]]; then
             echo "The deployment authenticates but part of the critical path is broken." >&2
