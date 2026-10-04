@@ -427,6 +427,7 @@ jobs:
               echo "  ok   $label ($path)"
               return 0
             fi
+            echo "::error title=Live API smoke check failed::$label ($path) answered HTTP $status"
             echo "  FAIL $label ($path) answered $status" >&2
             printf '%s\n' "$body" | head -c 400 >&2; echo >&2
             failed=1
