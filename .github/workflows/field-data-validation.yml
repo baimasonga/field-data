@@ -100,7 +100,7 @@ jobs:
           nohup python -m gunicorn --bind 127.0.0.1:5001 --workers 2 --timeout 90 app:application >/tmp/form-compiler.log 2>&1 &
           curl --retry 20 --retry-connrefused --retry-delay 1 --fail http://127.0.0.1:5001/healthz
       - run: npx mocha --timeout 15000 test/integration/api/field-data-analysis.js test/integration/api/field-data-capabilities.js test/integration/api/field-data-completion.js test/unit/util/analysis-data.js test/unit/util/feature-capabilities.js test/unit/util/builder-diagnostics.js test/unit/util/xlsform-builder.js
-      - run: node --test ../../tests/external-monitor.test.cjs
+      - run: node --test ../../tests/external-monitor.test.cjs ../../tests/deployment-error-report.test.cjs
       - run: node test/xlsform/roundtrip.js && node test/xlsform/advanced-roundtrip.js
 
   frontend-build:

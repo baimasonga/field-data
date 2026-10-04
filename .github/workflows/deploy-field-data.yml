@@ -8,7 +8,7 @@ on:
 
 concurrency:
   group: field-data-production
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 permissions:
   contents: read
@@ -261,9 +261,17 @@ jobs:
             FIELD_DATA_ADMIN_PASSWORD: env.FIELD_DATA_ADMIN_PASSWORD,
             EMAIL_USER: env.EMAIL_USER, EMAIL_PASSWORD: env.EMAIL_PASSWORD
           } | with_entries(select(.value != null and .value != ""))' > "$secret_file"
+          deploy_log="$RUNNER_TEMP/field-data-deploy.log"
+          set +e
           npx --no-install wrangler deploy \
             --var "CONTAINER_BUILD_ID:${{ github.sha }}" \
-            --secrets-file "$secret_file"
+            --secrets-file "$secret_file" 2>&1 | tee "$deploy_log"
+          deploy_status=${PIPESTATUS[0]}
+          set -e
+          if [[ "$deploy_status" != 0 ]]; then
+            node tools/deployment-error-report.cjs "$deploy_log"
+            exit "$deploy_status"
+          fi
 
       - name: Verify live health endpoint
         run: |
