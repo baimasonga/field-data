@@ -9,6 +9,15 @@ const { runAlerts } = require('../../../lib/worker/field-data-alerts');
 const selection = { source: { kind: 'form', id: 1 }, columns: ['/name', '/age'] };
 const submit = (user, id, age) => user.post('/v1/projects/1/forms/simple/submissions').set('Content-Type', 'text/xml').send(`<data id="simple"><meta><instanceID>uuid:${id}</instanceID></meta><name>North</name><age>${age}</age></data>`).expect(200);
 describe('api: feature completion', () => {
+  it('serves the deployed cross-project API walk for an authorized user', testService(async service => {
+    const alice = await service.login('alice');
+    await submit(alice, 'cross-project-acceptance', 25);
+    await alice.get('/v1/users/current').expect(200);
+    await alice.get('/v1/projects').expect(200);
+    await alice.get('/v1/field-data/forms?limit=1').expect(200);
+    await alice.get('/v1/field-data/submissions?limit=1').expect(200);
+    await alice.get('/v1/field-data/map?limit=1').expect(200);
+  }));
   it('delivers alert transitions once and retries failures without external recipients', testService(async (_, c) => {
     await c.db.query(sql`insert into field_data_operations_events (name,kind,detail) values ('compiler','alert','Synthetic outage')`);
     const db = { connect: work => work(c.db) }; let calls = 0;
