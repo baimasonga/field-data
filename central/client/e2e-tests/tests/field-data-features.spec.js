@@ -136,7 +136,7 @@ test('export jobs survive reload and explain an expired download on mobile', asy
 
 test('map layer retry clears failure and reference properties remain inert text', async ({ page }) => {
   let attempts = 0;
-  await page.route('**/*.tile.openstreetmap.org/**', route => route.abort());
+  await page.route('**/tile.openstreetmap.org/**', route => route.abort());
   await api(page, async (route, path) => {
     if (path.endsWith('/sources')) { await route.fulfill({ json: { forms: [{ id: 1, name: 'Survey' }], filtered: [], merged: [] } }); return true; }
     if (path.endsWith('/query')) { await route.fulfill({ json: { ...result('Map'), map: { type: 'FeatureCollection', features: [] } } }); return true; }
@@ -161,4 +161,50 @@ test('map layer retry clears failure and reference properties remain inert text'
   await expect(page.locator('.leaflet-popup-content')).toContainText('<img src=x');
   await expect(page.locator('.leaflet-popup-content img')).toHaveCount(0);
   expect(await page.evaluate(() => window.injected)).toBeUndefined();
+});
+
+const explorerFixture = rows => ({ rows, forms: [], photos: [], charts: { byDistrict: [], byStatus: [], byForm: [], trend: [] } });
+test('explorer requests no tiles and invents no GPS points when locations are absent', async ({ page }) => {
+  let tiles = 0;
+  await page.route('**/tile.openstreetmap.org/**', route => { tiles += 1; return route.abort(); });
+  await api(page, async (route, path) => {
+    if (path === '/v1/field-data/explore') { await route.fulfill({ json: explorerFixture([{ id: 1, form: 'Synthetic', district: 'Bo', lat: null, lng: null }]) }); return true; }
+    return false;
+  });
+  await page.goto(`${appUrl}/field-data/explore`);
+  await page.getByRole('tab', { name: /Map/ }).click();
+  await expect(page.getByText('These submissions have no location data yet.')).toBeVisible();
+  await expect(page.locator('.leaflet-container')).toHaveCount(0);
+  expect(tiles).toBe(0);
+});
+
+test('explorer tiles identify only the origin and failures preserve real GPS points with retry', async ({ page }) => {
+  let fail = true; const referrers = [];
+  const transparentPng = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aWQAAAABJRU5ErkJggg==', 'base64');
+  await page.route('**/tile.openstreetmap.org/**', async route => {
+    referrers.push(route.request().headers().referer);
+    await route.fulfill(fail ? { status: 403, body: 'Blocked' } : { status: 200, contentType: 'image/png', body: transparentPng });
+  });
+  await api(page, async (route, path) => {
+    if (path === '/v1/field-data/explore') { await route.fulfill({ json: explorerFixture([{ id: 1, form: '<img src=x onerror=bad>', lat: 8.46, lng: -11.79 }]) }); return true; }
+    return false;
+  });
+  await page.route('**/field-data/explore?private-selection=synthetic', async route => {
+    const response = await route.fetch();
+    await route.fulfill({ response, headers: { ...response.headers(), 'referrer-policy': 'same-origin' } });
+  });
+  await page.goto(`${appUrl}/field-data/explore?private-selection=synthetic`);
+  await page.getByRole('tab', { name: /Map/ }).click();
+  await expect(page.getByRole('button', { name: 'Retry background map' })).toBeVisible();
+  await expect(page.locator('.leaflet-tile')).toHaveCount(0);
+  await expect(page.locator('.leaflet-interactive')).toHaveCount(1);
+  expect(referrers.length).toBeGreaterThan(0);
+  expect(referrers.every(value => value === `${new URL(appUrl).origin}/`)).toBe(true);
+  fail = false;
+  await page.getByRole('button', { name: 'Retry background map' }).click();
+  await expect(page.locator('.leaflet-tile-loaded').first()).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Retry background map' })).toHaveCount(0);
+  await page.locator('.leaflet-interactive').click();
+  await expect(page.locator('.leaflet-popup-content')).toContainText('<img src=x');
+  await expect(page.locator('.leaflet-popup-content img')).toHaveCount(0);
 });

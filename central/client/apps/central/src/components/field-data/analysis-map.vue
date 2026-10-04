@@ -2,6 +2,10 @@
 <template>
   <div>
     <p v-if="error" role="alert">{{ error }} <button type="button" class="btn btn-default" @click="load">Retry reference layers</button></p>
+    <p v-if="basemapError" role="status">
+Background map unavailable. Submission locations and reference layers remain visible.
+      <button type="button" class="btn btn-default" @click="retryBasemap">Retry background map</button>
+    </p>
     <div ref="mapEl" class="analysis-map"></div>
     <p v-if="!data.features.length">No valid submission locations in this selection.</p>
     <fieldset>
@@ -48,6 +52,7 @@
 import { nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
+import { addBasemap } from '../../util/basemap';
 import useRequest from '../../composables/request';
 
 defineOptions({ name: 'AnalysisMap' });
@@ -55,7 +60,13 @@ const props = defineProps({ data: { type: Object, required: true }, projectId: {
 const { request } = useRequest(); const layers = ref([]); const error = ref(''); const busy = ref(false);
 const title = ref(''); const attribution = ref(''); const upload = ref(null); const editing = ref(null);
 const styleText = ref('{"mode":"single","color":"#137d92","missingColor":"#777777"}');
+const basemapError = ref(false); let basemap = null;
 const mapEl = ref(null); let map = null; const rendered = new Map(); let generation = 0;
+const retryBasemap = () => {
+  if (!map) return;
+  basemap?.remove(); basemapError.value = false;
+  basemap = addBasemap(map, () => { basemapError.value = true; });
+};
 const base = () => `/v1/projects/${props.projectId}/map-layers`;
 const legend = layer => { const s = layer.definition.style; return s.mode === 'numeric' ? s.bins.map(b => ({ color: b.color, label: `≤ ${b.max} ${s.units}` })) : s.categories.map(c => ({ color: c.color, label: c.value })); };
 const fillColor = (feature, style) => {
@@ -68,7 +79,7 @@ const fillColor = (feature, style) => {
 const render = async () => {
   await nextTick(); if (!mapEl.value) return; if (map) map.remove(); rendered.clear();
   map = L.map(mapEl.value, { scrollWheelZoom: false }).setView([8.46, -11.79], 7);
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '&copy; OpenStreetMap' }).addTo(map);
+  retryBasemap();
   for (const layer of layers.value) {
     const s = layer.definition.style;
     const geo = L.geoJSON(layer.data, {
