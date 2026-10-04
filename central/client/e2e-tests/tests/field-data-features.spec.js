@@ -360,3 +360,31 @@ test('explorer tabs support arrow keys and expose the selected state', async ({ 
   await expect(page.getByRole('tab', { name: /Map/ })).toBeFocused(); await expect(page.getByRole('tab', { name: /Map/ })).toHaveAttribute('aria-selected', 'true');
   await page.getByRole('tab', { name: /Map/ }).press('Home'); await expect(table).toHaveAttribute('aria-selected', 'true');
 });
+
+for (const width of [1280, 320]) test(`public landing page supports navigation and FAQ disclosure at ${width}px`, async ({ page }) => {
+  const errors = []; page.on('pageerror', error => errors.push(error.message));
+  await page.setViewportSize({ width, height: 900 }); await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.route('**/client-config.json', route => route.fulfill({ json: {} }));
+  await page.route('**/version.txt', route => route.fulfill({ body: 'fixture' }));
+  await page.route('**/v1/**', route => route.fulfill({ status: 401, json: { code: 401.2, message: 'Not authenticated' } }));
+  await page.goto(appUrl);
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Better field data. Clearer decisions.');
+  await expect(page.getByRole('main')).toHaveCount(1);
+  await expect(page.locator('.navbar')).toHaveCount(0);
+  await expect(page.locator('.landing-product figcaption')).toContainText('example data');
+  expect(await page.locator('.landing-product img').evaluate(image => image.complete && image.naturalWidth > 0)).toBe(true);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  const features = page.getByRole('navigation', { name: 'Page navigation' }).getByRole('link', { name: 'Features', exact: true });
+  await features.focus(); await page.keyboard.press('Enter'); await expect(page).toHaveURL(/#landing-capabilities$/);
+  const question = page.locator('summary').filter({ hasText: 'Can our team collect data offline?' });
+  const answer = question.locator('..').locator('p'); await expect(answer).toBeHidden();
+  await question.focus(); await page.keyboard.press('Enter'); await expect(answer).toBeVisible();
+  await expect(question.locator('.when-open')).toBeVisible();
+  await page.keyboard.press('Enter'); await expect(answer).toBeHidden();
+  await expect(page.locator('#landing-contact a[href="mailto:contact@quantixsl.com"]')).toHaveCount(2);
+  await expect(page.locator('#landing-contact a[href="tel:+23276141009"]')).toBeVisible();
+  await expect(page.locator('#landing-contact a[href="tel:+23276603107"]')).toBeVisible();
+  await page.getByRole('link', { name: 'Log in', exact: true }).first().click();
+  await expect(page).toHaveURL(/\/login$/); await expect(page.locator('.navbar')).toBeVisible();
+  expect(errors).toEqual([]);
+});

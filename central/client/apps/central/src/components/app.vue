@@ -10,7 +10,7 @@ including this file, may be copied, modified, propagated, or distributed
 except according to the terms contained in the LICENSE file.
 -->
 <template>
-  <div :class="{ 'fd-shell': visiblyLoggedIn }">
+  <div :class="{ 'fd-shell': visiblyLoggedIn, 'fd-public-landing': publicLanding }">
     <a class="fd-skip-link" href="#fd-main-content">Skip to content</a>
     <!-- Field Data: a left sidebar replaces the horizontal nav once logged in.
     Logged out (e.g. the login page) keeps the plain top navbar. -->
@@ -18,7 +18,7 @@ except according to the terms contained in the LICENSE file.
     <div class="fd-main-col">
       <!-- If the user's session is restored during the initial navigation, that
       will affect how the navbar is rendered. -->
-      <navbar v-show="routerReady"/>
+      <navbar v-if="!publicLanding" v-show="routerReady"/>
       <outdated-version/>
       <alerts/>
       <feedback-button v-if="showsFeedbackButton"/>
@@ -77,6 +77,9 @@ export default {
     return { visiblyLoggedIn, centralVersion, callWait };
   },
   computed: {
+    publicLanding() {
+      return !this.visiblyLoggedIn && this.$route.name === 'Landing';
+    },
     routerReady() {
       return this.$route !== START_LOCATION;
     },
