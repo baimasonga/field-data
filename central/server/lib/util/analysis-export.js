@@ -15,23 +15,31 @@ const write = payload => new Promise((resolve, reject) => {
   });
   req.setTimeout(60000, () => req.destroy(new Error('Export writer timed out.'))); req.on('error', reject); req.end(body);
 });
-const exportSelection = async (container, params, auth, body) => {
+const prepareExport = async (container, params, auth, body) => {
   if (!['csv', 'xlsx', 'kml', 'sav', 'dta'].includes(params.format)) throw invalid('format', params.format, 'Unsupported export format.');
   const { source } = await authorizeSource(container, params.projectId, body?.source, auth);
   const definition = normalizeAnalysis(body, source);
   // Repeat descendants are exported in separate joinable tables; never flattened to first answers.
   const fields = source.fields.filter(f => !['structure', 'group', 'repeat'].includes(f.type) && (body.columns == null || body.columns.includes(f.path) || (f.repeated && body.includeRepeats !== false)));
-  const rows = await container.db.any(sql`with bounded as (select selected."instanceId", selected."sourceForm", selected."submittedAt", sd.xml from (${scopedRowsSql(source, definition)}) selected
+  const boundary = source.kind === 'filtered'
+    ? { formId: source.dataset.formId, columns: source.definition.columns, query: source.definition.query }
+    : { forms: source.forms.map(f => f.formId), fields: source.fields.map(f => [f.path, f.type]) };
+  return { source, definition, fields, payload: { format: params.format, source: body.source, definition, fields, repeatPaths: source.repeatPaths, geometry: definition.geometry, boundary } };
+};
+const exportRowsSql = (source, definition, limit) => sql`select selected."instanceId", selected."sourceForm", selected."submittedAt", sd.xml from (${scopedRowsSql(source, definition)}) selected
     join forms f on f."xmlFormId"=selected."sourceForm" and f.id=any(${sql.array(source.kind === 'filtered' ? [source.dataset.formId] : source.forms.map(f => f.formId), 'int4')})
     join submissions s on s."formId"=f.id and s."instanceId"=selected."instanceId" and s."deletedAt" is null and not s.draft
     join submission_defs sd on sd."submissionId"=s.id and sd.current=true
-    order by selected."submittedAt", selected."instanceId" limit 5001)
+    order by selected."submittedAt", selected."sourceForm", selected."instanceId" limit ${limit}`;
+const exportSelection = async (container, params, auth, body) => {
+  const { source, definition, payload } = await prepareExport(container, params, auth, body);
+  const rows = await container.db.any(sql`with bounded as (${exportRowsSql(source, definition, 5001)})
     select "instanceId", "sourceForm", "submittedAt",
       sum(octet_length(xml)) over () > 20 * 1024 * 1024 as "tooLarge",
       case when sum(octet_length(xml)) over () <= 20 * 1024 * 1024 then xml else null end as xml from bounded`);
   if (rows.length > 5000) throw invalid('export', null, 'Export is limited to 5000 submissions. Add filters.');
   if (rows.some(r => r.tooLarge)) throw invalid('export', null, 'Source XML exceeds 20 MB. Add filters.');
-  return write({ format: params.format, source: body.source, definition, fields, repeatPaths: source.repeatPaths, geometry: definition.geometry,
+  return write({ ...payload,
     rows: rows.map(r => ({ instanceId: r.instanceId, sourceForm: r.sourceForm, submittedAt: r.submittedAt, xml: r.xml })) });
 };
-module.exports = { exportSelection };
+module.exports = { exportSelection, prepareExport, exportRowsSql, write };

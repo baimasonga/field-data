@@ -5,6 +5,14 @@ const { storage } = require('../external/field-data-storage');
 const { invalid } = require('../util/analysis-data');
 const normalizePolicy = p => {
   const result = { version: 1, scheduledBackups: p.scheduledBackups === true, backupHour: Number(p.backupHour), retentionDays: Number(p.retentionDays), failAfter: Number(p.failAfter), staleHours: Number(p.staleHours) };
+  result.operator = String(p.operator || '').trim();
+  result.availabilityTarget = p.availabilityTarget == null || p.availabilityTarget === '' ? null : Number(p.availabilityTarget);
+  result.recoveryMinutes = p.recoveryMinutes == null || p.recoveryMinutes === '' ? null : Number(p.recoveryMinutes);
+  result.dataLossMinutes = p.dataLossMinutes == null || p.dataLossMinutes === '' ? null : Number(p.dataLossMinutes);
+  result.completeBackups = p.completeBackups === true;
+  if (result.operator.length > 255) throw invalid('operator', null, 'Use at most 255 characters.');
+  for (const [key, min, max] of [['availabilityTarget', 90, 100], ['recoveryMinutes', 1, 10080], ['dataLossMinutes', 0, 10080]])
+    if (result[key] != null && (!Number.isFinite(result[key]) || result[key] < min || result[key] > max)) throw invalid(key, null, `Use a target from ${min} to ${max}.`);
   for (const [key, min, max] of [['backupHour', 0, 23], ['retentionDays', 7, 365], ['failAfter', 1, 10], ['staleHours', 24, 168]]) if (!Number.isSafeInteger(result[key]) || result[key] < min || result[key] > max) throw invalid(key, p[key], `Use an integer from ${min} to ${max}.`);
   return result;
 };
@@ -47,7 +55,7 @@ const runOperations = async (db, dependencies = {}) => {
   if (policy.scheduledBackups && ready && new Date().getUTCHours() === policy.backupHour) {
     await db.transaction(async c => {
       await c.query(sql`select pg_advisory_xact_lock(74132, 1)`);
-      await c.query(sql`insert into field_data_backups (type, size, status, "statusColor") select 'Scheduled', '—', 'Pending', 'info' where not exists (select 1 from field_data_backups where status in ('Pending', 'Running') or date > clock_timestamp() - interval '23 hours')`);
+      await c.query(sql`insert into field_data_backups (type, size, status, "statusColor") select ${policy.completeBackups ? 'Recovery' : 'Scheduled'}, '—', 'Pending', 'info' where not exists (select 1 from field_data_backups where status in ('Pending', 'Running') or date > clock_timestamp() - interval '23 hours')`);
     });
   }
   const expired = await db.any(sql`select id, "storageKey" from field_data_backups where status='Success' and "completedAt" < clock_timestamp() - ${policy.retentionDays} * interval '1 day' and id <> (select id from field_data_backups where status='Success' order by "completedAt" desc limit 1)`);
@@ -60,7 +68,7 @@ const runOperations = async (db, dependencies = {}) => {
   const cleanup = await db.any(sql`select key from field_data_storage_cleanup where "createdAt" < clock_timestamp() - interval '1 hour' limit 50`);
   for (const row of cleanup) {
     // eslint-disable-next-line no-await-in-loop
-    const referenced = await db.oneFirst(sql`select exists(select 1 from field_data_map_layers where "storageKey"=${row.key})`);
+    const referenced = await db.oneFirst(sql`select exists(select 1 from field_data_map_layers where "storageKey"=${row.key}) or exists(select 1 from field_data_export_jobs where "storageKey"=${row.key})`);
     if (!referenced) {
       // eslint-disable-next-line no-await-in-loop
       await store.delete(row.key);

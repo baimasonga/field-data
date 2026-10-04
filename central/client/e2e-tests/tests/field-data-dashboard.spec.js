@@ -85,5 +85,5 @@ test('integrations belong to System and dashboard is not active on another page'
       links.push(el.textContent.trim());
     return links;
   });
-  expect(systemLinks).toEqual(['DHIS2 Mapping', 'Webhooks', 'Audit Logs', 'Backups', 'Settings']);
+  expect(systemLinks).toEqual(['DHIS2 Mapping', 'Webhooks', 'Audit Logs', 'Operations', 'Backups', 'Settings']);
 });

@@ -126,6 +126,7 @@ module.exports = (container) => {
   require('../resources/field-data')(service, endpoint, container, anonymousEndpoint);
   require('../resources/field-data-workspaces')(service, endpoint, container, anonymousEndpoint);
   require('../resources/field-data-analysis')(service, endpoint);
+  require('../resources/field-data-export-jobs')(service, endpoint);
   require('../resources/field-data-map-layers')(service, endpoint);
   require('../resources/field-data-catalog')(service, endpoint, anonymousEndpoint);
   require('../resources/field-data-operations')(service, endpoint);

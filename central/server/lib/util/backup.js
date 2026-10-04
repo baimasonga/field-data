@@ -18,7 +18,7 @@ const OPENSSL_DECRYPT_ARGV = ['enc', '-d', '-pbkdf2', '-pass', 'env:ODK_BACKUP_P
 const backupSchema = () => process.env.FIELD_DATA_DB_SCHEMA
   || (process.env.SUPABASE_S3_ENDPOINT ? 'field_data' : null);
 
-const getEncryptedPgDumpStream = async (passphrase = '', { signal } = {}) => {
+const getEncryptedPgDumpStream = async (passphrase = '', { signal, snapshot } = {}) => {
   const schema = backupSchema();
   if (schema != null && !/^[a-z_][a-z0-9_]*$/.test(schema)) {
     throw new Error('Invalid FIELD_DATA_DB_SCHEMA.');
@@ -26,6 +26,10 @@ const getEncryptedPgDumpStream = async (passphrase = '', { signal } = {}) => {
   // gzip works on every supported pg_dump version. Never interpolate credentials
   // or schema names into shell commands, and never dump Supabase-managed schemas.
   const args = ['--no-password', '--format=custom', '--compress=6'];
+  if (snapshot != null) {
+    if (!/^[0-9A-Fa-f-]+$/.test(snapshot)) throw new Error('Invalid snapshot.');
+    args.push(`--snapshot=${snapshot}`);
+  }
   if (schema != null) args.push(`--schema=${schema}`, '--strict-names');
   const dump = spawn('pg_dump', args, { stdio: ['ignore', 'pipe', 'inherit'], signal });
   const encrypt = spawn('openssl', ['enc', '-chacha20', '-pbkdf2', '-pass', 'env:ODK_BACKUP_PASSPHRASE'], {

@@ -49,8 +49,11 @@ describe('api: feature capabilities', () => {
     assert.deepEqual(anonymous.release, preview.release); headers['cache-control'].should.equal('no-store');
     assert.ok(!JSON.stringify(anonymous).includes('instanceId'));
     (await service.get('/v1/field-data/catalog?q=Synthetic').expect(200)).body.length.should.equal(1);
+    const publicProject = (await service.get(`/v1/field-data/catalog/projects/${published.id}`).expect(200)).body;
+    assert.equal(publicProject.releases.length, 1); assert.ok(!JSON.stringify(publicProject).includes('projectId'));
     await alice.delete(`/v1/projects/1/catalog/${published.id}`).expect(200);
     await service.get(`/v1/field-data/catalog/${published.id}`).expect(404);
+    await service.get(`/v1/field-data/catalog/projects/${published.id}`).expect(404);
     (await service.get('/v1/field-data/catalog').expect(200)).body.should.eql([]);
   }));
   it('operations policy is privileged and bounded', testService(async service => {

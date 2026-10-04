@@ -10,14 +10,14 @@
         for a Form to come into being. -->
         <ul class="nav nav-tabs form-new-tabs" role="tablist">
           <li :class="{ active: mode === 'upload' }" role="presentation">
-            <a role="tab" @click.prevent="mode = 'upload'">{{ $t('tab.upload') }}</a>
+            <a role="tab" tabindex="0" :aria-selected="mode === 'upload'" @keydown.enter.prevent="mode = 'upload'" @keydown.space.prevent="mode = 'upload'" @click.prevent="mode = 'upload'">{{ $t('tab.upload') }}</a>
           </li>
           <li :class="{ active: mode === 'build' }" role="presentation">
-            <a role="tab" @click.prevent="mode = 'build'">{{ $t('tab.build') }}</a>
+            <a role="tab" tabindex="0" :aria-selected="mode === 'build'" @keydown.enter.prevent="mode = 'build'" @keydown.space.prevent="mode = 'build'" @click.prevent="mode = 'build'">{{ $t('tab.build') }}</a>
           </li>
         </ul>
         <form-upload v-if="mode === 'upload'" @success="afterCreate"/>
-        <form-builder v-else-if="project.dataExists" :project-id="project.id"
+        <form-builder v-else-if="project.dataExists" :project-id="project.id" :initial-advanced="advancedEntry"
           @success="afterCreate"/>
       </template>
     </page-section>
@@ -26,7 +26,7 @@
 
 <script setup>
 import { inject, ref } from 'vue';
-import { useRouter } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
 import { useI18n } from 'vue-i18n';
 
 import { useRequestData } from '../../request-data';
@@ -40,7 +40,8 @@ defineOptions({
   name: 'FormNewPage'
 });
 
-const mode = ref('upload');
+const advancedEntry = useRoute().query.builder === 'advanced';
+const mode = ref(advancedEntry ? 'build' : 'upload');
 
 const router = useRouter();
 const { t } = useI18n();

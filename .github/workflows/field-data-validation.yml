@@ -99,7 +99,8 @@ jobs:
         run: |
           nohup python -m gunicorn --bind 127.0.0.1:5001 --workers 2 --timeout 90 app:application >/tmp/form-compiler.log 2>&1 &
           curl --retry 20 --retry-connrefused --retry-delay 1 --fail http://127.0.0.1:5001/healthz
-      - run: npx mocha --timeout 15000 test/integration/api/field-data-analysis.js test/integration/api/field-data-capabilities.js test/unit/util/analysis-data.js test/unit/util/feature-capabilities.js test/unit/util/xlsform-builder.js
+      - run: npx mocha --timeout 15000 test/integration/api/field-data-analysis.js test/integration/api/field-data-capabilities.js test/integration/api/field-data-completion.js test/unit/util/analysis-data.js test/unit/util/feature-capabilities.js test/unit/util/builder-diagnostics.js test/unit/util/xlsform-builder.js
+      - run: node --test ../../tests/external-monitor.test.cjs
       - run: node test/xlsform/roundtrip.js && node test/xlsform/advanced-roundtrip.js
 
   frontend-build:
@@ -116,6 +117,8 @@ jobs:
           cache-dependency-path: central/client/package-lock.json
       - run: npm ci --no-audit --no-fund
       - run: npm run build
+      - run: npx playwright install --with-deps chromium
+      - run: npx playwright test -c e2e-tests/field-data.config.js
 
   form-compiler:
     runs-on: ubuntu-latest

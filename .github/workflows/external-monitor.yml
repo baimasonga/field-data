@@ -1,0 +1,40 @@
+name: Field Data external monitoring
+on:
+  schedule:
+    - cron: '*/15 * * * *'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: field-data-external-monitor
+  cancel-in-progress: false
+jobs:
+  monitor:
+    if: vars.FIELD_DATA_MONITOR_BASE_URL != ''
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      FIELD_DATA_MONITOR_BASE_URL: ${{ vars.FIELD_DATA_MONITOR_BASE_URL }}
+      FIELD_DATA_MONITOR_EMAIL: ${{ secrets.FIELD_DATA_MONITOR_EMAIL }}
+      FIELD_DATA_MONITOR_PASSWORD: ${{ secrets.FIELD_DATA_MONITOR_PASSWORD }}
+      FIELD_DATA_MONITOR_FAIL_AFTER: ${{ vars.FIELD_DATA_MONITOR_FAIL_AFTER }}
+      FIELD_DATA_MONITOR_STATE_FILE: /tmp/field-data-monitor-state.json
+      FIELD_DATA_ALERT_DELIVERY_ENABLED: ${{ vars.FIELD_DATA_ALERT_DELIVERY_ENABLED }}
+      FIELD_DATA_ALERT_WEBHOOK_URL: ${{ secrets.FIELD_DATA_ALERT_WEBHOOK_URL }}
+      FIELD_DATA_ALERT_WEBHOOK_SECRET: ${{ secrets.FIELD_DATA_ALERT_WEBHOOK_SECRET }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24.16.0'
+      - uses: actions/cache/restore@v4
+        with:
+          path: /tmp/field-data-monitor-state.json
+          key: field-data-monitor-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: field-data-monitor-
+      - run: node tools/external-monitor.cjs
+      - uses: actions/cache/save@v4
+        if: always()
+        with:
+          path: /tmp/field-data-monitor-state.json
+          key: field-data-monitor-${{ github.run_id }}-${{ github.run_attempt }}

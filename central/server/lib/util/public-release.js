@@ -9,7 +9,9 @@ const normalizePublication = body => {
   const { categories } = body;
   if (!Array.isArray(categories) || categories.length < 2 || categories.length > 25 || categories.some(c => typeof c !== 'string' || !c || c.length > 100) || new Set(categories).size !== categories.length) throw invalid('categories', null, 'Explicitly approve 2–25 categorical choice names.');
   const label = value('label'); if (!label || label.length > 255) throw invalid('label', null, 'Use an approved public field label.');
-  return { metadata: { version: 1, title, description, attribution, license: body.license }, categories, label };
+  const projectTitle = value('projectTitle'); const projectDescription = value('projectDescription');
+  if (projectTitle.length > 255 || projectDescription.length > 2000) throw invalid('project', null, 'Public project title and description are too long.');
+  return { metadata: { version: 1, title, description, attribution, license: body.license, projectTitle, projectDescription }, categories, label };
 };
 const suppressRelease = (rows, config) => {
   // Publish a complete approved distribution only when every cell meets k=5.

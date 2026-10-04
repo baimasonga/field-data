@@ -1,7 +1,7 @@
 <!-- Copyright 2026 Field Data Developers. Licensed under the Apache License, Version 2.0. -->
 <template>
   <div>
-    <p v-if="error" role="alert">{{ error }}</p>
+    <p v-if="error" role="alert">{{ error }} <button type="button" class="btn btn-default" @click="load">Retry reference layers</button></p>
     <div ref="mapEl" class="analysis-map"></div>
     <p v-if="!data.features.length">No valid submission locations in this selection.</p>
     <fieldset>
@@ -82,7 +82,7 @@ const render = async () => {
   if (props.data.features.length) map.fitBounds(points.getBounds(), { maxZoom: 14 });
 };
 const load = async () => {
-  generation += 1; const current = generation;
+  generation += 1; const current = generation; error.value = '';
   try { const { data } = await request({ method: 'GET', url: base(), alert: false }); if (current !== generation) return; layers.value = data; await render(); } catch { if (current === generation) error.value = 'Reference layers could not be loaded. Retry by reopening the map.'; }
 };
 const update = (layer, data) => request({ method: 'PUT', url: `${base()}/${layer.id}`, headers: { 'If-Match': `"layer-${layer.revision}"` }, data });

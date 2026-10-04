@@ -92,6 +92,7 @@ const groups = computed(() => [
   {
     key: 'collection', label: t('group.collection'), items: [
       { to: '/', icon: 'projects', label: t('nav.projects'), show: true, exact: true },
+      { to: '/field-data/form-builder', icon: 'templates', label: 'Form Builder', show: true },
       { to: '/field-data/templates', icon: 'templates', label: t('nav.templates'), show: can('project.create') },
       { to: '/field-data/catalog', icon: 'report', label: 'Public catalogue', show: can('project.create') },
       { to: '/field-data/analysis', icon: 'explore', label: 'Analysis', show: true },

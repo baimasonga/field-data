@@ -62,6 +62,13 @@ module.exports = (service, endpoint, anonymousEndpoint) => {
     return { success: true };
   }));
   const visible = sql`r.published=true and p."deletedAt" is null and f."deletedAt" is null and f."currentDefId" is not null`;
+  service.get('/field-data/catalog/projects/:id', rateLimit, anonymousEndpoint(async (c, { params }, _, response) => {
+    response.set('Cache-Control', 'no-store'); if (!uuid.test(params.id)) throw Problem.user.notFound();
+    const seed = await c.db.maybeOne(sql`select r."projectId", r.metadata from field_data_public_releases r join projects p on p.id=r."projectId" join forms f on f.id=r."formId" where r.id=${params.id} and ${visible}`);
+    if (!seed) throw Problem.user.notFound();
+    const releases = await c.db.any(sql`select r.id, r.metadata, r."publishedAt" from field_data_public_releases r join projects p on p.id=r."projectId" join forms f on f.id=r."formId" where r."projectId"=${seed.projectId} and ${visible} order by r."publishedAt" desc limit 100`);
+    return { title: seed.metadata.projectTitle || seed.metadata.title, description: seed.metadata.projectDescription || '', releases: releases.map(r => ({ id: r.id, ...r.metadata, publishedAt: r.publishedAt })) };
+  }));
   service.get('/field-data/catalog', rateLimit, anonymousEndpoint(async (c, { query }, _, response) => {
     response.set('Cache-Control', 'no-store'); const term = String(query.q || '').slice(0, 100);
     const rows = await c.db.any(sql`select r.id, r.metadata, r."publishedAt" from field_data_public_releases r join projects p on p.id=r."projectId" join forms f on f.id=r."formId" where ${visible} and position(lower(${term}) in lower((r.metadata->>'title') || ' ' || (r.metadata->>'description'))) > 0 order by r."publishedAt" desc limit 50`);

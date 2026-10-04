@@ -4,6 +4,7 @@
 const { sql } = require('slonik');
 const { storage, formatBytes } = require('../external/field-data-storage');
 const { getEncryptedPgDumpStream } = require('../util/backup');
+const { getRecoveryBundle } = require('../util/recovery-bundle');
 
 // A session lock spans the upload, but each status update commits independently.
 // Supavisor session mode is required. A killed runner releases its lock; the next
@@ -28,7 +29,7 @@ const runBackups = (db, dependencies = {}) => db.connect(async connection => {
     const record = await connection.maybeOne(sql`
       select * from field_data_backups where status='Pending' order by id limit 1`);
     if (record == null) return;
-    const key = `backups/manual-backup-${record.id}.pgdump.enc.bin`;
+    const key = `backups/manual-backup-${record.id}.${record.type === 'Recovery' ? 'recovery' : 'pgdump'}.enc.bin`;
     await connection.query(sql`
       update field_data_backups set status='Running', "storageKey"=${key} where id=${record.id}`);
     const abort = new AbortController();
@@ -40,7 +41,9 @@ const runBackups = (db, dependencies = {}) => db.connect(async connection => {
       if (typeof passphrase !== 'string' || passphrase.length < 16) {
         throw new Error('A backup passphrase of at least 16 characters is required.');
       }
-      input = await dump(passphrase, { signal: abort.signal });
+      input = record.type === 'Recovery'
+        ? await (dependencies.recovery || getRecoveryBundle)(connection, passphrase, { signal: abort.signal, storage: store })
+        : await dump(passphrase, { signal: abort.signal });
       const bytes = await store.putStream(key, input,
         { 'Content-Type': 'application/octet-stream' }, { signal: abort.signal });
       await connection.query(sql`

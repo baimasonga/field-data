@@ -5,7 +5,7 @@ import { resolve } from 'node:path';
 const appUrl = process.env.ODK_URL || 'http://127.0.0.1:8989';
 export default defineConfig({
   testDir: './tests',
-  testMatch: ['field-data-dashboard.spec.js', 'field-data-review.spec.js'],
+  testMatch: ['field-data-dashboard.spec.js', 'field-data-review.spec.js', 'field-data-features.spec.js'],
   timeout: 30_000,
   expect: { timeout: 10_000 },
   forbidOnly: !!process.env.CI,

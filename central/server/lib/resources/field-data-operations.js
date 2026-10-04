@@ -6,7 +6,7 @@ module.exports = (service, endpoint) => {
   service.get('/field-data/operations', endpoint(async (c, { auth }, _, response) => {
     await auth.canOrReject('backup.run', Config.species); response.set('Cache-Control', 'private, no-store');
     const [checks, events, policy] = await Promise.all([c.db.any(sql`select * from field_data_operations_checks order by name`), c.db.any(sql`select * from field_data_operations_events order by id desc limit 100`), c.db.oneFirst(sql`select definition from field_data_operations_policy where id=1`)]);
-    return { checks, events, policy, backupEncryptionConfigured: typeof process.env.FIELD_DATA_BACKUP_PASSPHRASE === 'string' && process.env.FIELD_DATA_BACKUP_PASSPHRASE.length >= 16, observedAt: new Date().toISOString() };
+    return { checks, events, policy, alertDeliveryEnabled: process.env.FIELD_DATA_ALERT_DELIVERY_ENABLED === 'true', alertEndpointConfigured: Boolean(process.env.FIELD_DATA_ALERT_WEBHOOK_URL), backupEncryptionConfigured: typeof process.env.FIELD_DATA_BACKUP_PASSPHRASE === 'string' && process.env.FIELD_DATA_BACKUP_PASSPHRASE.length >= 16, observedAt: new Date().toISOString() };
   }));
   service.put('/field-data/operations/policy', endpoint(async (c, { auth, body }) => {
     await auth.canOrReject('config.set', Config.species); const policy = normalizePolicy(body);

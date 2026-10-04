@@ -14,6 +14,11 @@ describe('(util) new feature boundaries', () => {
     assert.throws(() => normalizeLayer({ ...geo([1, 1]), data: { ...geo([1, 1]).data, crs: {} } }));
     assert.throws(() => normalizeLayer({ ...geo([1, 1]), style: { mode: 'numeric', property: 'name', bins: [{ max: 10, color: '#112233' }, { max: 5, color: '#112233' }] } }));
   });
+  it('rejects oversized and open-ring reference layers', () => {
+    assert.throws(() => normalizeLayer({ ...geo([1, 1]), data: { type: 'FeatureCollection', features: Array(5001).fill(geo([1, 1]).data.features[0]) } }));
+    assert.throws(() => normalizeLayer({ ...geo([1, 1]), data: { type: 'FeatureCollection', features: [{ type: 'Feature', geometry: { type: 'Polygon', coordinates: [[[0, 0], [1, 0], [1, 1], [0, 1]]] }, properties: {} }] } }));
+    assert.throws(() => normalizeLayer({ ...geo([1, 1]), data: { ...geo([1, 1]).data, oversized: 'x'.repeat(2097152) } }));
+  });
   it('withholds the whole public distribution when a cell is rare', () => {
     const c = normalizePublication({ title: 'Public', attribution: 'Test', license: 'CC-BY-4.0', categories: ['A', 'B'], label: 'Choice' });
     assert.deepEqual(suppressRelease([{ value: 'A', count: 20 }, { value: 'B', count: 1 }], c).values, []);

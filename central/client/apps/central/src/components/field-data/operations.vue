@@ -11,6 +11,12 @@
       <table class="table"><thead><tr><th>Service</th><th>Status</th><th>Latency</th><th>Last check</th><th>Details</th></tr></thead><tbody><tr v-for="check of result.checks" :key="check.name"><td>{{ check.name }}</td><td>{{ stale(check) ? 'Stale — monitoring unverified' : check.status }} {{ check.alert ? '(active alert)' : '' }}</td><td>{{ check.latencyMs == null ? '—' : `${check.latencyMs} ms` }}</td><td>{{ check.checkedAt }}</td><td>{{ check.detail }}</td></tr></tbody></table>
       <fieldset v-if="canConfigure">
 <legend>Backup and alert policy</legend>
+        <label>Responsible operator<input v-model="policy.operator" class="form-control" maxlength="255"></label>
+        <label>Availability target (%)<input v-model.number="policy.availabilityTarget" class="form-control" type="number" min="90" max="100" step="0.01"></label>
+        <label>Recovery time target (minutes)<input v-model.number="policy.recoveryMinutes" class="form-control" type="number" min="1" max="10080"></label>
+        <label>Acceptable data loss (minutes)<input v-model.number="policy.dataLossMinutes" class="form-control" type="number" min="0" max="10080"></label>
+        <p>Targets express the operator's plan; they are not measured guarantees.</p>
+        <label><input v-model="policy.completeBackups" type="checkbox"> Include referenced object files and external attachments in encrypted recovery bundles</label>
         <label><input v-model="policy.scheduledBackups" type="checkbox"> Schedule daily encrypted database backups</label>
         <label>Daily hour (UTC)<input v-model.number="policy.backupHour" class="form-control" type="number" min="0" max="23"></label>
         <label>Retention days (keeps the latest successful backup)<input v-model.number="policy.retentionDays" class="form-control" type="number" min="7" max="365"></label>
@@ -19,8 +25,9 @@
         <button type="button" class="btn btn-primary" :disabled="busy" @click="save">Save policy</button>
       </fieldset>
       <p>Database backups and object files have separate recovery requirements. Alerts and recoveries are recorded here; external delivery and human escalation must be configured by the operator.</p>
+      <p>External alert delivery: {{ result.alertDeliveryEnabled ? 'Enabled' : 'Disabled' }}; endpoint {{ result.alertEndpointConfigured ? 'configured' : 'missing' }}.</p>
       <h2>Alerts and recoveries</h2><p v-if="!result.events.length">No recorded alert transitions.</p>
-      <p v-for="event of result.events" :key="event.id">{{ event.createdAt }} · {{ event.name }} · {{ event.kind }} · {{ event.detail }}</p>
+      <p v-for="event of result.events" :key="event.id">{{ event.createdAt }} · {{ event.name }} · {{ event.kind }} · {{ event.detail }} · {{ event.deliveredAt ? 'Delivered' : event.attempts >= 10 ? 'Delivery failed; operator action needed' : 'Not delivered' }}</p>
       <p v-if="notice" role="status">{{ notice }}</p>
     </template>
   </section>

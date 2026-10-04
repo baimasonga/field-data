@@ -28,7 +28,8 @@
         <label>Value<input v-model="filterValue" class="form-control"></label>
         <button type="button" class="btn btn-primary" @click="applyFilter">Apply filter</button>
       </fieldset>
-      <p>Downloads include up to 5000 filtered records and joinable repeat tables (CSV/SAV/DTA ZIP). Dates use UTC; statistical choice values retain their original names. Select a location field for KML.</p>
+      <p>Immediate downloads support 5,000 records. Queue larger frozen selections up to 100,000 records or 200 MB XML; downloads expire after 24 hours and contain numbered parts with a manifest. Dates use UTC. Select a location field for KML.</p>
+      <label><input v-model="queueDownload" type="checkbox"> Queue export in the background</label>
       <p>{{ result.total.toLocaleString() }} matching records. Page {{ Math.floor(offset / 100) + 1 }}.</p>
       <div class="analysis-controls">
         <div class="btn-group" role="group" aria-label="Analysis view">
@@ -45,7 +46,6 @@
 Export {{ format.toUpperCase() }}
 </button>
       </div>
-      <p v-if="notice" role="status">{{ notice }}</p>
       <div v-if="tab === 'table'" class="analysis-table">
 <table class="table">
 <thead>
@@ -92,10 +92,19 @@ Export {{ format.toUpperCase() }}
 </div>
     </template>
     <p v-else-if="!loading && !error && sourceKey === ''">Choose a project and source to begin.</p>
+    <p v-if="notice" role="status">{{ notice }}</p>
+    <section v-if="projectId" aria-label="Export jobs">
+      <h2>Export jobs</h2><button type="button" class="btn btn-default" @click="loadJobs">Refresh export progress</button>
+      <p v-for="job of jobs" :key="job.id">
+{{ job.format }} · {{ job.status }} · {{ job.completed }}/{{ job.total }} · expires {{ job.expiresAt }} {{ job.error }}
+        <button v-if="job.status === 'Success'" type="button" class="btn btn-default" @click="downloadJob(job)">Download export</button>
+        <button type="button" class="btn btn-default" @click="removeJob(job)">Remove export</button>
+      </p>
+    </section>
   </section>
 </template>
 <script setup>
-import { computed, ref, watch } from 'vue';
+import { computed, ref, watch, onUnmounted } from 'vue';
 import useRequest from '../../composables/request';
 import AnalysisMap from './analysis-map.vue';
 
@@ -105,6 +114,8 @@ const projects = ref([]); const projectId = ref(''); const sources = ref([]); co
 const selectedColumns = ref([]); const includeRepeats = ref(true);
 const activeViewId = ref('');
 const downloading = ref(false);
+const queueDownload = ref(false); const jobs = ref([]);
+let jobGeneration = 0; let queueId = null; let queueFingerprint = null;
 const views = ref([]); const result = ref(null); const fields = ref([]); const loading = ref(false); const error = ref('');
 const tab = ref('table'); const offset = ref(0); const query = ref([]); const viewTitle = ref(''); const notice = ref('');
 const filterField = ref(''); const filterOperator = ref('='); const filterValue = ref('');
@@ -117,6 +128,17 @@ const definition = () => ({
   geometry: geometry.value || null
 });
 const base = () => `/v1/projects/${projectId.value}/analysis`;
+const loadJobs = async () => {
+  jobGeneration += 1; const current = jobGeneration; if (!projectId.value) return;
+  try { const { data } = await request({ method: 'GET', url: `${base()}/jobs`, alert: false }); if (current === jobGeneration) jobs.value = data; } catch { if (current === jobGeneration) notice.value = 'Export progress could not be loaded. Refresh to retry.'; }
+};
+const timer = setInterval(() => { if (jobs.value.some(j => ['Pending', 'Running'].includes(j.status))) loadJobs(); }, 5000);
+onUnmounted(() => { clearInterval(timer); jobGeneration += 1; });
+const downloadBlob = (data, name) => { const url = URL.createObjectURL(data); const a = document.createElement('a'); a.href = url; a.download = name; a.click(); URL.revokeObjectURL(url); };
+const downloadJob = async job => {
+  try { const { data } = await request({ method: 'GET', url: `${base()}/jobs/${job.id}/download`, responseType: 'blob' }); downloadBlob(data, `analysis-${job.id}.zip`); } catch { notice.value = 'Download failed. Check expiry and current source permissions.'; }
+};
+const removeJob = async job => { try { await request({ method: 'DELETE', url: `${base()}/jobs/${job.id}` }); await loadJobs(); } catch { /* request reports failure */ } };
 const refresh = async () => {
   if (!projectId.value || !sourceKey.value) return;
   generation += 1; const current = generation; loading.value = true; error.value = '';
@@ -160,11 +182,20 @@ const restore = id => {
 const download = async format => {
   downloading.value = true; notice.value = 'Preparing the filtered download…';
   try {
+    if (queueDownload.value) {
+      const payload = { ...definition(), format, includeRepeats: includeRepeats.value };
+      const fingerprint = JSON.stringify([projectId.value, payload]);
+      if (queueFingerprint !== fingerprint) { queueFingerprint = fingerprint; queueId = crypto.randomUUID(); }
+      queueId ||= crypto.randomUUID();
+      await request({ method: 'POST', url: `${base()}/jobs`, data: { ...payload, id: queueId } }); queueId = null;
+      notice.value = 'Export queued. You can leave this page and return to download it within 24 hours.'; await loadJobs(); return;
+    }
     const { data } = await request({ method: 'POST', url: `${base()}/export/${format}`, data: { ...definition(), includeRepeats: includeRepeats.value }, responseType: 'blob' });
     const url = URL.createObjectURL(data); const a = document.createElement('a'); a.href = url; a.download = `analysis.${['csv', 'sav', 'dta'].includes(format) ? 'zip' : format}`; a.click(); URL.revokeObjectURL(url); notice.value = 'Download prepared.';
   } catch { notice.value = 'Download failed. Check the export limits and retry.'; } finally { downloading.value = false; }
 };
 watch(projectId, async () => {
+  jobs.value = []; jobGeneration += 1; queueId = null; loadJobs();
   scopeGeneration += 1; const current = scopeGeneration; generation += 1; sourceKey.value = ''; result.value = null; sources.value = []; views.value = []; error.value = ''; loading.value = false;
   if (!projectId.value) return;
   try {

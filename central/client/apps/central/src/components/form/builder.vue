@@ -34,6 +34,14 @@ That also means the spreadsheet is real, and downloadable. Advanced authoring ad
       <label>Reopen saved form ID<input v-model="reopenId" class="form-control"></label>
       <button type="button" class="btn btn-default" @click="reopen">Load builder definition</button>
       <p v-if="advancedError" role="alert">{{ advancedError }}</p>
+      <h2>Expression dependencies</h2>
+      <p v-if="!dependencies.length">No field references.</p>
+      <ul>
+<li v-for="(d, i) of dependencies" :key="i">
+        <button type="button" class="btn btn-link" @click="focusQuestion(d.id)">{{ d.path }} · {{ d.field }}</button>
+        refers to {{ d.reference }} <strong v-if="d.missing" role="alert">— missing: repair this reference before compiling</strong>
+      </li>
+</ul>
       <div v-for="(question, index) of draft.questions" :key="question.id || question.key">
         <advanced-question :model-value="question" @update:model-value="draft.questions[index] = $event"/>
         <button type="button" class="btn btn-default" :disabled="index === 0" @click="move(index, -1)">Move up</button>
@@ -114,6 +122,7 @@ That also means the spreadsheet is real, and downloadable. Advanced authoring ad
     </button>
 
     <div class="builder-footer">
+      <button type="button" class="btn btn-default" :disabled="!canCreate || validating" @click="validate">Validate with compiler</button>
       <button type="button" class="btn btn-primary" :aria-disabled="!canCreate || awaitingResponse"
         @click="create">
         {{ $t('action.create') }} <spinner :state="awaitingResponse"/>
@@ -125,6 +134,15 @@ That also means the spreadsheet is real, and downloadable. Advanced authoring ad
       </button>
       <span class="footer-note">{{ $t('footerNote') }}</span>
     </div>
+    <section v-if="diagnostics.length" aria-label="Compiler diagnostics" aria-live="polite">
+      <h2>Compiler diagnostics</h2>
+      <ul>
+<li v-for="(d, i) of diagnostics" :key="i">
+        <button v-if="d.questionId" type="button" class="btn btn-link" @click="focusQuestion(d.questionId)">{{ d.path }}</button>
+        {{ d.message }}
+      </li>
+</ul>
+    </section>
   </div>
 </template>
 
@@ -134,6 +152,7 @@ import { useI18n } from 'vue-i18n';
 
 import Spinner from '../spinner.vue';
 import AdvancedQuestion from './advanced-question.vue';
+import { builderDependencies } from '../../util/builder-diagnostics';
 import { useRequestData } from '../../request-data';
 
 import useRequest from '../../composables/request';
@@ -143,7 +162,8 @@ import { noop } from '../../util/util';
 defineOptions({ name: 'FormBuilder' });
 
 const props = defineProps({
-  projectId: { type: [String, Number], required: true }
+  projectId: { type: [String, Number], required: true },
+  initialAdvanced: Boolean
 });
 const emit = defineEmits(['success']);
 
@@ -167,8 +187,11 @@ request({ method: 'GET', url: apiPaths.formBuilderQuestionTypes() })
   .then(({ data }) => { questionTypes.value = data; })
   .catch(noop);
 
-const advanced = ref(false); const listsText = ref('{}'); const defaultLanguage = ref(''); const reopenId = ref(''); const advancedError = ref('');
+const advanced = ref(props.initialAdvanced); const listsText = ref('{}'); const defaultLanguage = ref(''); const reopenId = ref(''); const advancedError = ref('');
 const draft = reactive({ title: '', formId: '', formIdEdited: false, questions: [] });
+const dependencies = computed(() => builderDependencies(draft.questions));
+const diagnostics = ref([]); const validating = ref(false);
+const focusQuestion = id => document.getElementById(`builder-question-${id}`)?.focus();
 
 // Names become XML node names. Suggesting one from the label saves most people
 // from ever thinking about it, and anybody who cares can overwrite it.
@@ -212,7 +235,7 @@ const typeChanged = (question) => {
   if (needsChoices(question.type) && question.choices.length === 0) addChoice(question);
 };
 
-const canCreate = computed(() => draft.title !== '' && draft.questions.length > 0);
+const canCreate = computed(() => draft.title !== '' && draft.questions.length > 0 && !dependencies.value.some(d => d.missing));
 
 // What the server validates. Sent as it is built, so the message that comes
 // back names a question by its position here.
@@ -241,6 +264,7 @@ const reopen = async () => {
     const { data } = await request({ method: 'GET', url: `/v1/projects/${props.projectId}/forms/${encodeURIComponent(reopenId.value)}/builder-definition` });
     if (!data.definition) { advancedError.value = 'This uploaded form has no editable builder definition. Download and edit its original XLSForm.'; return; }
     const d = data.definition; draft.title = d.title; draft.formId = d.formId; draft.formIdEdited = true;
+    advanced.value = d.schemaVersion === 2;
     draft.questions = d.questions.map(q => ({ ...q, key: nextKey(), id: q.id || crypto.randomUUID(), choices: q.choices || [] }));
     listsText.value = JSON.stringify(d.lists || {}, null, 2); defaultLanguage.value = d.defaultLanguage || ''; advancedError.value = '';
   } catch { advancedError.value = 'The saved definition could not be loaded.'; }
@@ -251,6 +275,14 @@ const xlsform = (snapshot = definition()) => request({
   data: snapshot,
   responseType: 'blob'
 });
+const validate = async () => {
+  validating.value = true; diagnostics.value = [];
+  try {
+    const { data } = await request({ method: 'POST', url: `/v1/projects/${props.projectId}/form-builder/validate`, data: definition(), alert: false });
+    diagnostics.value = data.diagnostics.length ? data.diagnostics : [{ message: 'Compilation passed. Create the draft to preview and test answers in the browser form.' }];
+    return data.valid;
+  } catch (e) { diagnostics.value = [{ message: e.response?.data?.message || e.message || 'Compiler unavailable. Retry validation.' }]; return false; } finally { validating.value = false; }
+};
 
 const download = () => {
   xlsform().then(({ data }) => {
@@ -266,15 +298,14 @@ const download = () => {
   }).catch(noop);
 };
 
-const create = () => {
+const create = async () => {
   if (!canCreate.value) return;
+  if (!await validate()) return;
   const snapshot = definition();
   xlsform(snapshot)
     .then(({ data }) => request({
       method: 'POST',
-      // The ordinary upload endpoint. Warnings are accepted: the builder
-      // cannot produce the shapes pyxform warns about, and stopping here to
-      // relay one would be a dead end nobody could act on.
+      // Warnings are displayed by explicit compiler validation above.
       url: apiPaths.forms(props.projectId, { ignoreWarnings: true }),
       headers: {
         'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',

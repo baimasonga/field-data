@@ -1,6 +1,6 @@
 <!-- Copyright 2026 Field Data Developers. Licensed under the Apache License, Version 2.0. -->
 <template>
-  <fieldset class="advanced-question">
+  <fieldset :id="`builder-question-${modelValue.id}`" class="advanced-question" tabindex="-1">
     <legend>{{ modelValue.name || 'New question' }}</legend>
     <label>Type<select class="form-control" :value="modelValue.type" @change="set('type', $event.target.value)"><option v-for="type of types" :key="type">{{ type }}</option></select></label>
     <label>Name<input class="form-control" :value="modelValue.name" maxlength="64" @input="set('name', $event.target.value)"></label>

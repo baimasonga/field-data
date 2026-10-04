@@ -28,6 +28,8 @@ const { mergeFields, codingDivergence } = require('../util/merged-datasets');
 const { getTarget, normalizeConfig, redactConfig, sealConfig, describeTargets } = require('../util/rest-targets');
 const { normalizeOrganization, roleForOrganization, describeRoles } = require('../util/organizations');
 const { normalizeFormDefinition, buildWorkbook, QUESTION_TYPES } = require('../util/xlsform-builder');
+const { compilerDiagnostics } = require('../util/builder-diagnostics');
+const compileBuilder = require('../external/xlsform').init({ host: '127.0.0.1', port: 5001 });
 const { inspectTemplate, validateTemplate, MIME_TYPE,
   MAX_TEMPLATE_BYTES, MAX_REPORT_ROWS } = require('../util/xls-reports');
 const { resolveReportSource, rowsForSource } = require('../util/xls-report-data');
@@ -648,6 +650,20 @@ module.exports = (service, endpoint) => {
     }));
   }));
 
+  service.post('/projects/:projectId/form-builder/validate', endpoint(async (container, { params, body, auth }, _, response) => {
+    const project = await container.Projects.getById(params.projectId).then(getOrNotFound);
+    await auth.canOrReject('form.create', project);
+    response.set('Cache-Control', 'private, no-store');
+    let definition;
+    try { definition = normalizeFormDefinition(body); } catch (e) { return { valid: false, diagnostics: [{ message: e.reason || e.message, path: e.field }] }; }
+    try {
+      const result = await compileBuilder(Readable.from(await buildWorkbook(definition)), definition.formId);
+      return { valid: true, diagnostics: compilerDiagnostics(definition, result.warnings || []) };
+    } catch (e) {
+      if (e.problemCode !== 400.15) throw e;
+      return { valid: false, diagnostics: compilerDiagnostics(definition, [e.problemDetails?.error || e.message, ...(e.problemDetails?.warnings || [])]) };
+    }
+  }));
   service.post('/projects/:projectId/form-builder/xlsform', endpoint(async (container, { params, body, auth }, _, response) => {
     const project = await container.Projects.getById(params.projectId).then(getOrNotFound);
     // The right to make a Form here, because this is the first half of making
@@ -3019,7 +3035,7 @@ module.exports = (service, endpoint) => {
       from field_data_backups order by date desc`);
   }));
 
-  service.post('/field-data/backups', endpoint(async (container, { auth }, _, response) => {
+  service.post('/field-data/backups', endpoint(async (container, { auth, body }, _, response) => {
     await auth.canOrReject('backup.run', Config.species);
     const passphrase = process.env.FIELD_DATA_BACKUP_PASSPHRASE;
     if (typeof passphrase !== 'string' || passphrase.length < 16) {
@@ -3035,7 +3051,7 @@ module.exports = (service, endpoint) => {
     if (existing != null) return { ...existing, downloadable: false };
     return container.db.one(sql`
       insert into field_data_backups (type, size, status, "statusColor")
-      values ('Manual', 'Pending', 'Pending', 'info')
+      values (${body?.complete === true ? 'Recovery' : 'Manual'}, 'Pending', 'Pending', 'info')
       returning *, false as downloadable`);
   }));
 
@@ -3045,7 +3061,7 @@ module.exports = (service, endpoint) => {
       select * from field_data_backups where id=${intParam(params.id)}
     `).then(getOrNotFound);
     if (!record.storageKey || record.status !== 'Success') return reject(Problem.user.notFound());
-    response.set('Content-Disposition', contentDisposition(`field-data-backup-${record.id}.pgdump.enc.bin`));
+    response.set('Content-Disposition', contentDisposition(`field-data-backup-${record.id}.${record.type === 'Recovery' ? 'recovery' : 'pgdump'}.enc.bin`));
     response.set('Content-Type', 'application/octet-stream');
     return storage.getStream(record.storageKey);
   }));
