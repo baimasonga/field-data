@@ -30,3 +30,15 @@ test('monitor defaults to no notifications and removes its temporary authenticat
 test('monitor refuses an insecure origin before sending credentials', async () => {
   await assert.rejects(() => runMonitor({ FIELD_DATA_MONITOR_BASE_URL: 'http://localhost' }));
 });
+
+test('container preflight permits unset optional alert settings and preserves required database checks', () => {
+  const { readFileSync } = require('node:fs');
+  const { spawnSync } = require('node:child_process');
+  const script = readFileSync(new URL('../cloudflare/entrypoint.sh', `file://${__filename}`), 'utf8').split('export DB_SSL=null')[0];
+  const env = { PATH: process.env.PATH, DOMAIN: 'example.test', SYSADMIN_EMAIL: 'admin@example.test', PGHOST: 'database', PGPORT: '5432', PGDATABASE: 'test', PGUSER: 'test', PGPASSWORD: 'synthetic-only', SUPABASE_S3_ENDPOINT: 'https://example.test', SUPABASE_S3_ACCESS_KEY_ID: 'synthetic-only', SUPABASE_S3_SECRET_ACCESS_KEY: 'synthetic-only', SUPABASE_STORAGE_BUCKET: 'test', SUPABASE_REGION: 'test', FIELD_DATA_BACKUP_PASSPHRASE: 'synthetic-only', FIELD_DATA_WEBHOOK_ENCRYPTION_KEY: 'synthetic-only' };
+  const valid = spawnSync('bash', ['-c', `${script}\ntest "$FIELD_DATA_ALERT_DELIVERY_ENABLED" = false\ntest -z "$FIELD_DATA_ALERT_WEBHOOK_URL"\ntest -z "$FIELD_DATA_ALERT_WEBHOOK_SECRET"`], { env });
+  assert.equal(valid.status, 0, valid.stderr.toString());
+  const invalid = spawnSync('bash', ['-c', script], { env: { ...env, PGHOST: '' } });
+  assert.equal(invalid.status, 1);
+  assert.match(invalid.stderr.toString(), /PGHOST is missing/);
+});
