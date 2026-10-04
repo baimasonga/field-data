@@ -18,13 +18,12 @@ none of it would be true.
             <router-link to="/login" class="landing-cta">
               {{ $t('action.logIn') }}
             </router-link>
-            <a href="#landing-included" class="landing-cta-quiet">
+            <a href="#landing-capabilities" class="landing-cta-quiet">
               {{ $t('hero.secondary') }}
             </a>
           </div>
         </div>
-
-      </div>
+</div>
     </section>
 
     <section id="landing-standards">
@@ -32,6 +31,20 @@ none of it would be true.
         <ul>
           <li v-for="fact in standards" :key="fact">{{ fact }}</li>
         </ul>
+      </div>
+    </section>
+
+    <section id="landing-uses">
+      <div class="landing-inner">
+        <p class="landing-section-eyebrow">{{ $t('uses.eyebrow') }}</p>
+        <h2 class="landing-section-title">{{ $t('uses.title') }}</h2>
+        <p class="landing-section-intro">{{ $t('uses.body') }}</p>
+        <div class="landing-capability-grid landing-use-grid">
+          <article v-for="item in uses" :key="item.term">
+            <h3>{{ item.term }}</h3>
+            <p>{{ item.body }}</p>
+          </article>
+        </div>
       </div>
     </section>
 
@@ -52,7 +65,9 @@ none of it would be true.
 
     <section id="landing-capabilities">
       <div class="landing-inner">
+        <p class="landing-section-eyebrow">{{ $t('capabilities.eyebrow') }}</p>
         <h2 class="landing-section-title">{{ $t('capabilities.title') }}</h2>
+        <p class="landing-section-intro">{{ $t('capabilities.body') }}</p>
         <div class="landing-capability-grid">
           <article v-for="item in capabilities" :key="item.term">
             <h3>{{ item.term }}</h3>
@@ -88,9 +103,11 @@ none of it would be true.
     <section id="landing-close">
       <div class="landing-inner">
         <h2>{{ $t('close.title') }}</h2>
-        <router-link to="/login" class="landing-cta">
-          {{ $t('action.logIn') }}
-        </router-link>
+        <p>{{ $t('close.body') }}</p>
+        <div class="landing-actions">
+          <a href="mailto:contact@quantixsl.com" class="landing-cta">{{ $t('close.contact') }}</a>
+          <router-link to="/login" class="landing-cta-quiet">{{ $t('action.logIn') }}</router-link>
+        </div>
       </div>
     </section>
 
@@ -116,7 +133,7 @@ defineOptions({
 });
 
 const { t, tm, rt } = useI18n();
-const hostname = window.location.hostname;
+const { hostname } = window.location;
 
 // Only photographs that exist on disk AND carry alt text and a caption are
 // shown; anything else is dropped rather than rendered half-described.
@@ -131,9 +148,10 @@ const photos = landingPhotos
   .filter(photo => photo.src != null && photo.alt && photo.caption);
 
 
-const pairs = (key) => computed(() => ['a', 'b', 'c']
+const pairs = (key, keys = ['a', 'b', 'c']) => computed(() => keys
   .map(k => ({ term: t(`${key}.${k}.term`), body: t(`${key}.${k}.body`) })));
-const capabilities = pairs('capabilities');
+const capabilities = pairs('capabilities', ['a', 'b', 'c', 'd', 'e', 'f']);
+const uses = pairs('uses', ['a', 'b', 'c', 'd', 'e', 'f']);
 const steps = pairs('steps');
 // tm() hands back compiled message nodes, not strings; rt() resolves them.
 const strings = (key) => computed(() => tm(key).map(m => rt(m)));
@@ -164,9 +182,7 @@ const included = strings('included.items');
 }
 
 // ------------------------------------------------------------------ hero
-// The one gradient in this view. Dusk rather than the signature aurora
-// because the hero carries text: white falls to 2.9 and 2.31 against
-// aurora's pink and coral stops, while dusk holds 8.58 at its lightest.
+// A dark teal overlay keeps the Field Data branding and photo legible.
 #landing-hero {
   background-color: var(--gray-1000);
   background-image: url('../assets/images/landing/water-point-survey.webp');
@@ -177,12 +193,9 @@ const included = strings('included.items');
   padding-block: var(--space-20) var(--space-24);
   position: relative;
 
-  // The scrim. At 0.82 the worst case -- a white sky pixel directly behind the
-  // headline -- still leaves white text at 5.2:1, and the photograph stays
-  // readable. The dark background-color underneath keeps the text legible in
-  // the moment before the image paints.
+  // Keep the text legible over bright areas and before the image loads.
   &::before {
-    background: var(--gradient-dusk);
+    background: #06313e;
     content: '';
     inset: 0;
     opacity: 0.82;
@@ -193,7 +206,7 @@ const included = strings('included.items');
 }
 
 .landing-eyebrow {
-  color: var(--iris-200);
+  color: #c5e1e9;
   font-size: var(--text-overline);
   font-weight: 600;
   letter-spacing: var(--tracking-overline);
@@ -212,7 +225,7 @@ const included = strings('included.items');
   text-wrap: balance;
 }
 
-// Full opacity on the gradient: the system forbids alpha-muted text there.
+// Keep hero text fully opaque against the photograph.
 .landing-lede {
   color: var(--gray-0);
   font-size: var(--text-body-lg);
@@ -232,7 +245,7 @@ const included = strings('included.items');
   align-items: center;
   background-color: var(--gray-0);
   border-radius: var(--radius-md);
-  color: var(--accent);
+  color: #094b5e;
   display: inline-flex;
   font-size: var(--text-body);
   font-weight: 600;
@@ -241,13 +254,13 @@ const included = strings('included.items');
   text-decoration: none;
   transition: box-shadow 150ms ease, color 150ms ease;
 
-  &:hover, &:focus { color: var(--accent-hover); text-decoration: none; }
+  &:hover, &:focus { color: #0b5e75; text-decoration: none; }
   &:focus-visible { box-shadow: var(--ring-focus); outline: none; }
 }
 
 .landing-cta-quiet {
   align-items: center;
-  border: var(--border-thin) solid var(--iris-300);
+  border: var(--border-thin) solid #97c9d8;
   border-radius: var(--radius-md);
   color: var(--gray-0);
   display: inline-flex;
@@ -259,7 +272,7 @@ const included = strings('included.items');
   transition: background-color 150ms ease;
 
   &:hover, &:focus {
-    background-color: var(--iris-800);
+    background-color: #094b5e;
     color: var(--gray-0);
     text-decoration: none;
   }
@@ -358,7 +371,7 @@ const included = strings('included.items');
 
 .landing-step-num {
   align-items: center;
-  background-color: var(--accent);
+  background-color: #094b5e;
   border-radius: var(--radius-pill);
   color: var(--gray-0);
   display: inline-flex;
@@ -388,7 +401,7 @@ const included = strings('included.items');
 }
 
 #landing-close {
-  background-color: var(--iris-900);
+  background-color: #06313e;
   padding-block: var(--space-16);
   text-align: center;
 
@@ -420,12 +433,41 @@ const included = strings('included.items');
   font-size: var(--text-caption);
 }
 
+#landing-uses { padding-block: var(--space-16); background: #e6f1f4; }
+.landing-section-eyebrow { color: #094b5e; font-weight: 600; margin: 0 0 12px; }
+#landing .landing-section-title { margin-bottom: 20px; }
+.landing-section-intro { max-width: 65ch; margin-bottom: 36px; color: #405760; font-size: 18px; }
+#landing .landing-capability-grid article {
+  padding: 24px;
+  border: 1px solid #c9d7dc;
+  border-radius: 12px;
+  background: white;
+  min-width: 0;
+}
+#landing .landing-capability-grid { gap: 24px; }
+#landing .landing-section-title, #landing h3 { overflow-wrap: anywhere; }
+#landing-close p { color: white; max-width: 60ch; margin: 0 auto; font-size: 18px; }
+#landing-close .landing-actions { justify-content: center; }
+#landing a.landing-cta { color: #094b5e; }
+#landing a.landing-cta:hover { color: #0b5e75; }
+#landing a.landing-cta-quiet { color: white; }
+#landing a:focus-visible { outline: 2px solid #0e7490; outline-offset: 4px; }
+#landing-hero a:focus-visible, #landing-close a:focus-visible { outline-color: white; }
+@media (max-width: 600px) {
+  #landing .landing-inner { padding-inline: 20px; }
+  #landing-hero h1 { font-size: 36px; line-height: 1.15; }
+  #landing .landing-section-title, #landing-close h2 { font-size: 28px; }
+  #landing .landing-capability-grid article { padding: 20px; }
+  #landing .landing-actions { align-items: stretch; flex-direction: column; }
+  #landing .landing-actions a { justify-content: center; padding-block: 10px; }
+}
+@media (prefers-reduced-motion: reduce) { #landing a { transition: none; } }
+
 // ------------------------------------------------------------------ wider
 @media (min-width: 768px) {
   #landing-hero h1 { font-size: var(--text-display-lg); }
   #landing-standards ul { grid-template-columns: repeat(3, 1fr); }
-  // Five photographs: two wide across the top, three beneath, so the rows
-  // fill rather than leaving a ragged tail.
+  // Fieldwork examples use two columns on wider screens.
   #landing-field ul { grid-template-columns: repeat(2, 1fr); }
   .landing-capability-grid { grid-template-columns: repeat(3, 1fr); }
   #landing-steps ol { grid-template-columns: repeat(3, 1fr); }
@@ -433,76 +475,124 @@ const included = strings('included.items');
 }
 </style>
 
-<i18n lang="json5">
+<i18n lang="json">
 {
   "en": {
     "brand": "Field Data",
     "hero": {
-      "eyebrow": "Field data collection",
-      "title": "Run surveys where the signal doesn't reach",
-      "body": "Enumerators fill forms on phones with no connection and submit when they next find one. Every response lands here, ready to review, correct and export.",
-      "secondary": "What's included"
+      "eyebrow": "Field Data by Quantix Sierra Leone",
+      "title": "From field collection to informed decisions",
+      "body": "Build forms, collect responses, review records and explore results in one workspace. Field Data helps survey teams, programme managers and researchers turn fieldwork into useful evidence.",
+      "secondary": "Explore the features"
     },
-    "figure": { "form": "Household Roster" },
     "standards": {
       "items": [
-        "Forms authored as XLSForm",
-        "Works with ODK Collect on Android",
-        "Your own database and object storage"
+        "Advanced form builder and XLSForm import",
+        "Offline collection with ODK Collect",
+        "Browser forms, maps and reporting"
       ]
     },
-    "field": { "title": "In the field" },
+    "field": {
+      "title": "Examples of fieldwork you can support"
+    },
     "capabilities": {
-      "title": "Built for how field teams actually work",
+      "eyebrow": "One workspace for your team",
+      "title": "Tools for every stage of fieldwork",
+      "body": "Prepare the questions, coordinate collection and follow the data through review and analysis.",
       "a": {
-        "term": "Collection that survives the field",
-        "body": "Forms run offline on Android or in a browser. Skip logic, constraints, repeats, GPS, photos and signatures all work with no connection."
+        "term": "Design advanced forms",
+        "body": "Build forms visually or import XLSForm. Add skip logic, validation, calculations, repeated questions and choice lists, then preview and test before publishing."
       },
       "b": {
-        "term": "Review before the data counts",
-        "body": "Every submission carries a state: received, has issues, edited, approved or rejected. Comment on the ones that need a second look, and the history stays with the record."
+        "term": "Collect in the field or online",
+        "body": "Use ODK Collect on Android to work offline and submit when a connection returns. Share browser form links for online responses, with GPS and media questions where needed."
       },
       "c": {
-        "term": "Data that stays yours",
-        "body": "Submissions sit in your own database and object storage. Pull them out over OData or CSV, or push changes onward with webhooks."
+        "term": "Review and improve data quality",
+        "body": "Review submissions, flag issues, leave comments and approve or reject records. Use the review queue and data cleaning tools to follow up on incomplete or inconsistent answers."
+      },
+      "d": {
+        "term": "Explore maps and results",
+        "body": "Browse responses as tables, maps, photos and charts. Use dashboards and reports to monitor collection, compare results and export data for further analysis."
+      },
+      "e": {
+        "term": "Coordinate teams and follow-up",
+        "body": "Organise projects and field teams, assign work and manage cases. Entity lists support repeat visits and tracking the same people, facilities or assets over time."
+      },
+      "f": {
+        "term": "Share and connect your data",
+        "body": "Control access with project permissions. Publish approved datasets, export CSV or OData, and connect other systems through webhooks and DHIS2 mapping."
+      }
+    },
+    "uses": {
+      "eyebrow": "Where Field Data can be used",
+      "title": "Built around real fieldwork",
+      "body": "Adapt the questions and workflow to your programme, from a one-off survey to ongoing visits and monitoring across districts.",
+      "a": {
+        "term": "Public health",
+        "body": "Collect facility readiness assessments, community health surveys and service availability data. Map locations and prepare records for health reporting workflows."
+      },
+      "b": {
+        "term": "Agriculture and livelihoods",
+        "body": "Survey farms, crops, household livelihoods and markets. Combine observations with GPS coordinates and photos, and follow up through repeat visits."
+      },
+      "c": {
+        "term": "Education",
+        "body": "Assess school facilities, staffing and learning resources. Coordinate visits across districts and review responses before preparing programme reports."
+      },
+      "d": {
+        "term": "NGOs and development programmes",
+        "body": "Run baseline and endline surveys, monitor activities and manage beneficiary follow-up. Keep teams, assignments and reviewed records in a shared workspace."
+      },
+      "e": {
+        "term": "Research and household surveys",
+        "body": "Prepare structured questionnaires, apply validation rules and organise enumerators. Export reviewed responses for statistical analysis."
+      },
+      "f": {
+        "term": "Infrastructure and environmental monitoring",
+        "body": "Record water points, public assets and environmental observations. Use photos and locations to document conditions and organise follow-up inspections."
       }
     },
     "steps": {
-      "title": "From question to answer",
+      "title": "How your team gets started",
       "a": {
-        "term": "Design the form",
-        "body": "Write it as an XLSForm, upload it, and test the draft on real devices before anyone goes out."
+        "term": "Prepare a project and form",
+        "body": "Create a project, build or import a form, configure access and test the draft with the people who will use it."
       },
       "b": {
-        "term": "Collect",
-        "body": "Assign app users or publish a link. Field teams work offline and submit when they reconnect."
+        "term": "Collect and coordinate",
+        "body": "Assign your team, distribute forms to ODK Collect or share browser links, and monitor incoming submissions."
       },
       "c": {
-        "term": "Review and export",
-        "body": "Work the queue, fix what needs fixing, then take the data into your analysis tools."
+        "term": "Review, analyse and share",
+        "body": "Resolve issues, approve records, explore results and export or share the data your programme needs."
       }
     },
     "included": {
-      "title": "What's included",
+      "title": "More tools in your workspace",
       "items": [
-        "Offline collection with ODK Collect",
-        "Web forms in the browser",
-        "Form drafts and device testing",
-        "Submission review states and comments",
-        "Map view of submissions",
-        "Entity lists for longitudinal work",
-        "App users and public access links",
-        "Project-level encryption",
-        "OData feed and CSV export",
-        "Media and attachment storage",
-        "Encrypted backups",
-        "Webhooks and an audit log"
+        "Reusable form templates and choice lists",
+        "Form drafts, previews and versioning",
+        "Public form links and access controls",
+        "GPS questions, photos and attachments",
+        "Saved analysis and reporting views",
+        "Case records and field assignments",
+        "Entity lists for repeat data collection",
+        "Submission comments and review history",
+        "CSV exports and OData access",
+        "Public catalogues and approved datasets",
+        "DHIS2 mapping and webhooks",
+        "Audit logs, backups and operations monitoring"
       ]
     },
-    "close": { "title": "Already have an account?" },
-    // Names the destination: this links to ODK's manual, which documents the
-    // collection features this is built on, not to a Field Data manual.
-    "footer": { "docs": "ODK documentation" }
+    "close": {
+      "title": "Planning your next fieldwork project?",
+      "body": "Contact Quantix Sierra Leone to discuss how Field Data could fit your team's collection and reporting workflow. Already have an account? Sign in to your workspace.",
+      "contact": "Contact Quantix Sierra Leone"
+    },
+    "footer": {
+      "docs": "ODK documentation"
+    }
   }
 }
 </i18n>
