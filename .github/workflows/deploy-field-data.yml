@@ -468,11 +468,26 @@ jobs:
           get "cross-project Forms"       "/v1/field-data/forms?limit=1" || true
           get "cross-project Submissions" "/v1/field-data/submissions?limit=1" || true
           get "cross-project Map"         "/v1/field-data/map?limit=1" || true
-          if get "native Web Forms health" "/v1/field-data/stats"; then
-            if ! printf '%s' "$body" | jq -e '.systemStatus.enketo == true' >/dev/null; then
-              echo "::error title=Web Forms health check failed::The bundled Web Forms app or its JavaScript assets are unavailable."
-              failed=1
+          # Containers roll over asynchronously and the dashboard caches probes
+          # for 30 seconds. Give the new runtime time to replace its predecessor.
+          webforms_ready=0
+          for attempt in {1..6}; do
+            if get "native Web Forms health" "/v1/field-data/stats"; then
+              if printf '%s' "$body" | jq -e '.systemStatus.enketo == true' >/dev/null; then
+                webforms_ready=1
+                break
+              fi
             fi
+            sleep 20
+          done
+          if [[ "$webforms_ready" != 1 ]]; then
+            observed=$(printf '%s' "$body" | jq -c '.systemStatus | {database, enketo, pyxform}' 2>/dev/null || echo 'unavailable')
+            echo "::error title=Web Forms health check failed::The bundled Web Forms app or its JavaScript assets are unavailable. Observed: $observed"
+            for path in /apps/forms/index.html /apps/forms/src/init.js; do
+              result=$(curl --silent --show-error --max-time 20 --head "$BASE$path" | tr -d '\r' | awk '/^HTTP\// || tolower($0) ~ /^content-type:/ {printf "%s ", $0}')
+              echo "::error title=Web Forms asset diagnostic::$path $result"
+            done
+            failed=1
           fi
 
           if [[ "$failed" != 0 ]]; then
