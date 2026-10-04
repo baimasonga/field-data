@@ -25,6 +25,7 @@ except according to the terms contained in the LICENSE file.
       <main id="fd-main-content" ref="containerEl" class="container-fluid" tabindex="-1">
         <router-view/>
       </main>
+      <organization-footer/>
     </div>
 
     <div id="modals"></div>
@@ -40,6 +41,7 @@ import { START_LOCATION } from 'vue-router';
 
 import Alerts from './alerts.vue';
 import Navbar from './navbar.vue';
+import OrganizationFooter from './organization-footer.vue';
 import FieldDataSidebar from './field-data/sidebar.vue';
 
 import useCallWait from '../composables/call-wait';
@@ -56,6 +58,7 @@ export default {
     FieldDataSidebar,
     HoverCards: defineAsyncComponent(loadAsync('HoverCards')),
     Navbar,
+    OrganizationFooter,
     FeedbackButton: defineAsyncComponent(loadAsync('FeedbackButton')),
     OutdatedVersion: defineAsyncComponent(loadAsync('OutdatedVersion'))
   },
