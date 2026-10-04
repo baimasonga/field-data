@@ -2,7 +2,7 @@
 <template>
   <section id="fd-analysis">
     <h1>Analysis</h1>
-    <p>Explore the same selection as a table, chart or map. Saved views are private to you.</p>
+    <p>Explore the same selection as a table, chart or map. Save a personal view or share a view with project readers.</p>
     <div class="analysis-controls">
       <label>Project<select v-model="projectId" aria-label="Project" class="form-control"><option value="">Choose a project</option>
         <option v-for="p of projects" :key="p.id" :value="String(p.id)">{{ p.name }}</option></select></label>
@@ -14,6 +14,7 @@
     <p v-if="error" role="alert">{{ error }} <button type="button" class="btn btn-default" @click="retry">Try again</button></p>
     <p v-if="loading">Loading analysis…</p>
     <template v-if="result">
+      <label>Analysis scope<select v-model="repeatPath" class="form-control" @change="changeRepeat"><option value="">Parent submissions</option><option v-for="path of result.repeatPaths || []" :key="path" :value="path">Repeat: {{ path }}</option></select></label>
       <details>
 <summary>Visible columns ({{ selectedColumns.length }} of {{ fields.length }})</summary>
         <label v-for="f of fields" :key="f.path" class="column-option"><input v-model="selectedColumns" type="checkbox" :value="f.path"> {{ f.name || f.path }}</label>
@@ -38,9 +39,10 @@
 {{ t }}
 </button>
 </div>
+        <label>View visibility<select v-model="viewVisibility" class="form-control"><option value="private">Private</option><option v-if="projects.find(p => String(p.id) === projectId)?.verbs?.includes('project.update')" value="project">Project team</option></select></label>
         <label>View title<input v-model.trim="viewTitle" class="form-control" maxlength="255"></label>
         <button type="button" class="btn btn-default" :disabled="!viewTitle || loading" @click="save">Save view</button>
-        <button v-if="activeViewId" type="button" class="btn btn-default" @click="removeView">Delete saved view</button>
+        <button v-if="activeViewId && views.find(v => v.id === activeViewId)?.canDelete !== false" type="button" class="btn btn-default" @click="removeView">Delete saved view</button>
         <button v-for="format of ['csv', 'xlsx', 'kml', 'sav', 'dta']" :key="format" type="button" class="btn btn-default"
           :disabled="loading || downloading" @click="download(format)">
 Export {{ format.toUpperCase() }}
@@ -54,7 +56,7 @@ Export {{ format.toUpperCase() }}
         <th v-for="f of result.fields" :key="f.path">{{ f.name || f.path }}</th>
 </tr>
 </thead><tbody>
-<tr v-for="row of result.rows" :key="`${row.sourceForm}:${row.instanceId}`">
+<tr v-for="row of result.rows" :key="`${row.sourceForm}:${row.instanceId}:${row.repeatIndex || 0}`">
           <td>{{ row.instanceId }}</td><td>{{ row.sourceForm }}</td><td v-for="f of result.fields" :key="f.path">{{ row.data[f.path] }}</td>
         </tr>
 </tbody>
@@ -83,7 +85,7 @@ Export {{ format.toUpperCase() }}
 <label>Location field<select v-model="geometry" aria-label="Location field" class="form-control"><option value="">Choose a visible location field</option>
         <option v-for="f of fields" :key="f.path" :value="f.path">{{ f.name || f.path }}</option></select></label>
         <button type="button" class="btn btn-primary" @click="refresh">Update map</button>
-        <p>The map shows valid locations from this page, not the entire dataset. Coordinates are available below.</p>
+        <p>The map shows valid locations from the full filtered selection (up to 100,000 records). Coordinates are available below.</p>
         <analysis-map v-if="result.map" :data="result.map" :project-id="projectId" :can-edit="projects.find(p => String(p.id) === projectId)?.verbs?.includes('project.update')"/>
       </div>
       <div class="analysis-controls">
@@ -111,8 +113,9 @@ import AnalysisMap from './analysis-map.vue';
 defineOptions({ name: 'FieldDataAnalysis' });
 const { request } = useRequest();
 const projects = ref([]); const projectId = ref(''); const sources = ref([]); const sourceKey = ref('');
+const repeatPath = ref('');
 const selectedColumns = ref([]); const includeRepeats = ref(true);
-const activeViewId = ref('');
+const activeViewId = ref(''); const viewVisibility = ref('private');
 const downloading = ref(false);
 const queueDownload = ref(false); const jobs = ref([]);
 let jobGeneration = 0; let queueId = null; let queueFingerprint = null;
@@ -123,7 +126,7 @@ const chartField = ref(''); const groupField = ref(''); const aggregation = ref(
 let generation = 0; let scopeGeneration = 0; let saveId = null; let saveFingerprint = null;
 const source = computed(() => { const [kind, id] = sourceKey.value.split(':'); return { kind, id: Number(id) }; });
 const definition = () => ({
-  version: 1, source: source.value, ...(selectedColumns.value.length ? { columns: selectedColumns.value } : {}), query: query.value, tab: tab.value,
+  version: 1, source: source.value, repeatPath: repeatPath.value || null, ...(selectedColumns.value.length ? { columns: selectedColumns.value } : {}), query: query.value, tab: tab.value,
   chart: chartField.value ? { column: chartField.value, groupBy: groupField.value || null, aggregation: aggregation.value } : null,
   geometry: geometry.value || null
 });
@@ -148,16 +151,18 @@ const refresh = async () => {
     result.value = data; fields.value = data.availableFields || data.fields; if (!selectedColumns.value.length) selectedColumns.value = data.definition.columns;
   } catch (e) { if (current === generation) error.value = e.response?.data?.message || 'Analysis could not be loaded. The source or a saved field may no longer be available.'; } finally { if (current === generation) loading.value = false; }
 };
+const changeRepeat = () => { selectedColumns.value = []; query.value = []; chartField.value = ''; groupField.value = ''; geometry.value = ''; offset.value = 0; refresh(); };
 const retry = () => { if (!projects.value.length || !sourceKey.value) window.location.reload(); else refresh(); };
 const applyFilter = () => { query.value = filterField.value ? [{ column: filterField.value, filter: filterOperator.value, value: filterValue.value, condition: 'AND' }] : []; offset.value = 0; refresh(); };
 const page = delta => { offset.value += delta; refresh(); };
 const barWidth = value => `${(Math.max(0, Math.abs(value)) / Math.max(1, ...result.value.chart.rows.map(r => Math.abs(r.value)))) * 100}px`;
 const save = async () => {
-  const fingerprint = JSON.stringify([projectId.value, viewTitle.value, definition()]);
+  const fingerprint = JSON.stringify([projectId.value, viewTitle.value, viewVisibility.value, definition()]);
   if (fingerprint !== saveFingerprint) { saveId = crypto.randomUUID(); saveFingerprint = fingerprint; }
   saveId ||= crypto.randomUUID();
   try {
-    await request({ method: 'POST', url: `${base()}/views`, data: { id: saveId, title: viewTitle.value, definition: definition() } });
+    const editing = views.value.find(v => v.id === activeViewId.value && v.canEdit !== false);
+    await request({ method: editing ? 'PUT' : 'POST', url: `${base()}/views${editing ? `/${editing.id}` : ''}`, ...(editing ? { headers: { 'If-Match': `"view-${editing.revision}"` } } : {}), data: { id: saveId, title: viewTitle.value, visibility: viewVisibility.value, definition: definition() } });
     saveId = null; views.value = (await request({ method: 'GET', url: `${base()}/views` })).data; notice.value = 'View saved.';
   } catch { /* request shows the failure */ }
 };
@@ -174,7 +179,7 @@ const restore = id => {
   window.history.replaceState(null, '', `${window.location.pathname}?project=${encodeURIComponent(projectId.value)}&view=${encodeURIComponent(id)}`);
   const d = view.definition; sourceKey.value = `${d.source.kind}:${d.source.id}`;
   queueMicrotask(() => {
-    activeViewId.value = id; selectedColumns.value = d.columns;
+    activeViewId.value = id; viewVisibility.value = view.visibility || 'private'; repeatPath.value = d.repeatPath || ''; selectedColumns.value = d.columns;
     query.value = d.query; chartField.value = d.chart?.column || ''; groupField.value = d.chart?.groupBy || '';
     aggregation.value = d.chart?.aggregation || 'count'; geometry.value = d.geometry || ''; tab.value = d.tab; viewTitle.value = view.title; offset.value = 0; refresh();
   });
@@ -205,7 +210,7 @@ watch(projectId, async () => {
     const linked = new URLSearchParams(window.location.search).get('view'); if (linked) restore(linked);
   } catch { if (current === scopeGeneration) error.value = 'Project sources could not be loaded.'; }
 });
-watch(sourceKey, () => { selectedColumns.value = []; activeViewId.value = ''; generation += 1; result.value = null; query.value = []; chartField.value = ''; groupField.value = ''; geometry.value = ''; offset.value = 0; saveId = null; if (sourceKey.value) refresh(); });
+watch(sourceKey, () => { repeatPath.value = ''; selectedColumns.value = []; activeViewId.value = ''; generation += 1; result.value = null; query.value = []; chartField.value = ''; groupField.value = ''; geometry.value = ''; offset.value = 0; saveId = null; if (sourceKey.value) refresh(); });
 request({ method: 'GET', url: '/v1/projects', extended: true }).then(({ data }) => { projects.value = data.filter(p => p.verbs?.includes('submission.read') && p.verbs?.includes('submission.list')); const linked = new URLSearchParams(window.location.search).get('project'); if (projects.value.some(p => String(p.id) === linked)) projectId.value = linked; }).catch(() => { error.value = 'Projects could not be loaded.'; });
 </script>
 <style lang="scss">

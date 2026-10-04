@@ -7,10 +7,10 @@ the development environment.
 
 | Package | Where to use it | Implemented behavior |
 | --- | --- | --- |
-| Analysis | Data Collection → Analysis | Project/form, filtered and merged sources; a shared filter for table, count/sum/mean/median chart and map; pagination; private saved views and `?project=…&view=…` links |
-| Map layers | Analysis → map | Up to 10 project reference layers in durable configured storage; GeoJSON upload/replacement; visibility/order; fit; categorical and fixed numeric bins; missing styles; escaped popups and text alternatives |
+| Analysis | Data Collection → Analysis | Project/form, filtered and merged sources; a shared filter for table, count/sum/mean/median chart and map; pagination; private and project-team saved views and `?project=…&view=…` links |
+| Map layers | Analysis → map | Up to 10 project reference layers in durable configured storage; GeoJSON upload/replacement; encrypted WMS/XYZ connections; visibility/order; fit; categorical and fixed numeric bins; missing styles; escaped popups and text alternatives |
 | Export formats | Analysis → Export | Native SPSS SAV and Stata 15 DTA, CSV ZIP, XLSX and KML; authorized projection/filter; repeat tables and parent IDs; deterministic names and schema manifest |
-| Advanced authoring | Data Collection → Form Builder → Project → Open Advanced Form Builder | Nested group/repeat nodes; calculations; relevant/required/constraint expressions; reusable choice lists and filters; translated labels/hints; draft persistence, reopening stored builder definitions, dependency references, and field-linked compiler diagnostics |
+| Advanced authoring | Data Collection → Form Builder → Project → Open Advanced Form Builder | Nested group/repeat nodes; calculations; relevant/required/constraint expressions; reusable choice lists and filters; translated labels/hints; draft persistence, reopening stored builder definitions, dependency references, and field-linked compiler diagnostics; visual translations/choices/conditions; XLSForm import; external CSV and entity authoring |
 | Public catalogue | Data Collection → Public catalogue; anonymous `/catalog` | Explicit preview and publication of approved single-choice aggregate snapshots, licence/attribution, search, release and approved project detail/download, and revocation history |
 | Operations | System → Operations | Five-minute database/compiler/storage/backup samples; latencies; consecutive-failure alerts and recovery history; optional alert delivery with retries; external monitoring; configurable operator/targets; opt-in daily encrypted database or recovery bundles, retention and cleanup |
 
@@ -19,16 +19,14 @@ the development environment.
 Analysis requires project read and submission read/list access, including the
 underlying forms for merged sources. Filtered datasets retain the existing
 explicit delegation boundary; hidden base-filter fields are never projected.
-Scalar analysis excludes group structures and repeat descendants instead of
-silently treating the first repeated answer as the whole answer. Charts cap
+Parent analysis excludes group structures and repeat descendants. Selecting a repeat scope analyzes each repeat occurrence independently, including nested repeats, filters and aggregates. Repeat-scoped exports preserve the selection; their parent IDs identify the original submission. Parent exports continue to provide separate tables with immediate-parent joins. Repeat-level delegated filters fail closed until a repeat-row delegation contract is defined. Charts cap
 categories honestly and show contributing counts. Means/medians never combine
-into a summed Other value. The map explicitly shows the current page, not the
-entire dataset. Saved views are personal; links do not grant access.
+into a summed Other value. The analysis map covers the complete filtered selection up to 100,000 records and uses Canvas for submission points. Its coordinate table displays the first 100 points. Personal views remain private; project views are visible to authorized project readers, with source access rechecked. Creators manage personal views; project managers can update/delete team views with revision checks. Only the creator can make a team view private. Links do not grant access.
 
 Reference layers accept WGS84 GeoJSON without a CRS declaration, at most 2 MB,
 5000 features and 50000 vertices. Only scalar properties are allowed. Uploaders
 must keep personal submission values out of reference properties, which project
-readers can see. Remote WMS/credentialed tile sources are outside this release.
+readers can see. Remote WMS 1.1.1/EPSG:3857 and XYZ raster sources use an authenticated same-origin tile proxy. Provider URLs and Bearer/Basic headers are encrypted with the existing FIELD_DATA_WEBHOOK_ENCRYPTION_KEY and omitted from layer responses. Every request resolves and pins public DNS, checks tile bounds, preserves TLS validation, rejects redirects, caps images at 2 MB and has a ten-second deadline. Attribution is shown with the layer. To change credentials, recreate the connection. Live provider acceptance requires the operator’s chosen URL and authorized credentials.
 Editors need project.update; readers need project.read. Replacements and removals
 queue old object keys for deletion after one hour by the operations worker.
 
@@ -44,23 +42,21 @@ manifest. UTC dates become native date/datetime columns; blanks become numeric
 system missing, never zero. Invalid numbers/dates and unsafe precision fail the
 export. Spreadsheet-active text is escaped in CSV/XLSX. KML contains scalar
 geopoints and submission identifiers, excludes answer properties, and reports
-invalid/missing coordinates; repeat geopoint selection is outside the scalar
-analysis surface.
+invalid/missing coordinates; repeat geopoints can be selected within their explicit repeat scope.
 
 Advanced definition schemaVersion 2 is separate from old editable definitions.
 The server validates names, nesting and field references; PyXForm 4.5.0 remains
 the compiler. Expressions are XLSForm XPath, never evaluated JavaScript. Choice
-attributes and translations use JSON controls alongside the nested question UI.
+attributes and translations have visual row controls; JSON controls remain an advanced option. Condition/arithmetic helpers and cascading-choice controls generate XLSForm XPath without executing it.
 Local drafts are scoped to the signed-in user/project in sessionStorage. A
 snapshot is frozen for compilation and the matching saved definition. The
 ordinary created draft supplies Central's compiled preview and publish/version
-workflow. Arbitrary uploaded forms without a saved definition remain editable
-through XLSForm download/upload, not guessed reverse conversion.
+workflow. Supported uploaded XLSForms can be imported, including their additional columns and supplementary sheets. Unsupported constructs, formulas and rich text retain the original download/upload workflow. Imports are bounded to 10 MB compressed, 20 MB expanded and 500 ZIP entries.
 
-Catalogue releases contain one approved nonrepeating single-choice distribution.
+Protected aggregate catalogue releases contain one approved nonrepeating single-choice distribution. Explicit dataset snapshots are a separate release type described below.
 Every approved category must have at least five records, otherwise the entire
 distribution is withheld. Unknown categories block preview; totals, missing-answer
-counts, Other buckets, raw rows, free text, media and location values are absent.
+counts and Other buckets are absent from aggregate releases. Raw rows, text, media and locations require the separately approved dataset-release policy.
 Public metadata is supplied explicitly rather than inherited from private
 project/form names. Publication requires project.update plus source read rights,
 a fresh preview hash and product confirmation. Responses are bounded and rate
@@ -111,3 +107,34 @@ Complete recovery bundles hold a consistent PostgreSQL snapshot and include dura
 Explorer and Analysis use browser requests to `https://tile.openstreetmap.org/{z}/{x}/{y}.png` with OpenStreetMap copyright attribution and an explicit `strict-origin` image referrer policy. This identifies the application without sending project paths or query parameters. Requests use normal browser caching; the app does not proxy, prefetch, or automatically retry rejected tiles. A tile failure removes the background layer, preserves submitted/reference geometry, and offers a manual retry. Provider availability remains external to Field Data.
 
 Explorer point maps show only finite WGS84 coordinates supplied with submissions and fit their actual extent. A district name does not supply a GPS coordinate. With no valid locations the point map shows an empty state and requests no tiles; the separate district summary still shows aggregate district counts. Browser tests cover origin-only referrers under the production `same-origin` document policy, denied tiles, retry, retained point overlays, and missing GPS.
+
+
+## Eight extension acceptance (2026-10-04)
+
+The advanced builder now offers editable reusable lists, question/choice translations,
+choice attributes, condition/arithmetic and cascade helpers, external CSV lookup
+calculations and file-based selects, entity creation/update declarations, and
+question-to-entity property mappings. Reopened forms can be saved through the
+ordinary new-draft endpoint. CSV files are attached using the existing draft
+attachment workflow. All definitions still use PyXForm as the compiler.
+
+Catalogue owners can choose a protected categorical summary or an explicitly
+approved dataset snapshot. Dataset releases require a purpose, a public field
+allowlist with public labels, and separate approval for text, location and media
+answers. Limits are 5,000 parent rows, 50 fields and 20 MB serialized records.
+Repeat answers and internal submission metadata are excluded. Selected media is
+copied into the frozen public JSON as typed base64 content; private filenames,
+blob IDs and storage URLs are omitted. Only supported media MIME formats are
+accepted. Preview and publication use the same builder and a fresh response hash;
+revocation closes public detail/download URLs. No real project data is published
+as part of development tests. Existing aggregate thresholds remain unchanged.
+
+Acceptance includes real PostgreSQL repeat/filter/aggregate and map-scope tests,
+team-view isolation, authenticated workbook import, exact anonymous allowlists,
+media contents and revocation, encrypted remote configuration, private-network
+blocking, bounded WMS requests and redirect rejection. Imported entity/external
+CSV forms are compiled by real PyXForm and parsed by Central. Browser checks cover
+visual translations and conditions, entity configuration, responsive layout,
+repeat-view restoration and publication-preview invalidation. Provider credentials,
+actual Collect device acceptance and production restore drills remain operator
+acceptance work, rather than missing authoring or analysis controls.

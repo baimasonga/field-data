@@ -40,9 +40,17 @@ const authorizeSource = async (container, projectId, selection, auth) => {
   source.fields = source.fields.map(f => ({ ...f, repeated: source.repeatPaths.some(p => f.path.startsWith(`${p}/`)) }));
   return { source, project };
 };
+const analysisFields = (source, repeatPath = null) => source.fields.filter(f => {
+  if (['structure', 'group', 'repeat'].includes(f.type)) return false;
+  const nearest = (source.repeatPaths || []).filter(p => f.path.startsWith(`${p}/`)).sort((a, b) => b.length - a.length)[0];
+  return repeatPath ? nearest === repeatPath : !f.repeated;
+});
 const normalizeAnalysis = (body, source) => {
   if (body?.version != null && body.version !== 1) throw invalid('version', body.version, 'Unsupported saved-view version.');
-  const fields = source.fields.filter(f => !['structure', 'group', 'repeat'].includes(f.type) && !f.repeated);
+  const repeatPath = body?.repeatPath || null;
+  if (repeatPath && source.kind === 'filtered' && source.definition.query.some(f => source.repeatPaths.some(p => f.column.startsWith(`${p}/`)))) throw invalid('repeatPath', repeatPath, 'Repeat-level delegated filters require a dataset boundary designed for repeat rows. Use a parent-scoped delegation.');
+  if (repeatPath && !source.repeatPaths?.includes(repeatPath)) throw invalid('repeatPath', repeatPath, 'Choose a readable repeat group.');
+  const fields = analysisFields(source, repeatPath);
   let definition;
   let chart;
   try {
@@ -56,9 +64,9 @@ const normalizeAnalysis = (body, source) => {
   if (geometry && !definition.columns.includes(geometry)) throw invalid('geometry', geometry, 'Choose a visible field.');
   const tab = body?.tab || 'table';
   if (!['table', 'chart', 'map'].includes(tab)) throw invalid('tab', tab, 'Choose table, chart or map.');
-  return { version: 1, source: body.source, columns: definition.columns, query: definition.query, chart, geometry, tab };
+  return { version: 1, source: body.source, columns: definition.columns, query: definition.query, chart, geometry, tab, ...(repeatPath ? { repeatPath } : {}) };
 };
-const sourceRowsSql = (source) => {
+const sourceRowsSql = (source, repeatPath = null) => {
   const visible = source.fields.map(f => f.path);
   const forms = source.kind === 'filtered'
     ? [{ formId: source.dataset.formId, xmlFormId: source.dataset.xmlFormId }] : source.forms;
@@ -66,6 +74,19 @@ const sourceRowsSql = (source) => {
   const delegatedFilter = source.kind === 'filtered'
     ? compileFilter(source.definition.query, source.definition.fieldByPath) : sql`true`;
   if (forms.length === 0) return sql`select null::text as "instanceId", null::timestamptz as "submittedAt", null::text as "sourceForm", '{}'::jsonb as extracted where false`;
+  if (repeatPath) {
+    const repeatFields = analysisFields(source, repeatPath).map(f => f.path);
+    return sql.join(forms.map(form => sql`
+      select "instanceId", "submittedAt", "sourceForm", repeat_index::integer as "repeatIndex",
+        (select coalesce(jsonb_object_agg(p.path, btrim((xpath('/*' || substring(p.path from ${repeatPath.length + 1}::integer) || '/text()', fragment))[1]::text)), '{}'::jsonb)
+          from unnest(${sql.array(repeatFields, 'text')}) p(path)) as extracted
+      from (select s."instanceId", s."createdAt" as "submittedAt", ${form.xmlFormId}::text as "sourceForm", sd.xml,
+        ${extractObject(paths)} as extracted
+        from submissions s join submission_defs sd on sd."submissionId"=s.id and sd.current=true
+        where s."formId"=${form.formId} and s."deletedAt" is null and s.draft=false and xml_is_well_formed_document(sd.xml)) parent
+      cross join lateral unnest(xpath('/*' || ${repeatPath}::text, parent.xml::xml)) with ordinality r(fragment, repeat_index)
+      where ${delegatedFilter}`), sql` union all `);
+  }
   return sql.join(forms.map(form => sql`
     select "instanceId", "submittedAt", "sourceForm", ${projectObject(visible)} as extracted
     from (
@@ -77,14 +98,14 @@ const sourceRowsSql = (source) => {
     ) as source where ${delegatedFilter}`), sql` union all `);
 };
 const scopedRowsSql = (source, definition) => {
-  const normalized = normalizeDefinition(definition, source.fields);
-  return sql`select * from (${sourceRowsSql(source)}) as permitted
+  const normalized = normalizeDefinition(definition, analysisFields(source, definition.repeatPath));
+  return sql`select * from (${sourceRowsSql(source, definition.repeatPath)}) as permitted
     where ${compileFilter(normalized.query, normalized.fieldByPath)}`;
 };
 const analysisRows = (db, source, definition, limit, offset = 0) => db.any(sql`
-  select "instanceId", "submittedAt", "sourceForm", ${projectObject(definition.columns)} as data
+  select "instanceId", "submittedAt", "sourceForm", ${definition.repeatPath ? sql`"repeatIndex"` : sql`null::integer as "repeatIndex"`}, ${projectObject(definition.columns)} as data
   from (${scopedRowsSql(source, definition)}) as selected
-  order by "submittedAt" desc, "instanceId", "sourceForm" limit ${limit} offset ${offset}`);
+  order by "submittedAt" desc, "instanceId", "sourceForm" ${definition.repeatPath ? sql`, "repeatIndex"` : sql``} limit ${limit} offset ${offset}`);
 const analysisSummary = async (db, source, definition) => {
   const base = scopedRowsSql(source, definition);
   const total = await db.oneFirst(sql`select count(*)::integer from (${base}) as selected`);
@@ -113,6 +134,6 @@ const analysisSummary = async (db, source, definition) => {
 const mapFeatures = (rows, geometry) => ({ type: 'FeatureCollection', features: rows.flatMap(row => {
   const p = parseGeopoint(row.data?.[geometry]);
   return p == null ? [] : [{ type: 'Feature', geometry: { type: 'Point', coordinates: [p.longitude, p.latitude] },
-    properties: { instanceId: row.instanceId, sourceForm: row.sourceForm } }];
+    properties: { instanceId: row.instanceId, sourceForm: row.sourceForm, ...(row.repeatIndex == null ? {} : { repeatIndex: row.repeatIndex }) } }];
 }) });
-module.exports = { invalid, sourceSpec, authorizeSource, normalizeAnalysis, sourceRowsSql, scopedRowsSql, analysisRows, analysisSummary, mapFeatures };
+module.exports = { analysisFields, invalid, sourceSpec, authorizeSource, normalizeAnalysis, sourceRowsSql, scopedRowsSql, analysisRows, analysisSummary, mapFeatures };

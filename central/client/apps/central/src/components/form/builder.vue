@@ -26,14 +26,40 @@ That also means the spreadsheet is real, and downloadable. Advanced authoring ad
       </p>
     </div>
 
+    <p v-if="advancedError" role="alert">{{ advancedError }}</p>
+    <label>Import XLSForm into builder<input type="file" accept=".xlsx" @change="importXlsform"></label>
     <label><input v-model="advanced" type="checkbox" :disabled="hasAdvancedFields"> Advanced authoring (groups, repeats, logic and translations)</label>
     <div v-if="advanced">
       <p>Question names must remain unique. Renaming or deleting a referenced question requires repairing its expressions.</p>
+      <label>Form ID<input v-model.trim="draft.formId" class="form-control" @input="draft.formIdEdited = true"></label>
+      <label><input v-model="updateExisting" type="checkbox">Save as a new draft of this existing form ID</label>
       <label>Default language<input v-model="defaultLanguage" class="form-control"></label>
-      <label>Reusable choice lists (JSON object: list name → choice array)<textarea v-model="listsText" class="form-control" rows="4"></textarea></label>
+      <fieldset>
+<legend>Reusable choice lists</legend>
+        <div v-for="(choices, name) of visualLists" :key="name"><h3>{{ name }}</h3><builder-choices :model-value="choices" @update:model-value="setList(name, $event)"/><button type="button" class="btn btn-default" @click="removeList(name)">Remove list</button></div>
+        <label>New list name<input v-model.trim="newListName" class="form-control"></label><button type="button" class="btn btn-default" :disabled="!newListName" @click="setList(newListName, [])">Add reusable list</button>
+      </fieldset>
+      <builder-properties v-model="settingsExtra" title="Additional XLSForm settings" key-label="Setting"/>
+      <fieldset>
+<legend>External data and entity workflow</legend>
+        <label>External CSV filename<input v-model.trim="externalFile" class="form-control" placeholder="households.csv"></label>
+        <label>Lookup output column<input v-model.trim="externalColumn" class="form-control"></label>
+        <label>Lookup key column<input v-model.trim="externalKey" class="form-control"></label>
+        <label>Lookup answer field<select v-model="externalField" class="form-control"><option v-for="name of questionNames" :key="name">{{ name }}</option></select></label>
+        <button type="button" class="btn btn-default" @click="addLookup">Add external-data calculation</button>
+        <p>Upload the named CSV as a draft form attachment before publishing.</p>
+<details v-if="extraSheets.some(s => s.name === 'entities')"><summary>Saved entity declarations</summary><pre>{{ JSON.stringify(extraSheets.find(s => s.name === 'entities').rows, null, 2) }}</pre></details>
+        <label>Entity list name<input v-model.trim="entityList" class="form-control"></label>
+        <label>Entity label field<select v-model="entityLabel" aria-label="Entity label field" class="form-control"><option v-for="name of questionNames" :key="name">{{ name }}</option></select></label>
+        <label>Entity ID field for updates<select v-model="entityIdField" class="form-control"><option value="">Create new entities</option><option v-for="name of questionNames" :key="name">{{ name }}</option></select></label>
+        <label>Entity update condition<input v-model="entityUpdate" class="form-control" placeholder="true()"></label>
+        <label>Entity creation condition<input v-model="entityCreate" class="form-control" placeholder="true()"></label>
+        <button type="button" class="btn btn-default" @click="configureEntities">Configure entity creation</button>
+        <p>Map answers to entity properties in each question's entity property control.</p>
+      </fieldset>
+      <details><summary>Advanced list JSON</summary><label>Reusable choice lists (JSON object: list name → choice array)<textarea v-model="listsText" class="form-control" rows="4"></textarea></label></details>
       <label>Reopen saved form ID<input v-model="reopenId" class="form-control"></label>
       <button type="button" class="btn btn-default" @click="reopen">Load builder definition</button>
-      <p v-if="advancedError" role="alert">{{ advancedError }}</p>
       <h2>Expression dependencies</h2>
       <p v-if="!dependencies.length">No field references.</p>
       <ul>
@@ -43,7 +69,7 @@ That also means the spreadsheet is real, and downloadable. Advanced authoring ad
       </li>
 </ul>
       <div v-for="(question, index) of draft.questions" :key="question.id || question.key">
-        <advanced-question :model-value="question" @update:model-value="draft.questions[index] = $event"/>
+        <advanced-question :model-value="question" :fields="questionNames" @update:model-value="draft.questions[index] = $event"/>
         <button type="button" class="btn btn-default" :disabled="index === 0" @click="move(index, -1)">Move up</button>
         <button type="button" class="btn btn-default" :disabled="index === draft.questions.length - 1" @click="move(index, 1)">Move down</button>
         <button type="button" class="btn btn-default" @click="removeQuestion(index)">Remove question</button>
@@ -152,6 +178,8 @@ import { useI18n } from 'vue-i18n';
 
 import Spinner from '../spinner.vue';
 import AdvancedQuestion from './advanced-question.vue';
+import BuilderChoices from './builder-choices.vue';
+import BuilderProperties from './builder-properties.vue';
 import { builderDependencies } from '../../util/builder-diagnostics';
 import { useRequestData } from '../../request-data';
 
@@ -188,7 +216,14 @@ request({ method: 'GET', url: apiPaths.formBuilderQuestionTypes() })
   .catch(noop);
 
 const advanced = ref(props.initialAdvanced); const listsText = ref('{}'); const defaultLanguage = ref(''); const reopenId = ref(''); const advancedError = ref('');
+const updateExisting = ref(false); const settingsExtra = ref({}); const extraSheets = ref([]); const newListName = ref('');
+const externalFile = ref(''); const externalColumn = ref(''); const externalKey = ref(''); const externalField = ref('');
+const entityIdField = ref(''); const entityUpdate = ref('true()'); const entityList = ref(''); const entityLabel = ref(''); const entityCreate = ref('true()');
+const visualLists = computed(() => { try { return JSON.parse(listsText.value); } catch { return {}; } });
+const setList = (name, choices) => { if (!/^[A-Za-z_][A-Za-z0-9_]{0,63}$/.test(name)) { advancedError.value = 'Use a valid choice list name.'; return; } listsText.value = JSON.stringify({ ...visualLists.value, [name]: choices }); newListName.value = ''; };
+const removeList = name => { listsText.value = JSON.stringify(Object.fromEntries(Object.entries(visualLists.value).filter(([listKey]) => listKey !== name))); };
 const draft = reactive({ title: '', formId: '', formIdEdited: false, questions: [] });
+const questionNames = computed(() => { const names = []; const walk = q => { if (q.name) names.push(q.name); q.children?.forEach(walk); }; draft.questions.forEach(walk); return names; });
 const dependencies = computed(() => builderDependencies(draft.questions));
 const diagnostics = ref([]); const validating = ref(false);
 const focusQuestion = id => document.getElementById(`builder-question-${id}`)?.focus();
@@ -257,17 +292,50 @@ const basicDefinition = () => ({
 const definition = () => {
   if (!advanced.value) return basicDefinition();
   let lists; try { lists = JSON.parse(listsText.value); } catch { advancedError.value = 'Reusable lists must be valid JSON.'; throw new Error(advancedError.value); }
-  return { schemaVersion: 2, title: draft.title, formId: effectiveFormId.value, defaultLanguage: defaultLanguage.value, lists, questions: draft.questions };
+  return { schemaVersion: 2, title: draft.title, formId: effectiveFormId.value, defaultLanguage: defaultLanguage.value, lists, questions: draft.questions, settingsExtra: settingsExtra.value, extraSheets: extraSheets.value };
+};
+const loadDefinition = d => {
+  draft.title = d.title; draft.formId = d.formId; draft.formIdEdited = true; advanced.value = d.schemaVersion === 2;
+  draft.questions = d.questions.map(q => ({ ...q, key: nextKey(), id: q.id || crypto.randomUUID(), choices: q.choices || [] }));
+  listsText.value = JSON.stringify(d.lists || {}, null, 2); defaultLanguage.value = d.defaultLanguage || '';
+  settingsExtra.value = d.settingsExtra || {}; extraSheets.value = d.extraSheets || []; advancedError.value = '';
+  const sheet = extraSheets.value.find(s => s.name === 'entities');
+  if (sheet?.rows[1]) {
+    const values = Object.fromEntries(sheet.rows[0].map((column, i) => [column, sheet.rows[1][i] || '']));
+    entityList.value = values.dataset || ''; entityLabel.value = values.label?.match(/^\$\{([^}]+)\}$/)?.[1] || '';
+    entityCreate.value = values.create_if || 'true()'; entityUpdate.value = values.update_if || 'true()'; entityIdField.value = values.entity_id?.match(/^\$\{([^}]+)\}$/)?.[1] || '';
+  }
+};
+const importXlsform = async event => {
+  const file = event.target.files[0]; if (!file) return;
+  if (file.size > 10485760) { advancedError.value = 'XLSForm exceeds 10 MB.'; return; }
+  const data = new FormData(); data.append('file', file);
+  try { const response = await request({ method: 'POST', url: `/v1/projects/${props.projectId}/form-builder/import`, data, alert: false }); loadDefinition(response.data.definition); } catch (e) { advancedError.value = e.response?.data?.message || 'Import failed. Your current draft and original spreadsheet are unchanged.'; }
+};
+const addLookup = () => {
+  if (!/^[A-Za-z_][A-Za-z0-9_-]*\.csv$/.test(externalFile.value) || ![externalColumn.value, externalKey.value].every(v => /^[A-Za-z_][A-Za-z0-9_]*$/.test(v)) || !questionNames.value.includes(externalField.value)) { advancedError.value = 'Supply a CSV filename, valid columns and an existing answer field.'; return; }
+  draft.questions.push({ id: crypto.randomUUID(), type: 'calculate', name: `lookup_${draft.questions.length + 1}`, label: '', calculation: `pulldata('${externalFile.value.slice(0, -4)}', '${externalColumn.value}', '${externalKey.value}', \${${externalField.value}})` });
+};
+const configureEntities = () => {
+  if (!/^[A-Za-z_][A-Za-z0-9_-]*$/.test(entityList.value) || !questionNames.value.includes(entityLabel.value)) { advancedError.value = 'Choose an entity list name and existing label field.'; return; }
+  const sheet = extraSheets.value.find(s => s.name === 'entities');
+  const columns = [...new Set([...(sheet?.rows[0] || []), 'dataset', 'label', 'create_if', 'entity_id', 'update_if'])];
+  const rows = (sheet?.rows.slice(1) || []).map(row => Object.fromEntries(sheet.rows[0].map((column, i) => [column, row[i] || ''])));
+  const index = rows.findIndex(row => row.dataset === entityList.value);
+  const record = { ...(rows[index] || {}), dataset: entityList.value, label: `\${${entityLabel.value}}`, create_if: entityCreate.value || 'true()', entity_id: entityIdField.value ? `\${${entityIdField.value}}` : '', update_if: entityIdField.value ? entityUpdate.value || 'true()' : '' };
+  if (index < 0) rows.push(record); else rows[index] = record;
+  extraSheets.value = [...extraSheets.value.filter(s => s.name !== 'entities'), { name: 'entities', rows: [columns, ...rows.map(row => columns.map(column => row[column] || ''))] }];
 };
 const reopen = async () => {
   try {
     const { data } = await request({ method: 'GET', url: `/v1/projects/${props.projectId}/forms/${encodeURIComponent(reopenId.value)}/builder-definition` });
-    if (!data.definition) { advancedError.value = 'This uploaded form has no editable builder definition. Download and edit its original XLSForm.'; return; }
-    const d = data.definition; draft.title = d.title; draft.formId = d.formId; draft.formIdEdited = true;
-    advanced.value = d.schemaVersion === 2;
-    draft.questions = d.questions.map(q => ({ ...q, key: nextKey(), id: q.id || crypto.randomUUID(), choices: q.choices || [] }));
-    listsText.value = JSON.stringify(d.lists || {}, null, 2); defaultLanguage.value = d.defaultLanguage || ''; advancedError.value = '';
-  } catch { advancedError.value = 'The saved definition could not be loaded.'; }
+    if (!data.definition) {
+      const response = await request({ method: 'GET', url: `/v1/projects/${props.projectId}/forms/${encodeURIComponent(reopenId.value)}.xlsx`, responseType: 'blob', alert: false });
+      const upload = new FormData(); upload.append('file', response.data, 'form.xlsx');
+      const imported = await request({ method: 'POST', url: `/v1/projects/${props.projectId}/form-builder/import`, data: upload, alert: false }); loadDefinition(imported.data.definition); updateExisting.value = true; return;
+    }
+    loadDefinition(data.definition); updateExisting.value = true;
+  } catch (e) { advancedError.value = e.response?.data?.message || 'This form could not be imported. Use its original spreadsheet to preserve unsupported constructs.'; }
 };
 const xlsform = (snapshot = definition()) => request({
   method: 'POST',
@@ -306,7 +374,7 @@ const create = async () => {
     .then(({ data }) => request({
       method: 'POST',
       // Warnings are displayed by explicit compiler validation above.
-      url: apiPaths.forms(props.projectId, { ignoreWarnings: true }),
+      url: updateExisting.value ? `/v1/projects/${props.projectId}/forms/${encodeURIComponent(effectiveFormId.value)}/draft?ignoreWarnings=true` : apiPaths.forms(props.projectId, { ignoreWarnings: true }),
       headers: {
         'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
         'X-XlsForm-FormId-Fallback': encodeURIComponent(effectiveFormId.value)
@@ -328,15 +396,15 @@ const create = async () => {
     .catch(noop);
 };
 
-const hasAdvancedFields = computed(() => advanced.value && (listsText.value !== '{}' || defaultLanguage.value !== '' || draft.questions.some(q => ['group', 'repeat', 'calculate'].includes(q.type) || ['relevant', 'constraint', 'calculation', 'choiceFilter'].some(k => q[k]) || Object.keys(q.translations || {}).length)));
+const hasAdvancedFields = computed(() => advanced.value && (extraSheets.value.length > 0 || Object.keys(settingsExtra.value).length > 0 || listsText.value !== '{}' || defaultLanguage.value !== '' || draft.questions.some(q => !questionTypes.value.some(questionType => questionType.name === q.type) || Object.keys(q.xlsExtra || {}).length > 0 || ['group', 'repeat', 'calculate'].includes(q.type) || ['relevant', 'constraint', 'calculation', 'choiceFilter'].some(k => q[k]) || Object.keys(q.translations || {}).length)));
 try {
   const saved = JSON.parse(sessionStorage.getItem(draftKey));
-  if (saved) { Object.assign(draft, saved.draft); advanced.value = saved.advanced; listsText.value = saved.listsText; defaultLanguage.value = saved.defaultLanguage; }
+  if (saved) { Object.assign(draft, saved.draft); advanced.value = saved.advanced; listsText.value = saved.listsText; defaultLanguage.value = saved.defaultLanguage; updateExisting.value = saved.updateExisting || false; settingsExtra.value = saved.settingsExtra || {}; extraSheets.value = saved.extraSheets || []; }
 } catch { /* An incompatible local draft does not replace the saved server definition. */ }
 key = Math.max(key, ...draft.questions.map(q => Number(q.key) || 0));
 if (!draft.questions.length) addQuestion();
-watch([draft, advanced, listsText, defaultLanguage], () => {
-  try { sessionStorage.setItem(draftKey, JSON.stringify({ draft, advanced: advanced.value, listsText: listsText.value, defaultLanguage: defaultLanguage.value })); } catch { advancedError.value = 'Local draft could not be saved. Download the XLSForm to preserve your work.'; }
+watch([draft, advanced, listsText, defaultLanguage, settingsExtra, extraSheets, updateExisting], () => {
+  try { sessionStorage.setItem(draftKey, JSON.stringify({ draft, advanced: advanced.value, listsText: listsText.value, defaultLanguage: defaultLanguage.value, settingsExtra: settingsExtra.value, extraSheets: extraSheets.value, updateExisting: updateExisting.value })); } catch { advancedError.value = 'Local draft could not be saved. Download the XLSForm to preserve your work.'; }
 }, { deep: true });
 </script>
 

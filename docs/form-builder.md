@@ -38,11 +38,10 @@ same complaint is about a file you never saw.
 
 Advanced authoring supports nested groups and repeats, repeat counts, calculations, conditional relevance and required answers, constraints and their messages, reusable choice lists, cascading choice filters, and translated labels and hints. Expressions use XLSForm syntax such as `${age} >= 18`. Dependency references identify missing fields and link to the corresponding question. Validate with compiler checks the actual generated XLSForm and links field diagnostics before creation.
 
-Definitions persist locally while editing and are saved alongside created forms for reopening. Uploaded spreadsheets without a builder definition remain editable through XLSForm upload. Download as XLSForm provides a way to add external data or entity workflows that are outside the visual builder's current controls.
+Definitions persist locally while editing and are saved alongside created forms for reopening. Import XLSForm converts supported spreadsheets into editable definitions, preserving extra columns and supplementary sheets. Reopening a form without a saved definition attempts import from its stored XLSForm. Unsupported constructs, formulas and rich text retain the original spreadsheet workflow. Visual controls support reusable choices, language labels/hints, cascade attributes, conditions and arithmetic. External CSV lookups and file-based selects use ordinary draft attachments; entity creation/update declarations and property mappings compile through PyXForm. Choose Save as a new draft of this existing form ID to update a reopened form without publishing it.
 
 A Form built here can be reopened and edited: the builder's own definition is
-kept beside the Form. A Form uploaded as a spreadsheet has no definition and
-opens as an upload, which the builder says rather than guessing at.
+kept beside the Form. A Form uploaded as a spreadsheet can be imported from its stored XLSForm; unsupported constructs retain the original spreadsheet workflow.
 
 ## How it has been checked
 

@@ -650,6 +650,13 @@ module.exports = (service, endpoint) => {
     }));
   }));
 
+  service.post('/projects/:projectId/form-builder/import', upload.single('file'), uploadErrorHandler, endpoint(async (container, { params, auth }, request, response) => {
+    const project = await container.Projects.getById(params.projectId).then(getOrNotFound);
+    await auth.canOrReject('form.create', project);
+    response.set('Cache-Control', 'private, no-store');
+    if (!request.file || !request.file.originalname.endsWith('.xlsx')) throw Problem.user.unexpectedValue({ field: 'file', reason: 'Choose an XLSForm .xlsx file.' });
+    try { return { definition: await require('../util/builder-import').importWorkbook(request.file.buffer) }; } catch (e) { throw Problem.user.unexpectedValue({ field: 'file', reason: `${e.reason || e.message} The original file is unchanged; use spreadsheet upload for unsupported forms.` }); }
+  }));
   service.post('/projects/:projectId/form-builder/validate', endpoint(async (container, { params, body, auth }, _, response) => {
     const project = await container.Projects.getById(params.projectId).then(getOrNotFound);
     await auth.canOrReject('form.create', project);

@@ -14,6 +14,13 @@ import pyreadstat
 
 def tables_for(payload):
     fields = payload['fields']
+    selected_repeat = payload.get('definition', {}).get('repeatPath')
+    if selected_repeat:
+        records = []
+        for row in payload['rows']:
+            parent = row['sourceForm'] + ':' + row['instanceId']
+            records.append({'record_id': f"{parent}:{selected_repeat}:{row['repeatIndex']}", 'parent_id': parent, 'instance_id': row['instanceId'], 'source_form': row['sourceForm'], 'submitted_at': row['submittedAt'], **{f['path']: (row.get('data') or {}).get(f['path'], '') for f in fields}})
+        return {selected_repeat: {'fields': fields, 'rows': records}}
     repeat_paths = sorted(payload.get('repeatPaths', []), key=lambda p: (p.count('/'), p))
     parents = {p: next((r for r in reversed(repeat_paths) if p.startswith(r + '/')), None) for p in repeat_paths}
     scopes = {p: [] for p in [None] + repeat_paths}
@@ -38,7 +45,7 @@ def tables_for(payload):
             for f in fs:
                 relative = f['path'][len(prefix):].lstrip('/')
                 found = node.find(relative) if node is not None else None
-                result[f['path']] = ''.join(found.itertext()) if found is not None else row.get('data', {}).get(f['path'], '')
+                result[f['path']] = ''.join(found.itertext()) if found is not None else (row.get('data') or {}).get(f['path'], '')
             return result
         root_key = row['sourceForm'] + ':' + row['instanceId']
         tables[None]['rows'].append({'record_id': root_key, 'parent_id': '', 'instance_id': row['instanceId'], 'source_form': row['sourceForm'], 'submitted_at': row['submittedAt'], **extract(root, '', scopes[None])})

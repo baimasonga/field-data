@@ -1,3 +1,4 @@
+/* global window, document, localStorage */
 import { expect, test } from '@playwright/test';
 import { readFileSync } from 'node:fs';
 const appUrl = process.env.ODK_URL || 'http://127.0.0.1:8989';
@@ -207,4 +208,96 @@ test('explorer tiles identify only the origin and failures preserve real GPS poi
   await page.locator('.leaflet-interactive').click();
   await expect(page.locator('.leaflet-popup-content')).toContainText('<img src=x');
   await expect(page.locator('.leaflet-popup-content img')).toHaveCount(0);
+});
+
+test('imported forms have visual translations, condition authoring and entity configuration', async ({ page }) => {
+  let validated;
+  await api(page, async (route, path) => {
+    if (path.endsWith('/form-builder/import')) { await route.fulfill({ json: { definition: { schemaVersion: 2, title: 'Imported fixture', formId: 'imported_fixture', lists: {}, questions: [{ id: 'person', name: 'person', type: 'text', label: 'Person' }] } } }); return true; }
+    if (path.endsWith('/form-builder/validate')) { validated = route.request().postDataJSON(); await route.fulfill({ json: { valid: true, diagnostics: [] } }); return true; }
+    return false;
+  });
+  await page.goto(`${appUrl}/projects/1/new-form?builder=advanced`);
+  await page.getByLabel('Import XLSForm into builder').setInputFiles({ name: 'fixture.xlsx', mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', buffer: Buffer.from('synthetic browser fixture; parser tested separately') });
+  await expect(page.getByLabel('Form title', { exact: true })).toHaveValue('Imported fixture');
+  await page.locator('.advanced-question').getByText('Logic, translations and choices', { exact: true }).click();
+  const labels = page.getByRole('group', { name: 'Translated labels', exact: true }); await labels.getByLabel('Language').fill('French'); await labels.getByRole('button', { name: 'Add Language' }).click(); await labels.getByLabel('French', { exact: true }).fill('Personne');
+  const condition = page.getByRole('group', { name: 'Build a condition' }); await condition.getByLabel('Field', { exact: true }).selectOption('person'); await condition.getByLabel('Value', { exact: true }).fill('Yes'); await condition.getByRole('button', { name: 'Apply condition' }).click();
+  await page.getByLabel('Entity list name', { exact: true }).fill('people'); await page.getByLabel('Entity label field', { exact: true }).selectOption('person'); await page.getByRole('button', { name: 'Configure entity creation' }).click();
+  await page.getByRole('button', { name: 'Validate with compiler' }).click();
+  await expect(page.getByRole('region', { name: 'Compiler diagnostics' })).toContainText('Compilation passed');
+  expect(validated.questions[0].translations.French).toBe('Personne'); expect(validated.questions[0].relevant).toBe("${person} = 'Yes'"); expect(validated.extraSheets[0].rows[0][0]).toBe('dataset'); expect(validated.extraSheets[0].rows[1][1]).toBe('${person}');
+  await page.screenshot({ path: '/tmp/field-data-builder-extensions-desktop.png' });
+  await page.setViewportSize({ width: 390, height: 844 }); expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true); await page.screenshot({ path: '/tmp/field-data-builder-extensions-mobile.png' });
+});
+
+test('repeat scope and team visibility are saved and restored in the analysis controls', async ({ page }) => {
+  let saved;
+  const repeatFields = [{ path: '/members/age', name: 'Age', type: 'int' }];
+  await api(page, async (route, path) => {
+    if (path.endsWith('/sources')) { await route.fulfill({ json: { forms: [{ id: 1, name: 'Survey' }], filtered: [], merged: [] } }); return true; }
+    if (path.endsWith('/query')) { const body = route.request().postDataJSON(); await route.fulfill({ json: { ...result('Fixture'), repeatPaths: ['/members'], ...(body.repeatPath ? { availableFields: repeatFields, fields: repeatFields, definition: { ...definition, repeatPath: '/members', columns: ['/members/age'] }, rows: [{ instanceId: 'uuid:1', sourceForm: 'simple', repeatIndex: 1, data: { '/members/age': '18' } }] } : {}) } }); return true; }
+    if (path.endsWith('/views')) { if (route.request().method() === 'POST') { saved = route.request().postDataJSON(); await route.fulfill({ json: saved }); } else await route.fulfill({ json: saved ? [{ ...saved, revision: 1, canDelete: true }] : [] }); return true; } return false;
+  });
+  await page.goto(`${appUrl}/field-data/analysis?project=1`); await page.getByLabel('Source', { exact: true }).selectOption('form:1');
+  await page.getByLabel('Analysis scope').selectOption('/members'); await expect(page.locator('.analysis-table')).toContainText('18');
+  await page.getByLabel('View title').fill('Team repeat analysis'); await page.getByLabel('View visibility').selectOption('project'); await page.getByRole('button', { name: 'Save view', exact: true }).click();
+  await expect(page.getByRole('status')).toContainText('View saved'); expect(saved.definition.repeatPath).toBe('/members'); expect(saved.visibility).toBe('project');
+  await page.getByLabel('Saved view').selectOption(saved.id); await page.reload(); await expect(page.getByLabel('Analysis scope')).toHaveValue('/members'); await expect(page.getByLabel('View visibility')).toHaveValue('project');
+});
+
+test('dataset publication requires separate field approvals and invalidates stale previews', async ({ page }) => {
+  let previewPayload;
+  await api(page, async (route, path) => {
+    if (path.endsWith('/sources')) { await route.fulfill({ json: { forms: [{ id: 1, name: 'Survey' }], filtered: [], merged: [] } }); return true; }
+    if (path.endsWith('/catalog/fields')) { await route.fulfill({ json: fields }); return true; }
+    if (path.endsWith('/catalog/preview')) { previewPayload = route.request().postDataJSON(); await route.fulfill({ json: { metadata: {}, release: { kind: 'dataset', records: [{ Answer: 'Synthetic' }], suppressed: false }, hash: 'synthetic-preview-hash' } }); return true; } return false;
+  });
+  await page.goto(`${appUrl}/field-data/catalog?project=1`); await page.getByLabel('Project', { exact: true }).selectOption('1'); await page.getByLabel('Published form').selectOption('1'); await page.getByLabel('Release type').selectOption('dataset');
+  await page.getByRole('checkbox', { name: '/name', exact: true }).check(); await page.getByLabel('Public column label').fill('Answer'); await page.getByLabel('Release purpose').fill('Synthetic fixture'); await page.getByLabel('Approve selected text answers').check(); await page.getByLabel('These selected fields and contents').check();
+  await page.getByRole('button', { name: 'Preview exact public release' }).click(); await expect(page.getByRole('button', { name: 'Publish this snapshot' })).toBeDisabled();
+  expect(previewPayload.fields).toEqual([{ path: '/name', label: 'Answer' }]); expect(previewPayload.releasePolicy.allowText).toBe(true);
+  await page.getByLabel('I reviewed the licence').check(); await expect(page.getByRole('button', { name: 'Publish this snapshot' })).toBeEnabled();
+  await page.getByLabel('Approve selected text answers').uncheck(); await expect(page.getByRole('button', { name: 'Publish this snapshot' })).toHaveCount(0);
+});
+
+test('unsupported XLSForm import preserves the current draft and explains the fallback', async ({ page }) => {
+  await api(page, async (route, path) => {
+    if (path.endsWith('/form-builder/import')) { await route.fulfill({ status: 400, json: { message: 'Unsupported workbook. Use the original spreadsheet upload.' } }); return true; } return false;
+  });
+  await page.goto(`${appUrl}/projects/1/new-form?builder=advanced`); await page.getByLabel('Form title', { exact: true }).fill('Keep this draft');
+  await page.getByLabel('Import XLSForm into builder').setInputFiles({ name: 'unsupported.xlsx', mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', buffer: Buffer.from('synthetic invalid workbook') });
+  await expect(page.getByRole('alert')).toContainText('original spreadsheet upload'); await expect(page.getByLabel('Form title', { exact: true })).toHaveValue('Keep this draft');
+});
+
+test('remote map connections are saved without returning provider credentials to the layer display', async ({ page }) => {
+  let saved;
+  const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aWQAAAABJRU5ErkJggg==', 'base64');
+  await page.route('**/tile.openstreetmap.org/**', route => route.fulfill({ contentType: 'image/png', body: png }));
+  await api(page, async (route, path) => {
+    if (path.endsWith('/sources')) { await route.fulfill({ json: { forms: [{ id: 1, name: 'Survey' }], filtered: [], merged: [] } }); return true; }
+    if (path.endsWith('/query')) { await route.fulfill({ json: { ...result('Map'), map: { type: 'FeatureCollection', features: [] } } }); return true; }
+    if (path.endsWith('/map-layers/remote')) { saved = route.request().postDataJSON(); await route.fulfill({ json: { id: 'remote' } }); return true; }
+    if (path.endsWith('/map-layers')) { await route.fulfill({ json: saved ? [{ id: 'remote', title: saved.title, revision: 1, definition: { sourceType: 'wms', visible: true, attribution: saved.attribution, layers: saved.layers }, data: { type: 'FeatureCollection', features: [] } }] : [] }); return true; }
+    if (path.endsWith('/tile')) { await route.fulfill({ contentType: 'image/png', body: png }); return true; } return false;
+  });
+  await page.goto(`${appUrl}/field-data/analysis?project=1`); await page.getByLabel('Source', { exact: true }).selectOption('form:1'); await page.getByRole('button', { name: 'map', exact: true }).click();
+  await page.getByLabel('Remote layer title').fill('Synthetic boundaries'); await page.getByLabel('HTTPS source URL').fill('https://provider.example/wms'); await page.getByLabel('WMS layer names').fill('boundaries'); await page.getByLabel('Authorization header').fill('Bearer synthetic-secret'); await page.getByLabel('Provider attribution').fill('Fixture provider'); await page.getByRole('button', { name: 'Save remote connection' }).click();
+  await expect(page.getByLabel('Authorization header')).toHaveValue(''); await expect(page.locator('.reference-layer')).toContainText('Synthetic boundaries'); expect(saved.sourceType).toBe('wms'); expect(saved.authorization).toBe('Bearer synthetic-secret'); await expect(page.locator('.reference-layer')).not.toContainText('synthetic-secret');
+});
+
+test('public dataset renders approved answers and rechecks revocation before media download', async ({ page }) => {
+  let revoked = false;
+  const release = { id: 'fixture-release', title: 'Approved dataset', license: 'CC-BY-4.0', attribution: 'Fixture', release: { kind: 'dataset', fields: [{ label: 'Answer' }, { label: 'Photo' }], records: [{ Answer: 'Approved answer', Photo: { encoding: 'base64', contentType: 'image/png', data: 'aGVsbG8=' } }] } };
+  await api(page, async (route, path) => {
+    if (path === '/v1/field-data/catalog') { await route.fulfill({ json: [release] }); return true; }
+    if (path === '/v1/field-data/catalog/fixture-release') { await route.fulfill(revoked ? { status: 404, json: { message: 'Release revoked' } } : { json: release }); return true; }
+    return false;
+  });
+  await page.goto(`${appUrl}/catalog`); await page.getByRole('button', { name: 'Approved dataset', exact: true }).click();
+  await expect(page.locator('.public-dataset-table')).toContainText('Approved answer');
+  const download = page.waitForEvent('download'); await page.getByRole('button', { name: 'Accept licence and download media' }).click();
+  expect((await download).suggestedFilename()).toBe('public-fixture-release-0.png');
+  revoked = true; await page.getByRole('button', { name: 'Accept licence and download media' }).click();
+  await expect(page.getByRole('alert')).toContainText('Release revoked');
 });

@@ -23,6 +23,10 @@ module.exports = (service, endpoint, anonymousEndpoint) => {
     if (body?.source?.kind !== 'form') throw invalid('source', null, 'The public catalogue currently accepts published forms only.');
     const { project, source } = await authorizeSource(c, params.projectId, body.source, auth);
     await auth.canOrReject('project.update', project);
+    if (body.kind === 'dataset') {
+      const result = await require('../util/public-dataset-release').datasetRelease(c, source, body);
+      return { ...result, hash: fingerprint(result), formId: source.forms[0].formId, projectId: project.id };
+    }
     const config = normalizePublication(body);
     const field = source.fields.find(f => f.path === body.column);
     if (!field || field.repeated || field.type !== 'string' || field.selectMultiple) throw invalid('column', null, 'Choose a nonrepeating single-choice field.');
@@ -32,6 +36,13 @@ module.exports = (service, endpoint, anonymousEndpoint) => {
     const result = { metadata: config.metadata, release: suppressRelease(rows, config) };
     return { ...result, hash: fingerprint(result), formId: source.forms[0].formId, projectId: project.id };
   };
+  service.post('/projects/:projectId/catalog/fields', endpoint(async (c, { params, auth, body }, _, response) => {
+    if (body?.source?.kind !== 'form') throw invalid('source', null, 'Choose a form.');
+    const { project, source } = await authorizeSource(c, params.projectId, body.source, auth); await auth.canOrReject('project.update', project);
+    const form = source.forms[0]; response.set('Cache-Control', 'private, no-store');
+    const fields = await c.db.any(sql`select ff.path, ff.name, ff.type, ff.binary, ff."selectMultiple" from form_fields ff join form_defs fd on fd.id=${form.currentDefId} and fd."schemaId"=ff."schemaId" where ff."formId"=${form.formId}`);
+    return fields.filter(f => !['structure', 'group', 'repeat'].includes(f.type) && !f.path.startsWith('/meta/') && !source.repeatPaths.some(p => f.path.startsWith(`${p}/`)));
+  }));
   service.post('/projects/:projectId/catalog/preview', endpoint(async (c, { params, auth, body }, _, response) => {
     response.set('Cache-Control', 'private, no-store'); const result = await preview(c, params, auth, body);
     return { metadata: result.metadata, release: result.release, hash: result.hash };

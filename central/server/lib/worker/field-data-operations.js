@@ -34,7 +34,7 @@ const runOperations = async (db, dependencies = {}) => {
   const store = dependencies.storage || storage;
   const policyRow = await db.one(sql`select definition from field_data_operations_policy where id=1`); const policy = normalizePolicy(policyRow.definition);
   const checks = [await probe('database', () => db.oneFirst(sql`select 1`), 'Database connection and query succeeded.'), await probe('compiler', dependencies.compilerHealth || compilerHealth, 'Internal form compiler answered its health request.')];
-  const marker = await db.maybeOne(sql`select "storageKey" from field_data_map_layers order by "updatedAt" desc limit 1`);
+  const marker = await db.maybeOne(sql`select "storageKey" from field_data_map_layers where "storageKey" is not null order by "updatedAt" desc limit 1`);
   if (marker) checks.push(await probe('storage', async () => {
     const stream = await store.getStream(marker.storageKey); const timer = setTimeout(() => stream.destroy(new Error('Storage read timeout.')), 3000);
     try { for await (const chunk of stream) { if (!chunk.length) throw new Error('Empty storage object.'); } } finally { clearTimeout(timer); stream.destroy(); }
