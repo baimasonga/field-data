@@ -330,7 +330,10 @@ for (const width of [1280, 320]) test(`page layouts reflow at ${width}px with ke
     await page.goto(`${appUrl}${path}`); await expect(page.locator('#fd-main-content')).toBeVisible(); await expect(page.locator('.fd-shell')).toBeVisible();
     await expect(page.locator('#fd-main-content h1:visible').first()).toBeVisible();
     const spills = await page.evaluate(() => Array.from(document.querySelectorAll('body *')).filter(el => el.getBoundingClientRect().right > window.innerWidth + 1 && window.getComputedStyle(el).display !== 'none').map(el => `${el.tagName}.${el.className} ${Math.round(el.getBoundingClientRect().right)}`).slice(0, 15));
-    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), `${path}: ${spills.join(', ')}`).toBe(true);
+    // Route transitions and font loading can briefly retain the previous page's
+    // scroll width. Require the layout to settle without allowing persistent overflow.
+    await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
+      { message: `${path}: ${spills.join(', ')}`, timeout: 10000 }).toBe(true);
     if (width === 320) {
       const toggle = page.getByRole('button', { name: 'Open navigation', exact: true }); await toggle.focus(); await page.keyboard.press('Enter');
       await expect(page.getByRole('navigation', { name: 'Primary navigation' })).toBeVisible();
