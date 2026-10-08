@@ -40,7 +40,7 @@ describe('ProjectHomeBlock', () => {
 
   it('renders the project name correctly', () => {
     testData.extendedProjects.createPast(1, { name: 'My Project' });
-    const link = mountComponent().getComponent(RouterLinkStub);
+    const link = mountComponent().get('.nm').getComponent(RouterLinkStub);
     link.text().should.equal('My Project');
     link.props().to.should.equal('/projects/1');
   });
@@ -48,12 +48,12 @@ describe('ProjectHomeBlock', () => {
   it('shows the encrypted label for encrypted forms', () => {
     const key = testData.standardKeys.createPast(1, { managed: true }).last();
     testData.extendedProjects.createPast(1, { key });
-    mountComponent().find('.encrypted').exists().should.be.true;
+    mountComponent().find('.fd-enc').exists().should.be.true;
   });
 
   it('shows empty table when there are zero forms', () => {
     testData.extendedProjects.createPast(1);
-    const table = mountComponent().find('.project-form-table');
+    const table = mountComponent().find('.fd-forms-table');
     table.exists().should.be.false;
   });
 
@@ -70,7 +70,7 @@ describe('ProjectHomeBlock', () => {
     testData.extendedForms.createPast(4);
     const block = mountComponent();
     block.findAllComponents(FormRow).length.should.equal(3);
-    const expand = block.find('.expand-button');
+    const expand = block.find('.fd-expand a');
     expand.exists().should.be.true;
     expand.text().should.equal('Show 4 total Forms');
     expand.find('.icon-angle-down').exists().should.be.true;
@@ -81,7 +81,7 @@ describe('ProjectHomeBlock', () => {
     testData.extendedForms.createPast(4);
     const block = mountComponent();
     block.findAllComponents(FormRow).length.should.equal(3);
-    const expand = block.find('.expand-button');
+    const expand = block.find('.fd-expand a');
     await expand.trigger('click');
     block.findAllComponents(FormRow).length.should.equal(4);
     expand.text().should.equal('Show fewer of 4 total Forms');
@@ -112,7 +112,7 @@ describe('ProjectHomeBlock', () => {
     let rows = block.findAllComponents(FormRow);
     // Test component's sort function defined above will sort by xmlFormId
     rows.map((row) => row.props().form.name).should.eql(['ccc_w', 'ddd_x', 'bbb_y']);
-    const expand = block.find('.expand-button');
+    const expand = block.find('.fd-expand a');
     await expand.trigger('click');
     rows = block.findAllComponents(FormRow);
     rows.map((row) => row.props().form.name).should.eql(['ccc_w', 'ddd_x', 'bbb_y', 'aaa_z']);
@@ -126,7 +126,7 @@ describe('ProjectHomeBlock', () => {
     testData.extendedForms.createPast(1, { name: 'd' });
     testData.extendedForms.createPast(1, { name: 'e' });
     const block = mountComponent();
-    const expand = block.find('.expand-button');
+    const expand = block.find('.fd-expand a');
     expand.exists().should.be.true;
     expand.text().should.equal('Show 4 total Forms');
     await expand.trigger('click');
@@ -142,7 +142,7 @@ describe('ProjectHomeBlock', () => {
     block.findAllComponents(FormRow).length.should.equal(3);
     block.findAllComponents(DatasetRow).length.should.equal(3);
     block.find('.expand-button').exists().should.be.false;
-    block.find('.margin').exists().should.be.true;
+    block.find('.fd-dataset-table').exists().should.be.true;
   });
 
   it('shows the correct number of datasets if there are a lot and some should be hidden', () => {
@@ -150,7 +150,7 @@ describe('ProjectHomeBlock', () => {
     testData.extendedDatasets.createPast(4);
     const block = mountComponent();
     block.findAllComponents(DatasetRow).length.should.equal(3);
-    block.find('.project-form-row .expand-button').exists().should.be.false;
+    block.find('.fd-expand a').exists().should.be.false;
     const expand = block.find('.project-dataset-row .expand-button');
     expand.exists().should.be.true;
     expand.text().should.equal('Show 4 total Entity Lists');
@@ -190,7 +190,7 @@ describe('ProjectHomeBlock', () => {
     const block = mountComponent();
 
     block.findAllComponents(DatasetRow).length.should.equal(3);
-    const formExpand = block.find('.project-form-row .expand-button');
+    const formExpand = block.find('.fd-expand a');
     formExpand.exists().should.be.true;
     formExpand.text().should.equal('Show 5 total Forms');
     formExpand.find('.icon-angle-down').exists().should.be.true;
