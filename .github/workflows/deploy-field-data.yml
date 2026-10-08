@@ -107,7 +107,7 @@ jobs:
                       tls.includes(code) ? "NODE_DATABASE_TLS_ERROR" :
                       code === "28P01" ? "NODE_DATABASE_AUTH_ERROR" :
                       network.includes(code) ? "NODE_DATABASE_NETWORK_ERROR" : "NODE_DATABASE_OTHER_ERROR");
-                    console.error(message);
+                    console.error("Database connection diagnostic failed; connection details withheld.");
                     process.exitCode = 1;
                   } finally {
                     await client.end().catch(() => {});
@@ -179,7 +179,7 @@ jobs:
                   const found = await client.query(
                     `select 1 from field_data.users where email = $1`, [email]);
                   if (found.rowCount > 0) {
-                    console.log(`${email} already exists; leaving it alone.`);
+                    console.log("Administrator account already exists; leaving it alone.");
                     return;
                   }
 
@@ -210,7 +210,7 @@ jobs:
                      values ($1, $2, $3)`,
                     [actorId, role.rows[0].id, "*"]);
                   await client.query("commit");
-                  console.log(`Created ${email} as an administrator.`);
+                  console.log("Administrator account created.");
                 } catch (error) {
                   await client.query("rollback").catch(() => {});
                   throw error;
@@ -218,7 +218,7 @@ jobs:
                   await client.end().catch(() => {});
                 }
               })().catch((error) => {
-                console.error(String(error.message || error));
+                console.error("Administrator bootstrap failed; inspect the secured database for details.");
                 process.exitCode = 1;
               });
             '
@@ -390,8 +390,7 @@ jobs:
 
             if [[ "$status" == 401 ]]; then
               echo "The server rejected the administrator's credentials:"
-              printf '%s\n' "$payload" | jq . 2>/dev/null || printf '%s\n' "$payload"
-              echo "Nobody can log in with $SYSADMIN_EMAIL." >&2
+              echo "Administrator login answered HTTP $status; response details withheld." >&2
               exit 1
             fi
 
@@ -401,7 +400,7 @@ jobs:
 
           echo "The server never became ready enough to answer a login in four minutes." >&2
           echo "The last answer was $status:" >&2
-          printf '%s\n' "$payload" >&2
+          echo "Response details withheld." >&2
           exit 1
 
       # Logging in proves the front door opens. It says nothing about whether
@@ -425,7 +424,7 @@ jobs:
           # Prints the step, keeps going, and records whether it worked, so one
           # run reports every broken thing rather than only the first.
           get() {
-            local label=$1 path=$2
+            local label=$1 path=$2 retrying=${3:-false}
             local out status
             out=$(curl --silent --show-error --max-time 45 --write-out '\n%{http_code}' \
               --header "$auth" "$BASE$path") || out=$'\n000'
@@ -435,10 +434,14 @@ jobs:
               echo "  ok   $label ($path)"
               return 0
             fi
-            echo "::error title=Live API smoke check failed::$label ($path) answered HTTP $status"
+            if [[ "$retrying" == true ]]; then
+              echo "::warning title=Live readiness retry::$label ($path) answered HTTP $status; retrying"
+            else
+              echo "::error title=Live API smoke check failed::$label ($path) answered HTTP $status"
+              failed=1
+            fi
             echo "  FAIL $label ($path) answered $status" >&2
-            printf '%s\n' "$body" | head -c 400 >&2; echo >&2
-            failed=1
+            echo "Response details withheld." >&2
             return 1
           }
 
@@ -472,7 +475,7 @@ jobs:
           # for 30 seconds. Give the new runtime time to replace its predecessor.
           webforms_ready=0
           for attempt in {1..6}; do
-            if get "native Web Forms health" "/v1/field-data/stats"; then
+            if get "native Web Forms health" "/v1/field-data/stats" true; then
               if printf '%s' "$body" | jq -e '.systemStatus.enketo == true' >/dev/null; then
                 webforms_ready=1
                 break
@@ -508,11 +511,9 @@ jobs:
             >/dev/null && echo "Session closed." || echo "Could not close the session; it will expire."
 
 
-      # Runs whether the login worked or not, because the interesting case is
-      # the one where it did not. Says who exists and what the container's
-      # bootstrap recorded about trying to create them. No password or hash is
-      # selected here, only whether one is set.
-      - name: Report the accounts the database holds
+      # Report readiness without putting account identities or free-text
+      # bootstrap messages into public workflow logs.
+      - name: Report aggregate account readiness
         if: always()
         env:
           PGHOST: ${{ secrets.PGHOST_DIRECT || secrets.PGHOST }}
@@ -535,28 +536,24 @@ jobs:
                   console.log(`\n${label}:`);
                   console.log(rows.length ? JSON.stringify(rows, null, 2) : "  (no rows)");
                 } catch (error) {
-                  console.log(`\n${label}: ${String(error.message || error)}`);
+                  console.log(`\n${label}: diagnostic unavailable`);
                 }
               };
               (async () => {
                 await client.connect();
                 await show("accounts", `
-                  select u.email,
-                         a."displayName",
-                         u.password is not null as "hasPassword",
-                         r.name as role
+                  select count(*) as accounts,
+                         count(*) filter (where u.password is not null) as "withPassword"
                   from field_data.users u
                     join field_data.actors a on a.id = u."actorId"
-                    left join field_data.assignments s on s."actorId" = u."actorId"
-                    left join field_data.roles r on r.id = s."roleId"
-                  order by u.email`);
+                  where a."deletedAt" is null`);
                 await show("what the container recorded at boot", `
-                  select at, outcome, detail
+                  select outcome, count(*) as events
                   from field_data.bootstrap_log
-                  order by at desc limit 10`);
+                  group by outcome order by outcome`);
                 await client.end();
               })().catch((error) => {
-                console.error(String(error.message || error));
+                console.error("Aggregate account readiness diagnostic unavailable.");
                 process.exitCode = 1;
               });
             '

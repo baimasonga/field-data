@@ -9,12 +9,13 @@ const { Project, Form } = require('../model/frames');
 const { getOrNotFound } = require('../util/promise');
 const { success, contentDisposition } = require('../util/http');
 const Problem = require('../util/problem');
+const { _csvSafe: csvSafe } = require('../util/filtered-dataset-export');
 
 const dayKey = (date) => new Date(date).toISOString().slice(0, 10);
 const monthPeriod = (date = new Date()) => `${date.getUTCFullYear()}${String(date.getUTCMonth() + 1).padStart(2, '0')}`;
 const csvValue = (value) => {
   if (value == null) return '';
-  const text = value instanceof Date ? value.toISOString() : String(value);
+  const text = String(csvSafe(value));
   return /[",\r\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
 };
 const csvTable = (columns, rows) => [
