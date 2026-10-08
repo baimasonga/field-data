@@ -151,6 +151,7 @@ test('reviewer cancels a pending visit with a reason and retains it when request
   await page.getByLabel('Cancellation reason', { exact: true }).fill('Collector is unavailable.');
   await cancel.click();
   await expect.poll(() => state.backchecks[0].status).toBe('cancelled');
+  await openInspection(page);
   await expect(page.getByText('Cancellation reason: Collector is unavailable.')).toBeVisible();
   await expect(page.getByLabel('Synced back-check submission ID')).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Request back-check', exact: true })).toBeVisible();
@@ -159,6 +160,7 @@ test('reviewer cancels a pending visit with a reason and retains it when request
   await page.getByRole('button', { name: 'Request back-check', exact: true }).click();
   await expect.poll(() => state.backchecks.length).toBe(2);
   expect(state.backchecks.map(backcheck => backcheck.assignedTo)).toEqual([42, 43]);
+  await openInspection(page);
   await expect(page.getByText('Cancellation reason: Collector is unavailable.')).toBeVisible();
   expect(state.mutations.map(mutation => mutation.headers['if-match']))
     .toEqual([etag(1), etag(2), etag(3), etag(4)]);
