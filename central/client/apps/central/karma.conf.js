@@ -44,6 +44,11 @@ webpackConfigForKarma.module.rules.push({
   test: /\.xml$/,
   use: 'raw-loader'
 });
+// Keep imported district GeoJSON on webpack's JSON parser after the i18n loader.
+webpackConfigForKarma.module.rules.push({
+  test: /sl-districts\.json$/,
+  type: 'json'
+});
 
 module.exports = (config) => {
   config.set({

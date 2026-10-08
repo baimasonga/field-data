@@ -8,6 +8,6 @@ describe('ConfigError', () => {
       props: { error: new Error('foo') }
     });
     const text = component.get('.panel-body').text();
-    text.should.equal('There was an error loading Central. Something went wrong: there was no request.');
+    text.should.equal('There was an error loading Field Data. Something went wrong: there was no request.');
   });
 });

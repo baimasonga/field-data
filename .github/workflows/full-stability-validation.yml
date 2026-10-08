@@ -43,6 +43,8 @@ jobs:
     name: Server unit, hardening and lint (gate)
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    env:
+      FIELD_DATA_STORAGE_DIR: /tmp/field-data-unit-${{ github.run_id }}
     defaults:
       run:
         working-directory: central/server
@@ -200,6 +202,7 @@ jobs:
           NODE_ENV=test NODE_CONFIG_DIR=./config NODE_CONFIG_ENV=test BCRYPT=insecure \
             FIELD_DATA_STORAGE_DIR="${{ runner.temp }}" \
             npx mocha --timeout 30000 test/integration/api/field-data-claims.js \
+              test/integration/api/field-data-collection-smoke.js \
               test/integration/api/field-data-evidence.js \
               test/integration/api/field-data-idempotency.js \
               test/integration/api/field-data-reviews.js \

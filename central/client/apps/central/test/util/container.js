@@ -46,7 +46,11 @@ export default ({
     ...options
   }));
   if (config !== false)
-    container.requestData.config.setFromResponse({ status: 200, data: config });
+    // Upstream analytics specs exercise the optional enabled configuration.
+    // Field Data's production default remains disabled; tests can override it.
+    container.requestData.config.setFromResponse({
+      status: 200, data: { showsAnalytics: true, ...config }
+    });
   if (container.requestData.seed != null) container.requestData.seed();
   return container;
 };
