@@ -95,7 +95,7 @@ describe('api: back-check cancellation', () => {
       await alice.post(cancelPath).set('If-Match', first.headers.etag)
         .send({ ...cancellation, reason: ' ' }).expect(400);
       await alice.post(cancelPath).set('If-Match', assignment.headers.etag)
-        .send(cancellation).expect(409);
+        .send(cancellation).expect(412);
       const cancelled = await alice.post(cancelPath).set('If-Match', first.headers.etag)
         .send(cancellation).expect(200);
       const replay = await alice.post(cancelPath).set('If-Match', first.headers.etag)
