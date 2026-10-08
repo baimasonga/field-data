@@ -44,7 +44,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
-      FIELD_DATA_STORAGE_DIR: ${{ runner.temp }}/field-data-unit
+      FIELD_DATA_STORAGE_DIR: /tmp/field-data-unit-${{ github.run_id }}
     defaults:
       run:
         working-directory: central/server
