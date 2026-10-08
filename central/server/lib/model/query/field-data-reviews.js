@@ -139,7 +139,7 @@ const assignToSelf = ({ caseId, revision, actorId, projectId, formActeeId,
 };
 
 const recordDecision = ({ caseId, revision, actorId, projectId, formActeeId,
-  key, requestHash, reasonCode, note, outcome }) => async ({ all, one, run }) => {
+  key, requestHash, reasonCode, note, outcome, override = false }) => async ({ all, one, run }) => {
   const reserved = await all(sql`INSERT INTO field_data_idempotency_records
     ("projectId", "operationType", "idempotencyKey", "requestHash", status, "policyVersion")
     VALUES (${projectId}, 'review.case.decide', ${key}, ${requestHash}, 'in-progress', 'p0.5')
@@ -171,7 +171,8 @@ const recordDecision = ({ caseId, revision, actorId, projectId, formActeeId,
     throw Problem.user.reviewCaseClosed();
   if (reviewCase.status !== 'in-review' || reviewCase.assignedTo !== actorId)
     throw Problem.user.reviewCaseAssigned();
-  if (!reviewCase.reasonCodes.includes(reasonCode))
+  if (override ? (outcome !== 'accepted' || reasonCode !== 'verified-by-supervisor')
+    : !reviewCase.reasonCodes.includes(reasonCode))
     throw Problem.user.reviewAssignmentInvalid();
   if (outcome !== 'needs-evidence') {
     const pending = await all(sql`SELECT id FROM field_data_backchecks
@@ -208,10 +209,13 @@ const recordDecision = ({ caseId, revision, actorId, projectId, formActeeId,
       ("instanceId" = ${reviewCase.instanceId}
         OR "relatedInstanceId" = ${reviewCase.instanceId})
     ORDER BY id FOR SHARE`);
+  if (override && !findings.some((item) => item.status !== 'resolved')
+    && reviewCase.claimDegraded == null && reviewCase.provenanceDegraded == null)
+    throw Problem.user.reviewAssignmentInvalid();
   if (outcome === 'accepted' && (evidence.length === 0
     || evidence.some((item) => item.hashMatches !== true || item.relation === 'contradicts')
-    || findings.some((item) => item.status !== 'resolved')
-    || reviewCase.claimDegraded != null || reviewCase.provenanceDegraded != null))
+    || (!override && (findings.some((item) => item.status !== 'resolved')
+      || reviewCase.claimDegraded != null || reviewCase.provenanceDegraded != null))))
     throw Problem.user.reviewAcceptanceBlocked();
   let snapshot;
   try {
@@ -232,7 +236,7 @@ const recordDecision = ({ caseId, revision, actorId, projectId, formActeeId,
       "evidenceSnapshotHash", "integritySnapshot", "reviewerId")
     VALUES (${decisionId}, ${caseId}, ${reviewCase.claimVersionId},
       ${previous[0]?.id ?? null}, ${(previous[0]?.sequence ?? 0) + 1},
-      ${outcome}, false, ${reasonCode}, ${note},
+      ${outcome}, ${override}, ${reasonCode}, ${note},
       ${JSON.stringify(evidence.map((e) => ({
     id: e.id, relation: e.relation, sourceKind: e.sourceKind,
     contentHash: e.contentHash, policyVersion: e.policyVersion,
@@ -250,7 +254,9 @@ const recordDecision = ({ caseId, revision, actorId, projectId, formActeeId,
       ${JSON.stringify({ submissionId: reviewCase.submissionId,
     submissionDefId: reviewCase.submissionDefId, claimId: reviewCase.claimId,
     claimVersionId: reviewCase.claimVersionId, caseId, decisionId,
-    outcome, override: false, reasonCode })},
+    outcome, override, reasonCode,
+    ...(override ? { overrideContext: { claimDegraded: reviewCase.claimDegraded,
+      provenanceDegraded: reviewCase.provenanceDegraded, integritySnapshot: findings } } : {}) })},
       clock_timestamp(), clock_timestamp(), 0)`);
   await run(sql`UPDATE field_data_idempotency_records SET status = 'succeeded',
     "resourceId" = ${decisionId}, "responseStatus" = 201,
