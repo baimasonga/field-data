@@ -7,6 +7,7 @@ const { Form } = require('../model/frames');
 const { UUID_PATTERN } = require('../util/claim-versioning');
 const { getOrNotFound } = require('../util/promise');
 const Problem = require('../util/problem');
+const { trackReviewWrite, observeReviewConflicts } = require('../util/review-conflicts');
 
 const scopeFor = async (container, auth, caseId, edit = false) => {
   if (!UUID_PATTERN.test(caseId)) throw Problem.user.notFound();
@@ -67,7 +68,7 @@ module.exports = (service, endpoint) => {
       WHERE b."caseId" = ${params.caseId} ORDER BY b."createdAt", b.id`);
   }));
 
-  service.post('/field-data/review-queue/:caseId/backchecks', endpoint(async (
+  service.post('/field-data/review-queue/:caseId/backchecks', endpoint(observeReviewConflicts(async (
     container, { params, auth, body, headers }, request, response
   ) => {
     const { reviewCase, claim, form } = await scopeFor(container, auth, params.caseId, true);
@@ -84,7 +85,8 @@ module.exports = (service, endpoint) => {
     const question = body.question.trim();
     const dueAt = body.dueAt ?? null;
     const requestHash = hash({ assignedTo: body.assignedTo, question, dueAt });
-    const result = await container.transacting(async (tx) => {
+    const result = await trackReviewWrite({ caseId: params.caseId, actorId: reviewerId,
+      formActeeId: form.acteeId }, 'backcheck-request', () => container.transacting(async (tx) => {
       const [locked] = await tx.db.any(sql`SELECT c.revision, c.status, c."assignedTo",
         sd.current, s."submitterId" AS "originalSubmitterId"
         FROM field_data_review_cases c
@@ -130,15 +132,15 @@ module.exports = (service, endpoint) => {
     claimVersionId: reviewCase.claimVersionId, assignedTo: body.assignedTo })},
           clock_timestamp(), clock_timestamp(), 0)`);
       return { id: inserted.id, status: 'requested', revision: locked.revision + 1, replayed: false };
-    });
+    }));
     response.set('ETag', `"review-case-${result.revision}"`);
     response.set('Cache-Control', 'private, no-store');
     response.set('Idempotency-Status', result.replayed ? 'replayed' : 'created');
     response.status(201);
     return { id: result.id, caseId: params.caseId, status: result.status };
-  }));
+  })));
 
-  service.post('/field-data/review-queue/:caseId/backchecks/:backcheckId/cancel', endpoint(async (
+  service.post('/field-data/review-queue/:caseId/backchecks/:backcheckId/cancel', endpoint(observeReviewConflicts(async (
     container, { params, auth, body, headers }, request, response
   ) => {
     const { form } = await scopeFor(container, auth, params.caseId, true);
@@ -150,7 +152,8 @@ module.exports = (service, endpoint) => {
       || body.reason.trim().length === 0 || body.reason.length > 2000)
       throw Problem.user.reviewAssignmentInvalid();
     const reason = body.reason.trim();
-    const result = await container.transacting(async (tx) => {
+    const result = await trackReviewWrite({ caseId: params.caseId, actorId: reviewerId,
+      formActeeId: form.acteeId }, 'backcheck-cancel', () => container.transacting(async (tx) => {
       const [locked] = await tx.db.any(sql`SELECT c.revision, c.status, c."assignedTo", sd.current
         FROM field_data_review_cases c
         JOIN field_data_claim_versions v ON v.id = c."claimVersionId"
@@ -180,14 +183,14 @@ module.exports = (service, endpoint) => {
           ${JSON.stringify({ caseId: params.caseId, backcheckId: params.backcheckId, reason })},
           clock_timestamp(), clock_timestamp(), 0)`);
       return { revision: locked.revision + 1, replayed: false };
-    });
+    }));
     response.set('ETag', `"review-case-${result.revision}"`);
     response.set('Cache-Control', 'private, no-store');
     response.set('Idempotency-Status', result.replayed ? 'replayed' : 'created');
     return { id: params.backcheckId, status: 'cancelled', revision: result.revision };
-  }));
+  })));
 
-  service.post('/field-data/review-queue/:caseId/backchecks/:backcheckId/link', endpoint(async (
+  service.post('/field-data/review-queue/:caseId/backchecks/:backcheckId/link', endpoint(observeReviewConflicts(async (
     container, { params, auth, body, headers }, request, response
   ) => {
     const { reviewCase, claim, form } = await scopeFor(container, auth, params.caseId, true);
@@ -197,7 +200,8 @@ module.exports = (service, endpoint) => {
       || body.instanceId.length > 255) throw Problem.user.reviewAssignmentInvalid();
     const reviewerId = auth.actor.map((actor) => actor.id).orNull();
     const revision = matchRevision(headers);
-    const result = await container.transacting(async (tx) => {
+    const result = await trackReviewWrite({ caseId: params.caseId, actorId: reviewerId,
+      formActeeId: form.acteeId }, 'backcheck-link', () => container.transacting(async (tx) => {
       const [locked] = await tx.db.any(sql`SELECT revision, status, "assignedTo"
         FROM field_data_review_cases WHERE id = ${params.caseId} FOR UPDATE`);
       const [backcheck] = await tx.db.any(sql`SELECT id, status, "assignedTo",
@@ -234,10 +238,10 @@ module.exports = (service, endpoint) => {
     responseSubmissionDefId: submitted.id, instanceId: body.instanceId })},
           clock_timestamp(), clock_timestamp(), 0)`);
       return { revision: locked.revision + 1, replayed: false };
-    });
+    }));
     response.set('ETag', `"review-case-${result.revision}"`);
     response.set('Cache-Control', 'private, no-store');
     response.set('Idempotency-Status', result.replayed ? 'replayed' : 'created');
     return { id: params.backcheckId, status: 'linked', revision: result.revision };
-  }));
+  })));
 };

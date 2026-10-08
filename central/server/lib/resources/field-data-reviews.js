@@ -5,6 +5,7 @@ const { Form } = require('../model/frames');
 const { UUID_PATTERN } = require('../util/claim-versioning');
 const { getOrNotFound } = require('../util/promise');
 const Problem = require('../util/problem');
+const { trackReviewWrite, observeReviewConflicts } = require('../util/review-conflicts');
 const { encodeCursor, decodeCursor } = require('../util/review-queue');
 const { validateKey, hashReviewAssignment, hashReviewRelease,
   hashReviewDecision } = require('../util/idempotency');
@@ -18,7 +19,7 @@ const authorize = async (auth, form) => {
 };
 
 module.exports = (service, endpoint) => {
-  service.post('/field-data/review-queue/:caseId/decisions', endpoint(async (
+  service.post('/field-data/review-queue/:caseId/decisions', endpoint(observeReviewConflicts(async (
     container, { params, auth, body, headers }, request, response
   ) => {
     if (!UUID_PATTERN.test(params.caseId)) throw Problem.user.notFound();
@@ -67,10 +68,12 @@ module.exports = (service, endpoint) => {
     const requestHash = hashReviewDecision({
       caseId: params.caseId, revision, actorId, outcome, reasonCode, note, override: body.override
     });
-    const result = await container.transacting((tx) => tx.FieldDataReviews.recordDecision({
+    const result = await trackReviewWrite({ caseId: params.caseId, actorId,
+      formActeeId: form.acteeId }, 'decision',
+    () => container.transacting((tx) => tx.FieldDataReviews.recordDecision({
       caseId: params.caseId, revision, actorId, projectId: claim.scope.projectId,
       formActeeId: form.acteeId, key, requestHash, reasonCode, note, outcome, override: body.override
-    }));
+    })));
     response.set('ETag', `"review-case-${result.revision}"`);
     response.set('Idempotency-Key', key);
     response.set('Idempotency-Status', result.replayed ? 'replayed' : 'created');
@@ -79,9 +82,9 @@ module.exports = (service, endpoint) => {
     return { id: result.id, caseId: params.caseId, outcome,
       status: outcome === 'needs-evidence' ? 'open' : 'resolved',
       revision: result.revision };
-  }));
+  })));
 
-  service.patch('/field-data/review-queue/:caseId/assignment', endpoint(async (
+  service.patch('/field-data/review-queue/:caseId/assignment', endpoint(observeReviewConflicts(async (
     container, { params, auth, body, headers },
     request, response
   ) => {
@@ -119,17 +122,19 @@ module.exports = (service, endpoint) => {
     const requestHash = claiming
       ? hashReviewAssignment({ caseId: params.caseId, revision, assignedTo: actorId })
       : hashReviewRelease({ caseId: params.caseId, revision, actorId });
-    const result = await container.transacting((tx) => tx.FieldDataReviews.assignToSelf({
+    const result = await trackReviewWrite({ caseId: params.caseId, actorId,
+      formActeeId: form.acteeId }, releasing ? 'release' : 'assignment',
+    () => container.transacting((tx) => tx.FieldDataReviews.assignToSelf({
       caseId: params.caseId, revision, actorId, projectId: claim.scope.projectId,
       formActeeId: form.acteeId, key, requestHash, releasing
-    }));
+    })));
     response.set('ETag', `"review-case-${result.revision}"`);
     response.set('Idempotency-Key', key);
     response.set('Idempotency-Status', result.replayed ? 'replayed' : 'created');
     response.set('Cache-Control', 'private, no-store');
     return { id: result.id, revision: result.revision,
       status: releasing ? 'open' : 'in-review', assignedTo: releasing ? null : actorId };
-  }));
+  })));
 
   service.get('/field-data/review-queue', endpoint(async (
     { FieldDataReviews, Forms }, { query, auth }, request, response

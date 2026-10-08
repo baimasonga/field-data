@@ -65,6 +65,11 @@ const getMetrics = ({ projectId, xmlFormId }) => ({ one }) => one(sql`
     FROM scoped c JOIN audits a ON a.details->>'caseId' = c.id::text
       AND a.action = 'field_data.review.case.assign'
     GROUP BY c.id, c."openedAt"
+  ), conflicts AS (
+    SELECT a.details->>'operation' AS operation, count(*)::integer AS count
+    FROM scoped c JOIN audits a ON a.details->>'caseId' = c.id::text
+      AND a.action = 'field_data.review.case.stale_write'
+    GROUP BY a.details->>'operation'
   ), reasons AS (
     SELECT reason, count(*)::integer AS count
     FROM scoped c CROSS JOIN LATERAL (
@@ -89,6 +94,10 @@ const getMetrics = ({ projectId, xmlFormId }) => ({ one }) => one(sql`
       ORDER BY count DESC, reason) FROM reasons), '[]'::jsonb) AS "activeReasons",
     (SELECT jsonb_build_object('total', count(*), 'overrides', count(*) FILTER (WHERE d.override))
       FROM field_data_review_decisions d JOIN scoped c ON c.id = d."caseId") AS decisions,
+    jsonb_build_object('total', COALESCE((SELECT sum(count) FROM conflicts), 0),
+      'byOperation', COALESCE((SELECT jsonb_agg(jsonb_build_object(
+        'operation', operation, 'count', count) ORDER BY operation) FROM conflicts),
+        '[]'::jsonb)) AS "staleWrites",
     (SELECT jsonb_build_object('pending', count(*),
       'overdue', count(*) FILTER (WHERE b."dueAt" < statement_timestamp()))
       FROM field_data_backchecks b JOIN scoped c ON c.id = b."caseId"
@@ -266,4 +275,13 @@ const recordDecision = ({ caseId, revision, actorId, projectId, formActeeId,
   return { id: decisionId, revision: revision + 1, replayed: false };
 };
 
-module.exports = { getCase, listDecisions, listCases, getMetrics, assignToSelf, recordDecision };
+// Called through the endpoint failure observer on the original container, not
+// the failed mutation transaction. Keep diagnostic events separate from decisions.
+const recordStaleWrite = ({ caseId, actorId, formActeeId, operation }) => ({ run }) =>
+  run(sql`INSERT INTO audits ("actorId", action, "acteeId", details,
+    "loggedAt", processed, failures)
+    VALUES (${actorId}, 'field_data.review.case.stale_write', ${formActeeId},
+      ${JSON.stringify({ caseId, operation })}, clock_timestamp(), clock_timestamp(), 0)`);
+
+module.exports = { getCase, listDecisions, listCases, getMetrics, assignToSelf,
+  recordDecision, recordStaleWrite };

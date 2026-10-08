@@ -20,6 +20,16 @@
         <div><dt>Pending back-checks</dt><dd>{{ metrics.backchecks.pending }}</dd></div>
         <div><dt>Overdue back-checks</dt><dd>{{ metrics.backchecks.overdue }}</dd></div>
       </dl>
+      <details v-if="metrics.staleWrites">
+        <summary>Stale write conflicts: {{ metrics.staleWrites.total }}</summary>
+        <p>A write used an outdated case revision. Refresh the case before retrying.</p>
+        <p v-if="metrics.staleWrites.total === 0">No stale write conflicts recorded.</p>
+        <ul v-else>
+          <li v-for="entry of metrics.staleWrites.byOperation" :key="entry.operation">
+            {{ operationLabel(entry.operation) }}: {{ entry.count }}
+          </li>
+        </ul>
+      </details>
       <details>
         <summary>Reasons for active cases</summary>
         <p v-if="metrics.activeReasons.length === 0">No active routing reasons.</p>
@@ -50,6 +60,11 @@ const loading = ref(false);
 const failed = ref(false);
 let generation = 0;
 onBeforeUnmount(() => { generation += 1; });
+const operationLabel = operation => ({
+  assignment: 'Assignment', release: 'Release', decision: 'Decision',
+  'backcheck-request': 'Back-check request', 'backcheck-cancel': 'Back-check cancellation',
+  'backcheck-link': 'Back-check link'
+})[operation] || operation;
 const duration = seconds => {
   if (seconds == null) return 'No data';
   if (seconds < 60) return 'Less than a minute';
