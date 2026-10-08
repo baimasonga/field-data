@@ -28,7 +28,8 @@ Data Cleaning: follow up submissions that reviewers sent back for correction.
       </div>
 
       <div class="fd-panel">
-        <table class="fd-table">
+        <div class="fd-table-scroll" role="region" aria-label="Scrollable data table" tabindex="0">
+<table class="fd-table">
           <thead>
             <tr>
               <th>{{ $t('th.form') }}</th>
@@ -63,6 +64,7 @@ Data Cleaning: follow up submissions that reviewers sent back for correction.
             </tr>
           </tbody>
         </table>
+</div>
         <p v-if="items.length === 0" class="fd-empty">{{ $t('empty') }}</p>
       </div>
     </template>

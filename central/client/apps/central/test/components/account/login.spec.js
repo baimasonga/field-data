@@ -428,8 +428,8 @@ describe('AccountLogin', () => {
 
   describe('OIDC error', () => {
     const alerts = [
-      ['oidcError=auth-ok-user-not-found', 'There is no Central account associated with your email address.'],
-      ['oidcError=email-claim-not-provided', 'Central could not access the email address associated with your account.'],
+      ['oidcError=auth-ok-user-not-found', 'There is no Field Data account associated with your email address.'],
+      ['oidcError=email-claim-not-provided', 'Field Data could not access the email address associated with your account.'],
       ['oidcError=email-not-verified', 'Your email address has not been verified by your login server.'],
       ['oidcError=internal-server-error', 'Something went wrong during login.']
     ];

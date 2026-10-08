@@ -1,6 +1,8 @@
 # Building a Form in the browser
 
-**Project → Forms → Create Form → Build a Form.** Add questions, press Create
+**Data Collection → Form Builder → select a project → Open Advanced Form Builder.**
+
+The existing **Project → Forms → Create Form → Build a Form** path also works. Add questions, press Create
 Form, and the Form appears as a draft exactly as an uploaded spreadsheet would.
 Publish it and a phone running ODK Collect downloads it from the same list as
 any other Form.
@@ -32,16 +34,14 @@ hyphens, must not repeat, and must not be one of the names ODK reserves
 all of that before a spreadsheet is written, because pyxform's version of the
 same complaint is about a file you never saw.
 
-## What it does not cover
+## Advanced authoring
 
-Repeat groups, cascading selects, calculations, constraints written by hand,
-external data, entities. **Download the spreadsheet and finish it in Excel** —
-that is the intended way out, not a failure. A Form is uploaded the same way
-either way.
+Advanced authoring supports nested groups and repeats, repeat counts, calculations, conditional relevance and required answers, constraints and their messages, reusable choice lists, cascading choice filters, and translated labels and hints. Expressions use XLSForm syntax such as `${age} >= 18`. Dependency references identify missing fields and link to the corresponding question. Validate with compiler checks the actual generated XLSForm and links field diagnostics before creation.
+
+Definitions persist locally while editing and are saved alongside created forms for reopening. Import XLSForm converts supported spreadsheets into editable definitions, preserving extra columns and supplementary sheets. Reopening a form without a saved definition attempts import from its stored XLSForm. Unsupported constructs, formulas and rich text retain the original spreadsheet workflow. Visual controls support reusable choices, language labels/hints, cascade attributes, conditions and arithmetic. External CSV lookups and file-based selects use ordinary draft attachments; entity creation/update declarations and property mappings compile through PyXForm. Choose Save as a new draft of this existing form ID to update a reopened form without publishing it.
 
 A Form built here can be reopened and edited: the builder's own definition is
-kept beside the Form. A Form uploaded as a spreadsheet has no definition and
-opens as an upload, which the builder says rather than guessing at.
+kept beside the Form. A Form uploaded as a spreadsheet can be imported from its stored XLSForm; unsupported constructs retain the original spreadsheet workflow.
 
 ## How it has been checked
 
@@ -55,3 +55,5 @@ Beyond that, on 2026-09-20: a Form was built in a browser against a real
 server with the real form-compiler running, created, published, and found in
 the OpenRosa form list with its id, name, version and download URL — which is
 what a phone reads.
+
+The browser acceptance fixture is compiled by real PyXForm. Tests verify invalid repeated ages block submission, calculated relevance reveals the adult question, and the sent XML contains both calculated values and answers. Builder discovery and missing project permissions also have browser checks.

@@ -8,6 +8,7 @@ distribution and at https://www.apache.org/licenses/LICENSE-2.0.
 -->
 <template>
   <div id="field-data-backups">
+    <header class="fd-page-intro"><h1>{{ $t('title') }}</h1><p>{{ $t('subtitle') }}</p></header>
     <div class="table-actions-bar">
       <button type="button" class="btn btn-primary" :aria-disabled="awaitingResponse"
         @click="create">
@@ -19,9 +20,11 @@ distribution and at https://www.apache.org/licenses/LICENSE-2.0.
         {{ $t('action.refresh') }}
       </button>
     </div>
+    <label><input v-model="complete" type="checkbox"> Include referenced objects and external attachments in an encrypted recovery bundle</label>
 
     <loading :state="backups.initiallyLoading"/>
-    <table v-show="backups.dataExists" class="table">
+    <div v-show="backups.dataExists" class="fd-table-scroll" role="region" aria-label="Scrollable data table" tabindex="0">
+<table class="table">
       <thead>
         <tr>
           <th>{{ $t('header.date') }}</th>
@@ -35,10 +38,11 @@ distribution and at https://www.apache.org/licenses/LICENSE-2.0.
           <td><date-time :iso="backup.date"/></td>
           <td>{{ backup.type }}</td>
           <td>{{ backup.size }}</td>
-          <td><span class="label" :class="`label-${backup.statusColor}`">{{ backup.status }}</span></td>
+          <td><span class="label" :class="`label-${backup.statusColor}`">{{ backup.status }}</span> {{ backup.error }} <button v-if="backup.downloadable" type="button" class="btn btn-link" @click="download(backup)">Download encrypted backup</button></td>
         </tr>
       </tbody>
     </table>
+</div>
     <p v-show="backups.dataExists && backups.data.length === 0" class="empty-table-message">
       {{ $t('emptyTable') }}
     </p>
@@ -46,7 +50,7 @@ distribution and at https://www.apache.org/licenses/LICENSE-2.0.
 </template>
 
 <script setup>
-import { inject } from 'vue';
+import { inject, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 
 import DateTime from '../date-time.vue';
@@ -67,12 +71,19 @@ const alert = inject('alert');
 const { request, awaitingResponse } = useRequest();
 const { createResource } = useRequestData();
 const backups = createResource('fieldDataBackups');
+const complete = ref(false);
+const download = async backup => {
+  try {
+    const { data } = await request({ method: 'GET', url: `${apiPaths.fieldDataBackups()}/${backup.id}/download`, responseType: 'blob' });
+    const url = URL.createObjectURL(data); const a = document.createElement('a'); a.href = url; a.download = `backup-${backup.id}.${backup.type === 'Recovery' ? 'recovery' : 'pgdump'}.enc.bin`; a.click(); URL.revokeObjectURL(url);
+  } catch { /* request reports failure */ }
+};
 
 const fetchData = () => backups.request({ url: apiPaths.fieldDataBackups() }).catch(noop);
 fetchData();
 
 const create = () => {
-  request({ method: 'POST', url: apiPaths.fieldDataBackups(), data: {} })
+  request({ method: 'POST', url: apiPaths.fieldDataBackups(), data: { complete: complete.value } })
     .then(() => {
       alert.success(t('alert.started'));
       fetchData();
@@ -84,6 +95,8 @@ const create = () => {
 <i18n lang="json5">
 {
   "en": {
+    "title": "Backups",
+    "subtitle": "Create encrypted recovery backups and review completed downloads.",
     "action": {
       "backupNow": "Back up now",
       "refresh": "Refresh"

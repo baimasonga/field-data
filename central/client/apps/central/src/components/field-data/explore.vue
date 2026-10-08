@@ -26,26 +26,29 @@ gallery, or Charts.
     </header>
 
     <div class="fd-tabs" role="tablist">
-      <button v-for="tb of tabs" :key="tb.key" type="button" role="tab"
-        :class="{ on: activeTab === tb.key }" @click="setTab(tb.key)">
-        <!-- eslint-disable-next-line vue/no-v-html -->
+      <button v-for="(tb, index) of tabs" :id="`explore-tab-${tb.key}`" :key="tb.key" type="button"
+        role="tab" :class="{ on: activeTab === tb.key }" :aria-selected="activeTab === tb.key" :tabindex="activeTab === tb.key ? 0 : -1" aria-controls="fd-explorer-panel" @keydown="tabKey($event, index)" @click="setTab(tb.key)">
+        <!-- eslint-disable vue/no-v-html -->
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-          stroke-linecap="round" stroke-linejoin="round" v-html="tabIcons[tb.key]"></svg>
+          stroke-linecap="round" stroke-linejoin="round" v-html="tabIcons[tb.key]"/>
         {{ tb.label }}<span v-if="tb.count != null" class="fd-tab-count">{{ tb.count }}</span>
       </button>
     </div>
 
     <loading :state="explore.initiallyLoading"/>
 
-    <div v-if="explore.dataExists" class="fd-explore-body">
+    <div v-if="explore.dataExists" id="fd-explorer-panel" role="tabpanel" :aria-labelledby="`explore-tab-${activeTab}`" class="fd-explore-body">
       <!-- TABLE -->
       <div v-if="activeTab === 'table'" class="fd-panel">
         <div class="fd-panel-scroll">
-          <table class="fd-table">
-            <thead><tr>
+          <div class="fd-table-scroll" role="region" aria-label="Scrollable data table" tabindex="0">
+<table class="fd-table">
+            <thead>
+<tr>
               <th>{{ $t('th.id') }}</th><th>{{ $t('th.form') }}</th><th>{{ $t('th.submitter') }}</th>
               <th>{{ $t('th.district') }}</th><th>{{ $t('th.date') }}</th><th>{{ $t('th.status') }}</th>
-            </tr></thead>
+            </tr>
+</thead>
             <tbody>
               <tr v-for="r of rows" :key="r.id">
                 <td class="mono">#{{ r.id }}</td>
@@ -57,6 +60,7 @@ gallery, or Charts.
               </tr>
             </tbody>
           </table>
+</div>
         </div>
         <p v-if="rows.length === 0" class="fd-empty">{{ $t('empty.rows') }}</p>
       </div>
@@ -68,15 +72,19 @@ gallery, or Charts.
             <button type="button" :class="{ on: mapMode === 'points' }" @click="mapMode = 'points'">{{ $t('map.points') }}</button>
             <button type="button" :class="{ on: mapMode === 'districts' }" @click="mapMode = 'districts'">{{ $t('map.districts') }}</button>
           </div>
-          <select v-if="mapMode === 'districts'" v-model="mapMetric" class="form-control fd-metric">
+          <select v-if="mapMode === 'districts'" v-model="mapMetric" aria-label="District map measure" class="form-control fd-metric">
             <option value="total">{{ $t('metric.total') }}</option>
             <option value="approved">{{ $t('metric.approved') }}</option>
             <option value="needsReview">{{ $t('metric.needsReview') }}</option>
             <option value="rejected">{{ $t('metric.rejected') }}</option>
           </select>
         </div>
-        <div ref="mapEl" class="fd-explore-map"></div>
-        <p v-if="mappable === 0 && mapMode === 'points'" class="fd-empty fd-empty-over">{{ $t('empty.map') }}</p>
+        <p v-if="basemapError" role="status">
+Background map unavailable. Submission locations remain visible.
+          <button type="button" class="btn btn-default" @click="retryBasemap">Retry background map</button>
+        </p>
+        <div v-show="mapMode === 'districts' || mappable > 0" ref="mapEl" class="fd-explore-map"></div>
+        <p v-if="mappable === 0 && mapMode === 'points'" class="fd-empty">{{ $t('empty.map') }}</p>
       </div>
 
       <!-- PHOTOS -->
@@ -116,12 +124,25 @@ import slDistricts from '../../assets/sl-districts.json';
 import DateTime from '../date-time.vue';
 import Loading from '../loading.vue';
 
+import { addBasemap, hasLocation } from '../../util/basemap';
 import { apiPaths } from '../../util/request';
 import { noop } from '../../util/util';
 import { useRequestData } from '../../request-data';
 
-Chart.register(BarController, BarElement, DoughnutController, ArcElement,
-  LineController, LineElement, PointElement, LinearScale, CategoryScale, Filler, Tooltip, Legend);
+Chart.register(
+  BarController,
+  BarElement,
+  DoughnutController,
+  ArcElement,
+  LineController,
+  LineElement,
+  PointElement,
+  LinearScale,
+  CategoryScale,
+  Filler,
+  Tooltip,
+  Legend
+);
 
 defineOptions({ name: 'FieldDataExplore' });
 
@@ -139,7 +160,7 @@ const forms = computed(() => (explore.dataExists ? explore.data.forms : []));
 const rows = computed(() => (explore.dataExists ? explore.data.rows : []));
 const photos = computed(() => (explore.dataExists ? explore.data.photos : []));
 const charts = computed(() => (explore.dataExists ? explore.data.charts : { byDistrict: [], byStatus: [], byForm: [], trend: [] }));
-const mappable = computed(() => rows.value.filter(r => r.lat != null && r.lng != null).length);
+const mappable = computed(() => rows.value.filter(hasLocation).length);
 const csvUrl = computed(() => apiPaths.fieldDataExploreCsv(selectedForm.value));
 
 const tabs = computed(() => [
@@ -168,16 +189,15 @@ const photoUrl = (p) => `/v1/projects/${p.projectId}/forms/${encodeURIComponent(
 const mapEl = ref(null);
 const statusCanvas = ref(null); const districtCanvas = ref(null);
 const formCanvas = ref(null); const trendCanvas = ref(null);
-let map = null; let markers = null;
+let map = null; let markers = null; let basemap = null;
+const basemapError = ref(false);
+const retryBasemap = () => {
+  if (!map) return;
+  basemap?.remove(); basemapError.value = false;
+  basemap = addBasemap(map, () => { basemapError.value = true; }, { maxZoom: 14 });
+};
 const chartObjs = {};
 const TEAL = '#0E7490'; const STATUS_COLORS = { approved: '#2E8B5A', rejected: '#de2a11', hasIssues: '#f29e00', edited: '#1C6FA6', received: '#9aa7ab' };
-
-const DISTRICT_COORDS = {
-  Kailahun: [8.28, -10.57], Kenema: [7.88, -11.19], Kono: [8.65, -10.97], Bombali: [9.02, -12.19],
-  Falaba: [9.85, -11.30], Koinadugu: [9.58, -11.55], Tonkolili: [8.72, -11.95], Kambia: [9.12, -12.92],
-  Karene: [9.05, -12.72], 'Port Loko': [8.77, -12.79], Bo: [7.96, -11.74], Bonthe: [7.53, -12.50],
-  Moyamba: [8.16, -12.43], Pujehun: [7.35, -11.72], 'Western Area Rural': [8.30, -13.07], 'Western Area Urban': [8.48, -13.23]
-};
 
 // Choropleth (GIS dashboard): shade the 16 districts by a chosen metric.
 const mapMode = ref('points');
@@ -186,8 +206,7 @@ let choroLayer = null; let legend = null;
 
 const districtMetrics = computed(() => {
   const m = {};
-  for (const r of rows.value) {
-    if (!r.district) continue;
+  for (const r of rows.value.filter(row => row.district)) {
     if (!m[r.district]) m[r.district] = { total: 0, approved: 0, rejected: 0, needsReview: 0 };
     const d = m[r.district];
     d.total += 1;
@@ -243,26 +262,27 @@ const buildChoropleth = () => {
 
 const buildPoints = () => {
   markers.clearLayers();
-  for (const r of rows.value) {
-    let lat = r.lat; let lng = r.lng;
-    if ((lat == null || lng == null) && r.district && DISTRICT_COORDS[r.district]) {
-      const c = DISTRICT_COORDS[r.district];
-      lat = c[0] + (Math.random() - 0.5) * 0.18; lng = c[1] + (Math.random() - 0.5) * 0.18;
-    }
-    if (lat == null || lng == null) continue;
+  for (const r of rows.value.filter(hasLocation)) {
+    const { lat, lng } = r;
     const color = STATUS_COLORS[r.reviewState] || STATUS_COLORS.received;
     L.circleMarker([lat, lng], { radius: 5, color, weight: 1, fillColor: color, fillOpacity: 0.6 })
-      .bindPopup(`<b>${(r.formName || r.form)}</b><br>${r.submitter || ''}<br>${r.district || ''}`)
+      .bindPopup(document.createTextNode([r.formName || r.form, r.submitter, r.district].filter(Boolean).join(' · ')))
       .addTo(markers);
   }
+  if (markers.getLayers().length) map.fitBounds(markers.getBounds(), { maxZoom: 14 });
 };
 
 const buildMap = () => {
   if (!mapEl.value) return;
+  if (mapMode.value === 'points' && mappable.value === 0) {
+    map?.remove(); map = null; markers = null; basemap = null;
+    choroLayer = null; legend = null; basemapError.value = false;
+    return;
+  }
   if (map == null) {
     map = L.map(mapEl.value, { scrollWheelZoom: false }).setView([8.46, -11.79], 7);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 14, attribution: '&copy; OpenStreetMap' }).addTo(map);
-    markers = L.layerGroup().addTo(map);
+    retryBasemap();
+    markers = L.featureGroup().addTo(map);
   }
   if (mapMode.value === 'districts') {
     markers.clearLayers();
@@ -280,30 +300,50 @@ watch([mapMode, mapMetric], () => { if (activeTab.value === 'map') buildMap(); }
 const barChart = (canvas, data, color) => new Chart(canvas, {
   type: 'bar',
   data: { labels: data.map(d => d.label), datasets: [{ data: data.map(d => d.count), backgroundColor: color, borderRadius: 4 }] },
-  options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } },
-    scales: { y: { beginAtZero: true, grid: { color: '#eef2f3' } }, x: { grid: { display: false } } } }
+  options: {
+    animation: false,
+    responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } },
+    scales: { y: { beginAtZero: true, grid: { color: '#eef2f3' } }, x: { grid: { display: false } } }
+  }
 });
 
 const buildCharts = () => {
   Object.values(chartObjs).forEach(c => c && c.destroy());
   const st = charts.value.byStatus || [];
   if (statusCanvas.value) chartObjs.status = new Chart(statusCanvas.value, {
-    type: 'doughnut', data: { labels: st.map(s => statusInfo(s.label).label),
-      datasets: [{ data: st.map(s => s.count), backgroundColor: st.map(s => STATUS_COLORS[s.label] || STATUS_COLORS.received), borderWidth: 0 }] },
-    options: { responsive: true, maintainAspectRatio: false, cutout: '65%', plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, usePointStyle: true } } } }
+    type: 'doughnut', data: {
+      labels: st.map(s => statusInfo(s.label).label),
+      datasets: [{ data: st.map(s => s.count), backgroundColor: st.map(s => STATUS_COLORS[s.label] || STATUS_COLORS.received), borderWidth: 0 }]
+    },
+    options: { animation: false, responsive: true, maintainAspectRatio: false, cutout: '65%', plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, usePointStyle: true } } } }
   });
   if (districtCanvas.value) chartObjs.district = barChart(districtCanvas.value, charts.value.byDistrict || [], TEAL);
   if (formCanvas.value) chartObjs.form = barChart(formCanvas.value, charts.value.byForm || [], '#2E8B5A');
   const tr = charts.value.trend || [];
   if (trendCanvas.value) chartObjs.trend = new Chart(trendCanvas.value, {
-    type: 'line', data: { labels: tr.map(d => new Date(d.day).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })),
-      datasets: [{ data: tr.map(d => d.count), borderColor: TEAL, backgroundColor: 'rgba(14,116,144,0.08)', fill: true, tension: 0.35, pointRadius: 2 }] },
-    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } },
-      scales: { y: { beginAtZero: true, grid: { color: '#eef2f3' } }, x: { grid: { display: false } } } }
+    type: 'line', data: {
+      labels: tr.map(d => new Date(d.day).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })),
+      datasets: [{ data: tr.map(d => d.count), borderColor: TEAL, backgroundColor: 'rgba(14,116,144,0.08)', fill: true, tension: 0.35, pointRadius: 2 }]
+    },
+    options: {
+      animation: false,
+      responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } },
+      scales: { y: { beginAtZero: true, grid: { color: '#eef2f3' } }, x: { grid: { display: false } } }
+    }
   });
 };
 
 const setTab = (key) => { activeTab.value = key; };
+const tabKey = (event, index) => {
+  let next;
+  if (event.key === 'ArrowRight') next = (index + 1) % tabs.value.length;
+  else if (event.key === 'ArrowLeft') next = (index + tabs.value.length - 1) % tabs.value.length;
+  else if (event.key === 'Home') next = 0;
+  else if (event.key === 'End') next = tabs.value.length - 1;
+  else return;
+  event.preventDefault(); setTab(tabs.value[next].key);
+  event.currentTarget.parentElement.querySelectorAll('[role="tab"]')[next].focus();
+};
 
 watch([activeTab, () => explore.data], () => {
   if (!explore.dataExists) return;

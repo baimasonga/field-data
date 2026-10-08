@@ -33,7 +33,7 @@ Project Templates: reusable Field Data operating presets.
               <span class="category">{{ template.category }}</span>
               <h2>{{ template.name }}</h2>
             </div>
-            <button v-if="template.createdBy" type="button" class="icon-btn" :title="$t('action.delete')"
+            <button v-if="template.createdBy" type="button" class="icon-btn" :title="$t('action.delete')" :aria-label="$t('action.delete')"
               :aria-disabled="awaitingResponse" @click="deleteTemplate(template)">
               &times;
             </button>
@@ -219,7 +219,7 @@ const deleteTemplate = (template) => {
   }
 
   .template-grid {
-    display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 14px;
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr)); gap: 14px;
   }
 
   .template-card {

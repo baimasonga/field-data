@@ -74,6 +74,15 @@ export default defineConfig(({ mode }) => ({
   plugins: [
     vue(),
     devAppRouter(),
+    // Vite leaves classic scripts in HTML unchanged, so explicitly ship the
+    // legacy initialization error handler referenced by the Forms entry page.
+    {
+      name: 'web-forms-bootstrap',
+      generateBundle() {
+        this.emitFile({ type: 'asset', fileName: 'apps/forms/src/init.js',
+          source: readFileSync(resolve(__dirname, 'apps/forms/src/init.js'), 'utf-8') });
+      }
+    },
     VueI18nPlugin({
       include: resolve(dirname(fileURLToPath(import.meta.url)), './apps/central/src/locales/**'),
       compositionOnly: false,

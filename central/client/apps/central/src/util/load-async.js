@@ -102,10 +102,18 @@ const loaders = new Map()
     /* webpackChunkName: "component-feedback-button" */
     '../components/feedback-button.vue'
   )))
+  .set('OutdatedVersion', loader(() => import(
+    /* webpackChunkName: "component-outdated-version" */
+    '../components/outdated-version.vue'
+  )))
   .set('FieldDataHome', loader(() => import(
     /* webpackChunkName: "component-field-data-home" */
     '../components/field-data/home.vue'
   )))
+  .set('FieldDataOperations', loader(() => import('../components/field-data/operations.vue')))
+  .set('FieldDataFormBuilder', loader(() => import('../components/field-data/form-builder.vue')))
+  .set('FieldDataCatalog', loader(() => import('../components/field-data/catalog.vue')))
+  .set('FieldDataAnalysis', loader(() => import('../components/field-data/analysis.vue')))
   .set('FieldDataDashboard', loader(() => import(
     /* webpackChunkName: "component-field-data-dashboard" */
     '../components/field-data/dashboard.vue'

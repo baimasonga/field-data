@@ -25,8 +25,10 @@ Field Teams: per-enumerator performance (submissions, approval rate, coverage).
       </div>
 
       <div class="fd-panel">
-        <table class="fd-table">
-          <thead><tr>
+        <div class="fd-table-scroll" role="region" aria-label="Scrollable data table" tabindex="0">
+<table class="fd-table">
+          <thead>
+<tr>
             <th>{{ $t('th.name') }}</th>
             <th class="r">{{ $t('th.submissions') }}</th>
             <th class="r">{{ $t('th.approved') }}</th>
@@ -35,7 +37,8 @@ Field Teams: per-enumerator performance (submissions, approval rate, coverage).
             <th>{{ $t('th.approvalRate') }}</th>
             <th class="r">{{ $t('th.districts') }}</th>
             <th class="r">{{ $t('th.lastActive') }}</th>
-          </tr></thead>
+          </tr>
+</thead>
           <tbody>
             <tr v-for="m of members" :key="m.submitterId || m.name">
               <td class="name"><span class="ava">{{ initials(m.name) }}</span>{{ m.name }}</td>
@@ -52,6 +55,7 @@ Field Teams: per-enumerator performance (submissions, approval rate, coverage).
             </tr>
           </tbody>
         </table>
+</div>
         <p v-if="members.length === 0" class="fd-empty">{{ $t('empty') }}</p>
       </div>
     </template>

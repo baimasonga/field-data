@@ -29,3 +29,11 @@ Get explicit permission for public use, and be careful about photographing
 people in circumstances they would not want shown — a clinic visit, for
 instance. Where a face is not needed to tell the story, a wider frame or a
 back-turned shot carries it without putting anyone on a public website.
+
+## Product preview
+
+`workspace-preview.jpg` is a browser screenshot of the actual Field Data
+Dashboard at 1360 × 930, using synthetic API fixtures. The three projects, six
+forms, 248 submissions and 12 users are examples, not production totals. It
+contains no real users, credentials or responses. The landing-page caption
+explicitly identifies the example data.

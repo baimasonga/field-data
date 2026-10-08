@@ -1,4 +1,4 @@
-import ProgrammeDashboard from '../../src/components/home/programme-dashboard.vue';
+import ProjectList from '../../src/components/project/list.vue';
 
 import { load } from '../util/http';
 import { mockLogin } from '../util/session';
@@ -21,9 +21,9 @@ describe('Home', () => {
     });
   });
 
-  it('renders the programme dashboard', async () => {
+  it('renders the project collection workspace', async () => {
     mockLogin();
     const app = await load('/', { root: false });
-    app.findComponent(ProgrammeDashboard).exists().should.be.true;
+    app.findComponent(ProjectList).exists().should.be.true;
   });
 });

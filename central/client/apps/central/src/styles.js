@@ -31,3 +31,6 @@ import '@fontsource/jetbrains-mono/600.css';
 import '@fontsource/jetbrains-mono/700.css';
 import '../../../design/gradient/gradient-tokens.css';
 import '../../../design/gradient/gradient-overrides.css';
+
+// Shared Field Data interface refinements, after the base design-system styles.
+import './assets/scss/interface.scss';

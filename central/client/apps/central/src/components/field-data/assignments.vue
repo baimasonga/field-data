@@ -18,16 +18,16 @@ Assignments: dispatch board - who is visiting which case, by when.
     </header>
 
     <form class="fd-assign-create" @submit.prevent="create">
-      <select v-model="draft.caseId" class="form-control" required>
+      <label class="fd-control-label">{{ $t('field.case') }}<select v-model="draft.caseId" class="form-control" required>
         <option value="" disabled>{{ $t('field.case') }}</option>
         <option v-for="c of caseOptions" :key="c.id" :value="c.id">{{ c.name }}{{ c.district ? ` - ${c.district}` : '' }}</option>
-      </select>
-      <select v-model="draft.actorId" class="form-control" required>
+      </select></label>
+      <label class="fd-control-label">{{ $t('field.enumerator') }}<select v-model="draft.actorId" class="form-control" required>
         <option value="" disabled>{{ $t('field.enumerator') }}</option>
         <option v-for="m of enumerators" :key="m.submitterId" :value="m.submitterId">{{ m.name }}</option>
-      </select>
-      <input v-model="draft.dueDate" type="date" class="form-control">
-      <input v-model.trim="draft.note" type="text" class="form-control note" :placeholder="$t('field.note')">
+      </select></label>
+      <label class="fd-control-label">Due date<input v-model="draft.dueDate" type="date" class="form-control"></label>
+      <label class="fd-control-label">{{ $t('field.note') }}<input v-model.trim="draft.note" type="text" class="form-control note" :placeholder="$t('field.note')"></label>
       <button type="submit" class="fd-btn-primary" :aria-disabled="awaitingResponse || !draft.caseId || !draft.actorId">{{ $t('action.assign') }}</button>
     </form>
 
@@ -41,8 +41,10 @@ Assignments: dispatch board - who is visiting which case, by when.
       </div>
 
       <div class="fd-panel">
-        <table class="fd-table">
-          <thead><tr>
+        <div class="fd-table-scroll" role="region" aria-label="Scrollable data table" tabindex="0">
+<table class="fd-table">
+          <thead>
+<tr>
             <th>{{ $t('th.enumerator') }}</th>
             <th>{{ $t('th.case') }}</th>
             <th>{{ $t('th.district') }}</th>
@@ -50,7 +52,8 @@ Assignments: dispatch board - who is visiting which case, by when.
             <th>{{ $t('th.note') }}</th>
             <th>{{ $t('th.status') }}</th>
             <th class="a">{{ $t('th.actions') }}</th>
-          </tr></thead>
+          </tr>
+</thead>
           <tbody>
             <tr v-for="a of board.data.assignments" :key="a.id">
               <td class="name">{{ a.enumerator || `#${a.actorId}` }}</td>
@@ -71,6 +74,7 @@ Assignments: dispatch board - who is visiting which case, by when.
             </tr>
           </tbody>
         </table>
+</div>
         <p v-if="board.data.assignments.length === 0" class="fd-empty">{{ $t('empty') }}</p>
       </div>
     </template>

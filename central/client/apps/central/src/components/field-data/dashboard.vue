@@ -13,6 +13,10 @@ distribution and at https://www.apache.org/licenses/LICENSE-2.0.
       <p>{{ greeting }}</p>
     </header>
     <loading :state="stats.initiallyLoading"/>
+    <div v-if="loadFailed" role="alert" class="empty-msg">
+      <p>{{ $t('loadFailed') }}</p>
+      <button type="button" class="btn btn-primary" @click="fetchStats">{{ $t('retry') }}</button>
+    </div>
     <template v-if="stats.dataExists">
       <!-- KPI cards -->
       <div class="kpi-row">
@@ -20,52 +24,50 @@ distribution and at https://www.apache.org/licenses/LICENSE-2.0.
           <div class="kpi-top">
             <span class="kpi-label">{{ c.label }}</span>
             <span class="kpi-icon" :class="`icon-${c.tone}`">
-              <!-- eslint-disable-next-line vue/no-v-html -->
+              <!-- Static icon paths defined below. -->
+              <!-- eslint-disable vue/no-v-html -->
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                stroke-linecap="round" stroke-linejoin="round" v-html="kpiIconPaths[c.icon]"></svg>
+                stroke-linecap="round" stroke-linejoin="round" v-html="kpiIconPaths[c.icon]"/>
+              <!-- eslint-enable vue/no-v-html -->
             </span>
           </div>
           <div class="kpi-value">{{ c.value.toLocaleString() }}</div>
-          <div class="kpi-delta" :class="deltaClass(c.delta)">
-            <template v-if="c.delta == null">{{ $t('noChange') }}</template>
-            <template v-else>
-              <span :class="c.delta >= 0 ? 'icon-arrow-up' : 'icon-arrow-down'"></span>
-              {{ Math.abs(c.delta) }}% {{ $t('vsLast7') }}
-            </template>
-          </div>
         </div>
       </div>
 
-      <!-- Row: trend chart + map -->
+      <!-- Row: submission trend + accessible projects -->
       <div class="panel-row">
         <div class="panel panel-2">
           <div class="panel-head">
             <h2>{{ $t('overview') }}</h2>
             <span class="panel-sub">{{ $t('last7days') }}</span>
           </div>
-          <div class="chart-wrap"><canvas ref="trendCanvas"></canvas></div>
+          <div class="chart-wrap"><canvas ref="trendCanvas" role="img" :aria-label="$t('overview')"></canvas></div>
+          <p v-if="stats.data.submissionsTrend.length === 0" class="empty-msg">{{ $t('noRecentSubmissions') }}</p>
         </div>
         <div class="panel panel-1">
-          <div class="panel-head">
-            <h2>{{ $t('byLocation') }}</h2>
-          </div>
-          <div ref="mapEl" class="map-wrap"></div>
+          <div class="panel-head"><h2>{{ $t('projects') }}</h2></div>
+          <ul class="summary-list">
+            <li v-for="project of stats.data.projects" :key="project.id">
+              <router-link :to="`/projects/${project.id}`">{{ project.name }}</router-link>
+            </li>
+          </ul>
+          <p v-if="stats.data.projects.length === 0" class="empty-msg">{{ $t('noProjects') }}</p>
         </div>
       </div>
 
-      <!-- Row: recent submissions + form summary -->
+      <!-- Row: recent submissions + top forms -->
       <div class="panel-row">
         <div class="panel panel-2">
           <div class="panel-head"><h2>{{ $t('recentSubmissions') }}</h2></div>
-          <table class="fd-table">
+          <div class="fd-table-scroll" role="region" aria-label="Scrollable data table" tabindex="0">
+<table class="fd-table">
             <thead>
               <tr>
                 <th>{{ $t('header.id') }}</th>
                 <th>{{ $t('header.form') }}</th>
                 <th>{{ $t('header.submitter') }}</th>
-                <th>{{ $t('header.location') }}</th>
                 <th>{{ $t('header.submitted') }}</th>
-                <th>{{ $t('header.status') }}</th>
               </tr>
             </thead>
             <tbody>
@@ -73,38 +75,28 @@ distribution and at https://www.apache.org/licenses/LICENSE-2.0.
                 <td class="mono">#{{ s.id }}</td>
                 <td>{{ s.formName || s.form }}</td>
                 <td>{{ s.submitter || $t('unknownSubmitter') }}</td>
-                <td>
-                  <span v-if="s.location" class="loc"><span class="loc-dot"></span>{{ s.location }}</span>
-                  <span v-else class="loc-empty">-</span>
-                </td>
                 <td><date-time :iso="s.createdAt"/></td>
-                <td><span class="badge" :class="statusInfo(s.reviewState).cls">{{ statusInfo(s.reviewState).label }}</span></td>
               </tr>
             </tbody>
           </table>
+</div>
           <p v-show="stats.data.recentSubmissions.length === 0" class="empty-msg">{{ $t('noSubmissions') }}</p>
         </div>
 
         <div class="panel panel-1">
-          <div class="panel-head"><h2>{{ $t('formSummary') }}</h2></div>
-          <div class="donut-wrap">
-            <div class="donut-canvas"><canvas ref="donutCanvas"></canvas>
-              <div class="donut-center"><span class="donut-total">{{ formTotal }}</span><span class="donut-total-label">{{ $t('totalForms') }}</span></div>
-            </div>
-            <ul class="donut-legend">
-              <li v-for="seg of formSegments" :key="seg.key">
-                <span class="legend-dot" :style="{ backgroundColor: seg.color }"></span>
-                <span class="legend-label">{{ seg.label }}</span>
-                <span class="legend-value">{{ seg.value }}</span>
-                <span class="legend-pct">{{ seg.pct }}%</span>
-              </li>
-            </ul>
-          </div>
+          <div class="panel-head"><h2>{{ $t('topForms') }}</h2></div>
+          <ul class="summary-list">
+            <li v-for="form of stats.data.topForms" :key="form.form">
+              <span class="legend-label">{{ form.name || form.form }}</span>
+              <span class="legend-value">{{ form.count.toLocaleString() }}</span>
+            </li>
+          </ul>
+          <p v-if="stats.data.topForms.length === 0" class="empty-msg">{{ $t('noSubmissions') }}</p>
         </div>
       </div>
 
       <!-- System status bar -->
-      <div class="status-bar">
+      <div v-if="statusItems.length !== 0" class="status-bar">
         <div v-for="item of statusItems" :key="item.key" class="status-item">
           <span class="status-dot" :class="item.ok ? 'up' : 'down'"></span>
           <span class="status-name">{{ item.label }}</span>
@@ -120,28 +112,37 @@ import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import {
   Chart, LineController, LineElement, PointElement, LinearScale, CategoryScale,
-  DoughnutController, ArcElement, Filler, Tooltip, Legend
+  Filler, Tooltip, Legend
 } from 'chart.js';
-import L from 'leaflet';
-import 'leaflet/dist/leaflet.css';
-import slDistricts from '../../assets/sl-districts.json';
-
 import DateTime from '../date-time.vue';
 import Loading from '../loading.vue';
 
 import { apiPaths } from '../../util/request';
-import { noop } from '../../util/util';
 import { useRequestData } from '../../request-data';
 
-Chart.register(LineController, LineElement, PointElement, LinearScale, CategoryScale,
-  DoughnutController, ArcElement, Filler, Tooltip, Legend);
+Chart.register(
+  LineController,
+  LineElement,
+  PointElement,
+  LinearScale,
+  CategoryScale,
+  Filler,
+  Tooltip,
+  Legend
+);
 
 defineOptions({ name: 'FieldDataDashboard' });
 
 const { t } = useI18n();
 const { createResource, currentUser } = useRequestData();
 const stats = createResource('fieldDataStats');
-stats.request({ url: apiPaths.fieldDataStats() }).catch(noop);
+const loadFailed = ref(false);
+const fetchStats = () => {
+  loadFailed.value = false;
+  return stats.request({ url: apiPaths.fieldDataStats(), resend: true })
+    .catch(() => { loadFailed.value = true; });
+};
+fetchStats();
 
 // A friendly greeting; personalise only when a real (non-email) display name is set.
 const greeting = computed(() => {
@@ -150,7 +151,7 @@ const greeting = computed(() => {
 });
 
 // Brand palette
-const C = { total: '#0E7490', approved: '#2E8B5A', rejected: '#de2a11', inReview: '#f29e00', blue: '#1C6FA6', grey: '#9aa7ab' };
+const C = { total: '#0E7490' };
 
 const kpiIconPaths = {
   file: '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/>',
@@ -163,40 +164,12 @@ const kpiIconPaths = {
 // --- KPI cards ---
 const kpiCards = computed(() => {
   if (!stats.dataExists) return [];
-  const k = stats.data.kpi; const d = stats.data.deltas || {};
+  const k = stats.data.kpi;
   return [
-    { key: 'total', label: t('kpi.total'), value: k.submissions, delta: d.submissions, tone: 'blue', icon: 'file' },
-    { key: 'approved', label: t('kpi.approved'), value: k.approved, delta: d.approved, tone: 'green', icon: 'check' },
-    { key: 'rejected', label: t('kpi.rejected'), value: k.rejected, delta: d.rejected, tone: 'red', icon: 'x' },
-    { key: 'inReview', label: t('kpi.inReview'), value: k.inReview, delta: d.inReview, tone: 'amber', icon: 'clock' },
-    { key: 'activeForms', label: t('kpi.activeForms'), value: k.activeForms, delta: null, tone: 'violet', icon: 'list' }
-  ];
-});
-const deltaClass = (delta) => (delta == null ? 'flat' : (delta >= 0 ? 'up' : 'down'));
-
-// --- Status badges ---
-const statusInfo = (rs) => {
-  if (rs === 'approved') return { label: t('review.approved'), cls: 'badge-green' };
-  if (rs === 'rejected') return { label: t('review.rejected'), cls: 'badge-red' };
-  if (rs === 'hasIssues') return { label: t('review.hasIssues'), cls: 'badge-amber' };
-  if (rs === 'edited') return { label: t('review.edited'), cls: 'badge-blue' };
-  return { label: t('review.received'), cls: 'badge-grey' };
-};
-
-// --- Form summary donut ---
-const formTotal = computed(() => {
-  if (!stats.dataExists) return 0;
-  const f = stats.data.formSummary; return f.active + f.inactive + f.archived + f.draft;
-});
-const formSegments = computed(() => {
-  if (!stats.dataExists) return [];
-  const f = stats.data.formSummary; const total = formTotal.value || 1;
-  const pct = (v) => Math.round((v / total) * 1000) / 10;
-  return [
-    { key: 'active', label: t('form.active'), value: f.active, pct: pct(f.active), color: C.total },
-    { key: 'inactive', label: t('form.inactive'), value: f.inactive, pct: pct(f.inactive), color: C.grey },
-    { key: 'archived', label: t('form.archived'), value: f.archived, pct: pct(f.archived), color: C.approved },
-    { key: 'draft', label: t('form.draft'), value: f.draft, pct: pct(f.draft), color: C.inReview }
+    { key: 'total', label: t('kpi.total'), value: k.submissions, tone: 'blue', icon: 'file' },
+    { key: 'projects', label: t('projects'), value: k.projects, tone: 'green', icon: 'list' },
+    { key: 'forms', label: t('totalForms'), value: k.forms, tone: 'violet', icon: 'file' },
+    { key: 'users', label: t('users'), value: k.users, tone: 'amber', icon: 'list' }
   ];
 });
 
@@ -204,6 +177,7 @@ const formSegments = computed(() => {
 const statusItems = computed(() => {
   if (!stats.dataExists) return [];
   const s = stats.data.systemStatus;
+  if (s == null) return [];
   return [
     { key: 'database', label: t('status.database'), ok: s.database },
     { key: 'fileStorage', label: t('status.fileStorage'), ok: s.fileStorage },
@@ -213,20 +187,9 @@ const statusItems = computed(() => {
   ];
 });
 
-// --- Charts + map ---
+// --- Submission trend ---
 const trendCanvas = ref(null);
-const donutCanvas = ref(null);
-const mapEl = ref(null);
-let trendChart = null; let donutChart = null; let map = null;
-
-const DISTRICT_COORDS = {
-  Kailahun: [8.28, -10.57], Kenema: [7.88, -11.19], Kono: [8.65, -10.97],
-  Bombali: [9.02, -12.19], Falaba: [9.85, -11.30], Koinadugu: [9.58, -11.55],
-  Tonkolili: [8.72, -11.95], Kambia: [9.12, -12.92], Karene: [9.05, -12.72],
-  'Port Loko': [8.77, -12.79], Bo: [7.96, -11.74], Bonthe: [7.53, -12.50],
-  Moyamba: [8.16, -12.43], Pujehun: [7.35, -11.72],
-  'Western Area Rural': [8.30, -13.07], 'Western Area Urban': [8.48, -13.23]
-};
+let trendChart = null;
 
 const buildTrend = () => {
   const trend = stats.data.submissionsTrend || [];
@@ -242,12 +205,10 @@ const buildTrend = () => {
       labels,
       datasets: [
         { ...ds(t('kpi.total'), 'count', C.total), fill: true, backgroundColor: 'rgba(14,116,144,0.08)' },
-        ds(t('kpi.approved'), 'approved', C.approved),
-        ds(t('kpi.rejected'), 'rejected', C.rejected),
-        ds(t('kpi.inReview'), 'inReview', C.inReview)
       ]
     },
     options: {
+      animation: false,
       responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false },
       plugins: { legend: { position: 'top', labels: { boxWidth: 12, usePointStyle: true, pointStyle: 'circle' } } },
       scales: { y: { beginAtZero: true, grid: { color: '#eef2f3' } }, x: { grid: { display: false } } }
@@ -255,67 +216,14 @@ const buildTrend = () => {
   });
 };
 
-const buildDonut = () => {
-  const segs = formSegments.value;
-  if (donutChart) donutChart.destroy();
-  donutChart = new Chart(donutCanvas.value, {
-    type: 'doughnut',
-    data: { labels: segs.map(s => s.label), datasets: [{ data: segs.map(s => s.value), backgroundColor: segs.map(s => s.color), borderWidth: 0 }] },
-    options: { responsive: true, maintainAspectRatio: false, cutout: '72%', plugins: { legend: { display: false } } }
-  });
-};
-
-// Light-to-deep teal ramp for the district choropleth.
-const RAMP = ['#eef7f9', '#cfe8ed', '#9fd0da', '#5faebf', '#2c8ba1', '#0E7490', '#09566c'];
-const rampColor = (value, max) => {
-  if (value <= 0 || max <= 0) return RAMP[0];
-  const f = Math.sqrt(value / max);
-  return RAMP[Math.min(RAMP.length - 1, 1 + Math.floor(f * (RAMP.length - 1)))];
-};
-
-const buildMap = () => {
-  if (map) { map.remove(); map = null; }
-  map = L.map(mapEl.value, { attributionControl: true, scrollWheelZoom: false }).setView([8.46, -11.79], 7);
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    maxZoom: 12, attribution: '&copy; OpenStreetMap'
-  }).addTo(map);
-  const counts = stats.data.districtCounts || [];
-  const max = counts.reduce((m, c) => Math.max(m, c.count), 0) || 1;
-  // District choropleth beneath the count bubbles.
-  const byName = Object.fromEntries(counts.map(c => [c.district, c.count]));
-  L.geoJSON(slDistricts, {
-    style: (feature) => ({
-      color: '#fff', weight: 1, fillColor: rampColor(byName[feature.properties.name] || 0, max), fillOpacity: 0.65
-    }),
-    onEachFeature: (feature, layer) => {
-      layer.bindTooltip(`${feature.properties.name}: ${byName[feature.properties.name] || 0}`, { sticky: true });
-    }
-  }).addTo(map);
-  // Draw larger bubbles first so smaller ones stay clickable on top.
-  const sorted = [...counts].sort((a, b) => b.count - a.count);
-  for (const row of sorted) {
-    const coord = DISTRICT_COORDS[row.district];
-    if (!coord) continue;
-    // Tighter scale + cap to avoid the Freetown-area bubbles swallowing the map.
-    const radius = 6 + Math.sqrt(row.count / max) * 15;
-    L.circleMarker(coord, {
-      radius, color: '#0E7490', weight: 1.25, fillColor: '#0E7490', fillOpacity: 0.28
-    }).addTo(map).bindTooltip(`${row.district}: ${row.count}`, { permanent: false, direction: 'top' });
-    // Only label bubbles big enough to hold the number, to cut clutter.
-    if (radius >= 12) {
-      L.marker(coord, { interactive: false, icon: L.divIcon({ className: 'fd-map-count', html: `<span>${row.count}</span>`, iconSize: [36, 16] }) }).addTo(map);
-    }
-  }
-  nextTick(() => map && map.invalidateSize());
-};
-
-const render = () => { if (!stats.dataExists) return; nextTick(() => { buildTrend(); buildDonut(); buildMap(); }); };
-watch(() => stats.dataExists, (v) => { if (v) render(); }, { immediate: true });
+watch(() => stats.data, async () => {
+  if (!stats.dataExists) return;
+  await nextTick();
+  if (trendCanvas.value != null) buildTrend();
+}, { immediate: true });
 
 onBeforeUnmount(() => {
   if (trendChart) trendChart.destroy();
-  if (donutChart) donutChart.destroy();
-  if (map) map.remove();
 });
 </script>
 
@@ -323,6 +231,12 @@ onBeforeUnmount(() => {
 {
   "en": {
     "dashboard": "Dashboard",
+    "projects": "Projects",
+    "users": "Users",
+    "topForms": "Top Forms by Submissions",
+    "noProjects": "No projects are available yet. Create a project to get started.",
+    "loadFailed": "The dashboard could not be loaded. Please try again.",
+    "retry": "Try again",
     "welcome": "Welcome back - here's your field operations overview.",
     "welcomeName": "Welcome back, {name} - here's your field operations overview.",
     "kpi": {
@@ -353,7 +267,8 @@ onBeforeUnmount(() => {
       "pyxform": "Form Conversion", "emailService": "Email Service"
     },
     "unknownSubmitter": "(unknown)",
-    "noSubmissions": "There are no submissions yet."
+    "noSubmissions": "There are no submissions yet.",
+    "noRecentSubmissions": "There are no submissions in the last seven days."
   }
 }
 </i18n>
@@ -374,7 +289,7 @@ onBeforeUnmount(() => {
   }
 
   // KPI cards
-  .kpi-row { display: grid; grid-template-columns: repeat(5, 1fr); gap: 16px; margin-bottom: 20px; }
+  .kpi-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 20px; }
   .kpi-card {
     background: #fff; border: 1px solid var(--fd-border); border-radius: 12px; padding: 16px 18px;
     box-shadow: 0 1px 2px rgba(20,48,57,0.04);
@@ -390,9 +305,6 @@ onBeforeUnmount(() => {
     &.icon-violet { background: #eee9f7; color: #6b4fb0; }
   }
   .kpi-value { font-size: 30px; font-weight: 750; line-height: 1.1; margin: 8px 0 4px; letter-spacing: -0.01em; }
-  .kpi-delta { font-size: 12px; font-weight: 600;
-    &.up { color: #2E8B5A; } &.down { color: #de2a11; } &.flat { color: var(--fd-muted); }
-  }
 
   // Panels
   .panel-row { display: grid; grid-template-columns: 2fr 1fr; gap: 20px; margin-bottom: 20px; }
@@ -401,38 +313,19 @@ onBeforeUnmount(() => {
   .panel-head h2 { font-size: 16px; font-weight: 700; margin: 0; color: var(--fd-ink); }
   .panel-sub { color: var(--fd-muted); font-size: 12.5px; }
   .chart-wrap { height: 300px; position: relative; }
-  .map-wrap { height: 300px; border-radius: 8px; overflow: hidden; z-index: 0; }
 
   // Table
   .fd-table { width: 100%; border-collapse: collapse; }
   .fd-table th { text-align: left; font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--fd-muted); padding: 8px 10px; border-bottom: 1px solid var(--fd-border); }
   .fd-table td { padding: 10px; border-bottom: 1px solid #f1f5f6; font-size: 14px; }
   .fd-table .mono { font-family: $font-family-monospace; color: var(--fd-muted); }
-  .loc { display: inline-flex; align-items: center; gap: 6px; }
-  .loc-dot { width: 6px; height: 6px; border-radius: 50%; background: #1C6FA6; flex-shrink: 0; }
-  .loc-empty { color: #b3bfc2; }
   .empty-msg { color: var(--fd-muted); padding: 16px 4px; }
 
-  .badge { display: inline-block; padding: 3px 10px; border-radius: 20px; font-size: 12px; font-weight: 600;
-    &.badge-green { background: #e2f3ea; color: #1f6e45; }
-    &.badge-red { background: #fdecea; color: #b3210c; }
-    &.badge-amber { background: #fdf3e0; color: #9c6209; }
-    &.badge-blue { background: #e3f0f6; color: #155a86; }
-    &.badge-grey { background: #eef1f2; color: #566065; }
-  }
-
-  // Donut
-  .donut-wrap { display: flex; flex-direction: column; align-items: center; gap: 16px; }
-  .donut-canvas { position: relative; width: 190px; height: 190px; }
-  .donut-center { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; pointer-events: none; }
-  .donut-total { font-size: 26px; font-weight: 750; }
-  .donut-total-label { font-size: 11px; color: var(--fd-muted); text-transform: uppercase; letter-spacing: 0.05em; }
-  .donut-legend { list-style: none; padding: 0; margin: 0; width: 100%; }
-  .donut-legend li { display: flex; align-items: center; gap: 8px; padding: 6px 0; font-size: 13.5px; }
-  .legend-dot { width: 10px; height: 10px; border-radius: 3px; flex-shrink: 0; }
+  // Project and form summaries
+  .summary-list { list-style: none; padding: 0; margin: 0; width: 100%; }
+  .summary-list li { display: flex; align-items: center; gap: 8px; padding: 6px 0; font-size: 13.5px; }
   .legend-label { flex: 1; }
   .legend-value { font-weight: 700; }
-  .legend-pct { color: var(--fd-muted); width: 48px; text-align: right; }
 
   // Status bar
   .status-bar { background: #fff; border: 1px solid var(--fd-border); border-radius: 12px; padding: 14px 20px; display: flex; flex-wrap: wrap; gap: 26px; box-shadow: 0 1px 2px rgba(20,48,57,0.04); }
@@ -443,8 +336,6 @@ onBeforeUnmount(() => {
     &.up { background: #2E8B5A; box-shadow: 0 0 0 3px rgba(46,139,90,0.18); }
     &.down { background: #cbd3d5; }
   }
-
-  .fd-map-count span { display: inline-block; font-size: 11px; font-weight: 700; color: #0E7490; text-shadow: 0 0 3px #fff, 0 0 3px #fff; text-align: center; width: 40px; }
 
   @media (max-width: 1100px) {
     .kpi-row { grid-template-columns: repeat(2, 1fr); }

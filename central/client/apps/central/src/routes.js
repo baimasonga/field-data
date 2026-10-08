@@ -244,6 +244,8 @@ const routes = [
     beforeEnter: () => (config.loadError == null ? '/login' : true)
   }),
 
+  asyncRoute({ path: '/catalog', name: 'FieldDataPublicCatalog', component: 'FieldDataCatalog', loading: 'page', meta: { requireLogin: false, restoreSession: false, title: () => ['Public data catalogue'] } }),
+
   // Field Data: public tokenized report (no login required).
   asyncRoute({
     path: '/report/:token',
@@ -868,6 +870,10 @@ const routes = [
           fullWidth: true
         }
       }),
+      asyncRoute({ path: 'operations', component: 'FieldDataOperations', loading: 'tab', meta: { fullWidth: true, title: () => ['Operations'] } }),
+      asyncRoute({ path: 'form-builder', component: 'FieldDataFormBuilder', loading: 'tab', meta: { fullWidth: true, title: () => ['Form Builder'] } }),
+      asyncRoute({ path: 'catalog', component: 'FieldDataCatalog', props: { manage: true }, loading: 'tab', meta: { fullWidth: true, title: () => ['Public catalogue'] } }),
+      asyncRoute({ path: 'analysis', component: 'FieldDataAnalysis', loading: 'tab', meta: { fullWidth: true, title: () => ['Analysis'] } }),
       asyncRoute({
         path: 'explore',
         component: 'FieldDataExplore',

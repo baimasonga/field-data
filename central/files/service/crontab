@@ -7,3 +7,5 @@
 * * * * * root /usr/bin/with-pgenvblock.pl /dev/shm/docker-envblock /usr/odk/run-field-data-google-sheets.sh
 * * * * * root /usr/bin/with-pgenvblock.pl /dev/shm/docker-envblock /usr/odk/run-field-data-xls-reports.sh
 */10 * * * * root /usr/bin/with-pgenvblock.pl /dev/shm/docker-envblock /usr/odk/run-field-data-evidence.sh
+*/5 * * * * root /usr/bin/with-pgenvblock.pl /dev/shm/docker-envblock /usr/odk/run-field-data-operations.sh
+* * * * * root /usr/bin/with-pgenvblock.pl /dev/shm/docker-envblock /usr/odk/run-field-data-exports.sh

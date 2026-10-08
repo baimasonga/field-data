@@ -37,8 +37,11 @@ module.exports = (container) => {
   const largeJsonUrlMatch = match('/:apiVersion/projects/:id/datasets/:name/entities');
   // only apply body-parser middleware to request types which should have a body.
   service.patch('/*', defaultJsonLimit);
-  service.put('/*', defaultJsonLimit);
+  const layerJsonLimit = bodyParser.json({ type: 'application/json', limit: '2200kb' });
+  const layerUrl = /^\/v1\/projects\/[1-9]\d*\/map-layers(?:\/[^/]+)?$/;
+  service.put('/*', (req, res, next) => (layerUrl.test(req.path) ? layerJsonLimit : defaultJsonLimit)(req, res, next));
   service.post('/*', (req, res, next) => {
+    if (layerUrl.test(req.path)) return layerJsonLimit(req, res, next);
     if (largeJsonUrlMatch(req.path))
       return largeJsonLimit(req, res, next);
     return defaultJsonLimit(req, res, next);
@@ -121,6 +124,12 @@ module.exports = (container) => {
   require('../resources/user-preferences')(service, endpoint);
   require('../resources/actor-properties')(service, endpoint);
   require('../resources/field-data')(service, endpoint, container, anonymousEndpoint);
+  require('../resources/field-data-workspaces')(service, endpoint, container, anonymousEndpoint);
+  require('../resources/field-data-analysis')(service, endpoint);
+  require('../resources/field-data-export-jobs')(service, endpoint);
+  require('../resources/field-data-map-layers')(service, endpoint);
+  require('../resources/field-data-catalog')(service, endpoint, anonymousEndpoint);
+  require('../resources/field-data-operations')(service, endpoint);
   require('../resources/field-data-claims')(service, endpoint);
   require('../resources/field-data-evidence')(service, endpoint);
   require('../resources/field-data-reviews')(service, endpoint);
@@ -171,4 +180,3 @@ module.exports = (container) => {
   return service;
 
 };
-

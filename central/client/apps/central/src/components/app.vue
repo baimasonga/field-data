@@ -10,20 +10,22 @@ including this file, may be copied, modified, propagated, or distributed
 except according to the terms contained in the LICENSE file.
 -->
 <template>
-  <div :class="{ 'fd-shell': visiblyLoggedIn }">
+  <div :class="{ 'fd-shell': visiblyLoggedIn, 'fd-public-landing': publicLanding }">
+    <a class="fd-skip-link" href="#fd-main-content">Skip to content</a>
     <!-- Field Data: a left sidebar replaces the horizontal nav once logged in.
     Logged out (e.g. the login page) keeps the plain top navbar. -->
     <field-data-sidebar v-if="visiblyLoggedIn"/>
     <div class="fd-main-col">
       <!-- If the user's session is restored during the initial navigation, that
       will affect how the navbar is rendered. -->
-      <navbar v-show="routerReady"/>
+      <navbar v-if="!publicLanding" v-show="routerReady"/>
       <outdated-version/>
       <alerts/>
       <feedback-button v-if="showsFeedbackButton"/>
-      <div ref="containerEl" class="container-fluid">
+      <main id="fd-main-content" ref="containerEl" class="container-fluid" tabindex="-1">
         <router-view/>
-      </div>
+      </main>
+      <organization-footer/>
     </div>
 
     <div id="modals"></div>
@@ -39,6 +41,7 @@ import { START_LOCATION } from 'vue-router';
 
 import Alerts from './alerts.vue';
 import Navbar from './navbar.vue';
+import OrganizationFooter from './organization-footer.vue';
 import FieldDataSidebar from './field-data/sidebar.vue';
 
 import useCallWait from '../composables/call-wait';
@@ -55,6 +58,7 @@ export default {
     FieldDataSidebar,
     HoverCards: defineAsyncComponent(loadAsync('HoverCards')),
     Navbar,
+    OrganizationFooter,
     FeedbackButton: defineAsyncComponent(loadAsync('FeedbackButton')),
     OutdatedVersion: defineAsyncComponent(loadAsync('OutdatedVersion'))
   },
@@ -73,6 +77,9 @@ export default {
     return { visiblyLoggedIn, centralVersion, callWait };
   },
   computed: {
+    publicLanding() {
+      return !this.visiblyLoggedIn && this.$route.name === 'Landing';
+    },
     routerReady() {
       return this.$route !== START_LOCATION;
     },

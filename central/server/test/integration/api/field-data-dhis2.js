@@ -1,4 +1,6 @@
 require('should');
+const dns = require('node:dns').promises;
+const { mock } = require('node:test');
 const { testService } = require('../setup');
 
 // The DHIS2 target derives its own delivery URL from the configured server and
@@ -19,7 +21,7 @@ const withKey = (proc) => {
   );
 };
 
-// example.com resolves, which is all validWebhookUrl checks; nothing is sent.
+// DNS is stubbed below; these contract tests do not send a delivery.
 const webhook = (mapping) => ({
   name: 'DHIS2', target: 'dhis2', projectId: 1, xmlFormId: 'simple',
   config: {
@@ -30,6 +32,16 @@ const webhook = (mapping) => ({
 });
 
 describe('api: DHIS2 integration', () => {
+  let lookup;
+  beforeEach(() => {
+    const original = dns.lookup;
+    lookup = mock.method(dns, 'lookup', (hostname, options) =>
+      (hostname === 'example.com'
+        ? Promise.resolve([{ address: '93.184.216.34', family: 4 }])
+        : original(hostname, options)));
+  });
+  afterEach(() => { lookup.mock.restore(); });
+
   it('stores a mapped integration, derives its URL and hides the password',
     testService((service) => withKey(() =>
       service.login('alice', (asAlice) =>

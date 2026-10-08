@@ -47,7 +47,7 @@ Reports: printable program report + public share-link management.
 
     <loading :state="report.initiallyLoading"/>
     <div v-if="report.dataExists" class="fd-report-sheet">
-      <report-body :data="report.data"/>
+      <report-body :data="report.data" :heading-level="2"/>
     </div>
   </div>
 </template>

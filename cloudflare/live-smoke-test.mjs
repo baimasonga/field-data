@@ -57,6 +57,7 @@ try {
   const stats = await statsResponse.json();
   assert.equal(stats.systemStatus?.database, true, 'Live PostgreSQL probe failed.');
   assert.equal(stats.systemStatus?.fileStorage, true, 'Live Supabase Storage probe failed.');
+  assert.equal(stats.systemStatus?.enketo, true, 'Live native Web Forms probe failed.');
 
   const fixture = Buffer.from('89504e470d0a1a0a0000000d49484452000000010000000108060000001f15c4890000000d49444154789c6360f8cfc000000301010018dd8db10000000049454e44ae426082', 'hex');
   const form = new FormData();

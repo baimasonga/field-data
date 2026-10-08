@@ -11,31 +11,34 @@ whose features don't exist yet in Field Data are intentionally omitted rather th
 shown as dead links.
 -->
 <template>
-  <aside id="fd-sidebar">
+  <aside id="fd-sidebar" :class="{ 'mobile-open': mobileOpen }" @keydown.esc="closeMenu">
     <div class="fd-brand">
       <img src="../../assets/images/field-data-logo.png" alt="Field Data">
       <span class="fd-brand-sub">{{ $t('platform') }}</span>
     </div>
 
-    <nav class="fd-nav">
+    <button ref="menuToggle" type="button" class="fd-menu-toggle btn btn-default" :aria-expanded="mobileOpen" aria-controls="fd-primary-nav" @click="mobileOpen = !mobileOpen">{{ mobileOpen ? 'Close navigation' : 'Open navigation' }}</button>
+    <nav id="fd-primary-nav" class="fd-nav" aria-label="Primary navigation">
       <template v-for="group of groups" :key="group.key">
         <p v-if="group.items.some(i => i.show)" class="fd-nav-heading">{{ group.label }}</p>
         <router-link v-for="item of group.items.filter(i => i.show)" :key="item.to"
           :to="item.to" class="fd-nav-item"
-          :class="{ active: isActive(item) }">
-          <!-- eslint-disable-next-line vue/no-v-html -->
+          :class="{ active: isActive(item) }" :aria-current="isActive(item) ? 'page' : undefined">
+          <!-- Icons come from the static iconPaths map below. -->
+          <!-- eslint-disable vue/no-v-html -->
           <svg class="fd-nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-            stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
-            v-html="iconPaths[item.icon]"></svg>
+            aria-hidden="true" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+            v-html="iconPaths[item.icon]"/>
+          <!-- eslint-enable vue/no-v-html -->
           <span class="fd-nav-label">{{ item.label }}</span>
         </router-link>
       </template>
     </nav>
 
     <div class="fd-status">
-      <span class="fd-status-dot"></span>
+      <span class="fd-status-dot" style="background: #64748b"></span>
       <div class="fd-status-text">
-        <span class="fd-status-title">{{ $t('operational') }}</span>
+        <span class="fd-status-title">Service status available in Operations</span>
         <span class="fd-status-ver">Field Data {{ version }}</span>
       </div>
     </div>
@@ -43,7 +46,7 @@ shown as dead links.
 </template>
 
 <script setup>
-import { computed } from 'vue';
+import { computed, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useRoute } from 'vue-router';
 
@@ -53,6 +56,10 @@ defineOptions({ name: 'FieldDataSidebar' });
 
 const { t } = useI18n();
 const route = useRoute();
+const mobileOpen = ref(false);
+const menuToggle = ref(null);
+const closeMenu = () => { if (mobileOpen.value) { mobileOpen.value = false; menuToggle.value?.focus(); } };
+watch(() => route.fullPath, () => { mobileOpen.value = false; });
 const { currentUser, centralVersion } = useRequestData();
 
 const can = (verb) => currentUser.dataExists && currentUser.can(verb);
@@ -80,35 +87,47 @@ const iconPaths = {
 };
 
 const groups = computed(() => [
-  { key: 'main', label: t('group.overview'), items: [
-    { to: '/field-data', icon: 'dashboard', label: t('nav.dashboard'), show: true, exact: false },
-    { to: '/field-data/review', icon: 'review', label: t('nav.review'), show: can('project.create') },
-    { to: '/field-data/report', icon: 'report', label: t('nav.report'), show: true }
-  ] },
-  { key: 'collection', label: t('group.collection'), items: [
-    { to: '/', icon: 'projects', label: t('nav.projects'), show: true, exact: true },
-    { to: '/field-data/templates', icon: 'templates', label: t('nav.templates'), show: can('project.create') },
-    { to: '/field-data/explore', icon: 'explore', label: t('nav.explore'), show: true },
-    { to: '/field-data/media', icon: 'media', label: t('nav.media'), show: can('project.create') }
-  ] },
-  { key: 'casework', label: t('group.casework'), items: [
-    { to: '/field-data/cleaning', icon: 'cleaning', label: t('nav.cleaning'), show: can('project.create') },
-    { to: '/field-data/cases', icon: 'cases', label: t('nav.cases'), show: can('project.create') },
-    { to: '/field-data/assignments', icon: 'assignments', label: t('nav.assignments'), show: can('project.create') }
-  ] },
-  { key: 'access', label: t('group.access'), items: [
-    { to: '/users', icon: 'users', label: t('nav.users'), show: can('user.list') },
-    { to: '/field-data/team', icon: 'team', label: t('nav.team'), show: true }
-  ] },
-  { key: 'integrations', label: t('group.integrations'), items: [
-    { to: '/field-data/dhis2', icon: 'dhis2', label: t('nav.dhis2'), show: can('project.create') },
-    { to: '/field-data/webhooks', icon: 'webhooks', label: t('nav.webhooks'), show: can('config.set') }
-  ] },
-  { key: 'system', label: t('group.system'), items: [
-    { to: '/system/audits', icon: 'audits', label: t('nav.audits'), show: can('audit.read') },
-    { to: '/field-data/backups', icon: 'backups', label: t('nav.backups'), show: can('backup.run') },
-    { to: '/account/edit', icon: 'settings', label: t('nav.settings'), show: true }
-  ] }
+  {
+    key: 'main', label: t('group.overview'), items: [
+      { to: '/field-data', icon: 'dashboard', label: t('nav.dashboard'), show: true, exact: true },
+      { to: '/field-data/review', icon: 'review', label: t('nav.review'), show: true },
+      { to: '/field-data/report', icon: 'report', label: t('nav.report'), show: true }
+    ]
+  },
+  {
+    key: 'collection', label: t('group.collection'), items: [
+      { to: '/', icon: 'projects', label: t('nav.projects'), show: true, exact: true },
+      { to: '/field-data/form-builder', icon: 'templates', label: 'Form Builder', show: true },
+      { to: '/field-data/templates', icon: 'templates', label: t('nav.templates'), show: can('project.create') },
+      { to: '/field-data/catalog', icon: 'report', label: 'Public catalogue', show: can('project.create') },
+      { to: '/field-data/analysis', icon: 'explore', label: 'Analysis', show: true },
+      { to: '/field-data/explore', icon: 'explore', label: t('nav.explore'), show: true },
+      { to: '/field-data/media', icon: 'media', label: t('nav.media'), show: can('project.create') }
+    ]
+  },
+  {
+    key: 'casework', label: t('group.casework'), items: [
+      { to: '/field-data/cleaning', icon: 'cleaning', label: t('nav.cleaning'), show: can('project.create') },
+      { to: '/field-data/cases', icon: 'cases', label: t('nav.cases'), show: can('project.create') },
+      { to: '/field-data/assignments', icon: 'assignments', label: t('nav.assignments'), show: can('project.create') }
+    ]
+  },
+  {
+    key: 'access', label: t('group.access'), items: [
+      { to: '/users', icon: 'users', label: t('nav.users'), show: can('user.list') },
+      { to: '/field-data/team', icon: 'team', label: t('nav.team'), show: true }
+    ]
+  },
+  {
+    key: 'system', label: t('group.system'), items: [
+      { to: '/field-data/dhis2', icon: 'dhis2', label: t('nav.dhis2'), show: can('project.create') },
+      { to: '/field-data/webhooks', icon: 'webhooks', label: t('nav.webhooks'), show: can('config.set') },
+      { to: '/system/audits', icon: 'audits', label: t('nav.audits'), show: can('audit.read') },
+      { to: '/field-data/operations', icon: 'settings', label: 'Operations', show: can('backup.run') },
+      { to: '/field-data/backups', icon: 'backups', label: t('nav.backups'), show: can('backup.run') },
+      { to: '/account/edit', icon: 'settings', label: t('nav.settings'), show: true }
+    ]
+  }
 ]);
 
 const isActive = (item) => (item.exact

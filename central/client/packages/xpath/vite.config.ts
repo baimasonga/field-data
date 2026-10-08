@@ -116,7 +116,7 @@ export default defineConfig(({ mode }) => {
 
       // Generate type definitions. This is somehow more reliable than directly calling tsc
       dts({
-        exclude: ['test', 'vite-env.d.ts'],
+        exclude: ['test'],
         entryRoot: './src',
       }),
     ].filter((plugin) => plugin != null),

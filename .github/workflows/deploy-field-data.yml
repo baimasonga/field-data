@@ -8,7 +8,7 @@ on:
 
 concurrency:
   group: field-data-production
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 permissions:
   contents: read
@@ -237,6 +237,9 @@ jobs:
           SUPABASE_S3_ACCESS_KEY_ID: ${{ secrets.SUPABASE_S3_ACCESS_KEY_ID }}
           SUPABASE_S3_SECRET_ACCESS_KEY: ${{ secrets.SUPABASE_S3_SECRET_ACCESS_KEY }}
           FIELD_DATA_BACKUP_PASSPHRASE: ${{ secrets.FIELD_DATA_BACKUP_PASSPHRASE }}
+          FIELD_DATA_ALERT_DELIVERY_ENABLED: ${{ vars.FIELD_DATA_ALERT_DELIVERY_ENABLED || 'false' }}
+          FIELD_DATA_ALERT_WEBHOOK_URL: ${{ secrets.FIELD_DATA_ALERT_WEBHOOK_URL }}
+          FIELD_DATA_ALERT_WEBHOOK_SECRET: ${{ secrets.FIELD_DATA_ALERT_WEBHOOK_SECRET }}
           FIELD_DATA_WEBHOOK_ENCRYPTION_KEY: ${{ secrets.FIELD_DATA_WEBHOOK_ENCRYPTION_KEY }}
           FIELD_DATA_ADMIN_PASSWORD: ${{ secrets.FIELD_DATA_ADMIN_PASSWORD }}
           EMAIL_USER: ${{ secrets.EMAIL_USER }}
@@ -251,13 +254,24 @@ jobs:
             SUPABASE_S3_ACCESS_KEY_ID: env.SUPABASE_S3_ACCESS_KEY_ID,
             SUPABASE_S3_SECRET_ACCESS_KEY: env.SUPABASE_S3_SECRET_ACCESS_KEY,
             FIELD_DATA_BACKUP_PASSPHRASE: env.FIELD_DATA_BACKUP_PASSPHRASE,
+            FIELD_DATA_ALERT_DELIVERY_ENABLED: env.FIELD_DATA_ALERT_DELIVERY_ENABLED,
+            FIELD_DATA_ALERT_WEBHOOK_URL: env.FIELD_DATA_ALERT_WEBHOOK_URL,
+            FIELD_DATA_ALERT_WEBHOOK_SECRET: env.FIELD_DATA_ALERT_WEBHOOK_SECRET,
             FIELD_DATA_WEBHOOK_ENCRYPTION_KEY: env.FIELD_DATA_WEBHOOK_ENCRYPTION_KEY,
             FIELD_DATA_ADMIN_PASSWORD: env.FIELD_DATA_ADMIN_PASSWORD,
             EMAIL_USER: env.EMAIL_USER, EMAIL_PASSWORD: env.EMAIL_PASSWORD
           } | with_entries(select(.value != null and .value != ""))' > "$secret_file"
+          deploy_log="$RUNNER_TEMP/field-data-deploy.log"
+          set +e
           npx --no-install wrangler deploy \
             --var "CONTAINER_BUILD_ID:${{ github.sha }}" \
-            --secrets-file "$secret_file"
+            --secrets-file "$secret_file" 2>&1 | tee "$deploy_log"
+          deploy_status=${PIPESTATUS[0]}
+          set -e
+          if [[ "$deploy_status" != 0 ]]; then
+            node tools/deployment-error-report.cjs "$deploy_log"
+            exit "$deploy_status"
+          fi
 
       - name: Verify live health endpoint
         run: |
@@ -421,6 +435,7 @@ jobs:
               echo "  ok   $label ($path)"
               return 0
             fi
+            echo "::error title=Live API smoke check failed::$label ($path) answered HTTP $status"
             echo "  FAIL $label ($path) answered $status" >&2
             printf '%s\n' "$body" | head -c 400 >&2; echo >&2
             failed=1
@@ -453,6 +468,27 @@ jobs:
           get "cross-project Forms"       "/v1/field-data/forms?limit=1" || true
           get "cross-project Submissions" "/v1/field-data/submissions?limit=1" || true
           get "cross-project Map"         "/v1/field-data/map?limit=1" || true
+          # Containers roll over asynchronously and the dashboard caches probes
+          # for 30 seconds. Give the new runtime time to replace its predecessor.
+          webforms_ready=0
+          for attempt in {1..6}; do
+            if get "native Web Forms health" "/v1/field-data/stats"; then
+              if printf '%s' "$body" | jq -e '.systemStatus.enketo == true' >/dev/null; then
+                webforms_ready=1
+                break
+              fi
+            fi
+            sleep 20
+          done
+          if [[ "$webforms_ready" != 1 ]]; then
+            observed=$(printf '%s' "$body" | jq -c '.systemStatus | {database, enketo, pyxform}' 2>/dev/null || echo 'unavailable')
+            echo "::error title=Web Forms health check failed::The bundled Web Forms app or its JavaScript assets are unavailable. Observed: $observed"
+            for path in /apps/forms/index.html /apps/forms/src/init.js; do
+              result=$(curl --silent --show-error --max-time 20 --head "$BASE$path" | tr -d '\r' | awk '/^HTTP\// || tolower($0) ~ /^content-type:/ {printf "%s ", $0}')
+              echo "::error title=Web Forms asset diagnostic::$path $result"
+            done
+            failed=1
+          fi
 
           if [[ "$failed" != 0 ]]; then
             echo "The deployment authenticates but part of the critical path is broken." >&2

@@ -52,6 +52,57 @@ jobs:
       - run: node --test test/field-data-hardening.test.js test/field-data/hardening.cjs test/field-data/native-webforms.cjs
       - run: node test/field-data-migration-check.js
 
+  feature-capabilities:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: test-only-password
+          POSTGRES_DB: field_data_test
+        ports: ['5432:5432']
+        options: --health-cmd pg_isready --health-interval 5s --health-timeout 5s --health-retries 10
+    defaults:
+      run:
+        working-directory: central/server
+    env:
+      PGHOST: localhost
+      PGPORT: '5432'
+      PGUSER: field_data_test_runner
+      PGPASSWORD: test-only-password
+      PGDATABASE: field_data_test
+      FIELD_DATA_STORAGE_DIR: /tmp/field-data-feature-storage
+      BCRYPT: insecure
+      PYXFORM_PYTHON: python
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24.16.0'
+          cache: npm
+          cache-dependency-path: central/server/package-lock.json
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: cloudflare/form-compiler/requirements.txt
+      - run: npm ci --no-audit --no-fund
+      - run: python -m pip install -r ../../cloudflare/form-compiler/requirements.txt
+      - name: Create isolated integration test role
+        # The test harness drops objects owned by its role between runs.
+        # PostgreSQL's bootstrap owner also owns required system objects.
+        env:
+          PGUSER: postgres
+        run: psql -v ON_ERROR_STOP=1 -c "CREATE ROLE field_data_test_runner LOGIN SUPERUSER PASSWORD 'test-only-password'"
+      - name: Start internal compiler and export writer
+        working-directory: cloudflare/form-compiler
+        run: |
+          nohup python -m gunicorn --bind 127.0.0.1:5001 --workers 2 --timeout 90 app:application >/tmp/form-compiler.log 2>&1 &
+          curl --retry 20 --retry-connrefused --retry-delay 1 --fail http://127.0.0.1:5001/healthz
+      - run: npx mocha --timeout 15000 test/integration/api/field-data-analysis.js test/integration/api/field-data-extensions.js test/integration/api/field-data-capabilities.js test/integration/api/field-data-completion.js test/unit/util/analysis-data.js test/unit/util/feature-capabilities.js test/unit/util/builder-diagnostics.js test/unit/util/xlsform-builder.js test/unit/util/builder-import.js test/unit/util/remote-map.js test/unit/util/web-forms-health.js
+      - run: node --test ../../tests/external-monitor.test.cjs ../../tests/deployment-error-report.test.cjs
+      - run: node test/xlsform/roundtrip.js && node test/xlsform/advanced-roundtrip.js && node test/xlsform/extensions-roundtrip.js
+
   frontend-build:
     runs-on: ubuntu-latest
     defaults:
@@ -66,6 +117,8 @@ jobs:
           cache-dependency-path: central/client/package-lock.json
       - run: npm ci --no-audit --no-fund
       - run: npm run build
+      - run: npx playwright install --with-deps chromium
+      - run: npx playwright test -c e2e-tests/field-data.config.js
 
   form-compiler:
     runs-on: ubuntu-latest
@@ -80,7 +133,7 @@ jobs:
           cache: pip
           cache-dependency-path: cloudflare/form-compiler/requirements.txt
       - run: python -m pip install -r requirements.txt
-      - run: python -m unittest -v test_app.py
+      - run: python -m unittest -v test_app.py test_data_exports.py
 
   live-smoke:
     if: github.event_name == 'workflow_dispatch'

@@ -8,20 +8,22 @@ distribution and at https://www.apache.org/licenses/LICENSE-2.0.
 -->
 <template>
   <div id="field-data-webhooks">
+    <header class="fd-page-intro"><h1>{{ $t('title') }}</h1><p>{{ $t('subtitle') }}</p></header>
     <form class="webhook-form" @submit.prevent="create">
-      <input v-model.trim="newHook.name" class="form-control" type="text"
-        :placeholder="$t('field.name')" :aria-label="$t('field.name')" required>
-      <input v-model.trim="newHook.url" class="form-control" type="url"
-        :placeholder="$t('field.url')" :aria-label="$t('field.url')" required>
-      <input v-model.trim="newHook.events" class="form-control" type="text"
-        :placeholder="$t('field.events')" :aria-label="$t('field.events')">
+      <label class="fd-control-label">{{ $t('field.name') }}<input v-model.trim="newHook.name" class="form-control" type="text"
+        :placeholder="$t('field.name')" :aria-label="$t('field.name')" required></label>
+      <label class="fd-control-label">{{ $t('field.url') }}<input v-model.trim="newHook.url" class="form-control" type="url"
+        :placeholder="$t('field.url')" :aria-label="$t('field.url')" required></label>
+      <label class="fd-control-label">{{ $t('field.events') }}<input v-model.trim="newHook.events" class="form-control" type="text"
+        :placeholder="$t('field.events')" :aria-label="$t('field.events')"></label>
       <button type="submit" class="btn btn-primary" :aria-disabled="awaitingResponse">
         {{ $t('action.add') }} <spinner :state="awaitingResponse"/>
       </button>
     </form>
 
     <loading :state="webhooks.initiallyLoading"/>
-    <table v-show="webhooks.dataExists" class="table">
+    <div v-show="webhooks.dataExists" class="fd-table-scroll" role="region" aria-label="Scrollable data table" tabindex="0">
+<table class="table">
       <thead>
         <tr>
           <th>{{ $t('header.name') }}</th>
@@ -66,7 +68,8 @@ distribution and at https://www.apache.org/licenses/LICENSE-2.0.
 
               <div class="detail-label">{{ $t('detail.deliveries') }}</div>
               <loading :state="loadingDeliveries"/>
-              <table v-show="!loadingDeliveries" class="table deliveries-table">
+              <div v-show="!loadingDeliveries" class="fd-table-scroll" role="region" aria-label="Scrollable data table" tabindex="0">
+<table class="table deliveries-table">
                 <thead>
                   <tr>
                     <th>{{ $t('detail.event') }}</th>
@@ -87,6 +90,7 @@ distribution and at https://www.apache.org/licenses/LICENSE-2.0.
                   </tr>
                 </tbody>
               </table>
+</div>
               <p v-show="!loadingDeliveries && deliveries.length === 0" class="empty-table-message">
                 {{ $t('detail.noDeliveries') }}
               </p>
@@ -95,6 +99,7 @@ distribution and at https://www.apache.org/licenses/LICENSE-2.0.
         </template>
       </tbody>
     </table>
+</div>
     <p v-show="webhooks.dataExists && webhooks.data.length === 0" class="empty-table-message">
       {{ $t('emptyTable') }}
     </p>
@@ -193,6 +198,8 @@ const toggleDetails = (hook) => {
 <i18n lang="json5">
 {
   "en": {
+    "title": "Webhooks",
+    "subtitle": "Connect project events to your external systems and review delivery attempts.",
     "field": {
       "name": "Name",
       "url": "URL (https://...)",

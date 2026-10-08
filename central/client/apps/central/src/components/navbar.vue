@@ -27,29 +27,16 @@ except according to the terms contained in the LICENSE file.
         <div class="collapse navbar-collapse">
           <!-- Field Data command bar: the left sidebar owns primary navigation
           (components/field-data/sidebar.vue); this is now a white top bar. -->
-          <form v-if="visiblyLoggedIn" id="fd-topbar-search" role="search" @submit.prevent>
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-              stroke-linecap="round" stroke-linejoin="round">
-              <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
-            </svg>
-            <input type="text" aria-label="Search"
-              placeholder="Search forms, submissions, users…">
-          </form>
+          <div v-if="visiblyLoggedIn" class="fd-workspace-bar">
+            <span>Field Data workspace</span>
+            <router-link to="/field-data/form-builder" class="btn btn-default">Build a form</router-link>
+          </div>
           <div class="navbar-right">
             <a v-show="showsAnalyticsNotice" id="navbar-analytics-notice"
               href="#" @click.prevent="analyticsIntroduction.show()">
               {{ $t('analyticsNotice') }}
             </a>
             <ul class="nav navbar-nav">
-              <li v-if="visiblyLoggedIn" id="fd-topbar-noti">
-                <a href="#" title="Notifications" @click.prevent>
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                    stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
-                    <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
-                  </svg>
-                </a>
-              </li>
               <navbar-help-dropdown/>
               <navbar-locale-dropdown/>
               <navbar-actions/>
