@@ -3,6 +3,7 @@
   <section class="review-queue" aria-labelledby="review-queue-title">
     <h2 id="review-queue-title">Claim review queue</h2>
     <p>Submissions flagged for review appear here. A flag is a question, not a finding of fraud.</p>
+    <submission-review-metrics ref="workload" :project-id="projectId" :xml-form-id="xmlFormId"/>
     <div class="btn-group" role="group" aria-label="Review case status">
       <button v-for="value of ['open', 'in-review', 'resolved', 'superseded']" :key="value" type="button"
         class="btn btn-default" :class="{ active: status === value }"
@@ -197,6 +198,7 @@ import { onBeforeUnmount, ref, watch } from 'vue';
 import useRequest from '../../composables/request';
 import { apiPaths } from '../../util/request';
 import { useRequestData } from '../../request-data';
+import SubmissionReviewMetrics from './review-metrics.vue';
 
 defineOptions({ name: 'SubmissionReviewQueue' });
 const props = defineProps({
@@ -207,6 +209,7 @@ const props = defineProps({
 const { request } = useRequest();
 const { currentUser } = useRequestData();
 const items = ref([]);
+const workload = ref(null);
 const status = ref('open');
 const assigning = ref(null);
 const inspecting = ref({});
@@ -252,6 +255,7 @@ const load = async (cursor = null) => {
     }
     items.value = cursor == null ? data.items : [...items.value, ...data.items];
     nextCursor.value = data.nextCursor;
+    if (cursor == null) workload.value?.reload();
   } catch {
     if (!disposed && generation === loadGeneration) error.value = true;
   } finally {
@@ -293,6 +297,7 @@ const refreshBackchecks = async (item) => {
     inspections.value[item.id].backchecks = data;
     inspections.value[item.id].revision = items.value.find(row => row.id === item.id)?.revision;
   }
+  workload.value?.reload();
 };
 const requestBackcheck = async (item) => {
   const data = {
@@ -366,6 +371,7 @@ const recordDecision = async (item, outcome) => {
       data
     });
     items.value = items.value.filter((row) => row.id !== item.id);
+    workload.value?.reload();
     delete inspections.value[item.id];
     delete notes.value[item.id];
   } catch {

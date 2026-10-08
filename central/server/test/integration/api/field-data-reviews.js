@@ -7,6 +7,86 @@ const { sql } = require('slonik');
 const { testService } = require('../setup');
 const testData = require('../../data/xml');
 
+// The fixture must create and transition cases in order within its transaction.
+/* eslint-disable no-await-in-loop */
+describe('api: review workload metrics', () => {
+  it('returns empty aggregates and hides inaccessible forms', testService(async (service) => {
+    const alice = await service.login('alice');
+    const chelsea = await service.login('chelsea');
+    const path = '/v1/field-data/review-queue/metrics?projectId=1&xmlFormId=simple';
+    const result = await alice.get(path).expect(200);
+    result.headers['cache-control'].should.equal('private, no-store');
+    assert.deepEqual(result.body.counts, { open: 0, inReview: 0, resolved: 0, superseded: 0 });
+    assert.equal(result.body.oldestActiveSeconds, null);
+    assert.equal(result.body.averageFirstAssignmentSeconds, null);
+    assert.equal(result.body.averageResolutionSeconds, null);
+    assert.deepEqual(result.body.activeReasons, []);
+    assert.deepEqual(result.body.backchecks, { pending: 0, overdue: 0 });
+    await chelsea.get(path).expect(404);
+    const viewerId = (await chelsea.get('/v1/users/current').expect(200)).body.id;
+    await alice.post(`/v1/projects/1/assignments/viewer/${viewerId}`).expect(200);
+    await chelsea.get(path).expect(200);
+    await alice.get('/v1/field-data/review-queue/metrics?projectId=1').expect(400);
+    await alice.get('/v1/field-data/review-queue/metrics?projectId=9007199254740992&xmlFormId=simple').expect(400);
+    await alice.get('/v1/field-data/review-queue/metrics?projectId=1&xmlFormId=missing').expect(404);
+  }));
+
+  it('aggregates elapsed times, distinct reasons and active overdue visits within the form',
+    testService(async (service, { run }) => {
+      const alice = await service.login('alice');
+      const actorId = (await alice.get('/v1/users/current').expect(200)).body.id;
+      for (const instance of ['one', 'two', 'deleted']) {
+        await alice.post('/v1/projects/1/forms/simple/submissions')
+          .send(testData.instances.simple.one.replace('one</instanceID>', `${instance}</instanceID>`))
+          .set('Content-Type', 'application/xml').expect(200);
+      }
+      const { items } = (await alice.get('/v1/field-data/review-queue?projectId=1&xmlFormId=simple')
+        .expect(200)).body;
+      const active = items.find(item => item.claim.rootInstanceId === 'one');
+      const resolved = items.find(item => item.claim.rootInstanceId === 'two');
+      for (const item of [active, resolved]) {
+        const assigned = await alice.patch(`/v1/field-data/review-queue/${item.id}/assignment`)
+          .set('If-Match', item.etag).set('Idempotency-Key', `metrics-assign-${item.id}`)
+          .send({ assignedTo: actorId, status: 'in-review' })
+          .expect(200);
+        if (item === resolved) {
+          await alice.post(`/v1/field-data/review-queue/${item.id}/decisions`)
+            .set('If-Match', assigned.headers.etag).set('Idempotency-Key', 'metrics-decision')
+            .send({ outcome: 'rejected', override: false, reasonCode: item.reasonCodes[0],
+              note: 'Reviewed for metrics fixture.', evidenceIds: [], integrityFindingIds: [] })
+            .expect(201);
+        }
+      }
+      await run(sql`UPDATE submissions SET "deletedAt" = now() WHERE "instanceId" = 'deleted'`);
+      await run(sql`UPDATE field_data_review_cases SET "openedAt" = now() - interval '2 hours',
+        "resolvedAt" = CASE WHEN status = 'resolved' THEN now() - interval '1 hour' ELSE NULL END`);
+      await run(sql`UPDATE audits SET "loggedAt" = now() - interval '1 hour'
+        WHERE action = 'field_data.review.case.assign'`);
+      await run(sql`UPDATE field_data_review_cases SET
+        "reasonCodes" = ' ["provenance-degraded", "provenance-degraded"]'::jsonb
+        WHERE id = ${active.id}`);
+      for (const item of [active, resolved]) {
+        await run(sql`INSERT INTO field_data_backchecks
+          ("caseId", "claimVersionId", "requestId", "requestHash", "requestedBy", "assignedTo", question, "dueAt")
+          VALUES (${item.id}, ${item.claimVersionId}, ${item.id}, 'fixture', ${actorId}, ${actorId},
+            'Verify the visit.', now() - interval '1 hour')`);
+      }
+      const { body } = await alice.get('/v1/field-data/review-queue/metrics?projectId=1&xmlFormId=simple').expect(200);
+      assert.deepEqual(body.counts, { open: 0, inReview: 1, resolved: 1, superseded: 0 });
+      assert.deepEqual(body.activeReasons, [{ reasonCode: 'provenance-degraded', count: 1 }]);
+      assert.deepEqual(body.backchecks, { pending: 1, overdue: 1 });
+      assert.deepEqual(body.decisions, { total: 1, overrides: 0 });
+      assert.equal(body.assignedCaseCount, 2);
+      assert.ok(Math.abs(body.oldestActiveSeconds - 7200) < 5);
+      assert.ok(Math.abs(body.averageFirstAssignmentSeconds - 3600) < 5);
+      assert.ok(Math.abs(body.averageResolutionSeconds - 3600) < 5);
+      const other = await alice.get('/v1/field-data/review-queue/metrics?projectId=1&xmlFormId=withrepeat').expect(200);
+      assert.deepEqual(other.body.counts, { open: 0, inReview: 0, resolved: 0, superseded: 0 });
+      assert.deepEqual(other.body.decisions, { total: 0, overrides: 0 });
+    }));
+});
+/* eslint-enable no-await-in-loop */
+
 describe('api: P0.5 review case detail', () => {
   for (const outcome of ['accepted', 'rejected']) {
     it(`resolves a claimed case as ${outcome} and keeps its immutable decision`,

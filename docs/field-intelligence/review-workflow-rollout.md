@@ -21,6 +21,11 @@ Opening the claim queue does not request or modify submission quality data.
 
 ## Validation and remaining acceptance
 
+Form-scoped [workload metrics](P0.5-review-metrics.md) now show case counts,
+active routing reasons, elapsed assignment/resolution time and overdue visits.
+They can be validated against local API and browser fixtures before the device
+pilot. Audited override controls and stale-write telemetry remain follow-ups.
+
 Browser fixtures exercise project/form selection, evidence and provenance,
 read-only access, assignment, back-check request/link, pending-result blocking,
 terminal decision history, retry, and stale response handling. They verify the

@@ -6,12 +6,14 @@ const versionId = '22222222-2222-4222-8222-222222222222';
 const backcheckId = '33333333-3333-4333-8333-333333333333';
 const etag = revision => `"review-case-${revision}"`;
 
-const setup = async (page, { readOnly = false, noProjects = false, failQueue = false, failAssignment = false, manageQuality = false, delayOpen = false } = {}) => {
+const setup = async (page, { readOnly = false, noProjects = false, failQueue = false, failAssignment = false, manageQuality = false, delayOpen = false, failMetrics = false, delayMetrics = false } = {}) => {
   const errors = [];
   page.on('pageerror', error => errors.push(error.message));
   let releaseOpen;
   const openWait = delayOpen ? new Promise(resolve => { releaseOpen = resolve; }) : null;
-  const state = { status: 'open', assignedTo: null, revision: 1, backchecks: [], decisions: [], mutations: [], queueRequests: [], queueFailures: failQueue ? 1 : 0, assignmentFailures: failAssignment ? 1 : 0 };
+  let releaseMetrics;
+  const metricsWait = delayMetrics ? new Promise(resolve => { releaseMetrics = resolve; }) : null;
+  const state = { status: 'open', assignedTo: null, revision: 1, backchecks: [], decisions: [], mutations: [], queueRequests: [], queueFailures: failQueue ? 1 : 0, assignmentFailures: failAssignment ? 1 : 0, metricsFailures: failMetrics ? 2 : 0 };
   await page.addInitScript(() => localStorage.setItem('sessionExpires', String(Date.now() + 3600000)));
   await page.route('**/client-config.json', route => route.fulfill({ json: {} }));
   await page.route('**/version.txt', route => route.fulfill({ body: 'test' }));
@@ -30,6 +32,18 @@ const setup = async (page, { readOnly = false, noProjects = false, failQueue = f
       if (!manageQuality) throw new Error('Legacy review API must not be used');
       state.qualityLoaded = true;
       return respond({ items: [], counts: { pending: 0, flagged: 0 }, rules: [], qualitySummary: [] });
+    }
+    if (path === '/v1/field-data/review-queue/metrics') {
+      if (state.metricsFailures-- > 0) return route.fulfill({ status: 503, json: { message: 'Unavailable' } });
+      const selected = url.searchParams.get('projectId') === '7' && url.searchParams.get('xmlFormId') === 'health';
+      if (delayMetrics && selected) await metricsWait;
+      return respond({ counts: { open: selected && state.status === 'open' ? 1 : 0,
+        inReview: selected && state.status === 'in-review' ? 1 : 0,
+        resolved: selected && state.status === 'resolved' ? 1 : 0, superseded: 0 },
+      oldestActiveSeconds: selected ? 7200 : null, averageFirstAssignmentSeconds: null,
+      averageResolutionSeconds: null, assignedCaseCount: 0,
+      backchecks: { pending: state.backchecks.filter(b => b.status === 'requested').length, overdue: 0 },
+      activeReasons: selected ? [{ reasonCode: 'provenance-degraded', count: 1 }] : [] });
     }
     if (path === '/v1/field-data/review-queue') {
       state.queueRequests.push(Object.fromEntries(url.searchParams));
@@ -74,7 +88,7 @@ const setup = async (page, { readOnly = false, noProjects = false, failQueue = f
   });
   await page.goto(`${appUrl}/field-data/review`);
   await expect(page.getByRole('heading', { name: 'Review Queue', exact: true })).toBeVisible();
-  return { state, errors, releaseOpen };
+  return { state, errors, releaseOpen, releaseMetrics };
 };
 
 const openInspection = async page => {
@@ -96,6 +110,40 @@ test('sidebar queue uses claim reviews with project and form selectors', async (
   await expect.poll(() => state.queueRequests.at(-1)?.projectId).toBe('8');
   expect(state.queueRequests.at(-1).xmlFormId).toBe('water');
   expect(errors).toEqual([]);
+});
+
+test('workload metrics show elapsed age and refresh when the form changes', async ({ page }) => {
+  await setup(page, { readOnly: true });
+  const metrics = page.getByRole('region', { name: 'Review workload' });
+  await expect(metrics).toContainText('2 hr');
+  await expect(metrics).toContainText('No data');
+  await metrics.getByText('Reasons for active cases', { exact: true }).click();
+  await expect(metrics).toContainText('provenance-degraded: 1');
+  await page.locator('#review-form').selectOption('nutrition');
+  await expect(metrics).toContainText('No active routing reasons.');
+  await expect(metrics).not.toContainText('2 hr');
+});
+
+test('workload failure offers retry without hiding the review queue', async ({ page }) => {
+  await setup(page, { failMetrics: true });
+  await expect(page.getByRole('button', { name: 'Assign to me' })).toBeVisible();
+  await page.getByRole('button', { name: 'Retry workload' }).click();
+  await expect(page.getByRole('region', { name: 'Review workload' })).toContainText('2 hr');
+});
+
+test('late workload response cannot replace the selected form totals', async ({ page }) => {
+  const { releaseMetrics } = await setup(page, { delayMetrics: true });
+  await expect(page.getByRole('button', { name: 'Assign to me' })).toBeVisible();
+  await page.locator('#review-form').selectOption('nutrition');
+  const metrics = page.getByRole('region', { name: 'Review workload' });
+  await expect(metrics).toContainText('No data');
+  const oldResponse = page.waitForResponse(response => {
+    const url = new URL(response.url());
+    return url.pathname.endsWith('/metrics') && url.searchParams.get('xmlFormId') === 'health';
+  });
+  releaseMetrics();
+  await oldResponse;
+  await expect(metrics).not.toContainText('2 hr');
 });
 
 test('read-only reviewer can inspect but cannot assign or decide', async ({ page }) => {
