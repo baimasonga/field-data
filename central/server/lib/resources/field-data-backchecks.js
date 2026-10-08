@@ -57,6 +57,7 @@ module.exports = (service, endpoint) => {
     return container.db.any(sql`SELECT b.id, b."caseId", b."claimVersionId",
       b.question, b."dueAt", b.status, b."assignedTo", a."displayName" AS "assigneeName",
       b."responseInstanceId", b."createdAt", b."linkedAt",
+      b."cancelledAt", b."cancelledBy", b."cancellationReason",
       p."capturedAt" AS "responseCapturedAt", p.degraded AS "responseDegraded",
       p."integrityHash" AS "responseIntegrityHash"
       FROM field_data_backchecks b
@@ -92,11 +93,11 @@ module.exports = (service, endpoint) => {
         JOIN submissions s ON s.id = sd."submissionId"
         WHERE c.id = ${params.caseId} FOR UPDATE OF c`);
       if (locked == null) throw Problem.user.notFound();
-      const [existing] = await tx.db.any(sql`SELECT id, "requestHash" FROM field_data_backchecks
+      const [existing] = await tx.db.any(sql`SELECT id, status, "requestHash" FROM field_data_backchecks
         WHERE "caseId" = ${params.caseId} AND "requestId" = ${body.requestId}`);
       if (existing != null) {
         if (existing.requestHash !== requestHash) throw Problem.user.reviewAssignmentInvalid();
-        return { id: existing.id, revision: locked.revision, replayed: true };
+        return { id: existing.id, status: existing.status, revision: locked.revision, replayed: true };
       }
       if (locked.revision !== revision) throw Problem.user.reviewRevisionStale();
       if (locked.status !== 'in-review' || locked.assignedTo !== reviewerId || !locked.current)
@@ -128,13 +129,62 @@ module.exports = (service, endpoint) => {
           ${JSON.stringify({ caseId: params.caseId, backcheckId: inserted.id,
     claimVersionId: reviewCase.claimVersionId, assignedTo: body.assignedTo })},
           clock_timestamp(), clock_timestamp(), 0)`);
-      return { id: inserted.id, revision: locked.revision + 1, replayed: false };
+      return { id: inserted.id, status: 'requested', revision: locked.revision + 1, replayed: false };
     });
     response.set('ETag', `"review-case-${result.revision}"`);
     response.set('Cache-Control', 'private, no-store');
     response.set('Idempotency-Status', result.replayed ? 'replayed' : 'created');
     response.status(201);
-    return { id: result.id, caseId: params.caseId, status: 'requested' };
+    return { id: result.id, caseId: params.caseId, status: result.status };
+  }));
+
+  service.post('/field-data/review-queue/:caseId/backchecks/:backcheckId/cancel', endpoint(async (
+    container, { params, auth, body, headers }, request, response
+  ) => {
+    const { form } = await scopeFor(container, auth, params.caseId, true);
+    const reviewerId = auth.actor.map((actor) => actor.id).orNull();
+    const revision = matchRevision(headers);
+    if (reviewerId == null || !UUID_PATTERN.test(params.backcheckId) || body == null
+      || Object.keys(body).some((field) => !['requestId', 'reason'].includes(field))
+      || !UUID_PATTERN.test(body.requestId ?? '') || typeof body.reason !== 'string'
+      || body.reason.trim().length === 0 || body.reason.length > 2000)
+      throw Problem.user.reviewAssignmentInvalid();
+    const reason = body.reason.trim();
+    const result = await container.transacting(async (tx) => {
+      const [locked] = await tx.db.any(sql`SELECT c.revision, c.status, c."assignedTo", sd.current
+        FROM field_data_review_cases c
+        JOIN field_data_claim_versions v ON v.id = c."claimVersionId"
+        JOIN submission_defs sd ON sd.id = v."submissionDefId"
+        WHERE c.id = ${params.caseId} FOR UPDATE OF c`);
+      const [backcheck] = await tx.db.any(sql`SELECT id, status, "cancelledBy",
+        "cancellationRequestId", "cancellationReason" FROM field_data_backchecks
+        WHERE id = ${params.backcheckId} AND "caseId" = ${params.caseId} FOR UPDATE`);
+      if (locked == null || backcheck == null) throw Problem.user.notFound();
+      if (backcheck.cancellationRequestId === body.requestId) {
+        if (backcheck.cancelledBy !== reviewerId || backcheck.cancellationReason !== reason)
+          throw Problem.user.reviewAssignmentInvalid();
+        return { revision: locked.revision, replayed: true };
+      }
+      if (locked.revision !== revision) throw Problem.user.reviewRevisionStale();
+      if (locked.status !== 'in-review' || locked.assignedTo !== reviewerId || !locked.current
+        || backcheck.status !== 'requested') throw Problem.user.reviewCaseClosed();
+      await tx.db.query(sql`UPDATE field_data_backchecks SET status = 'cancelled',
+        "cancelledAt" = clock_timestamp(), "cancelledBy" = ${reviewerId},
+        "cancellationRequestId" = ${body.requestId}, "cancellationReason" = ${reason}
+        WHERE id = ${params.backcheckId}`);
+      await tx.db.query(sql`UPDATE field_data_review_cases
+        SET revision = revision + 1, "updatedAt" = clock_timestamp() WHERE id = ${params.caseId}`);
+      await tx.db.query(sql`INSERT INTO audits ("actorId", action, "acteeId", details,
+        "loggedAt", processed, failures)
+        VALUES (${reviewerId}, 'field_data.backcheck.cancel', ${form.acteeId},
+          ${JSON.stringify({ caseId: params.caseId, backcheckId: params.backcheckId, reason })},
+          clock_timestamp(), clock_timestamp(), 0)`);
+      return { revision: locked.revision + 1, replayed: false };
+    });
+    response.set('ETag', `"review-case-${result.revision}"`);
+    response.set('Cache-Control', 'private, no-store');
+    response.set('Idempotency-Status', result.replayed ? 'replayed' : 'created');
+    return { id: params.backcheckId, status: 'cancelled', revision: result.revision };
   }));
 
   service.post('/field-data/review-queue/:caseId/backchecks/:backcheckId/link', endpoint(async (

@@ -80,6 +80,9 @@
                 <strong>{{ backcheck.status }}</strong> · {{ backcheck.assigneeName }} ·
                 {{ backcheck.question }}
                 <span v-if="backcheck.dueAt"> · Due {{ backcheck.dueAt }}</span>
+                <p v-if="backcheck.status === 'cancelled'">
+                  Cancellation reason: {{ backcheck.cancellationReason || 'Not recorded' }}
+                </p>
                 <div v-if="backcheck.responseInstanceId">
                   Original: <router-link :to="submissionPath(item.claim.rootInstanceId)">
                     {{ item.claim.rootInstanceId }}
@@ -90,7 +93,8 @@
                   · Capture time: {{ backcheck.responseCapturedAt || 'unknown' }}
                   · Provenance: {{ backcheck.responseDegraded == null ? 'recorded' : 'degraded' }}
                 </div>
-                <div v-else-if="canReview && status === 'in-review' && item.assignedTo === currentUser.id">
+                <div v-else-if="backcheck.status === 'requested' && canReview
+                  && status === 'in-review' && item.assignedTo === currentUser.id && item.claim.current">
                   <label :for="`backcheck-response-${backcheck.id}`">
                     Synced back-check submission ID
                   </label>
@@ -100,6 +104,19 @@
                     :disabled="!responses[backcheck.id] || assigning === item.id"
                     @click="linkBackcheck(item, backcheck)">
 Link field result
+</button>
+                  <label :for="`backcheck-cancel-${backcheck.id}`">Cancellation reason</label>
+                  <textarea :id="`backcheck-cancel-${backcheck.id}`"
+                    v-model.trim="cancellationReasons[backcheck.id]" class="form-control"
+                    maxlength="2000" rows="2"></textarea>
+                  <p>
+Cancel this request to withdraw it or request a visit from another App User.
+                    The original request stays in the case history.
+</p>
+                  <button type="button" class="btn btn-default"
+                    :disabled="!cancellationReasons[backcheck.id] || assigning === item.id"
+                    @click="cancelBackcheck(item, backcheck)">
+Cancel back-check
 </button>
                 </div>
               </li>
@@ -200,6 +217,7 @@ const selectedReasons = ref({});
 const questions = ref({});
 const dueDates = ref({});
 const responses = ref({});
+const cancellationReasons = ref({});
 const assigneesSelected = ref({});
 const nextCursor = ref(null);
 const loading = ref(false);
@@ -292,6 +310,25 @@ const requestBackcheck = async (item) => {
       ? { ...row, etag: response.headers.etag, revision: row.revision + 1 } : row));
     await refreshBackchecks(item);
     questions.value[item.id] = '';
+  } catch {
+    await load();
+  } finally {
+    assigning.value = null;
+  }
+};
+const cancelBackcheck = async (item, backcheck) => {
+  const data = { reason: cancellationReasons.value[backcheck.id].trim() };
+  assigning.value = item.id;
+  try {
+    const response = await request({
+      method: 'POST', url: apiPaths.reviewCaseBackcheckCancel(item.id, backcheck.id),
+      headers: { 'If-Match': item.etag },
+      data: { ...data, requestId: retryKey(`cancel-backcheck-${backcheck.id}`, item, data) }
+    });
+    items.value = items.value.map((row) => (row.id === item.id
+      ? { ...row, etag: response.headers.etag, revision: response.data.revision } : row));
+    await refreshBackchecks(item);
+    delete cancellationReasons.value[backcheck.id];
   } catch {
     await load();
   } finally {
