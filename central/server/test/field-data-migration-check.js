@@ -1,6 +1,59 @@
 // Runs only against a fresh, disposable CI database.
 const assert = require('node:assert/strict');
 const knex = require('knex');
+const cancellationMigration = require('../lib/model/migrations/20261008-01-add-backcheck-cancellation');
+
+// Exercise Knex's migration bookkeeping as well as the retained schema. Use an
+// isolated schema so this probe cannot alter the application tables or history.
+const checkCancellationRollback = async (db) => {
+  await db.transaction(async (tx) => {
+    const schema = 'backcheck_rollback_probe';
+    await tx.raw('CREATE SCHEMA ??', [schema]);
+    await tx.raw('SET LOCAL search_path TO ??', [schema]);
+    await tx.raw('CREATE TABLE actors (id INTEGER PRIMARY KEY)');
+    await tx.raw('CREATE TABLE field_data_backchecks (status TEXT)');
+    const name = '20261008-01-add-backcheck-cancellation.js';
+    const options = {
+      schemaName: schema,
+      migrationSource: {
+        getMigrations: () => Promise.resolve([name]),
+        getMigrationName: (migration) => migration,
+        getMigration: () => cancellationMigration
+      }
+    };
+    await tx.migrate.latest(options);
+    // Empty-history rollback removes the columns and permits a fresh upgrade.
+    await tx.migrate.down(options);
+    assert.equal(await tx.schema.hasColumn('field_data_backchecks', 'cancelledAt'), false);
+    await tx.migrate.latest(options);
+    await tx.raw('INSERT INTO actors (id) VALUES (1)');
+    await tx.raw(`INSERT INTO field_data_backchecks
+      (status, "cancelledAt", "cancelledBy", "cancellationRequestId", "cancellationReason")
+      VALUES ('cancelled', now(), 1, '00000000-0000-4000-8000-000000000001', 'Collector unavailable')`);
+    const before = (await tx.raw('SELECT * FROM field_data_backchecks')).rows;
+    await tx.migrate.down(options);
+    assert.deepEqual((await tx.raw('SELECT * FROM field_data_backchecks')).rows, before);
+    await tx.migrate.latest(options);
+    assert.deepEqual((await tx.raw('SELECT * FROM field_data_backchecks')).rows, before);
+    assert.equal((await tx.migrate.list(options))[1].length, 0);
+    // Retaining columns must also retain the data validation and actor FK.
+    const constraints = (await tx.raw(`SELECT contype FROM pg_constraint
+      WHERE conrelid = 'field_data_backchecks'::regclass`)).rows;
+    assert.equal(constraints.filter(({ contype }) => contype === 'c').length, 2);
+    assert.equal(constraints.filter(({ contype }) => contype === 'f').length, 1);
+    await assert.rejects(tx.transaction((savepoint) => savepoint.raw(
+      'UPDATE field_data_backchecks SET "cancellationReason" = \' \' '
+    )), { code: '23514' });
+    await assert.rejects(tx.transaction((savepoint) => savepoint.raw(
+      'UPDATE field_data_backchecks SET "cancellationRequestId" = NULL'
+    )), { code: '23514' });
+    await assert.rejects(tx.transaction((savepoint) => savepoint.raw(
+      'UPDATE field_data_backchecks SET "cancelledBy" = 999'
+    )), { code: '23503' });
+    await tx.raw('DROP SCHEMA ?? CASCADE', [schema]);
+  });
+  console.log('Back-check cancellation rollback/reapply preserves history and constraints');
+};
 (async () => {
   const schema = process.env.TEST_SCHEMA;
   assert.ok(['public', 'field_data'].includes(schema));
@@ -19,5 +72,6 @@ const knex = require('knex');
       assert.deepEqual(misplaced.rows, []);
     }
     console.log(`All migrations passed in ${schema}`);
+    await checkCancellationRollback(db);
   } finally { await db.destroy(); }
 })().catch(error => { console.error(error); process.exitCode = 1; });
