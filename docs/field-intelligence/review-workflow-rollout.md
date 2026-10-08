@@ -25,7 +25,8 @@ Form-scoped [workload metrics](P0.5-review-metrics.md) now show case counts,
 active routing reasons, elapsed assignment/resolution time and overdue visits.
 They can be validated against local API and browser fixtures before the device
 pilot. [Audited supervisor overrides](P0.5-audited-overrides.md) are available;
-stale-write telemetry remains a follow-up.
+[stale-write conflict totals](P0.5-stale-write-telemetry.md) show rejected attempts
+by operation.
 
 Browser fixtures exercise project/form selection, evidence and provenance,
 read-only access, assignment, back-check request/link, pending-result blocking,

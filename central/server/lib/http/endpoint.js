@@ -185,7 +185,10 @@ const endpointBase = ({ preprocessor = noop, before = noop, resultWriter, errorW
   // error we rethrow it so that the sentry handler in the standard node error
   // infrastructure picks it up for output.
   //
-    .catch((err) => {
+    .catch(async (err) => {
+      // Observers receive the original container after rollback, before the
+      // error response is sent. Resources must preserve the original failure.
+      if (resource?.onFailure != null) await resource.onFailure(container, err);
       // perform interrupt redirects.
       if (redirect.isRedirect(err))
         response.redirect(err.code, err.url);

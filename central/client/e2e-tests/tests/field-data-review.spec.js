@@ -6,14 +6,14 @@ const versionId = '22222222-2222-4222-8222-222222222222';
 const backcheckId = '33333333-3333-4333-8333-333333333333';
 const etag = revision => `"review-case-${revision}"`;
 
-const setup = async (page, { canOverride = false, readOnly = false, noProjects = false, failQueue = false, failAssignment = false, manageQuality = false, delayOpen = false, failMetrics = false, delayMetrics = false } = {}) => {
+const setup = async (page, { staleAssignment = false, canOverride = false, readOnly = false, noProjects = false, failQueue = false, failAssignment = false, manageQuality = false, delayOpen = false, failMetrics = false, delayMetrics = false } = {}) => {
   const errors = [];
   page.on('pageerror', error => errors.push(error.message));
   let releaseOpen;
   const openWait = delayOpen ? new Promise(resolve => { releaseOpen = resolve; }) : null;
   let releaseMetrics;
   const metricsWait = delayMetrics ? new Promise(resolve => { releaseMetrics = resolve; }) : null;
-  const state = { status: 'open', assignedTo: null, revision: 1, backchecks: [], decisions: [], mutations: [], queueRequests: [], queueFailures: failQueue ? 1 : 0, assignmentFailures: failAssignment ? 1 : 0, metricsFailures: failMetrics ? 2 : 0 };
+  const state = { staleWrites: 0, conflictFailures: staleAssignment ? 1 : 0, status: 'open', assignedTo: null, revision: 1, backchecks: [], decisions: [], mutations: [], queueRequests: [], queueFailures: failQueue ? 1 : 0, assignmentFailures: failAssignment ? 1 : 0, metricsFailures: failMetrics ? 2 : 0 };
   await page.addInitScript(() => localStorage.setItem('sessionExpires', String(Date.now() + 3600000)));
   await page.route('**/client-config.json', route => route.fulfill({ json: {} }));
   await page.route('**/version.txt', route => route.fulfill({ body: 'test' }));
@@ -40,6 +40,8 @@ const setup = async (page, { canOverride = false, readOnly = false, noProjects =
       return respond({ counts: { open: selected && state.status === 'open' ? 1 : 0,
         inReview: selected && state.status === 'in-review' ? 1 : 0,
         resolved: selected && state.status === 'resolved' ? 1 : 0, superseded: 0 },
+      staleWrites: { total: selected ? state.staleWrites : 0,
+        byOperation: selected && state.staleWrites > 0 ? [{ operation: 'assignment', count: state.staleWrites }] : [] },
       oldestActiveSeconds: selected ? 7200 : null, averageFirstAssignmentSeconds: null,
       averageResolutionSeconds: null, assignedCaseCount: 0,
       backchecks: { pending: state.backchecks.filter(b => b.status === 'requested').length, overdue: 0 },
@@ -64,6 +66,11 @@ const setup = async (page, { canOverride = false, readOnly = false, noProjects =
       if (path.endsWith('/assignment') || path.endsWith('/decisions'))
         expect(headers['idempotency-key']).toMatch(/^[0-9a-f-]{36}$/);
       if (path.endsWith('/assignment')) {
+        if (state.conflictFailures-- > 0) {
+          state.revision += 1;
+          state.staleWrites += 1;
+          return route.fulfill({ status: 412, json: { code: 412.1, message: 'Refresh and retry.' } });
+        }
         if (state.assignmentFailures-- > 0) return route.fulfill({ status: 503, json: { message: 'Retry assignment' } });
         state.assignedTo = data.assignedTo;
         state.status = data.status;
@@ -283,4 +290,24 @@ test('supervisor can explicitly accept with an audited override', async ({ page 
   await expect(page.getByText(/Supervisor override · accepted/)).toBeVisible();
   expect(state.mutations.at(-1).data).toMatchObject({ outcome: 'accepted', override: true,
     reasonCode: 'verified-by-supervisor', note: 'Verified with the field supervisor.' });
+});
+
+
+test('stale assignment refreshes revision and form conflict totals before retry', async ({ page }) => {
+  const { state, errors } = await setup(page, { staleAssignment: true });
+  const metrics = page.getByRole('region', { name: 'Review workload' });
+  await expect(metrics).toContainText('Stale write conflicts: 0');
+  await page.getByRole('button', { name: 'Assign to me' }).click();
+  await expect(metrics).toContainText('Stale write conflicts: 1');
+  await metrics.getByText('Stale write conflicts: 1', { exact: true }).click();
+  await expect(metrics).toContainText('Assignment: 1');
+  await expect(metrics).toContainText('Refresh the case before retrying.');
+  await page.getByRole('button', { name: 'Assign to me' }).click();
+  await expect.poll(() => state.status).toBe('in-review');
+  expect(state.mutations.map(m => m.headers['if-match'])).toEqual([etag(1), etag(2)]);
+  expect(state.mutations[0].headers['idempotency-key']).not.toBe(state.mutations[1].headers['idempotency-key']);
+  expect(errors).toEqual([]);
+  await page.locator('#review-form').selectOption('nutrition');
+  await expect(metrics).toContainText('Stale write conflicts: 0');
+  await expect(metrics).toContainText('No stale write conflicts recorded.');
 });

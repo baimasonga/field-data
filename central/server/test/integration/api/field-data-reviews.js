@@ -4,12 +4,91 @@
 require('should');
 const { strict: assert } = require('assert');
 const { sql } = require('slonik');
-const { testService } = require('../setup');
+const { testService, testServiceFullTrx } = require('../setup');
 const testData = require('../../data/xml');
 
 // The fixture must create and transition cases in order within its transaction.
 /* eslint-disable no-await-in-loop */
 describe('api: review workload metrics', () => {
+  it('persists authorized stale-write observations outside real rolled-back transactions',
+    testServiceFullTrx(async (service, { one, run }) => {
+      const alice = await service.login('alice');
+      const chelsea = await service.login('chelsea');
+      const actorId = (await alice.get('/v1/users/current').expect(200)).body.id;
+      const checker = (await alice.post('/v1/projects/1/app-users')
+        .send({ displayName: 'Independent checker' }).expect(200)).body;
+      await alice.post(`/v1/projects/1/forms/simple/assignments/app-user/${checker.id}`).expect(200);
+      await alice.post('/v1/projects/1/forms/simple/submissions')
+        .send(testData.instances.simple.one).set('Content-Type', 'application/xml').expect(200);
+      const item = (await alice.get('/v1/field-data/review-queue?projectId=1&xmlFormId=simple')
+        .expect(200)).body.items[0];
+      const path = `/v1/field-data/review-queue/${item.id}`;
+      const assignment = { assignedTo: actorId, status: 'in-review' };
+      const first = await alice.patch(`${path}/assignment`).set('If-Match', item.etag)
+        .set('Idempotency-Key', 'telemetry-assignment').send(assignment)
+        .expect(200);
+      await alice.patch(`${path}/assignment`).set('If-Match', item.etag)
+        .set('Idempotency-Key', 'telemetry-stale-assignment').send(assignment)
+        .expect(412);
+      await alice.patch(`${path}/assignment`).set('If-Match', item.etag)
+        .set('Idempotency-Key', 'telemetry-stale-assignment').send(assignment)
+        .expect(412);
+      await alice.patch(`${path}/assignment`).set('If-Match', item.etag)
+        .set('Idempotency-Key', 'telemetry-assignment').send(assignment)
+        .expect(200);
+      await alice.patch(`${path}/assignment`).set('If-Match', item.etag)
+        .set('Idempotency-Key', 'telemetry-stale-release')
+        .send({ assignedTo: null, status: 'open' })
+        .expect(412);
+      const decision = { outcome: 'needs-evidence', override: false, reasonCode: item.reasonCodes[0],
+        note: 'Request original visit confirmation.', evidenceIds: [], integrityFindingIds: [] };
+      await alice.post(`${path}/decisions`).set('If-Match', item.etag)
+        .set('Idempotency-Key', 'telemetry-stale-decision').send(decision)
+        .expect(412);
+      const visit = { requestId: '00000000-0000-4000-8000-000000000051',
+        assignedTo: checker.id, question: 'Verify visit date.' };
+      await alice.post(`${path}/backchecks`).set('If-Match', item.etag).send(visit).expect(412);
+      const backcheck = await alice.post(`${path}/backchecks`).set('If-Match', first.headers.etag)
+        .send(visit).expect(201);
+      const cancellation = { requestId: '00000000-0000-4000-8000-000000000052',
+        reason: 'Collector unavailable.' };
+      const cancelPath = `${path}/backchecks/${backcheck.body.id}/cancel`;
+      await alice.post(cancelPath).set('If-Match', first.headers.etag).send(cancellation).expect(412);
+      await alice.post(`${path}/backchecks/${backcheck.body.id}/link`)
+        .set('If-Match', first.headers.etag).send({ instanceId: 'one' }).expect(412);
+      const cancelled = await alice.post(cancelPath).set('If-Match', backcheck.headers.etag)
+        .send(cancellation).expect(200);
+      await alice.post(cancelPath).set('If-Match', backcheck.headers.etag).send(cancellation).expect(200);
+      await chelsea.post(`${path}/decisions`).set('If-Match', item.etag)
+        .set('Idempotency-Key', 'denied-decision').send(decision)
+        .expect(404);
+      await alice.post(`${path}/decisions`).send(decision).expect(428);
+      await alice.post(`${path}/decisions`).set('If-Match', 'invalid').send(decision).expect(400);
+      await alice.patch(`${path}/assignment`).set('If-Match', cancelled.headers.etag)
+        .set('Idempotency-Key', 'occupied-assignment').send(assignment)
+        .expect(409);
+      const metricsPath = '/v1/field-data/review-queue/metrics?projectId=1&xmlFormId=simple';
+      const metrics = (await alice.get(metricsPath).expect(200)).body;
+      assert.deepEqual(metrics.staleWrites, { total: 7, byOperation: [
+        'assignment', 'backcheck-cancel', 'backcheck-link', 'backcheck-request', 'decision', 'release'
+      ].map(operation => ({ operation, count: operation === 'assignment' ? 2 : 1 })) });
+      const detail = (await alice.get(path).expect(200)).body;
+      assert.equal(detail.revision, 4);
+      assert.equal(detail.status, 'in-review');
+      assert.equal(detail.assignedTo, actorId);
+      assert.deepEqual(detail.decisions, []);
+      assert.equal((await one(sql`SELECT count(*)::integer AS count FROM field_data_idempotency_records
+        WHERE "idempotencyKey" LIKE 'telemetry-stale-%'`)).count, 0);
+      const observed = await one(sql`SELECT details FROM audits
+        WHERE action = 'field_data.review.case.stale_write' ORDER BY id LIMIT 1`);
+      assert.deepEqual(observed.details, { caseId: item.id, operation: 'assignment' });
+      assert.deepEqual((await alice.get(metricsPath.replace('simple', 'withrepeat')).expect(200))
+        .body.staleWrites, { total: 0, byOperation: [] });
+      await run(sql`UPDATE submissions SET "deletedAt" = now() WHERE "instanceId" = 'one'`);
+      assert.deepEqual((await alice.get(metricsPath).expect(200)).body.staleWrites,
+        { total: 0, byOperation: [] });
+    }));
+
   it('returns empty aggregates and hides inaccessible forms', testService(async (service) => {
     const alice = await service.login('alice');
     const chelsea = await service.login('chelsea');
@@ -22,6 +101,7 @@ describe('api: review workload metrics', () => {
     assert.equal(result.body.averageResolutionSeconds, null);
     assert.deepEqual(result.body.activeReasons, []);
     assert.deepEqual(result.body.backchecks, { pending: 0, overdue: 0 });
+    assert.deepEqual(result.body.staleWrites, { total: 0, byOperation: [] });
     await chelsea.get(path).expect(404);
     const viewerId = (await chelsea.get('/v1/users/current').expect(200)).body.id;
     await alice.post(`/v1/projects/1/assignments/viewer/${viewerId}`).expect(200);
