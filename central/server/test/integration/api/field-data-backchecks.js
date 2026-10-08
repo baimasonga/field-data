@@ -108,8 +108,12 @@ describe('api: back-check cancellation', () => {
         .send({ ...cancellation, reason: 'Changed reason' }).expect(400);
       await alice.post(`${path}/${first.body.id}/link`).set('If-Match', cancelled.headers.etag)
         .send({ instanceId: 'one' }).expect(409);
+      const replacementUser = (await alice.post('/v1/projects/1/app-users')
+        .send({ displayName: 'replacement checker' }).expect(200)).body;
+      await alice.post(`/v1/projects/1/forms/simple/assignments/app-user/${replacementUser.id}`).expect(200);
       const replacement = await alice.post(path).set('If-Match', cancelled.headers.etag)
-        .send({ ...request, requestId: '00000000-0000-4000-8000-000000000013' }).expect(201);
+        .send({ ...request, assignedTo: replacementUser.id,
+          requestId: '00000000-0000-4000-8000-000000000013' }).expect(201);
       const history = (await alice.get(path).expect(200)).body;
       history.should.have.length(2);
       history[0].status.should.equal('cancelled');
@@ -117,6 +121,8 @@ describe('api: back-check cancellation', () => {
       history[0].cancelledBy.should.equal(actorId);
       history[0].cancelledAt.should.not.equal(null);
       history[1].id.should.equal(replacement.body.id);
+      history[0].assignedTo.should.equal(appUser.id);
+      history[1].assignedTo.should.equal(replacementUser.id);
       const audit = await one(sql`SELECT count(*)::integer AS count FROM audits
         WHERE action = 'field_data.backcheck.cancel'
           AND details->>'backcheckId' = ${first.body.id}`);
