@@ -6,7 +6,7 @@ const versionId = '22222222-2222-4222-8222-222222222222';
 const backcheckId = '33333333-3333-4333-8333-333333333333';
 const etag = revision => `"review-case-${revision}"`;
 
-const setup = async (page, { readOnly = false, noProjects = false, failQueue = false, failAssignment = false, manageQuality = false, delayOpen = false, failMetrics = false, delayMetrics = false } = {}) => {
+const setup = async (page, { canOverride = false, readOnly = false, noProjects = false, failQueue = false, failAssignment = false, manageQuality = false, delayOpen = false, failMetrics = false, delayMetrics = false } = {}) => {
   const errors = [];
   page.on('pageerror', error => errors.push(error.message));
   let releaseOpen;
@@ -53,7 +53,7 @@ const setup = async (page, { readOnly = false, noProjects = false, failQueue = f
       return respond({ items: matches ? [{ id: caseId, claimVersionId: versionId, revision: state.revision, status: state.status, priority: 'normal', reasonCodes: ['missing-evidence', 'provenance-degraded'], assignedTo: state.assignedTo, claim: { ordinal: 1, current: true, rootInstanceId: 'uuid:original' }, etag: etag(state.revision) }] : [], nextCursor: null });
     }
     if (path === `/v1/field-data/claim-versions/${versionId}/evidence`) return respond({ items: [{ id: 'evidence-1', sourceKind: 'submission-xml', integrityStatus: 'verified', downloadUrl: '/v1/field-data/evidence/evidence-1/content' }], nextCursor: null });
-    if (path === `/v1/field-data/review-queue/${caseId}`) return respond({ claim: { id: versionId, provenance: { origin: 'collected', capturedAt: '2026-10-03T09:00:00Z', receivedAt: '2026-10-03T10:00:00Z', integrityHash: 'abcdef', degraded: null }, degraded: null }, decisions: state.decisions });
+    if (path === `/v1/field-data/review-queue/${caseId}`) return respond({ claim: { id: versionId, provenance: { origin: 'collected', capturedAt: '2026-10-03T09:00:00Z', receivedAt: '2026-10-03T10:00:00Z', integrityHash: 'abcdef', degraded: null }, degraded: null }, decisions: state.decisions, overridePolicy: { allowed: canOverride, reasonCodes: canOverride ? ['verified-by-supervisor'] : [] } });
     if (path.endsWith('/backcheck-assignees')) return respond([{ id: 42, name: 'Second collector' }, { id: 43, name: 'Replacement collector' }]);
     if (req.method() === 'GET' && path.endsWith('/backchecks')) return respond(state.backchecks);
     if (['POST', 'PATCH'].includes(req.method())) {
@@ -77,8 +77,8 @@ const setup = async (page, { readOnly = false, noProjects = false, failQueue = f
       } else if (path.endsWith('/link')) {
         state.backchecks[0] = { ...state.backchecks[0], status: 'linked', responseInstanceId: data.instanceId, responseCapturedAt: null, responseDegraded: { capturedAt: 'unknown' } };
       } else if (path.endsWith('/decisions')) {
-        expect(data.override).toBe(false);
-        state.decisions.push({ id: 'decision-1', outcome: data.outcome, reasonCode: data.reasonCode, note: data.note, reviewerId: 1, createdAt: '2026-10-03T11:00:00Z' });
+        expect(data.override).toBe(canOverride);
+        state.decisions.push({ id: 'decision-1', override: data.override, outcome: data.outcome, reasonCode: data.reasonCode, note: data.note, reviewerId: 1, createdAt: '2026-10-03T11:00:00Z' });
         state.status = data.outcome === 'needs-evidence' ? 'open' : 'resolved';
       } else throw new Error(`Unexpected mutation: ${path}`);
       state.revision += 1;
@@ -264,4 +264,23 @@ test('administrator retains submission quality rules as a secondary tool', async
   await expect(page.getByRole('heading', { name: 'Submission quality review' })).toBeVisible();
   await expect(page.getByText('Quality rules', { exact: true })).toBeVisible();
   expect(state.qualityLoaded).toBe(true);
+});
+
+
+test('supervisor can explicitly accept with an audited override', async ({ page }) => {
+  const { state } = await setup(page, { canOverride: true });
+  await page.goto(`${appUrl}/field-data/review`);
+  await page.getByRole('button', { name: 'Assign to me' }).click();
+  await page.getByRole('button', { name: 'In review', exact: true }).click();
+  await openInspection(page);
+  const accept = page.getByRole('button', { name: 'Accept with supervisor override' });
+  await expect(accept).toBeDisabled();
+  await page.getByLabel('Decision reason', { exact: true }).fill('Verified with the field supervisor.');
+  await accept.click();
+  await expect.poll(() => state.status).toBe('resolved');
+  await page.getByRole('button', { name: 'Resolved', exact: true }).click();
+  await openInspection(page);
+  await expect(page.getByText(/Supervisor override · accepted/)).toBeVisible();
+  expect(state.mutations.at(-1).data).toMatchObject({ outcome: 'accepted', override: true,
+    reasonCode: 'verified-by-supervisor', note: 'Verified with the field supervisor.' });
 });

@@ -88,6 +88,84 @@ describe('api: review workload metrics', () => {
 /* eslint-enable no-await-in-loop */
 
 describe('api: P0.5 review case detail', () => {
+  it('audits supervisor acceptance, preserves limitations and protects retries',
+    testService(async (service, { one, run }) => {
+      const alice = await service.login('alice');
+      const actorId = (await alice.get('/v1/users/current').expect(200)).body.id;
+      await alice.post('/v1/projects/1/forms/simple/submissions')
+        .send(testData.instances.simple.one).set('Content-Type', 'application/xml').expect(200);
+      const item = (await alice.get('/v1/field-data/review-queue?projectId=1&xmlFormId=simple')
+        .expect(200)).body.items[0];
+      const assignment = await alice.patch(`/v1/field-data/review-queue/${item.id}/assignment`)
+        .set('If-Match', item.etag).set('Idempotency-Key', 'override-assign')
+        .send({ assignedTo: actorId, status: 'in-review' })
+        .expect(200);
+      const finding = await one(sql`INSERT INTO field_data_integrity_flags
+        ("formId", rule, "ruleVersion", "instanceId", outcome, evidence)
+        SELECT id, 'manual-check', 1, 'one', 'inconclusive', '{}'::jsonb
+        FROM forms WHERE "projectId" = 1 AND "xmlFormId" = 'simple' RETURNING id`);
+      const detailPath = `/v1/field-data/review-queue/${item.id}`;
+      assert.equal((await alice.get(detailPath).expect(200)).body.overridePolicy.allowed, true);
+      const url = `${detailPath}/decisions`;
+      const body = { outcome: 'accepted', override: true, reasonCode: 'verified-by-supervisor',
+        note: 'Confirmed the original with the field supervisor.', evidenceIds: [], integrityFindingIds: [] };
+      const decide = (payload, key = 'override-decision') => alice.post(url)
+        .set('If-Match', assignment.headers.etag).set('Idempotency-Key', key).send(payload);
+      await decide({ ...body, note: '   ' }).expect(400);
+      await decide({ ...body, reasonCode: 'provenance-degraded' }).expect(400);
+      await decide({ ...body, outcome: 'rejected' }).expect(400);
+      // A normal reviewer still cannot accept these limitations.
+      await decide({ ...body, override: false, reasonCode: item.reasonCodes[0] }, 'normal').expect(422);
+      await run(sql`UPDATE submission_defs SET xml = xml || ' '
+        WHERE id = (SELECT "submissionDefId" FROM field_data_claim_versions
+          WHERE id = ${item.claimVersionId})`);
+      await decide(body, 'tampered-override').expect(422);
+      await run(sql`UPDATE submission_defs SET xml = left(xml, length(xml) - 1)
+        WHERE id = (SELECT "submissionDefId" FROM field_data_claim_versions
+          WHERE id = ${item.claimVersionId})`);
+      const first = await decide(body).expect(201);
+      const replay = await decide(body).expect(201);
+      assert.equal(replay.body.id, first.body.id);
+      assert.equal(replay.headers['idempotency-status'], 'replayed');
+      await decide({ ...body, note: 'Different justification.' }).expect(409);
+      await decide(body, 'new-override').expect(412);
+      const detail = (await alice.get(detailPath).expect(200)).body;
+      assert.equal(detail.decisions.length, 1);
+      assert.equal(detail.decisions[0].override, true);
+      assert.equal(detail.decisions[0].integritySnapshot[0].id, finding.id);
+      assert.notEqual(detail.decisions[0].integritySnapshot[0].status, 'resolved');
+      assert.equal(detail.decisions[0].evidenceSnapshot[0].integrityStatus, 'verified');
+      const audit = await one(sql`SELECT details FROM audits WHERE action = 'field_data.review.case.decide'`);
+      assert.equal(audit.details.override, true);
+      assert.ok(audit.details.overrideContext.provenanceDegraded);
+      const metrics = (await alice.get('/v1/field-data/review-queue/metrics?projectId=1&xmlFormId=simple').expect(200)).body;
+      assert.deepEqual(metrics.decisions, { total: 1, overrides: 1 });
+      await assert.rejects(run(sql`UPDATE field_data_review_decisions SET note = 'changed'
+        WHERE id = ${first.body.id}`), /Review decisions are append-only/);
+    }));
+
+  it('denies override permission to a submission reviewer without project management',
+    testService(async (service, { run }) => {
+      const alice = await service.login('alice');
+      const chelsea = await service.login('chelsea');
+      const actorId = (await chelsea.get('/v1/users/current').expect(200)).body.id;
+      await alice.post(`/v1/projects/1/assignments/viewer/${actorId}`).expect(200);
+      await run(sql`UPDATE roles SET verbs = verbs || '["submission.update"]'::jsonb WHERE system = 'viewer'`);
+      await alice.post('/v1/projects/1/forms/simple/submissions')
+        .send(testData.instances.simple.one).set('Content-Type', 'application/xml').expect(200);
+      const item = (await chelsea.get('/v1/field-data/review-queue?projectId=1&xmlFormId=simple').expect(200)).body.items[0];
+      const assignment = await chelsea.patch(`/v1/field-data/review-queue/${item.id}/assignment`)
+        .set('If-Match', item.etag).set('Idempotency-Key', 'reviewer-assignment')
+        .send({ assignedTo: actorId, status: 'in-review' })
+        .expect(200);
+      assert.equal((await chelsea.get(`/v1/field-data/review-queue/${item.id}`).expect(200)).body.overridePolicy.allowed, false);
+      await chelsea.post(`/v1/field-data/review-queue/${item.id}/decisions`)
+        .set('If-Match', assignment.headers.etag).set('Idempotency-Key', 'reviewer-override')
+        .send({ outcome: 'accepted', override: true, reasonCode: 'verified-by-supervisor',
+          note: 'Verified.', evidenceIds: [], integrityFindingIds: [] })
+        .expect(403);
+    }));
+
   for (const outcome of ['accepted', 'rejected']) {
     it(`resolves a claimed case as ${outcome} and keeps its immutable decision`,
       testService(async (service, { one, oneFirst, run }) => {

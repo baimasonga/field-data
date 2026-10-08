@@ -38,13 +38,18 @@ module.exports = (service, endpoint) => {
     if (actorId == null || body == null || Object.keys(body).some((field) =>
       !['outcome', 'override', 'reasonCode', 'note', 'evidenceIds', 'integrityFindingIds'].includes(field))
       || !['needs-evidence', 'accepted', 'rejected'].includes(body.outcome)
-      || body.override !== false
-      || typeof body.reasonCode !== 'string' || !reviewCase.reasonCodes.includes(body.reasonCode)
+      || typeof body.override !== 'boolean'
+      || (body.override && (body.outcome !== 'accepted' || body.reasonCode !== 'verified-by-supervisor'))
+      || typeof body.reasonCode !== 'string' || (!body.override && !reviewCase.reasonCodes.includes(body.reasonCode))
       || typeof body.note !== 'string' || body.note.trim().length < 1
       || body.note.length > 4000 || !Array.isArray(body.evidenceIds)
       || body.evidenceIds.length !== 0 || !Array.isArray(body.integrityFindingIds)
       || body.integrityFindingIds.length !== 0)
       throw Problem.user.reviewAssignmentInvalid();
+    if (body.override) {
+      const project = await container.Projects.getById(claim.scope.projectId).then(getOrNotFound);
+      await auth.canOrReject('project.update', project);
+    }
     const match = headers['if-match'];
     if (match == null) throw Problem.user.reviewRevisionRequired();
     const parsed = /^"review-case-([1-9]\d*)"$/.exec(match);
@@ -60,11 +65,11 @@ module.exports = (service, endpoint) => {
     const note = body.note.trim();
     const { outcome } = body;
     const requestHash = hashReviewDecision({
-      caseId: params.caseId, revision, actorId, outcome, reasonCode, note
+      caseId: params.caseId, revision, actorId, outcome, reasonCode, note, override: body.override
     });
     const result = await container.transacting((tx) => tx.FieldDataReviews.recordDecision({
       caseId: params.caseId, revision, actorId, projectId: claim.scope.projectId,
-      formActeeId: form.acteeId, key, requestHash, reasonCode, note, outcome
+      formActeeId: form.acteeId, key, requestHash, reasonCode, note, outcome, override: body.override
     }));
     response.set('ETag', `"review-case-${result.revision}"`);
     response.set('Idempotency-Key', key);
@@ -182,7 +187,7 @@ module.exports = (service, endpoint) => {
   }));
 
   service.get('/field-data/review-queue/:caseId', endpoint(async (
-    { FieldDataReviews, FieldDataClaims, Forms }, { params, auth }, request, response
+    { FieldDataReviews, FieldDataClaims, Forms, Projects }, { params, auth }, request, response
   ) => {
     if (!UUID_PATTERN.test(params.caseId)) throw Problem.user.notFound();
     const reviewCase = await FieldDataReviews.getCase(params.caseId);
@@ -194,6 +199,9 @@ module.exports = (service, endpoint) => {
     ).then(getOrNotFound);
     await authorize(auth, form);
     const decisions = await FieldDataReviews.listDecisions(params.caseId);
+    const project = await Projects.getById(claim.scope.projectId).then(getOrNotFound);
+    const allowed = await auth.can('project.update', project)
+      && await auth.can('submission.update', form);
     response.set('ETag', `"review-case-${reviewCase.revision}"`);
     response.set('Cache-Control', 'private, no-store');
     return { id: reviewCase.id, revision: reviewCase.revision,
@@ -203,6 +211,7 @@ module.exports = (service, endpoint) => {
       resolvedAt: reviewCase.resolvedAt, supersededByCaseId: reviewCase.supersededByCaseId,
       policyVersion: reviewCase.policyVersion,
       claim: claim.body, submissionReviewState: reviewCase.submissionReviewState,
+      overridePolicy: { allowed, reasonCodes: allowed ? ['verified-by-supervisor'] : [] },
       decisions };
   }));
 };

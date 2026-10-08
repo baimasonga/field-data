@@ -51,14 +51,15 @@ const hashReviewRelease = ({ caseId, revision, actorId }) => {
     .update(`p0.5\nreview.case.release\n${canonical}`, 'utf8').digest('hex')}`;
 };
 
-const hashReviewDecision = ({ caseId, revision, actorId, outcome, reasonCode, note }) => {
+const hashReviewDecision = ({ caseId, revision, actorId, outcome, reasonCode, note, override = false }) => {
   if (typeof caseId !== 'string' || !UUID_PATTERN.test(caseId)
     || !Number.isSafeInteger(revision) || revision < 1
     || !Number.isSafeInteger(actorId) || actorId < 1
+    || typeof override !== 'boolean'
     || !['needs-evidence', 'accepted', 'rejected'].includes(outcome))
     throw new Error('Invalid review decision.');
   const canonical = JSON.stringify({ caseId: caseId.toLowerCase(), revision, actorId,
-    outcome, reasonCode, note });
+    outcome, reasonCode, note, ...(override ? { override: true } : {}) });
   return `sha256:${createHash('sha256')
     .update(`p0.5\nreview.case.decide\n${canonical}`, 'utf8').digest('hex')}`;
 };

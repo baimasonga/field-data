@@ -69,7 +69,7 @@
             <p>Prior decisions:</p>
             <ul>
               <li v-for="decision of inspections[item.id].decisions" :key="decision.id">
-                {{ decision.outcome }} · {{ decision.reasonCode }} · {{ decision.note }}
+                {{ decision.override ? 'Supervisor override · ' : '' }}{{ decision.outcome }} · {{ decision.reasonCode }} · {{ decision.note }}
                 · Reviewer {{ decision.reviewerId }} · {{ decision.createdAt }}
               </li>
             </ul>
@@ -181,6 +181,18 @@ The assigned App User collects a second submission of this form in ODK Collect,
                 Link the pending back-check before accepting or rejecting this claim.
               </p>
               <p>Acceptance requires verified linked evidence, intact provenance and no unresolved findings.</p>
+              <template v-if="inspections[item.id].overridePolicy?.allowed">
+                <p>
+Supervisor acceptance overrides provenance limitations or unresolved findings.
+                  Explain your verification in the decision reason. Verified evidence is still required.
+</p>
+                <button type="button" class="btn btn-default"
+                  :disabled="!notes[item.id]?.trim() || assigning === item.id || !item.claim.current
+                    || inspections[item.id].backchecks.some(b => b.status === 'requested')"
+                  @click="recordDecision(item, 'accepted', true)">
+                  Accept with supervisor override
+                </button>
+              </template>
             </div>
           </template>
         </details>
@@ -281,6 +293,7 @@ const inspect = async (event, item) => {
       revision: item.revision,
       claim: detail.data.claim,
       decisions: detail.data.decisions,
+      overridePolicy: detail.data.overridePolicy,
       evidence: evidence.data.items,
       backchecks: backchecks.data,
       assignees: assignees.data
@@ -357,9 +370,10 @@ const linkBackcheck = async (item, backcheck) => {
     assigning.value = null;
   }
 };
-const recordDecision = async (item, outcome) => {
+const recordDecision = async (item, outcome, override = false) => {
   const data = {
-    outcome, override: false, reasonCode: selectedReasons.value[item.id] || item.reasonCodes[0],
+    outcome, override, reasonCode: override ? 'verified-by-supervisor'
+      : selectedReasons.value[item.id] || item.reasonCodes[0],
     note: notes.value[item.id].trim(), evidenceIds: [], integrityFindingIds: []
   };
   assigning.value = item.id;

@@ -2,10 +2,23 @@
 // Licensed under the Apache License, Version 2.0.
 
 const { strict: assert } = require('assert');
+const { createHash } = require('crypto');
+const { hashReviewDecision } = require('../../../lib/util/idempotency');
 const { reviewReasons, snapshotDigest, validateDecision, nextCaseStatus } =
   require('../../../lib/util/review-surface');
 
 describe('review surface rules', () => {
+  it('keeps deployed decision retry hashes stable and distinguishes overrides', () => {
+    const input = { caseId: '11111111-1111-4111-8111-111111111111', revision: 2,
+      actorId: 1, outcome: 'accepted', reasonCode: 'verified-by-supervisor', note: 'Verified.' };
+    const legacy = `sha256:${createHash('sha256')
+      .update(`p0.5\nreview.case.decide\n${JSON.stringify(input)}`, 'utf8').digest('hex')}`;
+    assert.equal(hashReviewDecision(input), legacy);
+    assert.equal(hashReviewDecision({ ...input, override: false }), legacy);
+    assert.notEqual(hashReviewDecision({ ...input, override: true }), legacy);
+    assert.throws(() => hashReviewDecision({ ...input, override: 'true' }));
+  });
+
   it('opens only for explicit reasons in stable order', () => {
     assert.deepEqual(reviewReasons(), []);
     assert.deepEqual(reviewReasons({ manualReferral: true, evidenceMissing: true,
