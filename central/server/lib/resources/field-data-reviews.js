@@ -166,6 +166,21 @@ module.exports = (service, endpoint) => {
     }) : null };
   }));
 
+  service.get('/field-data/review-queue/metrics', endpoint(async (
+    { FieldDataReviews, Forms }, { query, auth }, request, response
+  ) => {
+    const { projectId, xmlFormId } = query;
+    if (typeof projectId !== 'string' || !/^[1-9]\d*$/.test(projectId)
+      || !Number.isSafeInteger(Number(projectId)) || typeof xmlFormId !== 'string'
+      || xmlFormId.length === 0) throw Problem.user.reviewQueueInvalid();
+    const form = await Forms.getByProjectAndXmlFormId(
+      Number(projectId), xmlFormId, Form.WithoutDef, Form.WithoutXml
+    ).then(getOrNotFound);
+    await authorize(auth, form);
+    response.set('Cache-Control', 'private, no-store');
+    return FieldDataReviews.getMetrics({ projectId: Number(projectId), xmlFormId });
+  }));
+
   service.get('/field-data/review-queue/:caseId', endpoint(async (
     { FieldDataReviews, FieldDataClaims, Forms }, { params, auth }, request, response
   ) => {

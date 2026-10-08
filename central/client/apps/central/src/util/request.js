@@ -283,6 +283,8 @@ export const apiPaths = {
     `/v1/field-data/review-queue?projectId=${encodeURIComponent(projectId)}&xmlFormId=${encodeURIComponent(xmlFormId)}&status=${encodeURIComponent(status)}${cursor == null ? '' : `&cursor=${encodeURIComponent(cursor)}`}`,
   reviewCaseAssignment: (caseId) =>
     `/v1/field-data/review-queue/${encodeURIComponent(caseId)}/assignment`,
+  reviewQueueMetrics: (projectId, xmlFormId) =>
+    `/v1/field-data/review-queue/metrics?projectId=${encodeURIComponent(projectId)}&xmlFormId=${encodeURIComponent(xmlFormId)}`,
   reviewCase: (caseId) =>
     `/v1/field-data/review-queue/${encodeURIComponent(caseId)}`,
   reviewCaseDecisions: (caseId) =>

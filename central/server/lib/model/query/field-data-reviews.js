@@ -50,6 +50,50 @@ const listDecisions = (caseId) => ({ all }) => all(sql`
   FROM field_data_review_decisions WHERE "caseId" = ${caseId}
   ORDER BY sequence`);
 
+// One statement gives every aggregate the same database snapshot. Restrict the
+// scope before aggregating; totals must not expose other forms or deleted data.
+const getMetrics = ({ projectId, xmlFormId }) => ({ one }) => one(sql`
+  WITH scoped AS (
+    SELECT c.* FROM field_data_review_cases c
+    JOIN field_data_claim_versions v ON v.id = c."claimVersionId"
+    JOIN field_data_claims claim ON claim.id = v."claimId"
+    JOIN submissions s ON s.id = claim."submissionId" AND s."deletedAt" IS NULL
+    JOIN forms f ON f.id = s."formId"
+    WHERE f."projectId" = ${projectId} AND f."xmlFormId" = ${xmlFormId}
+  ), first_assignment AS (
+    SELECT c.id, c."openedAt", min(a."loggedAt") AS assigned_at
+    FROM scoped c JOIN audits a ON a.details->>'caseId' = c.id::text
+      AND a.action = 'field_data.review.case.assign'
+    GROUP BY c.id, c."openedAt"
+  ), reasons AS (
+    SELECT reason, count(*)::integer AS count
+    FROM scoped c CROSS JOIN LATERAL (
+      SELECT DISTINCT jsonb_array_elements_text(c."reasonCodes") AS reason
+    ) r WHERE c.status IN ('open', 'in-review')
+    GROUP BY reason
+  )
+  SELECT statement_timestamp() AS "generatedAt",
+    (SELECT jsonb_build_object(
+      'open', count(*) FILTER (WHERE status = 'open'),
+      'inReview', count(*) FILTER (WHERE status = 'in-review'),
+      'resolved', count(*) FILTER (WHERE status = 'resolved'),
+      'superseded', count(*) FILTER (WHERE status = 'superseded')) FROM scoped) AS counts,
+    (SELECT extract(epoch FROM statement_timestamp() - min("openedAt"))::double precision
+      FROM scoped WHERE status IN ('open', 'in-review')) AS "oldestActiveSeconds",
+    (SELECT avg(extract(epoch FROM assigned_at - "openedAt"))::double precision
+      FROM first_assignment) AS "averageFirstAssignmentSeconds",
+    (SELECT count(*)::integer FROM first_assignment) AS "assignedCaseCount",
+    (SELECT avg(extract(epoch FROM "resolvedAt" - "openedAt"))::double precision
+      FROM scoped WHERE status = 'resolved') AS "averageResolutionSeconds",
+    COALESCE((SELECT jsonb_agg(jsonb_build_object('reasonCode', reason, 'count', count)
+      ORDER BY count DESC, reason) FROM reasons), '[]'::jsonb) AS "activeReasons",
+    (SELECT jsonb_build_object('total', count(*), 'overrides', count(*) FILTER (WHERE d.override))
+      FROM field_data_review_decisions d JOIN scoped c ON c.id = d."caseId") AS decisions,
+    (SELECT jsonb_build_object('pending', count(*),
+      'overdue', count(*) FILTER (WHERE b."dueAt" < statement_timestamp()))
+      FROM field_data_backchecks b JOIN scoped c ON c.id = b."caseId"
+      WHERE b.status = 'requested' AND c.status IN ('open', 'in-review')) AS backchecks`);
+
 // Called inside a container transaction. The idempotency row serializes retries
 // and the case row serializes competing reviewers.
 const assignToSelf = ({ caseId, revision, actorId, projectId, formActeeId,
@@ -216,4 +260,4 @@ const recordDecision = ({ caseId, revision, actorId, projectId, formActeeId,
   return { id: decisionId, revision: revision + 1, replayed: false };
 };
 
-module.exports = { getCase, listDecisions, listCases, assignToSelf, recordDecision };
+module.exports = { getCase, listDecisions, listCases, getMetrics, assignToSelf, recordDecision };
