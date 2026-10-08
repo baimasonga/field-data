@@ -25,7 +25,8 @@ Browser fixtures exercise project/form selection, evidence and provenance,
 read-only access, assignment, back-check request/link, pending-result blocking,
 terminal decision history, retry, and stale response handling. They verify the
 client's use of the existing API contract; they are not a production field pilot.
-No new database migration or review API is introduced by this change.
+The cancellation follow-up adds audited cancellation metadata and a revision-guarded
+API. See [back-check cancellation and replacement](../feature-delivery/backcheck-cancellation.md).
 
 Next, run a pilot with a test project, one form, two distinct App Users and a
 reviewer. Collect an original submission, inspect its review case, assign it,
@@ -36,7 +37,8 @@ stored evidence snapshot and audit event. Repeat with a read-only account and
 with a stale revision; neither may alter the case without authorization.
 
 Keep test data separate from operational records. Offline capture and sync must
-be verified on an actual Collect device. Notifications, cancellation/reassignment,
+be verified on an actual Collect device. Cancellation and replacement requests
+retain the original history. Notifications,
 custom back-check forms and automatic answer comparison remain follow-on work
 as described in P0.6. Audited override UI is outside this package: the current
 terminal-decision API accepts only `override: false`.

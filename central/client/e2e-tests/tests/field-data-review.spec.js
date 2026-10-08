@@ -40,7 +40,7 @@ const setup = async (page, { readOnly = false, noProjects = false, failQueue = f
     }
     if (path === `/v1/field-data/claim-versions/${versionId}/evidence`) return respond({ items: [{ id: 'evidence-1', sourceKind: 'submission-xml', integrityStatus: 'verified', downloadUrl: '/v1/field-data/evidence/evidence-1/content' }], nextCursor: null });
     if (path === `/v1/field-data/review-queue/${caseId}`) return respond({ claim: { id: versionId, provenance: { origin: 'collected', capturedAt: '2026-10-03T09:00:00Z', receivedAt: '2026-10-03T10:00:00Z', integrityHash: 'abcdef', degraded: null }, degraded: null }, decisions: state.decisions });
-    if (path.endsWith('/backcheck-assignees')) return respond([{ id: 42, name: 'Second collector' }]);
+    if (path.endsWith('/backcheck-assignees')) return respond([{ id: 42, name: 'Second collector' }, { id: 43, name: 'Replacement collector' }]);
     if (req.method() === 'GET' && path.endsWith('/backchecks')) return respond(state.backchecks);
     if (['POST', 'PATCH'].includes(req.method())) {
       const data = req.postDataJSON();
@@ -55,7 +55,11 @@ const setup = async (page, { readOnly = false, noProjects = false, failQueue = f
         state.status = data.status;
       } else if (path.endsWith('/backchecks')) {
         expect(data.requestId).toMatch(/^[0-9a-f-]{36}$/);
-        state.backchecks.push({ id: backcheckId, status: 'requested', assigneeName: 'Second collector', question: data.question });
+        state.backchecks.push({ id: state.backchecks.length === 0 ? backcheckId : '44444444-4444-4444-8444-444444444444', status: 'requested', assignedTo: data.assignedTo, assigneeName: data.assignedTo === 43 ? 'Replacement collector' : 'Second collector', question: data.question });
+      } else if (path.endsWith('/cancel')) {
+        expect(data.requestId).toMatch(/^[0-9a-f-]{36}$/);
+        state.backchecks[0] = { ...state.backchecks[0], status: 'cancelled',
+          cancellationReason: data.reason, cancelledBy: 1, cancelledAt: '2026-10-08T10:00:00Z' };
       } else if (path.endsWith('/link')) {
         state.backchecks[0] = { ...state.backchecks[0], status: 'linked', responseInstanceId: data.instanceId, responseCapturedAt: null, responseDegraded: { capturedAt: 'unknown' } };
       } else if (path.endsWith('/decisions')) {
@@ -129,6 +133,37 @@ test('reviewer assigns, requests and links a back-check, then records a decision
   await openInspection(page);
   await expect(page.getByText(/accepted · provenance-degraded/)).toBeVisible();
   expect(state.mutations.map(mutation => mutation.headers['if-match'])).toEqual([etag(1), etag(2), etag(3), etag(4)]);
+  expect(errors).toEqual([]);
+});
+
+test('reviewer cancels a pending visit with a reason and retains it when requesting a replacement', async ({ page }) => {
+  const { state, errors } = await setup(page);
+  await page.getByRole('button', { name: 'Assign to me' }).click();
+  await page.getByRole('button', { name: 'In review', exact: true }).click();
+  await openInspection(page);
+  await page.getByLabel('App User', { exact: true }).selectOption('42');
+  await page.getByLabel('What should they verify?').fill('Verify the visit date.');
+  await page.getByRole('button', { name: 'Request back-check', exact: true }).click();
+  await expect.poll(() => state.backchecks.length).toBe(1);
+  await openInspection(page);
+  const cancel = page.getByRole('button', { name: 'Cancel back-check', exact: true });
+  await expect(cancel).toBeDisabled();
+  await page.getByLabel('Cancellation reason', { exact: true }).fill('Collector is unavailable.');
+  await cancel.click();
+  await expect.poll(() => state.backchecks[0].status).toBe('cancelled');
+  await openInspection(page);
+  await expect(page.getByText('Cancellation reason: Collector is unavailable.')).toBeVisible();
+  await expect(page.getByLabel('Synced back-check submission ID')).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Request back-check', exact: true })).toBeVisible();
+  await page.getByLabel('App User', { exact: true }).selectOption('43');
+  await page.getByLabel('What should they verify?').fill('Arrange a replacement visit.');
+  await page.getByRole('button', { name: 'Request back-check', exact: true }).click();
+  await expect.poll(() => state.backchecks.length).toBe(2);
+  expect(state.backchecks.map(backcheck => backcheck.assignedTo)).toEqual([42, 43]);
+  await openInspection(page);
+  await expect(page.getByText('Cancellation reason: Collector is unavailable.')).toBeVisible();
+  expect(state.mutations.map(mutation => mutation.headers['if-match']))
+    .toEqual([etag(1), etag(2), etag(3), etag(4)]);
   expect(errors).toEqual([]);
 });
 
