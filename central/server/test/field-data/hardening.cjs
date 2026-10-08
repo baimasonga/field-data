@@ -122,6 +122,35 @@ const endpoint = Object.assign(handler => handler, { plain: handler => handler }
 require('../../lib/resources/field-data')(service, endpoint);
 require('../../lib/resources/field-data-workspaces')(service, endpoint);
 
+test('explorer CSV neutralizes collected spreadsheet expressions and preserves numeric coordinates', async () => {
+  const { parse } = require('csv-parse/sync');
+  const values = ['=1+1', '+1+1', '-1+1', '@SUM(1)', '\t=1+1', '\r=1+1', 'ordinary,"quoted"'];
+  const rows = values.map((value, i) => ({ id: i + 1, instanceId: `uuid:fixture-${i}`,
+    projectId: 1, project: value, form: 'simple', formName: value, submitter: value,
+    district: value, lat: 8.4, lng: -13.2, createdAt: new Date('2026-10-08T00:00:00Z') }));
+  const result = await routes.get('get /field-data/explore.csv')({
+    Forms: { getAllByAuth: async () => [{ id: 1, projectId: 1 }] }, db: { any: async () => rows }
+  }, { auth: { can: async () => true }, query: {} }, null, { set() {} });
+  const records = parse(result, { columns: true });
+  for (const [i, record] of records.entries()) {
+    const expected = i < 6 ? `'${values[i]}` : values[i];
+    for (const column of ['project', 'form_name', 'submitter', 'district'])
+      assert.equal(record[column], expected);
+    assert.equal(record.longitude, '-13.2');
+    assert.equal(record.submitted_at, '2026-10-08T00:00:00.000Z');
+  }
+});
+
+test('explorer CSV returns only its header when source read permission is absent', async () => {
+  let queries = 0;
+  const result = await routes.get('get /field-data/explore.csv')({
+    Forms: { getAllByAuth: async () => [{ id: 1, projectId: 1 }] },
+    db: { any: async () => { queries += 1; return []; } }
+  }, { auth: { can: async verb => verb === 'submission.list' }, query: {} }, null, { set() {} });
+  assert.equal(queries, 0);
+  assert.equal(result.trim().split('\r\n').length, 1);
+});
+
 test('workspace APIs coexist with the hardened APIs without replacing them', () => {
   for (const route of [
     'get /field-data/explore', 'get /field-data/explore.csv', 'get /field-data/team',
