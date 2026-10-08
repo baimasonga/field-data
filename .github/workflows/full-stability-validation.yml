@@ -43,6 +43,8 @@ jobs:
     name: Server unit, hardening and lint (gate)
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    env:
+      FIELD_DATA_STORAGE_DIR: ${{ runner.temp }}/field-data-unit
     defaults:
       run:
         working-directory: central/server
