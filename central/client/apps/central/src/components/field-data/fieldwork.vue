@@ -101,15 +101,6 @@ const clear = () => {
   pushBusy.value = false;
   acknowledging.value = null;
 };
-const handlePushUpdate = (event) => {
-  if (event.origin === window.location.origin && event.data?.type === 'fieldwork-inbox-update'
-    && connected.value && !loading.value && acknowledging.value == null) load();
-};
-onMounted(() => navigator.serviceWorker?.addEventListener?.('message', handlePushUpdate));
-onBeforeUnmount(() => {
-  navigator.serviceWorker?.removeEventListener?.('message', handlePushUpdate);
-  clear();
-});
 const parseKey = (value) => {
   if (!value.includes('://')) return value;
   const url = new URL(value);
@@ -137,6 +128,15 @@ const load = async (cursor = null) => {
     } else error.value = 'The inbox could not be loaded. Refresh or try opening it again.';
   } finally { if (current === generation) loading.value = false; }
 };
+const handlePushUpdate = (event) => {
+  if (event.origin === window.location.origin && event.data?.type === 'fieldwork-inbox-update' &&
+    connected.value && !loading.value && acknowledging.value == null) load();
+};
+onMounted(() => navigator.serviceWorker?.addEventListener?.('message', handlePushUpdate));
+onBeforeUnmount(() => {
+  navigator.serviceWorker?.removeEventListener?.('message', handlePushUpdate);
+  clear();
+});
 const connect = async () => {
   const { value } = inputKey;
   clear();
