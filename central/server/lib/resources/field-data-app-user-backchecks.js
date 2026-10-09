@@ -43,7 +43,11 @@ module.exports = (service, endpoint) => {
     const settings = offlineAssignments.config();
     if (settings == null) return { enabled: false };
     const rows = await container.db.any(inboxQuery(user));
-    const bundle = offlineAssignments.issue(settings, user, rows);
+    let bundle;
+    try { bundle = offlineAssignments.issue(settings, user, rows); } catch (error) {
+      if (error.code === 'OFFLINE_SNAPSHOT_TOO_LARGE') throw Problem.user.reviewAssignmentInvalid();
+      throw error;
+    }
     const data = JSON.parse(Buffer.from(bundle.payload, 'base64url').toString('utf8'));
     await container.Audits.log(auth.actor.orNull(), 'field_data.offline.assignments.issue', null,
       { bundleId: data.id, projectId: user.projectId, actorId: user.actorId,

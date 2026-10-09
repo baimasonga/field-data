@@ -66,7 +66,7 @@ describe('api: App User backcheck notifications', () => {
         process.env.FIELD_DATA_OFFLINE_ORIGIN = 'https://field.example.test';
         assert.throws(() => offlineAssignments.issue(offlineAssignments.config(), {
           actorId: checker.id, projectId: 1, displayName: 'Checker', projectName: 'x'.repeat(262145)
-        }, []), error => error.isProblem === true);
+        }, []), error => error.code === 'OFFLINE_SNAPSHOT_TOO_LARGE');
         const response = await get(checker.token).expect(200);
         assert.equal(response.headers['cache-control'], 'private, no-store');
         const { bundle } = response.body;

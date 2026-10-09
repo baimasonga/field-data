@@ -1,6 +1,5 @@
 // Copyright 2026 Field Data Developers. Licensed under the Apache License, Version 2.0.
 const { createPrivateKey, createPublicKey, createHash, sign, randomUUID } = require('crypto');
-const Problem = require('./problem');
 
 const config = () => {
   try {
@@ -23,7 +22,8 @@ const issue = (settings, user, rows, now = new Date()) => {
     issuedAt: now.toISOString(), expiresAt: new Date(now.getTime() + 8 * 3600000).toISOString(),
     complete: rows.length <= 50, items: rows.slice(0, 50) };
   const bytes = Buffer.from(JSON.stringify(data));
-  if (bytes.length > 262144) throw Problem.user.reviewAssignmentInvalid();
+  if (bytes.length > 262144) throw Object.assign(new Error('Offline snapshot exceeds the payload limit.'),
+    { code: 'OFFLINE_SNAPSHOT_TOO_LARGE' });
   return { algorithm: 'ES256', keyId: settings.keyId, publicKey: settings.publicKey,
     payload: bytes.toString('base64url'),
     signature: sign('sha256', bytes, { key: settings.key, dsaEncoding: 'ieee-p1363' }).toString('base64url') };
