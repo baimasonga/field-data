@@ -27,6 +27,17 @@ const scopeFor = async (container, auth, caseId, edit = false) => {
   return { reviewCase, claim, form };
 };
 
+const responseFormFor = async (container, auth, projectId, xmlFormId) => {
+  const form = await container.Forms.getByProjectAndXmlFormId(
+    projectId, xmlFormId, Form.WithoutDef, Form.WithoutXml
+  ).then(getOrNotFound);
+  try { await auth.canOrReject('submission.read', form); } catch (error) {
+    if (error?.problemCode === Problem.user.insufficientRights.code) throw Problem.user.notFound();
+    throw error;
+  }
+  return form;
+};
+
 const matchRevision = (headers) => {
   if (headers['if-match'] == null) throw Problem.user.reviewRevisionRequired();
   const matched = /^"review-case-([1-9]\d*)"$/.exec(headers['if-match']);
@@ -38,6 +49,32 @@ const matchRevision = (headers) => {
 const hash = (body) => createHash('sha256').update(JSON.stringify(body)).digest('hex');
 
 module.exports = (service, endpoint) => {
+  service.get('/field-data/review-queue/:caseId/backcheck-forms', endpoint(async (
+    container, { params, auth }, request, response
+  ) => {
+    const { claim } = await scopeFor(container, auth, params.caseId, true);
+    const forms = await container.db.any(sql`SELECT f.id, f."xmlFormId", fd.name
+      FROM forms f JOIN form_defs fd ON fd.id = f."currentDefId"
+      WHERE f."projectId" = ${claim.scope.projectId} AND f."deletedAt" IS NULL
+        AND f.state = 'open' ORDER BY f."xmlFormId"`);
+    const available = await Promise.all(forms.map(async (candidate) => {
+      try { await responseFormFor(container, auth, claim.scope.projectId, candidate.xmlFormId); } catch (error) {
+        if (error?.problemCode === Problem.user.notFound.code) return null;
+        throw error;
+      }
+      const assignees = await container.db.any(sql`SELECT a.id, a."displayName" AS name
+        FROM field_keys fk JOIN actors a ON a.id = fk."actorId"
+        JOIN forms f ON f.id = ${candidate.id}
+        WHERE fk."projectId" = ${claim.scope.projectId} AND a."deletedAt" IS NULL
+          AND EXISTS (SELECT 1 FROM assignments ass JOIN roles r ON r.id = ass."roleId"
+            WHERE ass."actorId" = a.id AND ass."acteeId" = f."acteeId"
+              AND r.verbs ? 'submission.create') ORDER BY a."displayName", a.id`);
+      return { ...candidate, assignees };
+    }));
+    response.set('Cache-Control', 'private, no-store');
+    return available.filter(candidate => candidate != null);
+  }));
+
   service.get('/field-data/review-queue/:caseId/backcheck-assignees', endpoint(async (
     container, { params, auth }
   ) => {
@@ -54,19 +91,27 @@ module.exports = (service, endpoint) => {
   service.get('/field-data/review-queue/:caseId/backchecks', endpoint(async (
     container, { params, auth }, request, response
   ) => {
-    await scopeFor(container, auth, params.caseId);
+    const { claim } = await scopeFor(container, auth, params.caseId);
     response.set('Cache-Control', 'private, no-store');
-    return container.db.any(sql`SELECT b.id, b."caseId", b."claimVersionId",
+    const backchecks = await container.db.any(sql`SELECT b.id, b."caseId", b."claimVersionId",
+      rf."xmlFormId" AS "responseXmlFormId", rf.id AS "responseFormId",
       b.question, b."dueAt", b.status, b."assignedTo", a."displayName" AS "assigneeName",
       b."responseInstanceId", b."createdAt", b."linkedAt",
       b."cancelledAt", b."cancelledBy", b."cancellationReason",
       p."capturedAt" AS "responseCapturedAt", p.degraded AS "responseDegraded",
       p."integrityHash" AS "responseIntegrityHash"
       FROM field_data_backchecks b
+      JOIN field_data_claim_versions cv ON cv.id = b."claimVersionId"
+      JOIN submission_defs osd ON osd.id = cv."submissionDefId"
+      JOIN submissions os ON os.id = osd."submissionId"
+      JOIN forms rf ON rf.id = COALESCE(b."responseFormId", os."formId")
       LEFT JOIN actors a ON a.id = b."assignedTo"
       LEFT JOIN field_data_submission_provenance p
         ON p."submissionDefId" = b."responseSubmissionDefId"
       WHERE b."caseId" = ${params.caseId} ORDER BY b."createdAt", b.id`);
+    await Promise.all([...new Set(backchecks.map(b => b.responseXmlFormId))]
+      .map(xmlFormId => responseFormFor(container, auth, claim.scope.projectId, xmlFormId)));
+    return backchecks;
   }));
 
   service.get('/field-data/review-queue/:caseId/backchecks/:backcheckId/comparison', endpoint(async (
@@ -78,7 +123,7 @@ module.exports = (service, endpoint) => {
     // boundaries checked before returning either source or any answer text.
     const sources = await container.db.any(sql`SELECT src.kind,
       sd.id AS "submissionDefId", sd."instanceId", sd.current,
-      s."instanceId" AS "rootInstanceId", v.id AS "claimVersionId", fd.version AS "formVersion",
+      s."instanceId" AS "rootInstanceId", f."xmlFormId", v.id AS "claimVersionId", fd.version AS "formVersion",
       p.origin, p."capturedAt", p."receivedAt", p.degraded, p."integrityHash",
       octet_length(sd.xml) > ${MAX_BYTES} AS "tooLarge",
       CASE WHEN octet_length(sd.xml) <= ${MAX_BYTES} THEN sd.xml ELSE NULL END AS xml,
@@ -93,26 +138,29 @@ module.exports = (service, endpoint) => {
       JOIN submission_defs response_def ON response_def.id = b."responseSubmissionDefId"
       JOIN submissions response_submission ON response_submission.id = response_def."submissionId"
         AND response_submission."deletedAt" IS NULL
-        AND response_submission."formId" = original_submission."formId"
+        AND response_submission."formId" = COALESCE(b."responseFormId", original_submission."formId")
       CROSS JOIN LATERAL (VALUES ('original', original_def.id), ('backcheck', response_def.id)) src(kind, id)
       JOIN submission_defs sd ON sd.id = src.id
       JOIN submissions s ON s.id = sd."submissionId"
+      JOIN forms f ON f.id = s."formId" AND f."projectId" = ${claim.scope.projectId}
       JOIN form_defs fd ON fd.id = sd."formDefId"
       LEFT JOIN field_data_claim_versions v ON v."submissionDefId" = sd.id
       LEFT JOIN field_data_submission_provenance p ON p."submissionDefId" = sd.id
       WHERE b.id = ${params.backcheckId} AND b."caseId" = ${params.caseId} AND b.status = 'linked'`);
     if (sources.length !== 2) throw Problem.user.notFound();
+    await Promise.all(sources.map(source =>
+      responseFormFor(container, auth, claim.scope.projectId, source.xmlFormId)));
     const original = sources.find((source) => source.kind === 'original');
     const backcheck = sources.find((source) => source.kind === 'backcheck');
     const sourceMetadata = (source) => ({
       submissionDefId: source.submissionDefId, claimVersionId: source.claimVersionId,
       instanceId: source.instanceId, rootInstanceId: source.rootInstanceId,
-      current: source.current, formVersion: source.formVersion,
+      current: source.current, xmlFormId: source.xmlFormId, formVersion: source.formVersion,
       provenance: { origin: source.origin, capturedAt: source.capturedAt,
         receivedAt: source.receivedAt, degraded: source.degraded, integrityHash: source.integrityHash },
       integrityStatus: source.hashMatches === true ? 'verified'
         : source.hashMatches === false ? 'mismatch' : 'unverified',
-      xmlDownloadUrl: `/v1/projects/${claim.scope.projectId}/forms/${encodeURIComponent(claim.scope.xmlFormId)}`
+      xmlDownloadUrl: `/v1/projects/${claim.scope.projectId}/forms/${encodeURIComponent(source.xmlFormId)}`
         + `/submissions/${encodeURIComponent(source.rootInstanceId)}/versions/${encodeURIComponent(source.instanceId)}.xml`
     });
     const result = { algorithmVersion: 'backcheck-text@1', original: sourceMetadata(original),
@@ -138,7 +186,9 @@ module.exports = (service, endpoint) => {
     const reviewerId = auth.actor.map((actor) => actor.id).orNull();
     const revision = matchRevision(headers);
     if (reviewerId == null || body == null || Object.keys(body).some((field) =>
-      !['requestId', 'assignedTo', 'question', 'dueAt'].includes(field))
+      !['requestId', 'assignedTo', 'question', 'dueAt', 'responseXmlFormId'].includes(field))
+      || (body.responseXmlFormId != null && (typeof body.responseXmlFormId !== 'string'
+        || body.responseXmlFormId.length === 0 || body.responseXmlFormId.length > 255))
       || !UUID_PATTERN.test(body.requestId ?? '')
       || !Number.isSafeInteger(body.assignedTo) || body.assignedTo < 1
       || typeof body.question !== 'string' || body.question.trim().length === 0
@@ -147,7 +197,11 @@ module.exports = (service, endpoint) => {
       throw Problem.user.reviewAssignmentInvalid();
     const question = body.question.trim();
     const dueAt = body.dueAt ?? null;
-    const requestHash = hash({ assignedTo: body.assignedTo, question, dueAt });
+    const responseForm = await responseFormFor(container, auth, claim.scope.projectId,
+      body.responseXmlFormId ?? claim.scope.xmlFormId);
+    // Preserve the legacy hash for requests without an explicit response form.
+    const requestHash = hash({ assignedTo: body.assignedTo, question, dueAt,
+      ...(body.responseXmlFormId == null ? {} : { responseXmlFormId: body.responseXmlFormId }) });
     const result = await trackReviewWrite({ caseId: params.caseId, actorId: reviewerId,
       formActeeId: form.acteeId }, 'backcheck-request', () => container.transacting(async (tx) => {
       const [locked] = await tx.db.any(sql`SELECT c.revision, c.status, c."assignedTo",
@@ -169,9 +223,13 @@ module.exports = (service, endpoint) => {
         throw Problem.user.reviewCaseClosed();
       if (body.assignedTo === locked.originalSubmitterId)
         throw Problem.user.reviewAssignmentInvalid();
+      const eligibleForm = await tx.db.any(sql`SELECT id FROM forms
+        WHERE id = ${responseForm.id} AND "deletedAt" IS NULL
+          AND "currentDefId" IS NOT NULL AND state = 'open'`);
+      if (eligibleForm.length === 0) throw Problem.user.reviewAssignmentInvalid();
       const assignee = await tx.db.any(sql`SELECT 1 FROM field_keys fk
         JOIN actors a ON a.id = fk."actorId" AND a."deletedAt" IS NULL
-        JOIN assignments ass ON ass."actorId" = a.id AND ass."acteeId" = ${form.acteeId}
+        JOIN assignments ass ON ass."actorId" = a.id AND ass."acteeId" = ${responseForm.acteeId}
         JOIN roles r ON r.id = ass."roleId" AND r.verbs ? 'submission.create'
         WHERE fk."projectId" = ${claim.scope.projectId}
           AND fk."actorId" = ${body.assignedTo} LIMIT 1`);
@@ -181,9 +239,9 @@ module.exports = (service, endpoint) => {
       if (pending.length > 0) throw Problem.user.reviewCaseClosed();
       const inserted = await tx.db.one(sql`INSERT INTO field_data_backchecks
         ("caseId", "claimVersionId", "requestId", "requestHash", "requestedBy",
-          "assignedTo", question, "dueAt")
+          "assignedTo", question, "dueAt", "responseFormId")
         VALUES (${params.caseId}, ${reviewCase.claimVersionId}, ${body.requestId},
-          ${requestHash}, ${reviewerId}, ${body.assignedTo}, ${question}, ${dueAt})
+          ${requestHash}, ${reviewerId}, ${body.assignedTo}, ${question}, ${dueAt}, ${responseForm.id})
         RETURNING id`);
       await tx.db.query(sql`UPDATE field_data_review_cases
         SET revision = revision + 1, "updatedAt" = clock_timestamp()
@@ -192,7 +250,7 @@ module.exports = (service, endpoint) => {
         "loggedAt", processed, failures)
         VALUES (${reviewerId}, 'field_data.backcheck.request', ${form.acteeId},
           ${JSON.stringify({ caseId: params.caseId, backcheckId: inserted.id,
-    claimVersionId: reviewCase.claimVersionId, assignedTo: body.assignedTo })},
+    claimVersionId: reviewCase.claimVersionId, assignedTo: body.assignedTo, responseFormId: responseForm.id })},
           clock_timestamp(), clock_timestamp(), 0)`);
       return { id: inserted.id, status: 'requested', revision: locked.revision + 1, replayed: false };
     }));
@@ -268,9 +326,14 @@ module.exports = (service, endpoint) => {
       const [locked] = await tx.db.any(sql`SELECT revision, status, "assignedTo"
         FROM field_data_review_cases WHERE id = ${params.caseId} FOR UPDATE`);
       const [backcheck] = await tx.db.any(sql`SELECT id, status, "assignedTo",
-        "responseInstanceId", "claimVersionId" FROM field_data_backchecks
+        "responseInstanceId", "claimVersionId", "responseFormId" FROM field_data_backchecks
         WHERE id = ${params.backcheckId} AND "caseId" = ${params.caseId} FOR UPDATE`);
       if (locked == null || backcheck == null) throw Problem.user.notFound();
+      const [target] = await tx.db.any(sql`SELECT "xmlFormId" FROM forms
+        WHERE id = ${backcheck.responseFormId ?? claim.scope.formId}
+          AND "projectId" = ${claim.scope.projectId} AND "deletedAt" IS NULL`);
+      if (target == null) throw Problem.user.notFound();
+      await responseFormFor(tx, auth, claim.scope.projectId, target.xmlFormId);
       if (backcheck.status === 'linked' && backcheck.responseInstanceId === body.instanceId)
         return { revision: locked.revision, replayed: true };
       if (locked.revision !== revision) throw Problem.user.reviewRevisionStale();
@@ -280,11 +343,12 @@ module.exports = (service, endpoint) => {
       const [submitted] = await tx.db.any(sql`SELECT sd.id, s."submitterId"
         FROM submissions s JOIN submission_defs sd
           ON sd."submissionId" = s.id AND sd.current IS TRUE
-        WHERE s."formId" = ${claim.scope.formId}
+        WHERE s."formId" = ${backcheck.responseFormId ?? claim.scope.formId}
           AND s."instanceId" = ${body.instanceId}
           AND s."deletedAt" IS NULL AND s.draft IS FALSE`);
       if (submitted == null || submitted.submitterId !== backcheck.assignedTo
-        || body.instanceId === claim.body.claim.rootInstanceId)
+        || ((backcheck.responseFormId ?? claim.scope.formId) === claim.scope.formId
+          && body.instanceId === claim.body.claim.rootInstanceId))
         throw Problem.user.reviewAssignmentInvalid();
       await tx.db.query(sql`UPDATE field_data_backchecks
         SET status = 'linked', "responseSubmissionDefId" = ${submitted.id},

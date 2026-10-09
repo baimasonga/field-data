@@ -1,6 +1,7 @@
 // Runs only against a fresh, disposable CI database.
 const assert = require('node:assert/strict');
 const knex = require('knex');
+const responseFormMigration = require('../lib/model/migrations/20261009-01-add-backcheck-response-form');
 const cancellationMigration = require('../lib/model/migrations/20261008-01-add-backcheck-cancellation');
 
 // Exercise Knex's migration bookkeeping as well as the retained schema. Use an
@@ -54,6 +55,42 @@ const checkCancellationRollback = async (db) => {
   });
   console.log('Back-check cancellation rollback/reapply preserves history and constraints');
 };
+const checkResponseFormRollback = async (db) => {
+  await db.transaction(async (tx) => {
+    const schema = 'backcheck_form_rollback_probe';
+    await tx.raw('CREATE SCHEMA ??', [schema]);
+    await tx.raw('SET LOCAL search_path TO ??', [schema]);
+    await tx.raw(`CREATE TABLE forms (id INTEGER PRIMARY KEY);
+      CREATE TABLE submissions (id INTEGER PRIMARY KEY, "formId" INTEGER);
+      CREATE TABLE submission_defs (id INTEGER PRIMARY KEY, "submissionId" INTEGER);
+      CREATE TABLE field_data_claim_versions (id INTEGER PRIMARY KEY, "submissionDefId" INTEGER);
+      CREATE TABLE field_data_backchecks (id INTEGER PRIMARY KEY, "claimVersionId" INTEGER);
+      INSERT INTO forms VALUES (1), (2);
+      INSERT INTO submissions VALUES (1, 1);
+      INSERT INTO submission_defs VALUES (1, 1);
+      INSERT INTO field_data_claim_versions VALUES (1, 1);
+      INSERT INTO field_data_backchecks VALUES (1, 1)`);
+    const name = '20261009-01-add-backcheck-response-form.js';
+    const options = { schemaName: schema, migrationSource: {
+      getMigrations: () => Promise.resolve([name]),
+      getMigrationName: migration => migration,
+      getMigration: () => responseFormMigration
+    } };
+    await tx.migrate.latest(options);
+    assert.equal((await tx.raw('SELECT "responseFormId" FROM field_data_backchecks')).rows[0].responseFormId, 1);
+    await tx.raw('UPDATE field_data_backchecks SET "responseFormId" = 2');
+    await tx.migrate.down(options);
+    await tx.raw('INSERT INTO field_data_backchecks (id, "claimVersionId") VALUES (2, 1)');
+    await tx.migrate.latest(options);
+    const rows = (await tx.raw('SELECT "responseFormId" FROM field_data_backchecks ORDER BY id')).rows;
+    assert.deepEqual(rows.map(row => row.responseFormId), [2, 1]);
+    await assert.rejects(tx.transaction(savepoint => savepoint.raw(
+      'DELETE FROM forms WHERE id = 2'
+    )), { code: '23503' });
+    await tx.raw('DROP SCHEMA ?? CASCADE', [schema]);
+  });
+  console.log('Back-check response forms survive rollback/reapply and legacy backfill');
+};
 (async () => {
   const schema = process.env.TEST_SCHEMA;
   assert.ok(['public', 'field_data'].includes(schema));
@@ -73,5 +110,6 @@ const checkCancellationRollback = async (db) => {
     }
     console.log(`All migrations passed in ${schema}`);
     await checkCancellationRollback(db);
+    await checkResponseFormRollback(db);
   } finally { await db.destroy(); }
 })().catch(error => { console.error(error); process.exitCode = 1; });
