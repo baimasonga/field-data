@@ -243,7 +243,12 @@ module.exports = (service, endpoint) => {
       JOIN submission_defs sd ON sd.id = cv."submissionDefId"
       JOIN submissions s ON s.id = sd."submissionId"
       LEFT JOIN field_data_submission_provenance p ON p."submissionDefId" = sd.id
-      WHERE o.id = ${data.observationId} AND o."assetId" = ${task.assetId}`);
+      WHERE o.id = ${data.observationId} AND o."assetId" = ${task.assetId}
+      -- Hold the source submission for the rest of this transaction. A deletion
+      -- that has not committed yet makes this wait and then see it; one that
+      -- starts later waits for the closure. Locking only the task row would let
+      -- a task close on evidence that was deleted in between.
+      FOR SHARE OF s`);
     const [taken] = await tx.db.any(sql`SELECT 1 FROM field_data_reverification_tasks
       WHERE "closureObservationId" = ${data.observationId}`);
     const reason = proofFailure(task, evidence, taken != null);

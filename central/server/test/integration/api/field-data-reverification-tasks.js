@@ -226,6 +226,52 @@ describe('api: re-verification dispatch and field closure', () => {
       await alice.get(`${tasks}/not-a-uuid`).expect(404);
     }));
 
+  it('does not close a task on a source submission that is being deleted at the same moment',
+    testServiceFullTrx(async (service, container) => {
+      const ctx = await setup(service, container);
+      const { alice, collector, path } = ctx;
+      await dispatch(ctx, 1, collector).expect(200);
+      const claim = await ctx.submitAs(collector, 'two');
+      const fresh = await ctx.observe(claim, { validFrom: new Date().toISOString(), validityDays: 90 });
+      const { revision } = (await alice.get(path).expect(200)).body.task;
+
+      // A deletion of the source is in flight: its transaction has updated the row
+      // but not yet committed. The closure must wait for it, then see the deletion.
+      let commitDeletion;
+      const held = new Promise((resolve) => { commitDeletion = resolve; });
+      let deleting;
+      const deletionStarted = new Promise((resolve) => {
+        deleting = container.db.transaction(async (tx) => {
+          await tx.query(sql`UPDATE submissions SET "deletedAt" = clock_timestamp() WHERE "instanceId" = 'two'`);
+          resolve();
+          await held;
+        });
+      });
+      await deletionStarted;
+
+      let finished = false;
+      const closing = act(alice, path, 'close', revision, { observationId: fresh }).then((response) => {
+        finished = true;
+        return response;
+      });
+      let response;
+      try {
+        await new Promise((resolve) => { setTimeout(resolve, 400); });
+        assert.equal(finished, false, 'closing must wait for the in-flight deletion instead of racing it');
+      } finally {
+        // Always release the deletion, so a failed assertion cannot leave a transaction open.
+        commitDeletion();
+        await deleting;
+        response = await closing;
+      }
+      assert.equal(response.status, 409);
+      assert.match(response.body.message, /source-unavailable/);
+      const [row] = await container.db.any(sql`SELECT status, "closureObservationId" FROM field_data_reverification_tasks
+        WHERE id = ${ctx.task.id}`);
+      assert.equal(row.status, 'dispatched');
+      assert.equal(row.closureObservationId, null);
+    }));
+
   it('serialises concurrent writers and keeps events append-only', testServiceFullTrx(async (service, container) => {
     const ctx = await setup(service, container);
     const { alice, collector, path } = ctx;
