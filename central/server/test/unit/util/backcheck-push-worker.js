@@ -24,6 +24,15 @@ describe('fieldwork browser push worker', () => {
     handlers.notificationclick({ notification: { close: () => {} }, waitUntil: promise => { pending = promise; } });
     await pending;
     assert.deepEqual(opened, ['/fieldwork']);
+    let focused = false;
+    const messages = [];
+    self.clients.matchAll = async () => [{ url: 'https://field.example.test/fieldwork',
+      focus: async () => { focused = true; }, postMessage: value => messages.push(value) }];
+    handlers.notificationclick({ notification: { close: () => {} }, waitUntil: promise => { pending = promise; } });
+    await pending;
+    assert.equal(focused, true);
+    assert.equal(messages[0].type, 'fieldwork-inbox-update');
+    assert.equal(opened.length, 1);
     handlers.push({ data: { json: () => null }, waitUntil: () => assert.fail('invalid push accepted') });
   });
 });

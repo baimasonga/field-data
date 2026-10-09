@@ -13,7 +13,11 @@ self.addEventListener('notificationclick', (event) => {
   event.notification.close();
   event.waitUntil(self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(async (clients) => {
     const existing = clients.find(client => new URL(client.url).pathname === '/fieldwork');
-    if (existing) return existing.focus();
+    if (existing) {
+      await existing.focus();
+      existing.postMessage({ type: 'fieldwork-inbox-update' });
+      return existing;
+    }
     return self.clients.openWindow('/fieldwork');
   }));
 });

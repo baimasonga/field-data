@@ -18,7 +18,8 @@ const setup = async (page, { push = false, denied = false, fail = false, delayed
       unsubscribe: async () => true
     };
     const registration = { active: true, pushManager: { getSubscription: async () => null, subscribe: async () => subscription } };
-    Object.defineProperty(navigator, 'serviceWorker', { value: { getRegistration: async () => registration, register: async () => registration } });
+    Object.defineProperty(navigator, 'serviceWorker', { value: { getRegistration: async () => registration, register: async () => registration,
+      addEventListener: (name, handler) => { window.fieldworkMessage = handler; }, removeEventListener: () => {} } });
   }, { denied });
   await page.route('**/client-config.json', route => route.fulfill({ json: {} }));
   await page.route('**/version.txt', route => route.fulfill({ body: 'test' }));
@@ -78,6 +79,9 @@ test('browser push registers only after consent and disconnect removes the subsc
   await page.getByRole('button', { name: 'Enable browser notifications' }).click();
   await expect(page.getByRole('button', { name: 'Turn off browser notifications' })).toBeVisible();
   expect(state.registered).toBe(true);
+  state.seen = true;
+  await page.evaluate(() => window.fieldworkMessage({ origin: window.location.origin, data: { type: 'fieldwork-inbox-update' } }));
+  await expect(page.getByText('Acknowledged:', { exact: false })).toBeVisible();
   await page.getByRole('button', { name: 'Disconnect', exact: true }).click();
   await expect(page.getByRole('button', { name: 'Open my inbox' })).toBeVisible();
   expect(state.deleted).toBe(true);

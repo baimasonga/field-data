@@ -50,7 +50,7 @@ Acknowledge request
   </section>
 </template>
 <script setup>
-import { onBeforeUnmount, ref } from 'vue';
+import { onBeforeUnmount, onMounted, ref } from 'vue';
 
 defineOptions({ name: 'FieldDataFieldwork' });
 const inputKey = ref('');
@@ -101,7 +101,15 @@ const clear = () => {
   pushBusy.value = false;
   acknowledging.value = null;
 };
-onBeforeUnmount(clear);
+const handlePushUpdate = (event) => {
+  if (event.origin === window.location.origin && event.data?.type === 'fieldwork-inbox-update'
+    && connected.value && !loading.value && acknowledging.value == null) load();
+};
+onMounted(() => navigator.serviceWorker?.addEventListener?.('message', handlePushUpdate));
+onBeforeUnmount(() => {
+  navigator.serviceWorker?.removeEventListener?.('message', handlePushUpdate);
+  clear();
+});
 const parseKey = (value) => {
   if (!value.includes('://')) return value;
   const url = new URL(value);
