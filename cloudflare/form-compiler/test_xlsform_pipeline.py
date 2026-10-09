@@ -158,11 +158,55 @@ class ValidatorUnavailableTest(unittest.TestCase):
 
     def test_readiness_is_ok_when_java_resolves(self):
         with patch("app.shutil.which", return_value="/usr/bin/java"), \
-                patch("app._java_version", return_value="openjdk version \"17\""):
+                patch("app._probe_java", return_value={"returncode": 0, "line": 'openjdk version "17.0.9" 2023-10-17'}):
             ready = self.client.get("/readyz")
         self.assertEqual(ready.status_code, 200)
         self.assertTrue(ready.json["validated"])
-        self.assertEqual(ready.json["java"]["version"], "openjdk version \"17\"")
+        self.assertEqual(ready.json["java"]["version"], 'openjdk version "17.0.9" 2023-10-17')
+
+    def probe(self, returncode, line):
+        with patch("app.shutil.which", return_value="/usr/bin/java"), \
+                patch("app._probe_java", return_value={"returncode": returncode, "line": line}):
+            return self.client.get("/readyz"), post(self.client, household_workbook())
+
+    def test_a_jvm_that_cannot_start_is_not_available_even_though_it_is_on_path(self):
+        # e.g. an invalid JAVA_TOOL_OPTIONS: `java` resolves, but exits non-zero.
+        ready, converted = self.probe(1, "Unrecognized VM option 'Bogus'")
+        self.assertEqual(ready.status_code, 503)
+        self.assertEqual(ready.json["java"]["reason"], "version-probe-failed")
+        self.assertFalse(ready.json["validated"])
+        self.assertEqual(converted.status_code, 503)
+        self.assertEqual(converted.json["errorCode"], "validator-unavailable")
+
+    def test_a_java_older_than_8_is_not_available(self):
+        ready, converted = self.probe(0, 'java version "1.7.0_80"')
+        self.assertEqual(ready.status_code, 503)
+        self.assertEqual(ready.json["java"]["reason"], "unsupported-version")
+        self.assertEqual(converted.status_code, 503)
+
+    def test_java_8_and_newer_are_accepted_in_both_version_schemes(self):
+        for line in ('openjdk version "1.8.0_392"', 'openjdk version "11.0.21"', 'openjdk version "21.0.1"'):
+            reset_java_cache()
+            ready, _ = self.probe(0, line)
+            self.assertEqual(ready.status_code, 200, line)
+
+    def test_an_unparseable_but_successful_version_line_is_accepted(self):
+        ready, _ = self.probe(0, "some vendor build")
+        self.assertEqual(ready.status_code, 200)
+
+    def test_a_real_broken_jvm_is_detected(self):
+        require_java(self)
+        with patch.dict(os.environ, {"JAVA_TOOL_OPTIONS": "-XX:ThisFlagDoesNotExist"}):
+            reset_java_cache()
+            status = compiler.java_status(max_age=0)
+            ready = self.client.get("/readyz")
+        self.assertFalse(status["available"])
+        self.assertEqual(ready.status_code, 503)
+
+    def test_java_major_parsing(self):
+        for line, major in (('openjdk version "17.0.9"', 17), ('java version "1.8.0_1"', 8),
+                            ('openjdk version "21"', 21), ("garbage", None), (None, None)):
+            self.assertEqual(compiler._java_major(line), major, line)
 
     def test_other_failures_are_still_reported_normally(self):
         with patch("app.java_status", return_value={"available": True, "path": "/x/java", "version": "x"}), \

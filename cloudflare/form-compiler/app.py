@@ -111,34 +111,63 @@ def validation_policy():
     return STRICT, None
 
 
-def _java_version(java):
+MINIMUM_JAVA_MAJOR = 8
+_VERSION_PATTERN = re.compile(r'version "(?P<version>[^"]+)"')
+
+
+def _probe_java(java):
+    """Run `java -version` and return its exit code and first meaningful line."""
     try:
         result = subprocess.run(
             [java, "-version"], capture_output=True, text=True, timeout=15, check=False)
     except (OSError, subprocess.SubprocessError):
-        return None
+        return {"returncode": None, "line": None}
     lines = [line for line in (result.stderr or result.stdout or "").splitlines()
              if line.strip() and not _JVM_NOISE.match(line.strip())]
-    return lines[0].strip() if lines else None
+    return {"returncode": result.returncode, "line": lines[0].strip() if lines else None}
+
+
+def _java_major(line):
+    """The major version in a `java -version` line, or None if it cannot be read."""
+    match = _VERSION_PATTERN.search(line or "")
+    if match is None:
+        return None
+    parts = re.findall(r"\d+", match.group("version"))
+    if not parts:
+        return None
+    # Java 8 and earlier report 1.x.
+    return int(parts[1]) if parts[0] == "1" and len(parts) > 1 else int(parts[0])
 
 
 _java_cache = {"at": 0.0, "value": None}
 
 
 def java_status(max_age=30.0):
-    """Whether `java` resolves on the PATH the converter will actually use.
+    """Whether a working, supported `java` resolves on the PATH the converter uses.
 
     pyxform looks the executable up with shutil.which and ignores JAVA_HOME, so
-    this asks the same question it will. The answer is cached briefly because
-    readiness probes arrive often and starting a JVM is not free.
+    this asks the same question it will. Being on PATH is not enough: a JVM that
+    cannot start (for example because of an invalid JAVA_TOOL_OPTIONS) is found
+    but fails every conversion, so it must also run `java -version` successfully
+    and be a supported version. The answer is cached briefly because readiness
+    probes arrive often and starting a JVM is not free.
     """
     now = time.monotonic()
     cached = _java_cache["value"]
     if cached is not None and now - _java_cache["at"] < max_age:
         return cached
     path = shutil.which("java")
-    value = {"available": path is not None, "path": path,
-             "version": _java_version(path) if path else None}
+    value = {"available": False, "path": path, "version": None, "reason": "not-found"}
+    if path is not None:
+        probe = _probe_java(path)
+        major = _java_major(probe["line"])
+        value["version"] = probe["line"]
+        if probe["returncode"] != 0:
+            value["reason"] = "version-probe-failed"
+        elif major is not None and major < MINIMUM_JAVA_MAJOR:
+            value["reason"] = "unsupported-version"
+        else:
+            value.update(available=True, reason=None)
     _java_cache.update(at=now, value=value)
     return value
 
@@ -256,8 +285,13 @@ def create_app():
         if mode == SKIP:
             return jsonify(status="ok-unvalidated", validated=False, **body)
         if not java["available"]:
+            reasons = {
+                "not-found": "Java (8+) is required for XForm validation and was not found on PATH.",
+                "version-probe-failed": "Java was found but `java -version` failed, so it cannot run ODK Validate.",
+                "unsupported-version": f"Java {MINIMUM_JAVA_MAJOR} or newer is required for XForm validation.",
+            }
             return jsonify(status="unavailable", validated=False,
-                           reason="Java (8+) is required for XForm validation and was not found on PATH.",
+                           reason=reasons.get(java["reason"], reasons["not-found"]),
                            **body), 503
         return jsonify(status="ok", validated=True, **body)
 

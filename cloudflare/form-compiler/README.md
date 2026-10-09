@@ -30,7 +30,7 @@ Endpoints:
 | Path | Meaning |
 | --- | --- |
 | `GET /healthz` | Liveness only. Cheap; the entrypoint polls it while booting. |
-| `GET /readyz` | `200` when forms can really be validated; `503` when Java is missing. Reports the Java path and version. Central's status probe (`systemStatus.pyxform`) and the deploy gate read this. |
+| `GET /readyz` | `200` with `validated: true` when forms can really be validated. `503` when Java is missing, will not start (`java -version` fails, for example from an invalid `JAVA_TOOL_OPTIONS`) or is older than 8. `200` with `validated: false` and status `ok-unvalidated` when validation is deliberately skipped. Central's status probe (`systemStatus.pyxform`) and the deploy gate require `validated: true`, so neither of the last two counts as healthy. |
 | `POST /api/v1/convert` | The Central contract. |
 
 `/api/v1/convert` answers with a stable `errorCode` alongside the existing fields:
