@@ -40,7 +40,11 @@ module.exports = (service, endpoint) => {
       !['outcome', 'override', 'reasonCode', 'note', 'evidenceIds', 'integrityFindingIds'].includes(field))
       || !['needs-evidence', 'accepted', 'rejected'].includes(body.outcome)
       || typeof body.override !== 'boolean'
-      || (body.override && (body.outcome !== 'accepted' || body.reasonCode !== 'verified-by-supervisor'))
+      || (body.override && !(
+        (body.outcome === 'accepted' && body.reasonCode === 'verified-by-supervisor')
+        || (body.outcome === 'needs-evidence' && body.reasonCode === 'reopen-for-review')
+        || (['accepted', 'rejected'].includes(body.outcome)
+          && body.reasonCode === 'reconsidered-decision')))
       || typeof body.reasonCode !== 'string' || (!body.override && !reviewCase.reasonCodes.includes(body.reasonCode))
       || typeof body.note !== 'string' || body.note.trim().length < 1
       || body.note.length > 4000 || !Array.isArray(body.evidenceIds)
@@ -216,7 +220,9 @@ module.exports = (service, endpoint) => {
       resolvedAt: reviewCase.resolvedAt, supersededByCaseId: reviewCase.supersededByCaseId,
       policyVersion: reviewCase.policyVersion,
       claim: claim.body, submissionReviewState: reviewCase.submissionReviewState,
-      overridePolicy: { allowed, reasonCodes: allowed ? ['verified-by-supervisor'] : [] },
+      overridePolicy: { allowed, reasonCodes: allowed
+        ? ['verified-by-supervisor', 'reopen-for-review', 'reconsidered-decision'] : [] },
+      reversalRequired: decisions.some((decision) => ['accepted', 'rejected'].includes(decision.outcome)),
       decisions };
   }));
 };

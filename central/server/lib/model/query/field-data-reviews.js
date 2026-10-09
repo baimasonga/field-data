@@ -178,9 +178,25 @@ const recordDecision = ({ caseId, revision, actorId, projectId, formActeeId,
   if (reviewCase.revision !== revision) throw Problem.user.reviewRevisionStale();
   if (!reviewCase.current || reviewCase.status === 'superseded')
     throw Problem.user.reviewCaseClosed();
-  if (reviewCase.status !== 'in-review' || reviewCase.assignedTo !== actorId)
+  const reopening = override && outcome === 'needs-evidence' && reasonCode === 'reopen-for-review';
+  const previous = await all(sql`SELECT id, sequence, outcome FROM field_data_review_decisions
+    WHERE "caseId" = ${caseId} ORDER BY sequence DESC LIMIT 1`);
+  const terminal = await all(sql`SELECT id, outcome FROM field_data_review_decisions
+    WHERE "caseId" = ${caseId} AND outcome IN ('accepted', 'rejected')
+    ORDER BY sequence DESC LIMIT 1`);
+  if (reopening) {
+    if (reviewCase.status !== 'resolved' || !['accepted', 'rejected'].includes(previous[0]?.outcome))
+      throw Problem.user.reviewCaseClosed();
+  } else if (reviewCase.status !== 'in-review' || reviewCase.assignedTo !== actorId) {
     throw Problem.user.reviewCaseAssigned();
-  if (override ? (outcome !== 'accepted' || reasonCode !== 'verified-by-supervisor')
+  }
+  const reconsidering = override && ['accepted', 'rejected'].includes(outcome)
+    && reasonCode === 'reconsidered-decision';
+  if ((reconsidering && terminal.length === 0)
+    || (!reopening && outcome !== 'needs-evidence' && terminal.length > 0 && !reconsidering))
+    throw Problem.user.reviewAssignmentInvalid();
+  if (override ? !(reopening || reconsidering
+    || (outcome === 'accepted' && reasonCode === 'verified-by-supervisor'))
     : !reviewCase.reasonCodes.includes(reasonCode))
     throw Problem.user.reviewAssignmentInvalid();
   if (outcome !== 'needs-evidence') {
@@ -218,7 +234,7 @@ const recordDecision = ({ caseId, revision, actorId, projectId, formActeeId,
       ("instanceId" = ${reviewCase.instanceId}
         OR "relatedInstanceId" = ${reviewCase.instanceId})
     ORDER BY id FOR SHARE`);
-  if (override && !findings.some((item) => item.status !== 'resolved')
+  if (override && !reopening && !reconsidering && !findings.some((item) => item.status !== 'resolved')
     && reviewCase.claimDegraded == null && reviewCase.provenanceDegraded == null)
     throw Problem.user.reviewAssignmentInvalid();
   if (outcome === 'accepted' && (evidence.length === 0
@@ -236,8 +252,6 @@ const recordDecision = ({ caseId, revision, actorId, projectId, formActeeId,
     })));
     snapshotDigest(findings);
   } catch (error) { throw Problem.user.reviewAssignmentInvalid(); }
-  const previous = await all(sql`SELECT id, sequence FROM field_data_review_decisions
-    WHERE "caseId" = ${caseId} ORDER BY sequence DESC LIMIT 1`);
   const decisionId = uuid();
   await run(sql`INSERT INTO field_data_review_decisions
     (id, "caseId", "claimVersionId", "previousDecisionId", sequence,
@@ -264,6 +278,8 @@ const recordDecision = ({ caseId, revision, actorId, projectId, formActeeId,
     submissionDefId: reviewCase.submissionDefId, claimId: reviewCase.claimId,
     claimVersionId: reviewCase.claimVersionId, caseId, decisionId,
     outcome, override, reasonCode,
+    ...(reopening || reconsidering ? { previousDecisionId: previous[0].id,
+      previousTerminalDecisionId: terminal[0].id } : {}),
     ...(override ? { overrideContext: { claimDegraded: reviewCase.claimDegraded,
       provenanceDegraded: reviewCase.provenanceDegraded, integritySnapshot: findings } } : {}) })},
       clock_timestamp(), clock_timestamp(), 0)`);

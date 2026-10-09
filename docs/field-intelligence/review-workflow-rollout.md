@@ -48,7 +48,8 @@ be verified on an actual Collect device. Cancellation and replacement requests
 retain the original history. Notifications,
 custom back-check forms and automatic answer comparison remain follow-on work
 as described in P0.6. Supervisor acceptance preserves limitations and records an explicit override;
-reversing terminal decisions remains follow-on work.
+[reopening and replacing terminal decisions](P0.5-decision-reconsideration.md)
+requires an explicit supervisor explanation and preserves the full history.
 
 Run the isolated browser regression suite from `central/client`:
 
