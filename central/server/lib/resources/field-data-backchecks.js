@@ -7,7 +7,7 @@ const { Form } = require('../model/frames');
 const { UUID_PATTERN } = require('../util/claim-versioning');
 const { getOrNotFound } = require('../util/promise');
 const Problem = require('../util/problem');
-const { compareAnswers, MAX_BYTES } = require('../util/backcheck-comparison');
+const { answers, compareAnswers, compareMappedAnswers, validatePairs, MAX_BYTES } = require('../util/backcheck-comparison');
 const { trackReviewWrite, observeReviewConflicts } = require('../util/review-conflicts');
 
 const scopeFor = async (container, auth, caseId, edit = false) => {
@@ -47,6 +47,51 @@ const matchRevision = (headers) => {
 };
 
 const hash = (body) => createHash('sha256').update(JSON.stringify(body)).digest('hex');
+
+const pinnedSources = async (container, auth, params, claim) => {
+  if (!UUID_PATTERN.test(params.backcheckId)) throw Problem.user.notFound();
+  // Fetch both pinned versions in one snapshot, with both deletion and form
+  // boundaries checked before returning either source or any answer text.
+  const sources = await container.db.any(sql`SELECT src.kind,
+      sd.id AS "submissionDefId", sd."instanceId", sd.current,
+      s."instanceId" AS "rootInstanceId", f."xmlFormId", v.id AS "claimVersionId", fd.version AS "formVersion",
+      p.origin, p."capturedAt", p."receivedAt", p.degraded, p."integrityHash",
+      octet_length(sd.xml) > ${MAX_BYTES} AS "tooLarge",
+      CASE WHEN octet_length(sd.xml) <= ${MAX_BYTES} THEN sd.xml ELSE NULL END AS xml,
+      CASE WHEN octet_length(sd.xml) <= ${MAX_BYTES} THEN
+        p."integrityHash" = encode(sha256(convert_to(sd.xml, 'UTF8')), 'hex') ELSE NULL END AS "hashMatches"
+      FROM field_data_backchecks b
+      JOIN field_data_review_cases c ON c.id = b."caseId" AND c."claimVersionId" = b."claimVersionId"
+      JOIN field_data_claim_versions original ON original.id = c."claimVersionId"
+      JOIN submission_defs original_def ON original_def.id = original."submissionDefId"
+      JOIN submissions original_submission ON original_submission.id = original_def."submissionId"
+        AND original_submission."deletedAt" IS NULL
+      JOIN submission_defs response_def ON response_def.id = b."responseSubmissionDefId"
+      JOIN submissions response_submission ON response_submission.id = response_def."submissionId"
+        AND response_submission."deletedAt" IS NULL
+        AND response_submission."formId" = COALESCE(b."responseFormId", original_submission."formId")
+      CROSS JOIN LATERAL (VALUES ('original', original_def.id), ('backcheck', response_def.id)) src(kind, id)
+      JOIN submission_defs sd ON sd.id = src.id
+      JOIN submissions s ON s.id = sd."submissionId"
+      JOIN forms f ON f.id = s."formId" AND f."projectId" = ${claim.scope.projectId}
+      JOIN form_defs fd ON fd.id = sd."formDefId"
+      LEFT JOIN field_data_claim_versions v ON v."submissionDefId" = sd.id
+      LEFT JOIN field_data_submission_provenance p ON p."submissionDefId" = sd.id
+      WHERE b.id = ${params.backcheckId} AND b."caseId" = ${params.caseId} AND b.status = 'linked'`);
+  if (sources.length !== 2) throw Problem.user.notFound();
+  await Promise.all(sources.map(source =>
+    responseFormFor(container, auth, claim.scope.projectId, source.xmlFormId)));
+  return sources;
+};
+const mappingHistory = (container, backcheckId) => container.db.any(sql`SELECT m.id, m.revision,
+  m."actorId", a."displayName" AS "actorName", m.note, m.pairs, m."createdAt",
+  m."originalSubmissionDefId", m."backcheckSubmissionDefId", m."originalHash", m."backcheckHash"
+  FROM field_data_backcheck_mappings m LEFT JOIN actors a ON a.id = m."actorId"
+  WHERE m."backcheckId" = ${backcheckId} ORDER BY m.revision DESC LIMIT 100`);
+const mappingAllowed = async (container, auth, claim, form) => {
+  const project = await container.Projects.getById(claim.scope.projectId).then(getOrNotFound);
+  return (await auth.can('project.update', project)) && auth.can('submission.update', form);
+};
 
 module.exports = (service, endpoint) => {
   service.get('/field-data/review-queue/:caseId/backcheck-forms', endpoint(async (
@@ -117,39 +162,9 @@ module.exports = (service, endpoint) => {
   service.get('/field-data/review-queue/:caseId/backchecks/:backcheckId/comparison', endpoint(async (
     container, { params, auth }, request, response
   ) => {
-    const { claim } = await scopeFor(container, auth, params.caseId);
+    const { claim, form } = await scopeFor(container, auth, params.caseId);
     if (!UUID_PATTERN.test(params.backcheckId)) throw Problem.user.notFound();
-    // Fetch both pinned versions in one snapshot, with both deletion and form
-    // boundaries checked before returning either source or any answer text.
-    const sources = await container.db.any(sql`SELECT src.kind,
-      sd.id AS "submissionDefId", sd."instanceId", sd.current,
-      s."instanceId" AS "rootInstanceId", f."xmlFormId", v.id AS "claimVersionId", fd.version AS "formVersion",
-      p.origin, p."capturedAt", p."receivedAt", p.degraded, p."integrityHash",
-      octet_length(sd.xml) > ${MAX_BYTES} AS "tooLarge",
-      CASE WHEN octet_length(sd.xml) <= ${MAX_BYTES} THEN sd.xml ELSE NULL END AS xml,
-      CASE WHEN octet_length(sd.xml) <= ${MAX_BYTES} THEN
-        p."integrityHash" = encode(sha256(convert_to(sd.xml, 'UTF8')), 'hex') ELSE NULL END AS "hashMatches"
-      FROM field_data_backchecks b
-      JOIN field_data_review_cases c ON c.id = b."caseId" AND c."claimVersionId" = b."claimVersionId"
-      JOIN field_data_claim_versions original ON original.id = c."claimVersionId"
-      JOIN submission_defs original_def ON original_def.id = original."submissionDefId"
-      JOIN submissions original_submission ON original_submission.id = original_def."submissionId"
-        AND original_submission."deletedAt" IS NULL
-      JOIN submission_defs response_def ON response_def.id = b."responseSubmissionDefId"
-      JOIN submissions response_submission ON response_submission.id = response_def."submissionId"
-        AND response_submission."deletedAt" IS NULL
-        AND response_submission."formId" = COALESCE(b."responseFormId", original_submission."formId")
-      CROSS JOIN LATERAL (VALUES ('original', original_def.id), ('backcheck', response_def.id)) src(kind, id)
-      JOIN submission_defs sd ON sd.id = src.id
-      JOIN submissions s ON s.id = sd."submissionId"
-      JOIN forms f ON f.id = s."formId" AND f."projectId" = ${claim.scope.projectId}
-      JOIN form_defs fd ON fd.id = sd."formDefId"
-      LEFT JOIN field_data_claim_versions v ON v."submissionDefId" = sd.id
-      LEFT JOIN field_data_submission_provenance p ON p."submissionDefId" = sd.id
-      WHERE b.id = ${params.backcheckId} AND b."caseId" = ${params.caseId} AND b.status = 'linked'`);
-    if (sources.length !== 2) throw Problem.user.notFound();
-    await Promise.all(sources.map(source =>
-      responseFormFor(container, auth, claim.scope.projectId, source.xmlFormId)));
+    const sources = await pinnedSources(container, auth, params, claim);
     const original = sources.find((source) => source.kind === 'original');
     const backcheck = sources.find((source) => source.kind === 'backcheck');
     const sourceMetadata = (source) => ({
@@ -163,20 +178,96 @@ module.exports = (service, endpoint) => {
       xmlDownloadUrl: `/v1/projects/${claim.scope.projectId}/forms/${encodeURIComponent(source.xmlFormId)}`
         + `/submissions/${encodeURIComponent(source.rootInstanceId)}/versions/${encodeURIComponent(source.instanceId)}.xml`
     });
-    const result = { algorithmVersion: 'backcheck-text@1', original: sourceMetadata(original),
+    const history = await mappingHistory(container, params.backcheckId);
+    const revision = history[0]?.revision ?? 0;
+    const mapping = { revision, etag: `"backcheck-mapping-${revision}"`, history,
+      allowed: await mappingAllowed(container, auth, claim, form) };
+    const configured = history.length > 0;
+    const explicit = configured || original.xmlFormId !== backcheck.xmlFormId;
+    const result = { algorithmVersion: explicit ? 'backcheck-mapped-text@1' : 'backcheck-text@1',
+      mapping, comparisonMode: configured ? 'mapped' : explicit ? 'unmapped' : 'exact-path', original: sourceMetadata(original),
       backcheck: sourceMetadata(backcheck) };
     let comparison;
     if (sources.some((source) => source.tooLarge)) comparison = { unavailableReason: 'size-limit' };
     else if (sources.some((source) => source.hashMatches !== true))
       comparison = { unavailableReason: 'source-integrity' };
     else {
-      try { comparison = compareAnswers(original.xml, backcheck.xml); } catch (error) {
+      try {
+        comparison = explicit ? compareMappedAnswers(original.xml, backcheck.xml, history[0]?.pairs ?? [])
+          : compareAnswers(original.xml, backcheck.xml);
+        comparison.availablePaths = { original: [...answers(original.xml).keys()].sort(),
+          backcheck: [...answers(backcheck.xml).keys()].sort() };
+      } catch (error) {
         if (error.reason == null) throw error;
         comparison = { unavailableReason: error.reason };
       }
     }
     response.set('Cache-Control', 'private, no-store');
     return { ...result, ...comparison };
+  }));
+
+  service.post('/field-data/review-queue/:caseId/backchecks/:backcheckId/mapping', endpoint(async (
+    container, { params, auth, body, headers }, request, response
+  ) => {
+    const { claim, form } = await scopeFor(container, auth, params.caseId);
+    if (!await mappingAllowed(container, auth, claim, form)) throw Problem.user.insufficientRights();
+    if (!UUID_PATTERN.test(params.backcheckId)) throw Problem.user.notFound();
+    if (headers['if-match'] == null) throw Problem.user.reviewRevisionRequired();
+    const matched = /^"backcheck-mapping-(0|[1-9]\d*)"$/.exec(headers['if-match']);
+    if (matched == null || !Number.isSafeInteger(Number(matched[1])) || body == null
+      || Object.keys(body).some(key => !['requestId', 'note', 'pairs'].includes(key))
+      || !UUID_PATTERN.test(body.requestId ?? '') || typeof body.note !== 'string'
+      || body.note.trim().length === 0 || body.note.length > 2000 || !Array.isArray(body.pairs)
+      || body.pairs.length > 100 || Buffer.byteLength(JSON.stringify(body.pairs)) > 65536)
+      throw Problem.user.reviewAssignmentInvalid();
+    const actorId = auth.actor.map(actor => actor.id).orNull();
+    if (actorId == null) throw Problem.user.insufficientRights();
+    const requestHash = hash({ pairs: body.pairs, note: body.note.trim() });
+    const result = await container.transacting(async (tx) => {
+      const locked = await tx.db.any(sql`SELECT id FROM field_data_backchecks
+        WHERE id = ${params.backcheckId} AND "caseId" = ${params.caseId}
+          AND status = 'linked' FOR UPDATE`);
+      if (locked.length === 0) throw Problem.user.notFound();
+      const sources = await pinnedSources(tx, auth, params, claim);
+      const [existing] = await tx.db.any(sql`SELECT revision, "requestHash"
+        FROM field_data_backcheck_mappings WHERE "backcheckId" = ${params.backcheckId}
+          AND "requestId" = ${body.requestId}`);
+      if (existing != null) {
+        if (existing.requestHash !== requestHash) throw Problem.user.reviewAssignmentInvalid();
+        return { revision: existing.revision, replayed: true };
+      }
+      const history = await mappingHistory(tx, params.backcheckId);
+      const revision = history[0]?.revision ?? 0;
+      if (revision !== Number(matched[1])) throw Problem.user.reviewRevisionStale();
+      if (sources.some(source => source.tooLarge || source.hashMatches !== true))
+        throw Problem.user.reviewAssignmentInvalid();
+      const original = sources.find(source => source.kind === 'original');
+      const backcheck = sources.find(source => source.kind === 'backcheck');
+      try {
+        if (!validatePairs(body.pairs, answers(original.xml), answers(backcheck.xml)))
+          throw Problem.user.reviewAssignmentInvalid();
+        compareMappedAnswers(original.xml, backcheck.xml, body.pairs);
+      } catch (error) {
+        if (error.reason != null) throw Problem.user.reviewAssignmentInvalid();
+        throw error;
+      }
+      const inserted = await tx.db.one(sql`INSERT INTO field_data_backcheck_mappings
+        ("backcheckId", revision, "requestId", "requestHash", "actorId", note, pairs,
+          "originalSubmissionDefId", "backcheckSubmissionDefId", "originalHash", "backcheckHash")
+        VALUES (${params.backcheckId}, ${revision + 1}, ${body.requestId}, ${requestHash}, ${actorId},
+          ${body.note.trim()}, ${JSON.stringify(body.pairs)}, ${original.submissionDefId},
+          ${backcheck.submissionDefId}, ${original.integrityHash}, ${backcheck.integrityHash}) RETURNING id`);
+      await tx.db.query(sql`INSERT INTO audits ("actorId", action, "acteeId", details,
+        "loggedAt", processed, failures) VALUES (${actorId}, 'field_data.backcheck.mapping',
+        ${form.acteeId}, ${JSON.stringify({ caseId: params.caseId, backcheckId: params.backcheckId,
+  mappingId: inserted.id, revision: revision + 1 })}, clock_timestamp(), clock_timestamp(), 0)`);
+      return { revision: revision + 1, replayed: false };
+    });
+    response.set('ETag', `"backcheck-mapping-${result.revision}"`);
+    response.set('Cache-Control', 'private, no-store');
+    response.set('Idempotency-Status', result.replayed ? 'replayed' : 'created');
+    response.status(201);
+    return result;
   }));
 
   service.post('/field-data/review-queue/:caseId/backchecks', endpoint(observeReviewConflicts(async (

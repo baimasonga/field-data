@@ -69,4 +69,64 @@ const compareAnswers = (originalXml, backcheckXml) => {
   if (Buffer.byteLength(JSON.stringify(rows), 'utf8') > MAX_BYTES) throw unavailable('size-limit');
   return { summary, rows };
 };
-module.exports = { compareAnswers, MAX_BYTES };
+// Mappings use literal answer paths, never executable XPath or transformations.
+const validPath = (path) => {
+  if (typeof path !== 'string' || Buffer.byteLength(path) > 8192) return false;
+  const segments = path.split('/').slice(1);
+  if (!path.startsWith('/') || segments.length === 0 || segments.length > 63) return false;
+  return segments.every((segment, index) => {
+    const match = /^(?:\{([^{}]+)\})?([\p{L}_][\p{L}\p{N}\p{M}_.-]*)\[([1-9]\d*)\]$/u.exec(segment);
+    if (match == null || !Number.isSafeInteger(Number(match[3]))) return false;
+    if (index === 0 && match[2] === 'meta') return false;
+    if (match[1] == null) return true;
+    try { return encodeURIComponent(decodeURIComponent(match[1])) === match[1]; } catch { return false; }
+  });
+};
+const validatePairs = (pairs, original, backcheck) => {
+  if (!Array.isArray(pairs) || pairs.length > 100 || Buffer.byteLength(JSON.stringify(pairs)) > 65536)
+    return false;
+  const left = new Set();
+  const right = new Set();
+  for (const pair of pairs) {
+    if (pair == null || typeof pair !== 'object' || Array.isArray(pair)
+      || Object.keys(pair).some(key => !['originalPath', 'backcheckPath', 'label'].includes(key))
+      || (!original.has(pair.originalPath) && !validPath(pair.originalPath))
+      || (!backcheck.has(pair.backcheckPath) && !validPath(pair.backcheckPath))
+      || typeof pair.label !== 'string' || pair.label.length > 100
+      || left.has(pair.originalPath) || right.has(pair.backcheckPath)
+      || (!original.has(pair.originalPath) && !backcheck.has(pair.backcheckPath))) return false;
+    left.add(pair.originalPath);
+    right.add(pair.backcheckPath);
+  }
+  return true;
+};
+const compareMappedAnswers = (originalXml, backcheckXml, pairs) => {
+  const original = answers(originalXml);
+  const backcheck = answers(backcheckXml);
+  const summary = { same: 0, changed: 0, missingOriginal: 0, missingBackcheck: 0,
+    unmappedOriginal: 0, unmappedBackcheck: 0 };
+  const left = new Set(pairs.map(pair => pair.originalPath));
+  const right = new Set(pairs.map(pair => pair.backcheckPath));
+  const rows = pairs.map(pair => {
+    const a = original.get(pair.originalPath) ?? null;
+    const b = backcheck.get(pair.backcheckPath) ?? null;
+    const status = a === null ? 'missingOriginal' : b === null ? 'missingBackcheck'
+      : a === b ? 'same' : 'changed';
+    summary[status] += 1;
+    return { ...pair, path: `mapped:${pair.originalPath}`, original: a, backcheck: b, status };
+  });
+  for (const [kind, values, used] of [['original', original, left], ['backcheck', backcheck, right]]) {
+    for (const [path, value] of values) {
+      if (used.has(path)) continue;
+      const status = kind === 'original' ? 'unmappedOriginal' : 'unmappedBackcheck';
+      summary[status] += 1;
+      rows.push({ path: `${kind}:${path}`, originalPath: kind === 'original' ? path : null,
+        backcheckPath: kind === 'backcheck' ? path : null,
+        original: kind === 'original' ? value : null, backcheck: kind === 'backcheck' ? value : null, status });
+    }
+  }
+  if (rows.length > 5000 || Buffer.byteLength(JSON.stringify(rows)) > MAX_BYTES)
+    throw unavailable('size-limit');
+  return { summary, rows };
+};
+module.exports = { answers, compareAnswers, compareMappedAnswers, validatePairs, MAX_BYTES };
