@@ -437,5 +437,8 @@ test('dedicated back-check form filters collectors and links to the selected for
   await openInspection(page);
   await expect(page.getByRole('link', { name: 'uuid:verification', exact: true }))
     .toHaveAttribute('href', '/projects/7/forms/verification/submissions/uuid%3Averification');
+  state.backchecks[0].seenAt = '2026-10-09T05:00:00Z';
+  await page.getByRole('button', { name: 'Refresh back-checks' }).click();
+  await expect(page.getByText('App User acknowledgment: 2026-10-09T05:00:00Z')).toBeVisible();
   expect(errors).toEqual([]);
 });

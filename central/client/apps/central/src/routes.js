@@ -244,6 +244,7 @@ const routes = [
     beforeEnter: () => (config.loadError == null ? '/login' : true)
   }),
 
+  asyncRoute({ path: '/fieldwork', name: 'FieldDataFieldwork', component: 'FieldDataFieldwork', loading: 'page', meta: { requireLogin: false, restoreSession: false, skipAutoLogout: true, title: () => ['Fieldwork inbox'] } }),
   asyncRoute({ path: '/catalog', name: 'FieldDataPublicCatalog', component: 'FieldDataCatalog', loading: 'page', meta: { requireLogin: false, restoreSession: false, title: () => ['Public data catalogue'] } }),
 
   // Field Data: public tokenized report (no login required).

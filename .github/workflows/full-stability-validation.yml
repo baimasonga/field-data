@@ -206,7 +206,8 @@ jobs:
               test/integration/api/field-data-evidence.js \
               test/integration/api/field-data-idempotency.js \
               test/integration/api/field-data-reviews.js \
-              test/integration/api/field-data-backchecks.js
+              test/integration/api/field-data-backchecks.js \
+              test/integration/api/field-data-app-user-backchecks.js
 
   server-integration-report:
     name: Server integration suite (report only)

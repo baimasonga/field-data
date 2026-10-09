@@ -58,6 +58,13 @@ except according to the terms contained in the LICENSE file.
         <sentence-separator/>
         <doc-link to="collect-import-export/">{{ $t('moreInfo.learnMore') }}</doc-link>
       </p>
+      <p><a href="/fieldwork" target="_blank" rel="noopener noreferrer">Open fieldwork inbox</a></p>
+      <label :for="`fieldwork-url-${fieldKey.id}`">Collect server URL for fieldwork inbox</label>
+      <input :id="`fieldwork-url-${fieldKey.id}`" class="form-control" type="password" readonly
+        :value="settings.general.server_url" aria-label="Collect server URL for fieldwork inbox">
+      <button type="button" class="btn btn-default" @click="copyFieldworkUrl">Copy private access URL</button>
+      <p v-if="fieldworkCopyMessage" role="status">{{ fieldworkCopyMessage }}</p>
+      <p>Provide this URL privately to this App User. It grants the same access as their Collect QR code.</p>
     </template>
   </qr-panel>
 </template>
@@ -82,6 +89,7 @@ export default {
     const { project } = useRequestData();
     return { project };
   },
+  data: () => ({ fieldworkCopyMessage: '' }),
   computed: {
     settings() {
       const url = apiPaths.serverUrlForFieldKey(
@@ -99,6 +107,14 @@ export default {
         settings.general.autosend = 'wifi_and_cellular';
       }
       return settings;
+    }
+  },
+  methods: {
+    async copyFieldworkUrl() {
+      try {
+        await navigator.clipboard.writeText(this.settings.general.server_url);
+        this.fieldworkCopyMessage = 'Private access URL copied.';
+      } catch { this.fieldworkCopyMessage = 'Copy is unavailable in this browser.'; }
     }
   }
 };

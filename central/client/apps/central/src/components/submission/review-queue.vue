@@ -75,12 +75,18 @@
             </ul>
             <p v-if="inspections[item.id].decisions.length === 0">No prior decisions.</p>
             <h3>Back-checks</h3>
+            <button type="button" class="btn btn-default" :disabled="backcheckRefreshing[item.id]"
+              @click="reloadBackchecks(item)">
+Refresh back-checks
+</button>
+            <p v-if="backcheckRefreshError[item.id]" role="alert">Back-check updates could not be loaded. Retry refresh.</p>
             <p v-if="inspections[item.id].backchecks.length === 0">No back-check requested.</p>
             <ul v-else>
               <li v-for="backcheck of inspections[item.id].backchecks" :key="backcheck.id">
                 <strong>{{ backcheck.status }}</strong> · {{ backcheck.assigneeName }} ·
                 {{ backcheck.question }} · Form: {{ backcheck.responseXmlFormId || xmlFormId }}
                 <span v-if="backcheck.dueAt"> · Due {{ backcheck.dueAt }}</span>
+                <p>App User acknowledgment: {{ backcheck.seenAt || 'Not yet acknowledged' }}</p>
                 <p v-if="backcheck.status === 'cancelled'">
                   Cancellation reason: {{ backcheck.cancellationReason || 'Not recorded' }}
                 </p>
@@ -275,6 +281,9 @@ const responses = ref({});
 const cancellationReasons = ref({});
 const assigneesSelected = ref({});
 const responseForms = ref({});
+const backcheckRefreshing = ref({});
+const backcheckRefreshError = ref({});
+const backcheckRefreshGeneration = new Map();
 const nextCursor = ref(null);
 const loading = ref(false);
 const error = ref(false);
@@ -347,12 +356,22 @@ const inspect = async (event, item) => {
   }
 };
 const refreshBackchecks = async (item) => {
-  const { data } = await request({ method: 'GET', url: apiPaths.reviewCaseBackchecks(item.id) });
+  const generation = (backcheckRefreshGeneration.get(item.id) || 0) + 1;
+  backcheckRefreshGeneration.set(item.id, generation);
+  const revision = items.value.find(row => row.id === item.id)?.revision;
+  const { data } = await request({ method: 'GET', url: apiPaths.reviewCaseBackchecks(item.id), alert: false });
+  if (disposed || generation !== backcheckRefreshGeneration.get(item.id) ||
+    revision !== items.value.find(row => row.id === item.id)?.revision) return;
   if (inspections.value[item.id] != null) {
     inspections.value[item.id].backchecks = data;
     inspections.value[item.id].revision = items.value.find(row => row.id === item.id)?.revision;
   }
   workload.value?.reload();
+};
+const reloadBackchecks = async (item) => {
+  backcheckRefreshing.value[item.id] = true;
+  backcheckRefreshError.value[item.id] = false;
+  try { await refreshBackchecks(item); } catch { backcheckRefreshError.value[item.id] = true; } finally { backcheckRefreshing.value[item.id] = false; }
 };
 const requestBackcheck = async (item) => {
   const data = {
