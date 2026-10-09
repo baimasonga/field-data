@@ -43,6 +43,7 @@
     "prompt": "~1",
     "ramda": "^0.32.0",
     "sanitize-filename": "^1.6.4",
+    "saxes": "^6.0.0",
     "semver": "^7.7.4",
     "slonik": "npm:@getodk/slonik@23.6.2-4",
     "tmp-promise": "~3",

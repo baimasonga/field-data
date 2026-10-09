@@ -45,9 +45,9 @@ with a stale revision; neither may alter the case without authorization.
 
 Keep test data separate from operational records. Offline capture and sync must
 be verified on an actual Collect device. Cancellation and replacement requests
-retain the original history. Notifications,
-custom back-check forms and automatic answer comparison remain follow-on work
-as described in P0.6. Supervisor acceptance preserves limitations and records an explicit override;
+retain the original history. Notifications and custom back-check forms remain follow-on work
+as described in P0.6. [Pinned answer comparisons](P0.6-backcheck-comparison.md)
+show text differences for reviewers without changing decisions. Supervisor acceptance preserves limitations and records an explicit override;
 [reopening and replacing terminal decisions](P0.5-decision-reconsideration.md)
 requires an explicit supervisor explanation and preserves the full history.
 
