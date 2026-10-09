@@ -70,6 +70,7 @@ const setup = async (page, { comparisonUnavailable = false, failComparison = fal
           { path: '/age[1]', original: null, backcheck: '', status: 'missingOriginal' },
           { path: '/note[1]', original: 'Observed', backcheck: null, status: 'missingBackcheck' }] }) });
     }
+    if (path.endsWith('/backcheck-forms')) return respond([{ id: 1, xmlFormId: 'health', name: 'Original', assignees: [{ id: 42, name: 'Second collector' }, { id: 43, name: 'Replacement collector' }] }, { id: 2, xmlFormId: 'verification', name: 'Verification', assignees: [{ id: 43, name: 'Replacement collector' }] }]);
     if (path.endsWith('/backcheck-assignees')) return respond([{ id: 42, name: 'Second collector' }, { id: 43, name: 'Replacement collector' }]);
     if (req.method() === 'GET' && path.endsWith('/backchecks')) return respond(state.backchecks);
     if (['POST', 'PATCH'].includes(req.method())) {
@@ -90,7 +91,7 @@ const setup = async (page, { comparisonUnavailable = false, failComparison = fal
         state.status = data.status;
       } else if (path.endsWith('/backchecks')) {
         expect(data.requestId).toMatch(/^[0-9a-f-]{36}$/);
-        state.backchecks.push({ id: state.backchecks.length === 0 ? backcheckId : '44444444-4444-4444-8444-444444444444', status: 'requested', assignedTo: data.assignedTo, assigneeName: data.assignedTo === 43 ? 'Replacement collector' : 'Second collector', question: data.question });
+        state.backchecks.push({ id: state.backchecks.length === 0 ? backcheckId : '44444444-4444-4444-8444-444444444444', status: 'requested', responseXmlFormId: data.responseXmlFormId, assignedTo: data.assignedTo, assigneeName: data.assignedTo === 43 ? 'Replacement collector' : 'Second collector', question: data.question });
       } else if (path.endsWith('/cancel')) {
         expect(data.requestId).toMatch(/^[0-9a-f-]{36}$/);
         state.backchecks[0] = { ...state.backchecks[0], status: 'cancelled',
@@ -411,5 +412,30 @@ test('comparison failure retries independently and unverified sources do not sho
   await expect(comparison).toContainText('source integrity could not be verified');
   await expect(comparison.getByRole('table')).toHaveCount(0);
   await expect(page.getByRole('heading', { name: 'Claim provenance' })).toBeVisible();
+  expect(errors).toEqual([]);
+});
+
+
+test('dedicated back-check form filters collectors and links to the selected form', async ({ page }) => {
+  const { state, errors } = await setup(page);
+  await page.getByRole('button', { name: 'Assign to me' }).click();
+  await page.getByRole('button', { name: 'In review', exact: true }).click();
+  await openInspection(page);
+  await page.getByLabel('App User', { exact: true }).selectOption('42');
+  await page.getByLabel('Back-check form', { exact: true }).selectOption('verification');
+  await expect(page.getByLabel('App User', { exact: true }).locator('option:checked'))
+    .toHaveText('Choose a different collector');
+  await expect(page.getByLabel('App User', { exact: true }).locator('option')).toHaveCount(2);
+  await page.getByLabel('App User', { exact: true }).selectOption('43');
+  await page.getByLabel('What should they verify?').fill('Verify the visit independently.');
+  await page.getByRole('button', { name: 'Request back-check', exact: true }).click();
+  await expect.poll(() => state.backchecks.length).toBe(1);
+  expect(state.backchecks[0].responseXmlFormId).toBe('verification');
+  await openInspection(page);
+  await page.getByLabel('Synced back-check submission ID').fill('uuid:verification');
+  await page.getByRole('button', { name: 'Link field result' }).click();
+  await openInspection(page);
+  await expect(page.getByRole('link', { name: 'uuid:verification', exact: true }))
+    .toHaveAttribute('href', '/projects/7/forms/verification/submissions/uuid%3Averification');
   expect(errors).toEqual([]);
 });

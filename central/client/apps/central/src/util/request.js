@@ -293,6 +293,8 @@ export const apiPaths = {
     `/v1/field-data/review-queue/${encodeURIComponent(caseId)}/backchecks`,
   reviewCaseBackcheckAssignees: (caseId) =>
     `/v1/field-data/review-queue/${encodeURIComponent(caseId)}/backcheck-assignees`,
+  reviewCaseBackcheckForms: (caseId) =>
+    `/v1/field-data/review-queue/${encodeURIComponent(caseId)}/backcheck-forms`,
   reviewCaseBackcheckLink: (caseId, backcheckId) =>
     `/v1/field-data/review-queue/${encodeURIComponent(caseId)}/backchecks/${encodeURIComponent(backcheckId)}/link`,
   reviewCaseBackcheckComparison: (caseId, backcheckId) =>

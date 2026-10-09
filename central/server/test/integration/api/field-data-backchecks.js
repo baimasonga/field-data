@@ -166,3 +166,64 @@ describe('api: back-check cancellation', () => {
       audit.count.should.equal(1);
     }));
 });
+
+
+describe('api: dedicated back-check forms', () => {
+  it('pins a published response form, scopes collectors and links only that form',
+    testService(async (service) => {
+      const alice = await service.login('alice');
+      const chelsea = await service.login('chelsea');
+      const viewerId = (await chelsea.get('/v1/users/current').expect(200)).body.id;
+      await alice.post(`/v1/projects/1/forms/simple/assignments/viewer/${viewerId}`).expect(200);
+      await alice.post('/v1/projects/1/forms?publish=true&ignoreWarnings=true')
+        .set('Content-Type', 'application/xml').send(testData.forms.simple2).expect(200);
+      const checker = (await alice.post('/v1/projects/1/app-users')
+        .send({ displayName: 'Dedicated checker' }).expect(200)).body;
+      await alice.post(`/v1/projects/1/forms/simple2/assignments/app-user/${checker.id}`).expect(200);
+      await alice.post('/v1/projects/1/forms/simple/submissions')
+        .set('Content-Type', 'application/xml').send(testData.instances.simple.one).expect(200);
+      const item = (await alice.get('/v1/field-data/review-queue?projectId=1&xmlFormId=simple')
+        .expect(200)).body.items[0];
+      const actorId = (await alice.get('/v1/users/current').expect(200)).body.id;
+      const assignment = await alice.patch(`/v1/field-data/review-queue/${item.id}/assignment`)
+        .set('If-Match', item.etag).set('Idempotency-Key', 'dedicated-assignment')
+        .send({ assignedTo: actorId, status: 'in-review' })
+        .expect(200);
+      const base = `/v1/field-data/review-queue/${item.id}`;
+      const forms = (await alice.get(`${base}/backcheck-forms`).expect(200)).body;
+      assert.ok(forms.find(f => f.xmlFormId === 'simple2').assignees.some(a => a.id === checker.id));
+      assert.ok(!forms.find(f => f.xmlFormId === 'simple').assignees.some(a => a.id === checker.id));
+      const body = { requestId: '00000000-0000-4000-8000-000000000021',
+        assignedTo: checker.id, question: 'Verify using the dedicated form.', responseXmlFormId: 'simple2' };
+      await alice.post(`${base}/backchecks`).set('If-Match', assignment.headers.etag)
+        .send({ ...body, responseXmlFormId: 'simple' }).expect(400);
+      await alice.patch('/v1/projects/1/forms/simple2').send({ state: 'closed' }).expect(200);
+      await alice.post(`${base}/backchecks`).set('If-Match', assignment.headers.etag)
+        .send(body).expect(400);
+      await alice.patch('/v1/projects/1/forms/simple2').send({ state: 'open' }).expect(200);
+      const created = await alice.post(`${base}/backchecks`).set('If-Match', assignment.headers.etag)
+        .send(body).expect(201);
+      const replay = await alice.post(`${base}/backchecks`).set('If-Match', assignment.headers.etag)
+        .send(body).expect(201);
+      assert.equal(replay.headers['idempotency-status'], 'replayed');
+      await alice.post(`${base}/backchecks`).set('If-Match', created.headers.etag)
+        .send({ ...body, responseXmlFormId: 'simple' }).expect(400);
+      await service.post(`/v1/key/${checker.token}/projects/1/forms/simple2/submissions`)
+        .set('Content-Type', 'application/xml').send(testData.instances.simple2.one).expect(200);
+      const link = `${base}/backchecks/${created.body.id}/link`;
+      await alice.post(link).set('If-Match', created.headers.etag).send({ instanceId: 'one' }).expect(400);
+      await alice.post(link).set('If-Match', created.headers.etag).send({ instanceId: 's2one' }).expect(200);
+      const listed = (await alice.get(`${base}/backchecks`).expect(200)).body;
+      assert.equal(listed[0].responseXmlFormId, 'simple2');
+      const comparison = (await alice.get(`${base}/backchecks/${created.body.id}/comparison`).expect(200)).body;
+      assert.equal(comparison.backcheck.xmlFormId, 'simple2');
+      assert.equal(comparison.original.xmlFormId, 'simple');
+      assert.ok(comparison.backcheck.xmlDownloadUrl.includes('/forms/simple2/'));
+      await alice.get(comparison.backcheck.xmlDownloadUrl).expect(200);
+      await chelsea.get(`${base}/backchecks`).expect(404);
+      await chelsea.get(`${base}/backchecks/${created.body.id}/comparison`).expect(404);
+      await alice.post(`/v1/projects/1/forms/simple2/assignments/viewer/${viewerId}`).expect(200);
+      await chelsea.get(`${base}/backchecks`).expect(200);
+      await chelsea.get(`${base}/backchecks/${created.body.id}/comparison`).expect(200);
+    }));
+});

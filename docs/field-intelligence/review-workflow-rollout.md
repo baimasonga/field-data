@@ -61,3 +61,8 @@ The configuration starts Vite and uses API fixtures without a database. Install
 Playwright Chromium first, or set `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH` to an
 installed Chromium executable. Set `ODK_URL` to test a separately running
 frontend; API requests in these tests are still intercepted by fixtures.
+
+[Dedicated backcheck forms](P0.6-dedicated-backcheck-forms.md) allow the assigned
+reviewer to select an existing published response form in the same project.
+Collectors must already have submit access; reviewers need read access to both
+forms. Notifications and the physical device pilot remain pending.

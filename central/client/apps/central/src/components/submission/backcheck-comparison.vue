@@ -12,7 +12,7 @@
       <div class="sources">
         <div v-for="kind of ['original', 'backcheck']" :key="kind">
           <h5>{{ kind === 'original' ? 'Original' : 'Back-check' }}</h5>
-          <p>Version: {{ comparison[kind].instanceId }} · Form version: {{ comparison[kind].formVersion || 'Unknown' }}</p>
+          <p>Form: {{ comparison[kind].xmlFormId || 'Unknown' }} · Version: {{ comparison[kind].instanceId }} · Form version: {{ comparison[kind].formVersion || 'Unknown' }}</p>
           <p v-if="!comparison[kind].current">Historical version; newer edits are not included.</p>
           <p>
 Origin: {{ comparison[kind].provenance.origin || 'Unknown' }} ·
@@ -25,6 +25,9 @@ Origin: {{ comparison[kind].provenance.origin || 'Unknown' }} ·
           <a :href="comparison[kind].xmlDownloadUrl">Download {{ kind === 'original' ? 'original' : 'back-check' }} version XML</a>
         </div>
       </div>
+      <p v-if="comparison.original.xmlFormId !== comparison.backcheck.xmlFormId">
+        Different forms: matching field paths do not establish equivalent questions or answers.
+      </p>
       <p v-if="comparison.original.formVersion !== comparison.backcheck.formVersion">
         Form versions differ; field paths or answer meanings may have changed.
       </p>

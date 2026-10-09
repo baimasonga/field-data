@@ -79,7 +79,7 @@
             <ul v-else>
               <li v-for="backcheck of inspections[item.id].backchecks" :key="backcheck.id">
                 <strong>{{ backcheck.status }}</strong> · {{ backcheck.assigneeName }} ·
-                {{ backcheck.question }}
+                {{ backcheck.question }} · Form: {{ backcheck.responseXmlFormId || xmlFormId }}
                 <span v-if="backcheck.dueAt"> · Due {{ backcheck.dueAt }}</span>
                 <p v-if="backcheck.status === 'cancelled'">
                   Cancellation reason: {{ backcheck.cancellationReason || 'Not recorded' }}
@@ -88,7 +88,7 @@
                   Original: <router-link :to="submissionPath(item.claim.rootInstanceId)">
                     {{ item.claim.rootInstanceId }}
                   </router-link>
-                  · Back-check: <router-link :to="submissionPath(backcheck.responseInstanceId)">
+                  · Back-check: <router-link :to="submissionPath(backcheck.responseInstanceId, backcheck.responseXmlFormId)">
                     {{ backcheck.responseInstanceId }}
                   </router-link>
                   · Capture time: {{ backcheck.responseCapturedAt || 'unknown' }}
@@ -127,14 +127,22 @@ Cancel back-check
               && item.claim.current && !inspections[item.id].backchecks.some(b => b.status === 'requested')">
               <h4>Request a back-check</h4>
               <p>
-The assigned App User collects a second submission of this form in ODK Collect,
+The assigned App User collects a submission of the selected form in ODK Collect,
                 including offline. Link its instance ID after it syncs.
 </p>
+              <label :for="`backcheck-form-${item.id}`">Back-check form</label>
+              <select :id="`backcheck-form-${item.id}`" class="form-control"
+                :value="responseForms[item.id] || xmlFormId"
+                @change="responseForms[item.id] = $event.target.value; assigneesSelected[item.id] = null">
+                <option v-for="form of inspections[item.id].forms" :key="form.id" :value="form.xmlFormId">
+                  {{ form.name || form.xmlFormId }} ({{ form.xmlFormId }})
+                </option>
+              </select>
               <label :for="`backcheck-assignee-${item.id}`">App User</label>
               <select :id="`backcheck-assignee-${item.id}`" v-model="assigneesSelected[item.id]"
                 class="form-control">
                 <option :value="null">Choose a different collector</option>
-                <option v-for="assignee of inspections[item.id].assignees" :key="assignee.id"
+                <option v-for="assignee of (inspections[item.id].forms.find(f => f.xmlFormId === (responseForms[item.id] || xmlFormId))?.assignees || [])" :key="assignee.id"
                   :value="assignee.id">
 {{ assignee.name }}
 </option>
@@ -266,6 +274,7 @@ const dueDates = ref({});
 const responses = ref({});
 const cancellationReasons = ref({});
 const assigneesSelected = ref({});
+const responseForms = ref({});
 const nextCursor = ref(null);
 const loading = ref(false);
 const error = ref(false);
@@ -275,8 +284,8 @@ const retryKey = (operation, item, data) => {
   if (!mutationKeys.has(signature)) mutationKeys.set(signature, crypto.randomUUID());
   return mutationKeys.get(signature);
 };
-const submissionPath = (instanceId) => `/projects/${props.projectId}/forms/` +
-  `${encodeURIComponent(props.xmlFormId)}/submissions/${encodeURIComponent(instanceId)}`;
+const submissionPath = (instanceId, xmlFormId = props.xmlFormId) => `/projects/${props.projectId}/forms/` +
+  `${encodeURIComponent(xmlFormId)}/submissions/${encodeURIComponent(instanceId)}`;
 
 let loadGeneration = 0;
 let disposed = false;
@@ -312,12 +321,12 @@ const inspect = async (event, item) => {
   inspecting.value[item.id] = true;
   inspectionError.value[item.id] = false;
   try {
-    const [detail, evidence, backchecks, assignees] = await Promise.all([
+    const [detail, evidence, backchecks, forms] = await Promise.all([
       request({ method: 'GET', url: apiPaths.reviewCase(item.id), alert: false }),
       request({ method: 'GET', url: apiPaths.claimEvidence(item.claimVersionId), alert: false }),
       request({ method: 'GET', url: apiPaths.reviewCaseBackchecks(item.id), alert: false }),
       props.canReview && item.assignedTo === currentUser.id
-        ? request({ method: 'GET', url: apiPaths.reviewCaseBackcheckAssignees(item.id), alert: false })
+        ? request({ method: 'GET', url: apiPaths.reviewCaseBackcheckForms(item.id), alert: false })
         : Promise.resolve({ data: [] })
     ]);
     if (disposed) return;
@@ -329,7 +338,7 @@ const inspect = async (event, item) => {
       reversalRequired: detail.data.reversalRequired,
       evidence: evidence.data.items,
       backchecks: backchecks.data,
-      assignees: assignees.data
+      forms: forms.data
     };
   } catch {
     inspectionError.value[item.id] = true;
@@ -347,6 +356,7 @@ const refreshBackchecks = async (item) => {
 };
 const requestBackcheck = async (item) => {
   const data = {
+    responseXmlFormId: responseForms.value[item.id] || props.xmlFormId,
     assignedTo: assigneesSelected.value[item.id], question: questions.value[item.id].trim(),
     dueAt: dueDates.value[item.id] ? `${dueDates.value[item.id]}T23:59:59Z` : null
   };
