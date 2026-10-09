@@ -204,6 +204,7 @@ jobs:
             npx mocha --timeout 30000 test/integration/api/field-data-claims.js \
               test/integration/api/field-data-collection-smoke.js \
               test/integration/api/field-data-evidence.js \
+              test/integration/api/field-data-evidence-graph.js \
               test/integration/api/field-data-idempotency.js \
               test/integration/api/field-data-reviews.js \
               test/integration/api/field-data-backchecks.js \

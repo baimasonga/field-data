@@ -14,7 +14,7 @@ const setup = async (page, { comparisonUnavailable = false, failComparison = fal
   let releaseMetrics;
   const metricsWait = delayMetrics ? new Promise(resolve => { releaseMetrics = resolve; }) : null;
   const state = { assets: [], assetHistory: [], assetTasks: [], assetWrites: [], assetFailures: 0, assetConflict: false, mappingRevision: 0, mappingHistory: [], mappingRequests: [], mappingFailures: 0, mappingConflict: false, comparisonFailures: failComparison ? 1 : 0, comparisonRequests: 0, staleWrites: 0, conflictFailures: staleAssignment ? 1 : 0, status: 'open', assignedTo: null, revision: 1, backchecks: [], decisions: [], mutations: [], queueRequests: [], queueFailures: failQueue ? 1 : 0, assignmentFailures: failAssignment ? 1 : 0, metricsFailures: failMetrics ? 2 : 0 };
-  await page.addInitScript(() => localStorage.setItem('sessionExpires', String(Date.now() + 3600000)));
+  await page.addInitScript(() => globalThis.localStorage.setItem('sessionExpires', String(Date.now() + 3600000)));
   await page.route('**/client-config.json', route => route.fulfill({ json: {} }));
   await page.route('**/version.txt', route => route.fulfill({ body: 'test' }));
   await page.route('**/v1/**', async route => {
@@ -87,6 +87,19 @@ const setup = async (page, { comparisonUnavailable = false, failComparison = fal
       return respond({ items: matches ? [{ id: caseId, claimVersionId: versionId, revision: state.revision, status: state.status, priority: 'normal', reasonCodes: ['missing-evidence', 'provenance-degraded'], assignedTo: state.assignedTo, claim: { ordinal: 1, current: true, rootInstanceId: 'uuid:original' }, etag: etag(state.revision) }] : [], nextCursor: null });
     }
     if (path === `/v1/field-data/claim-versions/${versionId}/evidence`) return respond({ items: [{ id: 'evidence-1', sourceKind: 'submission-xml', integrityStatus: 'verified', downloadUrl: '/v1/field-data/evidence/evidence-1/content' }], nextCursor: null });
+    if (path === `/v1/field-data/claim-versions/${versionId}/graph`) {
+      state.graphRequests = (state.graphRequests || 0) + 1;
+      if (state.graphWait) await state.graphWait;
+      if (state.graphFailures-- > 0) return route.fulfill({ status: 503, json: { message: 'Unavailable' } });
+      return respond({ generatedAt: '2026-10-09T09:00:00Z', complete: false,
+        presence: { status: 'insufficient_evidence', limitations: 'Stored-byte integrity does not establish physical presence.' },
+        limitations: ['Capture clock accuracy is unknown.'],
+        nodes: [{ id: `claim-version:${versionId}`, sourceId: versionId, type: 'claim-version' },
+          { id: 'evidence:original', sourceId: 'original', type: 'evidence', name: '<img src=x onerror=alert(1)>',
+            integrityStatus: 'mismatch', sourceUrl: '/v1/field-data/evidence/original' }],
+        edges: [{ id: 'relationship', from: 'evidence:original', to: `claim-version:${versionId}`, relation: 'contradicts' }],
+        timeline: [{ id: 'capture', nodeId: `claim-version:${versionId}`, kind: 'reported-capture', timeBasis: 'reported', at: null }] });
+    }
     if (path === `/v1/field-data/review-queue/${caseId}`) return respond({ claim: { id: versionId, provenance: { origin: 'collected', capturedAt: '2026-10-03T09:00:00Z', receivedAt: '2026-10-03T10:00:00Z', integrityHash: 'abcdef', degraded: null }, degraded: null }, decisions: state.decisions, reversalRequired: state.decisions.some(d => ['accepted', 'rejected'].includes(d.outcome)), overridePolicy: { allowed: canOverride, reasonCodes: canOverride ? ['verified-by-supervisor'] : [] } });
     if (path.endsWith('/comparison')) {
       state.comparisonRequests += 1;
@@ -452,7 +465,7 @@ test('read-only comparison shows pinned versions, safe answer text, missing valu
   await expect(comparison.getByText('<img src=x onerror=alert(1)>', { exact: true })).toBeVisible();
   await expect(comparison.locator('img')).toHaveCount(0);
   await page.setViewportSize({ width: 320, height: 720 });
-  await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= 320)).toBe(true);
+  await expect.poll(() => page.evaluate(() => globalThis.document.documentElement.scrollWidth <= 320)).toBe(true);
   await expect(comparison.getByText('Configure field mapping', { exact: true })).toHaveCount(0);
   expect(state.mutations).toEqual([]);
   expect(errors).toEqual([]);
@@ -528,7 +541,7 @@ test('supervisor saves an audited mapping with independent revisions and stable 
   await comparison.getByText('Mapping history (latest 100 revisions)', { exact: true }).click();
   await expect(comparison).toContainText('Equivalent respondent questions.');
   await page.setViewportSize({ width: 320, height: 720 });
-  await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= 320)).toBe(true);
+  await expect.poll(() => page.evaluate(() => globalThis.document.documentElement.scrollWidth <= 320)).toBe(true);
   expect(state.revision).toBe(1);
   expect(state.decisions).toEqual([]);
   expect(errors).toEqual([]);
@@ -586,7 +599,7 @@ test('asset passport registration, dated evidence, task generation and mobile hi
   await assets.getByText('Observation history', { exact: true }).click();
   await expect(assets).toContainText('Recorded from inspected source.');
   await page.setViewportSize({ width: 320, height: 720 });
-  await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= 320)).toBe(true);
+  await expect.poll(() => page.evaluate(() => globalThis.document.documentElement.scrollWidth <= 320)).toBe(true);
   expect(state.decisions).toEqual([]);
   expect(errors).toEqual([]);
 });
@@ -623,5 +636,48 @@ test('asset stale-write recovery reloads the current revision before another obs
   await assets.getByRole('button', { name: 'Query dated facts' }).click();
   await expect(assets).toContainText('Revision 2');
   expect(state.assetHistory).toEqual([]);
+  expect(errors).toEqual([]);
+});
+
+test('evidence graph loads on demand, retries and shows safe source-linked replay on mobile', async ({ page }) => {
+  const { state, errors } = await setup(page, { readOnly: true });
+  await page.getByText('Inspect evidence and decision history', { exact: true }).click();
+  const graph = page.locator('.evidence-graph');
+  await expect(graph.getByRole('button', { name: 'Load evidence graph', exact: true })).toBeVisible();
+  expect(state.graphRequests).toBeUndefined();
+  state.graphFailures = 1;
+  await graph.getByRole('button', { name: 'Load evidence graph', exact: true }).click();
+  await expect(graph.getByRole('alert')).toContainText('could not be loaded');
+  await graph.getByRole('button', { name: 'Load evidence graph', exact: true }).click();
+  await expect(graph).toContainText('insufficient_evidence');
+  await expect(graph).toContainText('projection is incomplete');
+  await expect(graph).toContainText('Integrity: mismatch');
+  await expect(graph).toContainText('contradicts');
+  await expect(graph).toContainText('Time unknown');
+  await expect(graph.locator('img')).toHaveCount(0);
+  const target = await graph.getByRole('link', { name: 'evidence:original', exact: true }).getAttribute('href');
+  await expect(graph.locator(`[id="${target.slice(1)}"]`)).toBeVisible();
+  await page.setViewportSize({ width: 320, height: 720 });
+  await expect.poll(() => page.evaluate(() => globalThis.document.documentElement.scrollWidth <= 320)).toBe(true);
+  await graph.getByRole('button', { name: 'Refresh evidence graph', exact: true }).click();
+  await expect(graph).toContainText('insufficient_evidence');
+  expect(state.graphRequests).toBe(3);
+  expect(state.mutations).toEqual([]);
+  expect(errors).toEqual([]);
+});
+
+test('a delayed evidence graph cannot populate a different form', async ({ page }) => {
+  const { state, errors } = await setup(page, { readOnly: true });
+  let release;
+  state.graphWait = new Promise(resolve => { release = resolve; });
+  await openInspection(page);
+  await page.getByRole('button', { name: 'Load evidence graph', exact: true }).click();
+  await expect.poll(() => state.graphRequests).toBe(1);
+  await page.locator('#review-form').selectOption('nutrition');
+  const response = page.waitForResponse(r => new URL(r.url()).pathname.endsWith('/graph'));
+  release();
+  await response;
+  await expect(page.locator('.evidence-graph')).toHaveCount(0);
+  await expect(page.getByText('No open claim review cases for this form.')).toBeVisible();
   expect(errors).toEqual([]);
 });
