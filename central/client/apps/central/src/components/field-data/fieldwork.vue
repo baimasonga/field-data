@@ -44,6 +44,20 @@ Acknowledge request
         </li>
       </ul>
       <button v-if="nextCursor" type="button" class="btn btn-default" :disabled="loading" @click="load(nextCursor)">Load older requests</button>
+      <h2>Re-verification visits</h2>
+      <p>Assets your supervisor asked you to check again. Visit the site, then collect and submit the form in ODK Collect. Your supervisor links the submission to close the visit.</p>
+      <p v-if="visitsError" role="alert">{{ visitsError }}</p>
+      <p v-else-if="!loading && visits.length === 0">No re-verification visits are assigned to you.</p>
+      <ul class="tasks visits">
+        <li v-for="visit of visits" :key="visit.id">
+          <h3>{{ visit.assetName }} · {{ visit.externalId }}</h3>
+          <p>{{ visit.assetType }} · Check: {{ visit.predicate }}</p>
+          <p v-if="visit.instruction" class="question">{{ visit.instruction }}</p>
+          <p>Form: {{ visit.formName || visit.xmlFormId }} ({{ visit.xmlFormId }}) · Visit by: {{ visit.visitBy || 'Not set' }}</p>
+          <p v-if="!visit.actionable">This form is closed for collection. Check with your supervisor before continuing.</p>
+        </li>
+      </ul>
+      <p v-if="visits.length && !visitsComplete">Showing your 50 most recent visits.</p>
     </template>
     <p v-if="loading" role="status">Loading your inbox…</p>
     <p v-if="error" role="alert">{{ error }}</p>
@@ -63,6 +77,9 @@ const error = ref('');
 const identity = ref({});
 const items = ref([]);
 const nextCursor = ref(null);
+const visits = ref([]);
+const visitsComplete = ref(true);
+const visitsError = ref('');
 const acknowledging = ref(null);
 const pushEnabled = ref(false);
 const pushActive = ref(false);
@@ -84,6 +101,8 @@ const clear = () => {
   inputKey.value = '';
   connected.value = false;
   items.value = [];
+  visits.value = [];
+  visitsError.value = '';
   identity.value = {};
   nextCursor.value = null;
   pushEnabled.value = false;
@@ -121,6 +140,18 @@ const parseKey = (value) => {
   if (match == null || url.search || url.hash) throw new Error('Invalid URL');
   return decodeURIComponent(match[1]);
 };
+// Visits load beside backchecks; a failure here must not hide the backcheck inbox.
+const loadVisits = async (current) => {
+  try {
+    const data = await api('reverification');
+    if (current !== generation) return;
+    visits.value = data.items;
+    visitsComplete.value = data.complete;
+    visitsError.value = '';
+  } catch {
+    if (current === generation) visitsError.value = 'Re-verification visits could not be loaded. Refresh to retry.';
+  }
+};
 const load = async (cursor = null) => {
   const current = generation;
   loading.value = true;
@@ -133,6 +164,7 @@ const load = async (cursor = null) => {
     items.value = cursor == null ? data.items : [...items.value, ...data.items];
     nextCursor.value = data.nextCursor;
     connected.value = true;
+    if (cursor == null) await loadVisits(current);
   } catch (failure) {
     if (current !== generation) return;
     error.value = 'The inbox could not be loaded. Refresh or try opening it again.';

@@ -162,6 +162,8 @@ const problems = {
     reviewCursorInvalid: problem(400.49, () => 'Review queue cursor is invalid.'),
     reviewAssignmentInvalid: problem(400.51, () => 'Review assignment is invalid.'),
     assetInvalid: problem(400.52, () => 'Asset identity, observation or temporal query is invalid.'),
+    reverificationAssigneeInvalid: problem(400.53, () =>
+      'The assignee must be an App User of this project who can submit to the asset form.'),
 
     // no detail information for security reasons.
     authenticationFailed: problem(401.2, () => 'Could not authenticate with the provided credentials.'),
@@ -281,14 +283,19 @@ const problems = {
     reviewCaseClosed: problem(409.32, () => 'This review case is no longer open.'),
     reviewCaseAssigned: problem(409.33, () => 'This review case is assigned to another reviewer.'),
     assetDuplicate: problem(409.34, () => 'This external asset identifier is already registered in the project.'),
+    reverificationTaskState: problem(409.35, () => 'This re-verification task is not in a state that allows that change.'),
+    reverificationProofRejected: problem(409.36, ({ reason }) =>
+      `The linked observation is not acceptable field evidence for this task: ${reason}.`),
     reviewRevisionStale: problem(412.1, () => 'The review case has changed. Refresh and retry.'),
     assetRevisionStale: problem(412.2, () => 'The asset has changed. Reload its history before saving.'),
+    reverificationRevisionStale: problem(412.3, () => 'The re-verification task has changed. Reload it before saving.'),
     evidenceScopeInvalid: problem(422.1, () =>
       'The evidence link must refer to this claim version and a valid predecessor.'),
     reviewAcceptanceBlocked: problem(422.2, () =>
       'Acceptance requires verified linked evidence and no unresolved integrity findings.'),
     reviewRevisionRequired: problem(428.1, () => 'If-Match is required for review assignments.'),
     assetRevisionRequired: problem(428.2, () => 'If-Match is required for asset observations.'),
+    reverificationRevisionRequired: problem(428.3, () => 'If-Match is required for re-verification task changes.'),
   },
   internal: {
     // no detail information, as this is only called when we don't know what happened.
