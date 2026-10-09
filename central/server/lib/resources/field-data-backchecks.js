@@ -95,7 +95,7 @@ module.exports = (service, endpoint) => {
     response.set('Cache-Control', 'private, no-store');
     const backchecks = await container.db.any(sql`SELECT b.id, b."caseId", b."claimVersionId",
       rf."xmlFormId" AS "responseXmlFormId", rf.id AS "responseFormId",
-      b.question, b."dueAt", b.status, b."assignedTo", a."displayName" AS "assigneeName",
+      b.question, b."dueAt", b."seenAt", b.status, b."assignedTo", a."displayName" AS "assigneeName",
       b."responseInstanceId", b."createdAt", b."linkedAt",
       b."cancelledAt", b."cancelledBy", b."cancellationReason",
       p."capturedAt" AS "responseCapturedAt", p.degraded AS "responseDegraded",
@@ -251,7 +251,7 @@ module.exports = (service, endpoint) => {
         VALUES (${reviewerId}, 'field_data.backcheck.request', ${form.acteeId},
           ${JSON.stringify({ caseId: params.caseId, backcheckId: inserted.id,
     claimVersionId: reviewCase.claimVersionId, assignedTo: body.assignedTo, responseFormId: responseForm.id })},
-          clock_timestamp(), clock_timestamp(), 0)`);
+          clock_timestamp(), NULL, 0)`);
       return { id: inserted.id, status: 'requested', revision: locked.revision + 1, replayed: false };
     }));
     response.set('ETag', `"review-case-${result.revision}"`);
@@ -302,7 +302,7 @@ module.exports = (service, endpoint) => {
         "loggedAt", processed, failures)
         VALUES (${reviewerId}, 'field_data.backcheck.cancel', ${form.acteeId},
           ${JSON.stringify({ caseId: params.caseId, backcheckId: params.backcheckId, reason })},
-          clock_timestamp(), clock_timestamp(), 0)`);
+          clock_timestamp(), NULL, 0)`);
       return { revision: locked.revision + 1, replayed: false };
     }));
     response.set('ETag', `"review-case-${result.revision}"`);
@@ -363,7 +363,7 @@ module.exports = (service, endpoint) => {
         VALUES (${reviewerId}, 'field_data.backcheck.link', ${form.acteeId},
           ${JSON.stringify({ caseId: params.caseId, backcheckId: params.backcheckId,
     responseSubmissionDefId: submitted.id, instanceId: body.instanceId })},
-          clock_timestamp(), clock_timestamp(), 0)`);
+          clock_timestamp(), NULL, 0)`);
       return { revision: locked.revision + 1, replayed: false };
     }));
     response.set('ETag', `"review-case-${result.revision}"`);

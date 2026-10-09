@@ -9,7 +9,12 @@
 
 // TODO: if this format is rigid (and maybe submission.att.update should get folded in)
 // then maybe the arrays should get unwrapped here and we don't have to deal w it.
+const { dispatchBackcheckPush } = require('./backcheck-push');
+
 const jobs = {
+  'field_data.backcheck.request': [ dispatchBackcheckPush ],
+  'field_data.backcheck.cancel': [ dispatchBackcheckPush ],
+  'field_data.backcheck.link': [ dispatchBackcheckPush ],
   'submission.attachment.update': [
     require('./submission.attachment.update')
   ],

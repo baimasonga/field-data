@@ -112,6 +112,7 @@ const loaders = new Map()
   )))
   .set('FieldDataOperations', loader(() => import('../components/field-data/operations.vue')))
   .set('FieldDataFormBuilder', loader(() => import('../components/field-data/form-builder.vue')))
+  .set('FieldDataFieldwork', loader(() => import('../components/field-data/fieldwork.vue')))
   .set('FieldDataCatalog', loader(() => import('../components/field-data/catalog.vue')))
   .set('FieldDataAnalysis', loader(() => import('../components/field-data/analysis.vue')))
   .set('FieldDataDashboard', loader(() => import(

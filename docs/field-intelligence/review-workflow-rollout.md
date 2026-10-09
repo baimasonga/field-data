@@ -45,7 +45,7 @@ with a stale revision; neither may alter the case without authorization.
 
 Keep test data separate from operational records. Offline capture and sync must
 be verified on an actual Collect device. Cancellation and replacement requests
-retain the original history. Notifications and custom back-check forms remain follow-on work
+retain the original history. Dedicated forms and companion browser notifications are implemented separately
 as described in P0.6. [Pinned answer comparisons](P0.6-backcheck-comparison.md)
 show text differences for reviewers without changing decisions. Supervisor acceptance preserves limitations and records an explicit override;
 [reopening and replacing terminal decisions](P0.5-decision-reconsideration.md)
@@ -65,4 +65,5 @@ frontend; API requests in these tests are still intercepted by fixtures.
 [Dedicated backcheck forms](P0.6-dedicated-backcheck-forms.md) allow the assigned
 reviewer to select an existing published response form in the same project.
 Collectors must already have submit access; reviewers need read access to both
-forms. Notifications and the physical device pilot remain pending.
+forms. [The companion inbox and browser notifications](P0.6-app-user-notifications.md)
+are implemented. Live browser delivery and the physical device pilot remain pending.
