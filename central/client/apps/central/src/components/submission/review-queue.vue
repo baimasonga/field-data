@@ -67,6 +67,7 @@
               </li>
             </ul>
             <p v-if="inspections[item.id].evidence.length === 0">No linked evidence.</p>
+            <submission-evidence-graph :key="`${item.id}:${item.revision}`" :claim-version-id="item.claimVersionId"/>
             <p>Prior decisions:</p>
             <ul>
               <li v-for="decision of inspections[item.id].decisions" :key="decision.id">
@@ -258,6 +259,7 @@ import { apiPaths } from '../../util/request';
 import { useRequestData } from '../../request-data';
 import SubmissionReviewMetrics from './review-metrics.vue';
 import SubmissionBackcheckComparison from './backcheck-comparison.vue';
+import SubmissionEvidenceGraph from './evidence-graph.vue';
 
 defineOptions({ name: 'SubmissionReviewQueue' });
 const emit = defineEmits(['asset-source']);

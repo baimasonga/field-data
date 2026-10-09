@@ -8,6 +8,7 @@ const { getOrNotFound } = require('../util/promise');
 const { blobContent } = require('../util/blob');
 const Problem = require('../util/problem');
 const { validateKey, hashEvidenceLink } = require('../util/idempotency');
+const { projectGraph } = require('../util/evidence-graph');
 
 const metadata = (row) => ({
   id: row.id,
@@ -40,9 +41,26 @@ const authorize = async (row, Forms, auth) => {
       throw Problem.user.notFound();
     throw error;
   }
+  return form;
 };
 
 module.exports = (service, endpoint) => {
+  service.get('/field-data/claim-versions/:claimVersionId/graph',
+    endpoint(async ({ FieldDataClaims, FieldDataEvidenceGraph, Forms, Audits },
+      { params, auth }, request, response) => {
+      if (!UUID_PATTERN.test(params.claimVersionId))
+        throw Problem.user.claimVersionIdInvalid({ value: params.claimVersionId });
+      const claim = await FieldDataClaims.getByVersionId(params.claimVersionId);
+      if (claim == null) throw Problem.user.notFound();
+      const form = await authorize({ projectId: claim.scope.projectId,
+        xmlFormId: claim.scope.xmlFormId }, Forms, auth);
+      const rows = await FieldDataEvidenceGraph.read(params.claimVersionId);
+      const graph = projectGraph(claim.body, rows);
+      await Audits.log(auth.actor.orNull(), 'field_data.evidence.graph.read', form,
+        { claimVersionId: params.claimVersionId, complete: graph.complete });
+      response.set('Cache-Control', 'private, no-store');
+      return graph;
+    }));
   service.post('/field-data/claim-versions/:claimVersionId/evidence-links',
     endpoint(async ({ FieldDataClaims, FieldDataEvidence, Forms, Audits },
       { params, auth, body, headers }, request, response) => {

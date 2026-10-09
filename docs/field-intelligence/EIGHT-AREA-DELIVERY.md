@@ -5,7 +5,7 @@ then test each feature through its actual API and user workflow. Merge only afte
 required CI gates pass. A merged foundation is not completion of a whole pillar.
 This ledger supplements the historical Phase 0 plan.
 
-| Order | Area | Deliverables | Full acceptance evidence |
+| First-slice order | Area | Deliverables | Full acceptance evidence |
 | --- | --- | --- | --- |
 | 1 | Knowledge | Project asset identities; source-linked temporal facts; correction/merge/split history; freshness/expiry policies; re-verification tasks; cited retrieval; decision-specific twin projections; causal analysis contracts | Ambiguous identities; reversible merges/splits; late evidence; time-travel queries; permission revocation; projection rebuild; citations; expiry/renewal; explicit causal assumptions and diagnostics |
 | 2 | Evidence/trust | Queryable evidence graph; presence components; nonce capture challenges; replay checks; survey timeline; signed witnessing; sensor corroboration | Missing/contradictory signals; replay; accessible alternatives; device clocks; real device capture; beacon/key revocation; calibrated score limitations |
@@ -27,11 +27,14 @@ also exist. Those features must not be re-labelled as full completion of this pr
 ## Status
 
 - Asset identity, source-linked temporal observations and age-based freshness:
-  implemented and locally validated (first bounded knowledge slice; CI/merge pending).
+  implemented, validated and merged in PR #52 (first bounded knowledge slice).
 - Automatic expiry task generation and reviewer queue: implemented and locally validated;
   automatic batches require the explicit operator flag. Collector dispatch/field closure
   remain pending operations work.
 - Remaining deliverables in all eight rows: pending.
+- Version-scoped evidence graph and recorded survey timeline: implemented and
+  locally validated (E1; CI/merge pending). Capture sessions, sensor/challenge
+  evidence and witnessing remain pending.
 - Collect pilot and production browser push: pending external acceptance.
 
 ## Selected client and providers
@@ -44,6 +47,10 @@ part of fixture tests. Use deterministic validation before model interpretation.
 Real device and provider acceptance remain separate gates.
 
 ## Dependencies and test rules
+
+The order denotes foundation slices, not completion of each entire area before
+the next. Advanced causal analysis and calibrated learning follow evidence,
+offline and operational foundations; all unsatisfied deliverables remain tracked.
 
 Use deterministic, source-cited behavior first. Do not invent calibrated confidence,
 causal effects, measurements, provider results or model quality. Device sensors,
