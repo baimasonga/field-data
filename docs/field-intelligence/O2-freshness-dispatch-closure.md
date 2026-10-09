@@ -109,7 +109,10 @@ Supervisors need to see what is overdue across a project, not open assets one at
 `visitBy` that has passed; `overdue=false` means no filter) and `assigneeId`, alongside
 `status`. Bad values are refused with 400, not ignored. A new
 `GET .../reverification-tasks/summary` returns counts by status plus the overdue count and
-the number of open (dispatched) tasks and overdue tasks held by each collector.
+the number of open (dispatched) tasks and overdue tasks held by each collector. It also
+lists `collectors`: everyone assigned work on a readable form, including people whose tasks are
+all closed or cancelled, so the collector filter can find historical work. `assigneeId` must fit
+a 32-bit integer; larger values are refused with 400.
 
 - **Access:** the forms the caller may read are resolved first and applied in the query, so
   pages are full and the counts and workload describe only work on forms the caller may

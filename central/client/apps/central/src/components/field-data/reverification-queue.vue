@@ -91,7 +91,9 @@ const nextCursor = ref(null);
 const status = ref('');
 const assigneeId = ref('');
 const overdueOnly = ref(false);
-const collectors = computed(() => (summary.value?.workload ?? []).map(person => person.assignee));
+// Everyone with work on a form the caller can read, including people whose tasks are all
+// closed or cancelled, so historical work can still be found.
+const collectors = computed(() => summary.value?.collectors ?? []);
 
 // Only the newest request may change what is shown: changing a filter while an
 // older answer is still on its way must not bring the older rows back.

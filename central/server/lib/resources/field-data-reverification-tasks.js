@@ -14,6 +14,8 @@ const hash = value => createHash('sha256').update(JSON.stringify(value)).digest(
 const text = (value, max) => typeof value === 'string' && value.trim().length > 0 && value.length <= max;
 const exactKeys = (body, keys) => body != null && typeof body === 'object' && !Array.isArray(body)
   && Object.keys(body).every(key => keys.includes(key));
+// PostgreSQL INTEGER: ids beyond this are not bad luck at the database, they are bad input.
+const MAX_ID = 2147483647;
 const US_UTC = 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"';
 
 const scope = async (container, auth, params, edit = false) => {
@@ -131,7 +133,7 @@ module.exports = (service, endpoint) => {
     const project = await scope(container, auth, params);
     if (query.status != null && !STATUSES.includes(query.status)) throw invalid();
     if (query.overdue != null && !['true', 'false'].includes(query.overdue)) throw invalid();
-    if (query.assigneeId != null && !/^[1-9]\d{0,9}$/.test(query.assigneeId)) throw invalid();
+    if (query.assigneeId != null && (!/^[1-9]\d{0,9}$/.test(query.assigneeId) || Number(query.assigneeId) > MAX_ID)) throw invalid();
     let cursor = null;
     if (query.cursor != null) {
       try {
@@ -172,7 +174,7 @@ module.exports = (service, endpoint) => {
     const formIds = await readableFormIds(container, auth, Number(params.projectId));
     const counts = Object.fromEntries([...STATUSES, 'overdue'].map(name => [name, 0]));
     response.set('Cache-Control', 'private, no-store');
-    if (formIds.length === 0) return { counts, workload: [], truncated: false };
+    if (formIds.length === 0) return { counts, workload: [], collectors: [], truncated: false };
     const within = sql`a."projectId" = ${Number(params.projectId)} AND a."formId" = ANY(${sql.array(formIds, 'int4')})`;
     const byStatus = await container.db.any(sql`SELECT t.status, count(*)::integer AS count,
       (count(*) FILTER (WHERE ${OVERDUE}))::integer AS overdue ${taskJoins} WHERE ${within} GROUP BY t.status`);
@@ -181,11 +183,16 @@ module.exports = (service, endpoint) => {
       count(*)::integer AS open, (count(*) FILTER (WHERE ${OVERDUE}))::integer AS overdue ${taskJoins}
       WHERE ${within} AND t.status = 'dispatched'
       GROUP BY t."assigneeId", asg."displayName" ORDER BY open DESC, asg."displayName", t."assigneeId" LIMIT 201`);
+    // Everyone who has ever held one of these tasks, so the queue can be filtered to a
+    // collector whose work is all closed or cancelled, not only to those with open work.
+    const everyone = await container.db.any(sql`SELECT DISTINCT t."assigneeId" AS id, asg."displayName" ${taskJoins}
+      WHERE ${within} AND t."assigneeId" IS NOT NULL ORDER BY asg."displayName", t."assigneeId" LIMIT 201`);
     return {
       counts,
       workload: people.slice(0, 200).map(row => ({ assignee: { id: row.id, displayName: row.displayName },
         open: row.open, overdue: row.overdue })),
-      truncated: people.length > 200
+      collectors: everyone.slice(0, 200).map(row => ({ id: row.id, displayName: row.displayName })),
+      truncated: people.length > 200 || everyone.length > 200
     };
   }));
 
@@ -250,7 +257,7 @@ module.exports = (service, endpoint) => {
   });
 
   service.post(`${root}/:taskId/dispatch`, transition('dispatch', ['assigneeId', 'visitBy'], (body) => {
-    if (!Number.isSafeInteger(body.assigneeId) || body.assigneeId < 1) throw invalid();
+    if (!Number.isSafeInteger(body.assigneeId) || body.assigneeId < 1 || body.assigneeId > MAX_ID) throw invalid();
     if (body.visitBy != null && (!timestamp(body.visitBy) || new Date(body.visitBy) <= new Date())) throw invalid();
     return { assigneeId: body.assigneeId, visitBy: body.visitBy == null ? null : new Date(body.visitBy).toISOString() };
   }, async ({ tx, task, data }) => {

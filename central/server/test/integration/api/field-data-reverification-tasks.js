@@ -74,6 +74,8 @@ describe('api: re-verification dispatch and field closure', () => {
       await dispatch(ctx, 1, unassigned).expect(400);
       await dispatch(ctx, 1, { id: (await alice.get('/v1/users/current').expect(200)).body.id }).expect(400);
       await dispatch(ctx, 1, { id: 999999 }).expect(400);
+      await dispatch(ctx, 1, { id: 2147483648 }).expect(400);
+      await dispatch(ctx, 1, { id: 9007199254740991 }).expect(400);
       await dispatch(ctx, 1, collector, { visitBy: '2020-01-01T00:00:00Z' }).expect(400);
       await dispatch(ctx, 1, collector, { surprise: true }).expect(400);
       await alice.post(`${path}/dispatch`).set('If-Match', '"task-1"')
@@ -261,7 +263,8 @@ describe('api: re-verification dispatch and field closure', () => {
       assert.equal(await query('status=closed&overdue=true'), 0);
 
       // A bad filter is refused rather than ignored.
-      await Promise.all(['overdue=maybe', 'assigneeId=abc', 'assigneeId=0', 'assigneeId=-3', 'assigneeId=1.5', 'assigneeId=99999999999']
+      await Promise.all(['overdue=maybe', 'assigneeId=abc', 'assigneeId=0', 'assigneeId=-3', 'assigneeId=1.5', 'assigneeId=99999999999',
+        'assigneeId=2147483648', 'assigneeId=9999999999']
         .map(bad => alice.get(`${tasks}?${bad}`).expect(400)));
 
       // Access: a caller who can open the project but not read its submissions sees nothing,
@@ -298,6 +301,7 @@ describe('api: re-verification dispatch and field closure', () => {
       assert.deepEqual(partialSummary.counts, { queued: 1, dispatched: 0, closed: 0, cancelled: 0, superseded: 0, overdue: 0 },
         'counts describe only readable work, not the overdue dispatched task on the other form');
       assert.deepEqual(partialSummary.workload, [], 'a collector\'s open work on a form the caller cannot read is not revealed');
+      assert.deepEqual(partialSummary.collectors, [], 'nor are the names of collectors who only work on forms the caller cannot read');
       assert.equal((await chelsea.get(`${tasks}?overdue=true`).expect(200)).body.items.length, 0);
       assert.equal((await chelsea.get(`${tasks}?assigneeId=${collector.id}`).expect(200)).body.items.length, 0);
       await alice.delete(`/v1/projects/1/forms/simple2/assignments/viewer/${chelseaId}`).expect(200);
@@ -307,6 +311,9 @@ describe('api: re-verification dispatch and field closure', () => {
       now = await summary();
       assert.deepEqual(now.counts, { ...empty, queued: 1, cancelled: 1 }); // the second form's task is still queued
       assert.deepEqual(now.workload, []);
+      // ...but the collector who held the cancelled task can still be chosen as a filter.
+      assert.deepEqual(now.collectors, [{ id: collector.id, displayName: 'Collector' }]);
+      assert.equal((await alice.get(`${tasks}?assigneeId=${collector.id}&status=cancelled`).expect(200)).body.items.length, 1);
 
       await alice.delete(`/v1/projects/1/assignments/formfill/${chelseaId}`).expect(200);
       await alice.post(`/v1/projects/1/assignments/viewer/${chelseaId}`).expect(200);

@@ -159,6 +159,8 @@ const focusAsset = () => perform(async (current) => {
   nextCursor.value = data.nextCursor;
   loaded.value = true;
   assetId.value = props.focus.assetId;
+  at.value = '';
+  knownAt.value = '';
   detail.value = null;
   await readAsset(current);
   // The asset may sit beyond the first page of the list; keep it selectable.
@@ -166,7 +168,19 @@ const focusAsset = () => perform(async (current) => {
     items.value = [...items.value, detail.value.asset];
   }
 });
-watch(() => props.focus, (value) => { if (value?.assetId && value.xmlFormId === props.xmlFormId) focusAsset(); }, { immediate: true });
+// A request to open an asset that arrives while the panel is busy is carried out
+// afterwards, using the newest request, rather than lost.
+let pendingFocus = false;
+const focusWanted = () => props.focus?.assetId && props.focus.xmlFormId === props.xmlFormId;
+watch(() => props.focus, () => {
+  if (!focusWanted()) return;
+  if (busy.value) pendingFocus = true; else focusAsset();
+}, { immediate: true });
+watch(busy, (now) => {
+  if (now || !pendingFocus) return;
+  pendingFocus = false;
+  if (focusWanted()) focusAsset();
+});
 const reloadDetail = async () => {
   const current = generation;
   try { await readAsset(current); } catch { /* the task panel already reports its own outcome */ }

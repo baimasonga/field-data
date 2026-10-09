@@ -68,7 +68,8 @@ const setup = async (page, { comparisonUnavailable = false, failComparison = fal
             people.set(task.assignee.id, row);
           }
         }
-        return respond({ counts, workload: [...people.values()], truncated: false });
+        const everyone = new Map(rows.filter(task => task.assignee).map(task => [task.assignee.id, task.assignee]));
+        return respond({ counts, workload: [...people.values()], collectors: [...everyone.values()], truncated: false });
       }
       const gate = state.queueGate;
       if (gate != null) { state.queueGate = null; await gate; }
@@ -114,12 +115,13 @@ const setup = async (page, { comparisonUnavailable = false, failComparison = fal
     }
     const assetRoot = '/v1/field-data/projects/7/assets';
     if (path.startsWith(assetRoot)) {
-      const asset = state.assets[0];
+      const asset = state.assets.find(item => path.endsWith(`/${item.id}`)) ?? state.assets[0];
+      if (req.method() === 'GET' && path !== assetRoot && state.assetGate != null) { const hold = state.assetGate; state.assetGate = null; await hold; }
       if (req.method() === 'GET' && path === assetRoot)
         return respond({ items: state.assets, allowed: canOverride, nextCursor: null });
       if (req.method() === 'GET') return respond({ asset, allowed: canOverride,
         history: state.assetHistory, facts: state.assetHistory.length ? [state.assetHistory[0]] : [],
-        tasks: state.assetTasks, at: '2026-10-09T09:00:00Z', knownAt: '2026-10-09T09:00:00Z' });
+        tasks: url.searchParams.get('knownAt') ? [] : state.assetTasks, at: '2026-10-09T09:00:00Z', knownAt: '2026-10-09T09:00:00Z' });
       const data = req.postDataJSON();
       state.assetWrites.push({ path, data, headers: req.headers() });
       if (state.assetFailures-- > 0) return route.fulfill({ status: 503, json: { message: 'Retry asset' } });
@@ -848,6 +850,7 @@ const seedQueue = (state, { paged = false } = {}) => {
   state.queueCalls = [];
   state.queueFailures_ = 0;
   state.queueGate = null;
+  state.assetGate = null;
   state.queuePaged = paged;
   state.queueTasks = [
     queueTask({ id: 'a1111111-1111-4111-8111-111111111111', externalId: 'WP-01' }),
@@ -857,7 +860,8 @@ const seedQueue = (state, { paged = false } = {}) => {
       assetId: '66666666-6666-4666-8666-666666666667', assignee: { id: 42, displayName: 'Collector' }, visitBy: '2027-01-01T00:00:00Z' }),
     queueTask({ id: 'a4444444-4444-4444-8444-444444444444', status: 'dispatched', externalId: 'WP-04', assignee: { id: 43, displayName: 'Second collector' },
       visitBy: '2027-01-01T00:00:00Z' }),
-    queueTask({ id: 'a5555555-5555-4555-8555-555555555555', status: 'cancelled', externalId: 'WP-05' })
+    queueTask({ id: 'a5555555-5555-4555-8555-555555555555', status: 'cancelled', externalId: 'WP-05',
+      assignee: { id: 44, displayName: 'Retired collector' } })
   ];
 };
 const queuePanel = page => page.getByRole('region', { name: 'Re-verification queue' });
@@ -969,5 +973,56 @@ test('a queue answer in an unexpected shape shows a retryable error instead of b
   state.queueMalformed = false;
   await queue.getByRole('button', { name: 'Retry' }).click();
   await expect(queue.locator('.queue-items li')).toHaveCount(5);
+  expect(errors).toEqual([]);
+});
+
+test('opening a task from the queue shows the current state even after an earlier dated-facts query', async ({ page }) => {
+  const { state, errors } = await setup(page, { canOverride: true });
+  const queue = await showSeededQueue(page, state);
+  state.assets.push({ id: '55555555-5555-4555-8555-555555555555', name: 'Water point', externalId: 'WP-01', assetType: 'water-point', revision: 2 });
+  state.assetTasks.push({ id: 'a2222222-2222-4222-8222-222222222222', predicate: 'condition', status: 'dispatched', dueAt: '2026-01-11T00:00:00Z' });
+  const assets = page.getByRole('region', { name: 'Asset passports and re-verification' });
+  await queue.locator('.queue-items li', { hasText: 'WP-01' }).getByRole('button', { name: 'Open asset' }).click();
+  await expect(assets.getByRole('button', { name: 'Manage' })).toBeVisible();
+  // Ask what was known at an earlier time: the server then shows only tasks that already existed.
+  await assets.getByLabel('Known at (optional ISO date and time)').fill('2026-01-01T00:00:00Z');
+  await assets.getByRole('button', { name: 'Query dated facts' }).click();
+  await expect(assets.getByRole('button', { name: 'Manage' })).toHaveCount(0);
+  // Navigating from the queue is a request for the present, not for that old view.
+  await queue.locator('.queue-items li', { hasText: 'WP-02' }).getByRole('button', { name: 'Open asset' }).click();
+  await expect(assets.getByRole('button', { name: 'Manage' })).toBeVisible();
+  await expect(assets.getByLabel('Known at (optional ISO date and time)')).toHaveValue('');
+  expect(errors).toEqual([]);
+});
+
+test('a request to open an asset while the panel is busy is carried out afterwards, not lost', async ({ page }) => {
+  const { state, errors } = await setup(page, { canOverride: true });
+  const queue = await showSeededQueue(page, state);
+  state.assets.push({ id: '55555555-5555-4555-8555-555555555555', name: 'Water point', externalId: 'WP-01', assetType: 'water-point', revision: 2 },
+    { id: '77777777-7777-4777-8777-777777777777', name: 'Borehole', externalId: 'BH-09', assetType: 'borehole', revision: 2 });
+  state.queueTasks.push(queueTask({ id: 'a6666666-6666-4666-8666-666666666666', externalId: 'BH-09', assetName: 'Borehole',
+    assetId: '77777777-7777-4777-8777-777777777777' }));
+  await queue.getByRole('button', { name: 'Refresh queue' }).click();
+  const assets = page.getByRole('region', { name: 'Asset passports and re-verification' });
+  let release;
+  state.assetGate = new Promise((resolve) => { release = resolve; });
+  await queue.locator('.queue-items li', { hasText: 'WP-01' }).getByRole('button', { name: 'Open asset' }).click();
+  await expect(assets.getByText('Loading or saving asset records…')).toBeVisible();
+  // The panel is still loading the first asset when the second request arrives.
+  await queue.locator('.queue-items li', { hasText: 'BH-09' }).getByRole('button', { name: 'Open asset' }).click();
+  release();
+  await expect(assets.getByRole('heading', { name: 'Borehole · BH-09' })).toBeVisible();
+  expect(errors).toEqual([]);
+});
+
+test('the collector filter offers collectors whose work is all closed or cancelled', async ({ page }) => {
+  const { state, errors } = await setup(page, { canOverride: true });
+  const queue = await showSeededQueue(page, state);
+  await expect(queue.getByText('Retired collector —')).toHaveCount(0); // no open work, so not in the workload list
+  await queue.getByLabel('Status').selectOption('cancelled');
+  await queue.getByLabel('Collector').selectOption({ label: 'Retired collector' });
+  await expect(queue.locator('.queue-items li')).toHaveCount(1);
+  await expect(queue).toContainText('WP-05');
+  expect(state.queueCalls.filter(call => call.path === '/').at(-1)).toMatchObject({ status: 'cancelled', assigneeId: '44' });
   expect(errors).toEqual([]);
 });
