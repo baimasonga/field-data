@@ -328,9 +328,11 @@ const probeSystemStatus = (db) => {
     // Keep the existing response key for dashboard clients; the runtime is native Web Forms.
     const enketo = await webFormsHealth();
 
+    // /readyz is 503 while the compiler cannot validate forms (no Java), so this
+    // reports the ability to compile, not merely that something is listening.
     const xlsConfig = config.has('default.xlsform') ? config.get('default.xlsform') : null;
     const pyxform = xlsConfig
-      ? await pingUrl(`${xlsConfig.protocol || 'http'}://${xlsConfig.host}:${xlsConfig.port}/`)
+      ? await pingUrl(`${xlsConfig.protocol || 'http'}://${xlsConfig.host}:${xlsConfig.port}/readyz`)
       : false;
 
     const emailConfig = config.has('default.email') ? config.get('default.email') : null;

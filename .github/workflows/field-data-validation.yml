@@ -86,6 +86,13 @@ jobs:
           python-version: '3.12'
           cache: pip
           cache-dependency-path: cloudflare/form-compiler/requirements.txt
+      # pyxform validates every XLSForm with ODK Validate, which needs Java. Hosted
+      # runners happen to ship it, which once hid the fact that the production image
+      # did not; install it on purpose so this job states what it depends on.
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
       - run: npm ci --no-audit --no-fund
       - run: python -m pip install -r ../../cloudflare/form-compiler/requirements.txt
       - name: Create isolated integration test role
@@ -98,8 +105,13 @@ jobs:
         working-directory: cloudflare/form-compiler
         run: |
           nohup python -m gunicorn --bind 127.0.0.1:5001 --workers 2 --timeout 90 app:application >/tmp/form-compiler.log 2>&1 &
-          curl --retry 20 --retry-connrefused --retry-delay 1 --fail http://127.0.0.1:5001/healthz
-      - run: npx mocha --timeout 15000 test/integration/api/field-data-analysis.js test/integration/api/field-data-extensions.js test/integration/api/field-data-capabilities.js test/integration/api/field-data-completion.js test/unit/util/analysis-data.js test/unit/util/feature-capabilities.js test/unit/util/builder-diagnostics.js test/unit/util/xlsform-builder.js test/unit/util/builder-import.js test/unit/util/remote-map.js test/unit/util/web-forms-health.js
+          # /readyz, not /healthz: it fails while the compiler cannot validate forms.
+          curl --retry 20 --retry-connrefused --retry-delay 1 --fail http://127.0.0.1:5001/readyz
+      - name: XLSForm and XForms XML upload pipeline (real compiler)
+        env:
+          REQUIRE_FORM_COMPILER: '1'
+        run: npx mocha --timeout 60000 test/integration/api/field-data-xlsform-pipeline.js
+      - run: npx mocha --timeout 15000 test/integration/api/field-data-analysis.js test/integration/api/field-data-extensions.js test/integration/api/field-data-capabilities.js test/integration/api/field-data-completion.js test/unit/util/analysis-data.js test/unit/util/feature-capabilities.js test/unit/util/builder-diagnostics.js test/unit/util/xlsform-builder.js test/unit/util/builder-import.js test/unit/util/remote-map.js test/unit/util/web-forms-health.js test/unit/external/xlsform.js
       - run: node --test ../../tests/external-monitor.test.cjs ../../tests/deployment-error-report.test.cjs
       - run: node test/xlsform/roundtrip.js && node test/xlsform/advanced-roundtrip.js && node test/xlsform/extensions-roundtrip.js
 
@@ -132,8 +144,15 @@ jobs:
           python-version: '3.12'
           cache: pip
           cache-dependency-path: cloudflare/form-compiler/requirements.txt
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
       - run: python -m pip install -r requirements.txt
-      - run: python -m unittest -v test_app.py test_data_exports.py
+      # REQUIRE_JAVA turns a missing JVM into a failure instead of a skip.
+      - run: REQUIRE_JAVA=1 python -m unittest -v test_app.py test_data_exports.py test_xlsform_pipeline.py
+      - name: Runtime check (Java, ODK Validate and a real form)
+        run: python verify_runtime.py
 
   live-smoke:
     if: github.event_name == 'workflow_dispatch'

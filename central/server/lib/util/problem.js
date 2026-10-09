@@ -350,6 +350,10 @@ const problems = {
 
     // returned if Enketo is configured but it cannot be contacted.
     enketoNotAvailable: problem(502.3, () => 'Enketo could not be contacted.'),
+
+    // returned if the xlsform service answered but cannot validate forms, which is
+    // a fault in the deployment (no Java for ODK Validate) and not in the spreadsheet.
+    xlsformValidatorUnavailable: problem(502.4, () => 'Form validation is unavailable on this server because a required component (Java, used by ODK Validate) is missing. Your file was not rejected. Please contact your server administrator.'),
   }
 };
 

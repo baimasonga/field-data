@@ -2,12 +2,17 @@ name: Container startup smoke test
 on:
   push:
     branches: [main]
-    paths:
+    paths: &image-paths
       - Dockerfile
       - cloudflare/entrypoint.sh
+      - cloudflare/form-compiler/**
+      - central/server/lib/external/xlsform.js
       - central/files/service/scripts/start-odk.sh
       - central/files/service/crontab
       - .github/workflows/container-startup.yml
+  # An image that cannot validate forms must be caught before it merges, not after.
+  pull_request:
+    paths: *image-paths
   workflow_dispatch:
 permissions:
   contents: read
@@ -19,6 +24,15 @@ jobs:
       - uses: actions/checkout@v4
       - name: Build runtime image
         run: docker build -t field-data-smoke .
+      - name: Java and form validation work inside the runtime image
+        # The image build already runs verify_runtime.py; this repeats it from the
+        # finished image, the artifact that is actually deployed, and prints what it found.
+        run: |
+          docker run --rm --entrypoint java field-data-smoke -version
+          docker run --rm --entrypoint sh -w /opt/field-data-form-compiler field-data-smoke \
+            -c './venv/bin/python verify_runtime.py'
+          # The compiler's own subprocess PATH, not just an interactive shell's.
+          docker run --rm --entrypoint sh field-data-smoke -c 'command -v java'
       - name: Start disposable TLS database
         run: |
           mkdir -p /tmp/smoke-tls
@@ -142,3 +156,66 @@ jobs:
           docker logs app 2>&1 || true
           docker logs app-no-shm 2>&1 || true
           docker logs database 2>&1 || true
+      - name: Upload an XLSForm, an XForms XML file and a broken XLSForm through the running application
+        run: |
+          set -euo pipefail
+          token=$(node -p 'require("/tmp/smoke-session.json").token')
+          auth="Authorization: Bearer $token"
+          base=http://localhost:8080/v1
+          project=$(curl --fail --silent -H "$auth" -H 'Content-Type: application/json' \
+            --data '{"name":"Form pipeline smoke"}' "$base/projects" | node -p 'JSON.parse(require("fs").readFileSync(0)).id')
+
+          # Real workbooks, built by the same fixtures the compiler tests use, inside the image.
+          write_workbook() {
+            docker exec app /opt/field-data-form-compiler/venv/bin/python -c "
+          import sys
+          sys.path.insert(0, '/opt/field-data-form-compiler')
+          import xlsform_fixtures as f
+          sys.stdout.buffer.write(f.$1)" > "$2"
+          }
+          write_workbook "household_workbook('smoke_household')" /tmp/smoke-good.xlsx
+          write_workbook "undefined_reference_workbook()" /tmp/smoke-bad.xlsx
+          xlsx='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+
+          echo "XLSForm with skip logic, a constraint, a repeat and GPS:"
+          curl --fail --silent --show-error -H "$auth" -H "Content-Type: $xlsx" \
+            -H 'X-XlsForm-FormId-Fallback: smoke_household' --data-binary @/tmp/smoke-good.xlsx \
+            "$base/projects/$project/forms?publish=true&ignoreWarnings=true" \
+            | node -e 'const f = JSON.parse(require("fs").readFileSync(0)); if (f.xmlFormId !== "smoke_household" || f.publishedAt == null) { console.error(f); process.exit(1); } console.log("  published", f.xmlFormId)'
+          curl --fail --silent -H "$auth" "$base/projects/$project/forms/smoke_household.xml" > /tmp/smoke-household.xml
+          for needle in 'relevant=' 'constraint=' 'jr:template' 'type="geopoint"'; do
+            grep -q "$needle" /tmp/smoke-household.xml || { echo "compiled form lost $needle"; exit 1; }
+          done
+
+          echo "XForms XML file:"
+          cat > /tmp/smoke-xml.xml <<'XML'
+          <?xml version="1.0"?>
+          <h:html xmlns="http://www.w3.org/2002/xforms" xmlns:h="http://www.w3.org/1999/xhtml">
+            <h:head><h:title>Smoke XML</h:title><model>
+              <instance><data id="smoke_xml"><name/><meta><instanceID/></meta></data></instance>
+              <bind nodeset="/data/name" type="string"/>
+              <bind nodeset="/data/meta/instanceID" type="string" readonly="true()" calculate="concat('uuid:', uuid())"/>
+            </model></h:head>
+            <h:body><input ref="/data/name"><label>Name</label></input></h:body>
+          </h:html>
+          XML
+          curl --fail --silent --show-error -H "$auth" -H 'Content-Type: application/xml' --data-binary @/tmp/smoke-xml.xml \
+            "$base/projects/$project/forms?publish=true&ignoreWarnings=true" \
+            | node -e 'const f = JSON.parse(require("fs").readFileSync(0)); if (f.xmlFormId !== "smoke_xml" || f.publishedAt == null) { console.error(f); process.exit(1); } console.log("  published", f.xmlFormId)'
+
+          echo "Submission to the compiled form:"
+          cat > /tmp/smoke-submission.xml <<'XML'
+          <data id="smoke_household"><meta><instanceID>uuid:smoke-1</instanceID></meta><respondent>Ada</respondent><age>34</age><has_children>yes</has_children><children><child_name>Bo</child_name></children><location>7.5 -11.7 0 5</location></data>
+          XML
+          curl --fail --silent --show-error -H "$auth" -H 'Content-Type: application/xml' --data-binary @/tmp/smoke-submission.xml \
+            "$base/projects/$project/forms/smoke_household/submissions" >/dev/null && echo "  accepted"
+
+          echo "A broken XLSForm must be rejected as invalid, not as a server fault:"
+          code=$(curl --silent --output /tmp/smoke-bad.json --write-out '%{http_code}' -H "$auth" -H "Content-Type: $xlsx" \
+            -H 'X-XlsForm-FormId-Fallback: smoke_bad' --data-binary @/tmp/smoke-bad.xlsx "$base/projects/$project/forms")
+          [ "$code" = 400 ] || { echo "expected 400, got $code"; cat /tmp/smoke-bad.json; exit 1; }
+          node -e 'const p = require("/tmp/smoke-bad.json"); if (p.code !== 400.15 || p.details.kind !== "invalid-xlsform") { console.error(p); process.exit(1); } console.log("  rejected:", p.details.error.split("\n")[0])'
+
+          echo "The status probe reports the compiler as able to validate:"
+          curl --fail --silent -H "$auth" "$base/field-data/stats" \
+            | node -e 'const s = JSON.parse(require("fs").readFileSync(0)).systemStatus; if (s.pyxform !== true) { console.error(s); process.exit(1); } console.log("  pyxform ready")'

@@ -290,6 +290,21 @@ describe('FormDraftPublish', () => {
       });
   });
 
+  it('says that publishing failed, separately from creating the draft, for other problems', () => {
+    testData.extendedForms.createPast(1);
+    testData.extendedFormVersions.createPast(1, { version: 'v2', draft: true });
+    return mockHttp()
+      .mount(FormDraftPublish, mountOptions())
+      .request(async (modal) => {
+        await modal.setProps({ state: true });
+        return modal.get('form').trigger('submit');
+      })
+      .respondWithProblem({ code: 500.1, message: 'Something broke' })
+      .afterResponse(modal => {
+        modal.should.alert('danger', 'The Draft was saved but could not be published: Something broke');
+      });
+  });
+
   it('shows a custom alert message for a duplicate property name', () => {
     testData.extendedForms.createPast(1);
     testData.extendedFormVersions.createPast(1, { version: 'v2', draft: true });
