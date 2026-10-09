@@ -155,7 +155,14 @@ export default {
             : null
         ),
         headers,
-        fulfillProblem: (problem) => problem.code === 409.6
+        fulfillProblem: (problem) => problem.code === 409.6,
+        // Publishing is a separate step from creating the draft, so say which
+        // step failed rather than showing a bare server message.
+        // Problems that already have their own wording are left alone.
+        problemToAlert: ({ code, message }) =>
+          ([404.1, 409.6, 409.17].includes(code)
+            ? null
+            : this.$t('problem.publishFailed', { message }))
       })
         .then(({ data }) => {
           if (!isProblem(data)) {
@@ -196,6 +203,7 @@ export default {
     ],
     "newProperties": "Publishing this draft will create {count} property. | Publishing this draft will create {count} properties.",
     "problem": {
+      "publishFailed": "The Draft was saved but could not be published: {message}",
       "409_6": "The version name of this Draft conflicts with a past version of this Form or a deleted Form. Please use the field below to change it to something new or upload a new Form definition."
     },
     "field": {

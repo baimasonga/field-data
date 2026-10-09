@@ -375,6 +375,55 @@ describe('FormUpload', () => {
         });
     });
 
+    describe('compiler failures are told apart', () => {
+      const xlsFormProblem = (kind) => ({
+        code: 400.15,
+        message: 'The given XLSForm file was not valid.',
+        details: { error: 'Could not find the name x', result: null, warnings: null, kind }
+      });
+      const failsWith = (problem, message) => {
+        testData.extendedProjects.createPast(1);
+        return mockHttp()
+          .mount(FormUpload, mountOptions())
+          .request(upload)
+          .respondWithProblem(problem)
+          .afterResponse(component => {
+            component.should.alert('danger', message);
+          });
+      };
+
+      it('blames the spreadsheet when the compiler says the XLSForm is invalid', () =>
+        failsWith(xlsFormProblem('invalid-xlsform'),
+          'There is a problem in your XLSForm that needs to be fixed in the spreadsheet: Could not find the name x'));
+
+      it('says the generated form failed validation when the compiler rejects it', () =>
+        failsWith(xlsFormProblem('compile-failed'),
+          'Your spreadsheet was read, but the form it produces failed validation, so it was not saved: Could not find the name x'));
+
+      it('does not blame the file when the validator is missing on the server', () =>
+        failsWith({ code: 502.4, message: 'Form validation is unavailable', details: { error: 'x' } },
+          'Your file was not rejected. This server cannot validate forms right now because a required component (Java) is missing. This is a server problem, so please contact your administrator. You can upload an XForms XML file in the meantime.'));
+
+      it('does not blame the file when the converter cannot be reached', () =>
+        failsWith({ code: 502.2, message: 'The XLSForm conversion service could not be contacted.', details: { error: 'x' } },
+          'Your file was not rejected. The server could not reach its XLSForm converter. This is a server problem, so please try again shortly or contact your administrator.'));
+
+      it('explains when XLSForm conversion is not enabled', () =>
+        failsWith({ code: 501.3, message: 'not configured', details: {} },
+          'XLSForm conversion is not turned on for this server. Upload an XForms XML file instead, or ask your administrator to enable it.'));
+
+      it('explains an unreadable XForms XML file without mentioning spreadsheets', () => {
+        testData.extendedProjects.createPast(1);
+        return mockHttp()
+          .mount(FormUpload, mountOptions())
+          .request(component => upload(component, new File([''], 'my_form.xml')))
+          .respondWithProblem({ code: 400.1, message: 'unparseable', details: { format: 'xml', rawLength: 0 } })
+          .afterResponse(component => {
+            component.should.alert('danger', 'This file could not be read as XForms XML. Check that it is a complete, well-formed XForm.');
+          });
+      });
+    });
+
     it('shows a message for a projectId,xmlFormId duplicate', () => {
       testData.extendedProjects.createPast(1);
       return mockHttp()

@@ -35,6 +35,7 @@ WORKDIR /usr/odk
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
       ca-certificates cron curl nginx openssl postgresql-client procps netcat-openbsd \
+      openjdk-17-jre-headless \
     && rm -rf /var/lib/apt/lists/* \
     && rm -f /etc/nginx/sites-enabled/default
 
@@ -47,12 +48,19 @@ ENV NODE_EXTRA_CA_CERTS=/usr/local/share/ca-certificates/supabase-root-2021.crt
 COPY --from=backend /usr/odk /usr/odk
 COPY --from=form-compiler /usr/local /usr/local
 COPY --from=form-compiler /opt/field-data-form-compiler/venv /opt/field-data-form-compiler/venv
-COPY cloudflare/form-compiler/app.py cloudflare/form-compiler/data_exports.py /opt/field-data-form-compiler/
+COPY cloudflare/form-compiler/app.py cloudflare/form-compiler/data_exports.py \
+     cloudflare/form-compiler/xlsform_fixtures.py cloudflare/form-compiler/verify_runtime.py \
+     /opt/field-data-form-compiler/
 # Python was copied from another stage; register its shared library and
 # fail the build if the compiler cannot load in the final runtime image.
 RUN ldconfig \
     && cd /opt/field-data-form-compiler \
     && ./venv/bin/python -c "from app import application; assert application.test_client().get('/healthz').status_code == 200"
+# pyxform validates XLSForms with ODK Validate (Java). Fail the build if the
+# image that serves traffic cannot really validate and compile a form.
+RUN java -version \
+    && cd /opt/field-data-form-compiler \
+    && ./venv/bin/python verify_runtime.py
 COPY central/files/shared/envsub.awk /scripts/envsub.awk
 COPY central/files/service/scripts/ /usr/odk/
 COPY central/files/service/config.json.template /usr/share/odk/config.json.template

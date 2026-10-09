@@ -96,6 +96,17 @@ to the last verified image after checking schema compatibility.
 
 Compiler/export outage: inspect internal health and compiler logs; restart the
 owned process/container, reproduce with a nonsensitive fixture and verify recovery.
+
+XLSForm uploads fail with "Form validation is unavailable ... (Java ...)" (HTTP 502,
+Problem 502.4): the file is fine; the runtime cannot run ODK Validate. Check
+`GET /readyz` on the internal compiler (also surfaced as `systemStatus.pyxform` on
+`/v1/field-data/stats`): `java.available` must be true. Confirm inside the deployed
+image with `java -version` and `python verify_runtime.py` (see
+`cloudflare/form-compiler/README.md`). The fix is a runtime image that contains
+Java, not a configuration switch. Do not set `FORM_COMPILER_SKIP_VALIDATE` in
+production: it is honoured only alongside `FORM_COMPILER_PERMIT_SKIP_VALIDATE`,
+which production must never set. Liveness (`/healthz`) stays green while Java is
+missing, by design, so the container still boots; readiness is what reports it.
 Storage outage: check provider status/access before changing keys; preserve queued
 jobs; retry an authorized existing object read; verify attachments and layers.
 Database outage: check pool/schema/TLS/provider status; do not recreate or migrate

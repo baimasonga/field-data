@@ -473,17 +473,28 @@ jobs:
           # get() marks failed=1 on every 503 while the new container boots;
           # only the final outcome of this retry loop should count.
           webforms_ready=0
+          compiler_ready=0
           failed_before_webforms=$failed
           for attempt in {1..6}; do
             if get "native Web Forms health" "/v1/field-data/stats"; then
               if printf '%s' "$body" | jq -e '.systemStatus.enketo == true' >/dev/null; then
                 webforms_ready=1
-                failed=$failed_before_webforms
-                break
+                # The compiler reports ready only when Java and ODK Validate work.
+                # Without them every XLSForm upload fails, so a deploy that
+                # lacks them must not look healthy.
+                if printf '%s' "$body" | jq -e '.systemStatus.pyxform == true' >/dev/null; then
+                  compiler_ready=1
+                  failed=$failed_before_webforms
+                  break
+                fi
               fi
             fi
             sleep 20
           done
+          if [[ "$webforms_ready" == 1 && "$compiler_ready" != 1 ]]; then
+            echo "::error title=XLSForm compiler cannot validate forms::The deployed container cannot validate XLSForms (usually Java is missing from the runtime image). Every XLSForm upload would fail. Observed: $(printf '%s' "$body" | jq -c '.systemStatus | {pyxform, enketo}' 2>/dev/null || echo unavailable)"
+            failed=1
+          fi
           if [[ "$webforms_ready" != 1 ]]; then
             observed=$(printf '%s' "$body" | jq -c '.systemStatus | {database, enketo, pyxform}' 2>/dev/null || echo 'unavailable')
             echo "::error title=Web Forms health check failed::The bundled Web Forms app or its JavaScript assets are unavailable. Observed: $observed"

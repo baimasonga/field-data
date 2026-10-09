@@ -3,12 +3,17 @@
 import logging
 import os
 import re
+import shutil
+import subprocess
+import time
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from uuid import uuid4
 
 from flask import Flask, jsonify, request
 from pyxform import xls2xform
+from pyxform.errors import PyXFormError
+from pyxform.validators.odk_validate import ODKValidateError
 from werkzeug.exceptions import RequestEntityTooLarge
 from werkzeug.utils import secure_filename
 
@@ -48,6 +53,133 @@ PRIMARY_INSTANCE_PATTERN = re.compile(
     r'<(?P<name>(?:[A-Za-z_][\w.-]*:)?instance)(?:\s[^>]*)?>.*?</(?P=name)\s*>',
     re.DOTALL,
 )
+
+
+# ---------------------------------------------------------------------------
+# Validation policy
+#
+# pyxform validates every generated XForm with ODK Validate, which is a Java
+# program. A runtime without Java therefore cannot compile anything, and that
+# is a deployment fault, not a fault in the spreadsheet. Three rules follow:
+#
+#   1. Validation is on by default and is never switched off implicitly. A
+#      missing Java is reported as "validator unavailable", not worked around.
+#   2. Skipping validation needs two explicit settings, one to ask for it
+#      (FORM_COMPILER_SKIP_VALIDATE) and one, set only in environments where
+#      that is acceptable, to permit it (FORM_COMPILER_PERMIT_SKIP_VALIDATE).
+#      Asking without permission is refused and logged. Production sets neither.
+#   3. When validation is skipped it is never silent: every response carries a
+#      warning saying so, and /readyz reports it.
+# ---------------------------------------------------------------------------
+
+STRICT = "strict"
+SKIP = "skip"
+
+# Stable machine-readable reasons, consumed by Central and shown by the browser.
+VALIDATOR_UNAVAILABLE = "validator-unavailable"
+INVALID_XLSFORM = "invalid-xlsform"
+COMPILE_FAILED = "compile-failed"
+
+SKIP_WARNING = (
+    "Validation was skipped because this server is configured to allow that. "
+    "This XForm has NOT been checked by ODK Validate and may fail when it is "
+    "opened or submitted to."
+)
+
+# JVM start-up notices that a deployment may inject (JAVA_TOOL_OPTIONS) arrive
+# on stderr, which pyxform reports as "validation warnings". They are not about
+# the form, so they are not shown to the person who uploaded it.
+_JVM_NOISE = re.compile(r"^(Picked up (JAVA_TOOL_OPTIONS|_JAVA_OPTIONS|JDK_JAVA_OPTIONS)\b.*)$")
+_EMPTY_VALIDATE_HEADER = re.compile(r"^\s*ODK Validate Warnings:\s*$")
+
+
+def _truthy(value):
+    return str(value or "").strip().lower() in {"1", "true", "yes", "on"}
+
+
+def validation_policy():
+    """Return (mode, refusal). `refusal` explains a skip request that was ignored."""
+    requested = _truthy(os.environ.get("FORM_COMPILER_SKIP_VALIDATE"))
+    permitted = _truthy(os.environ.get("FORM_COMPILER_PERMIT_SKIP_VALIDATE"))
+    if requested and permitted:
+        return SKIP, None
+    if requested:
+        return STRICT, (
+            "FORM_COMPILER_SKIP_VALIDATE is set but FORM_COMPILER_PERMIT_SKIP_VALIDATE "
+            "is not, so validation stays on."
+        )
+    return STRICT, None
+
+
+MINIMUM_JAVA_MAJOR = 8
+_VERSION_PATTERN = re.compile(r'version "(?P<version>[^"]+)"')
+
+
+def _probe_java(java):
+    """Run `java -version` and return its exit code and first meaningful line."""
+    try:
+        result = subprocess.run(
+            [java, "-version"], capture_output=True, text=True, timeout=15, check=False)
+    except (OSError, subprocess.SubprocessError):
+        return {"returncode": None, "line": None}
+    lines = [line for line in (result.stderr or result.stdout or "").splitlines()
+             if line.strip() and not _JVM_NOISE.match(line.strip())]
+    return {"returncode": result.returncode, "line": lines[0].strip() if lines else None}
+
+
+def _java_major(line):
+    """The major version in a `java -version` line, or None if it cannot be read."""
+    match = _VERSION_PATTERN.search(line or "")
+    if match is None:
+        return None
+    parts = re.findall(r"\d+", match.group("version"))
+    if not parts:
+        return None
+    # Java 8 and earlier report 1.x.
+    return int(parts[1]) if parts[0] == "1" and len(parts) > 1 else int(parts[0])
+
+
+_java_cache = {"at": 0.0, "value": None}
+
+
+def java_status(max_age=30.0):
+    """Whether a working, supported `java` resolves on the PATH the converter uses.
+
+    pyxform looks the executable up with shutil.which and ignores JAVA_HOME, so
+    this asks the same question it will. Being on PATH is not enough: a JVM that
+    cannot start (for example because of an invalid JAVA_TOOL_OPTIONS) is found
+    but fails every conversion, so it must also run `java -version` successfully
+    and be a supported version. The answer is cached briefly because readiness
+    probes arrive often and starting a JVM is not free.
+    """
+    now = time.monotonic()
+    cached = _java_cache["value"]
+    if cached is not None and now - _java_cache["at"] < max_age:
+        return cached
+    path = shutil.which("java")
+    value = {"available": False, "path": path, "version": None, "reason": "not-found"}
+    if path is not None:
+        probe = _probe_java(path)
+        major = _java_major(probe["line"])
+        value["version"] = probe["line"]
+        if probe["returncode"] != 0:
+            value["reason"] = "version-probe-failed"
+        elif major is not None and major < MINIMUM_JAVA_MAJOR:
+            value["reason"] = "unsupported-version"
+        else:
+            value.update(available=True, reason=None)
+    _java_cache.update(at=now, value=value)
+    return value
+
+
+def _clean_warnings(warnings):
+    cleaned = []
+    for warning in warnings or []:
+        lines = [line for line in str(warning).splitlines() if not _JVM_NOISE.match(line.strip())]
+        text = "\n".join(lines).strip()
+        if text and not _EMPTY_VALIDATE_HEADER.match(text):
+            cleaned.append(text)
+    return cleaned
 
 
 def _merge_duplicate_meta(xform):
@@ -106,13 +238,15 @@ def _merge_within(xform):
     )
 
 
-def _response(status=400, result=None, itemsets=None, warnings=None, error=None):
+def _response(status=400, result=None, itemsets=None, warnings=None, error=None, error_code=None):
+    # `errorCode` is additive: older callers read only status/result/error.
     return jsonify(
         status=status,
         result=result,
         itemsets=itemsets,
         warnings=warnings,
         error=error,
+        errorCode=error_code,
     ), status
 
 
@@ -131,9 +265,35 @@ def create_app():
         os.environ.get("FORM_COMPILER_MAX_BYTES", DEFAULT_MAX_UPLOAD_BYTES)
     )
 
+    mode, refusal = validation_policy()
+    if refusal is not None:
+        LOG.error("%s", refusal)
+    if mode == SKIP:
+        LOG.warning("XForm validation is DISABLED by configuration; forms are not checked by ODK Validate.")
+
     @app.get("/healthz")
     def health():
-        return jsonify(status="ok", component="field-data-form-compiler")
+        # Liveness only: the entrypoint polls this every second while booting,
+        # so it must not start a JVM. Readiness is /readyz.
+        return jsonify(status="ok", component="field-data-form-compiler", validation=mode)
+
+    @app.get("/readyz")
+    def ready():
+        java = java_status()
+        body = {"component": "field-data-form-compiler", "validation": mode,
+                "java": java, "skipRefused": refusal}
+        if mode == SKIP:
+            return jsonify(status="ok-unvalidated", validated=False, **body)
+        if not java["available"]:
+            reasons = {
+                "not-found": "Java (8+) is required for XForm validation and was not found on PATH.",
+                "version-probe-failed": "Java was found but `java -version` failed, so it cannot run ODK Validate.",
+                "unsupported-version": f"Java {MINIMUM_JAVA_MAJOR} or newer is required for XForm validation.",
+            }
+            return jsonify(status="unavailable", validated=False,
+                           reason=reasons.get(java["reason"], reasons["not-found"]),
+                           **body), 503
+        return jsonify(status="ok", validated=True, **body)
 
     @app.post("/api/v1/convert")
     def convert():
@@ -143,6 +303,16 @@ def create_app():
 
         form_id = _fallback_name(request.headers.get("X-XlsForm-FormId-Fallback"))
         extension = ".xlsx" if _is_xlsx(data) else ".xls"
+        validate = mode != SKIP
+
+        # Answer a missing validator before doing any work. This is a fault in
+        # the deployment, so it is a 503 with its own code and not a 400 that
+        # reads as though the spreadsheet were wrong.
+        if validate and not java_status()["available"]:
+            LOG.error("Java is not available on PATH; XLSForm validation cannot run.")
+            return _response(
+                status=503, error_code=VALIDATOR_UNAVAILABLE,
+                error="Form validation is unavailable because Java (8+) is not installed on this server.")
 
         with TemporaryDirectory(prefix="field-data-form-") as directory:
             source = Path(directory, f"{form_id}{extension}")
@@ -150,16 +320,19 @@ def create_app():
             source.write_bytes(data)
 
             try:
-                warnings = xls2xform.xls2xform_convert(
+                warnings = _clean_warnings(xls2xform.xls2xform_convert(
                     xlsform_path=str(source),
                     xform_path=str(target),
-                    validate=True,
+                    validate=validate,
                     pretty_print=False,
-                )
+                ))
+                if not validate:
+                    warnings = [SKIP_WARNING, *warnings]
                 if warnings:
                     LOG.warning("XLSForm conversion warning: %s", warnings)
                 if not target.is_file():
-                    return _response(error=warnings or "The compiler did not produce an XForm.")
+                    return _response(error=warnings or "The compiler did not produce an XForm.",
+                                     error_code=COMPILE_FAILED)
 
                 xform, merge_warning = _merge_duplicate_meta(
                     target.read_text(encoding="utf-8"))
@@ -174,9 +347,26 @@ def create_app():
                     itemsets=itemsets.read_text(encoding="utf-8") if itemsets.is_file() else None,
                     warnings=warnings,
                 )
+            except OSError as exc:
+                # pyxform raises OSError when it cannot find Java. Should the
+                # pre-check above ever disagree with it, it is still the same fault.
+                if "Java" in str(exc):
+                    LOG.exception("XLSForm validation unavailable")
+                    return _response(status=503, error_code=VALIDATOR_UNAVAILABLE,
+                                     error="Form validation is unavailable because Java (8+) is not installed on this server.")
+                LOG.exception("XLSForm conversion failed")
+                return _response(error=str(exc), error_code=COMPILE_FAILED)
+            except ODKValidateError as exc:
+                # The spreadsheet converted, but the XForm it produced was rejected.
+                LOG.warning("ODK Validate rejected the generated XForm: %s", exc)
+                return _response(error=str(exc), error_code=COMPILE_FAILED)
+            except PyXFormError as exc:
+                # The content of the spreadsheet is wrong, and the author can fix it.
+                LOG.warning("Invalid XLSForm: %s", exc)
+                return _response(error=str(exc), error_code=INVALID_XLSFORM)
             except Exception as exc:  # PyXForm exposes user-facing validation errors as exceptions.
                 LOG.exception("XLSForm conversion failed")
-                return _response(error=str(exc))
+                return _response(error=str(exc), error_code=COMPILE_FAILED)
 
     @app.errorhandler(RequestEntityTooLarge)
     def too_large(_error):

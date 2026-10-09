@@ -31,7 +31,12 @@ const convert = (protocol, host, port) => (stream, formIdFallback = '') => new P
       let body;
       try { body = JSON.parse(Buffer.concat(resData)); } catch (ex) { return reject(ex); }
       if (res.statusCode === 200) resolve({ xml: body.result, itemsets: body.itemsets, warnings: body.warnings });
-      else reject(Problem.user.xlsformNotValid({ error: body.error, warnings: body.warnings }));
+      // a validator that cannot run is a broken deployment, not a broken spreadsheet:
+      // keep the two apart so neither the API nor the browser blames the author.
+      else if (body.errorCode === 'validator-unavailable') reject(Problem.internal.xlsformValidatorUnavailable({ error: body.error }));
+      // `kind` says whether the spreadsheet itself is wrong ('invalid-xlsform') or the
+      // generated XForm was rejected ('compile-failed'). Older compilers omit it.
+      else reject(Problem.user.xlsformNotValid({ error: body.error, warnings: body.warnings, kind: body.errorCode ?? undefined }));
     });
   });
 

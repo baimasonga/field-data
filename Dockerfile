@@ -43,7 +43,9 @@ RUN --mount=type=secret,id=build-ca \
 # not copy the full dependency tree for every individual configuration file.
 FROM scratch AS runtime-files
 COPY cloudflare/certs/supabase-root-2021.crt /usr/local/share/ca-certificates/supabase-root-2021.crt
-COPY cloudflare/form-compiler/app.py /opt/field-data-form-compiler/app.py
+COPY cloudflare/form-compiler/app.py cloudflare/form-compiler/data_exports.py \
+     cloudflare/form-compiler/xlsform_fixtures.py cloudflare/form-compiler/verify_runtime.py \
+     /opt/field-data-form-compiler/
 COPY central/files/shared/envsub.awk /scripts/envsub.awk
 COPY central/files/service/scripts/ /usr/odk/
 COPY central/files/service/config.json.template /usr/share/odk/config.json.template
@@ -63,6 +65,7 @@ WORKDIR /usr/odk
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
       ca-certificates cron curl nginx openssl postgresql-client procps netcat-openbsd \
+      openjdk-17-jre-headless \
     && rm -rf /var/lib/apt/lists/* \
     && rm -f /etc/nginx/sites-enabled/default
 
@@ -80,6 +83,12 @@ COPY --from=form-compiler /opt/field-data-form-compiler/venv /opt/field-data-for
 RUN ldconfig \
     && cd /opt/field-data-form-compiler \
     && ./venv/bin/python -c "from app import application; assert application.test_client().get('/healthz').status_code == 200"
+# pyxform validates every XLSForm with ODK Validate, a Java program, and finds
+# `java` on PATH. Prove it in this image, the one that serves traffic: the build
+# fails if Java is missing or a real form does not validate and compile.
+RUN java -version \
+    && cd /opt/field-data-form-compiler \
+    && ./venv/bin/python verify_runtime.py
 COPY --from=frontend /build/dist/ /usr/share/nginx/html/
 COPY --from=frontend /tmp/version.txt /usr/share/nginx/html/version.txt
 

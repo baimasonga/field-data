@@ -189,8 +189,23 @@ export default {
       }
       const initialRoute = this.$route;
       const problemToAlert = ({ code, details }) => {
-        if (code === 400.15)
+        // The compiler says why it refused, so the person can tell a fault in
+        // their spreadsheet from a fault in the server. Anything it does not
+        // classify (an older compiler) keeps the original wording.
+        if (code === 400.15) {
+          if (details?.kind === 'invalid-xlsform')
+            return this.$t('problem.400_15_invalid', details);
+          if (details?.kind === 'compile-failed')
+            return this.$t('problem.400_15_compile', details);
           return this.$t('problem.400_15', details);
+        }
+        // Server-side faults: the file was not judged, so do not say it was wrong.
+        if (code === 502.4) return this.$t('problem.502_4');
+        if (code === 502.2) return this.$t('problem.502_2');
+        if (code === 501.3) return this.$t('problem.501_3');
+        // An XForms XML file is read by the server itself, with no spreadsheet step.
+        if (code === 400.1 && this.contentType === 'application/xml')
+          return this.$t('problem.400_1_xml');
         if (code === 409.3 && details.table === 'forms') {
           const { fields } = details;
           if (fields.length === 2 && fields[0] === 'projectId' &&
@@ -323,6 +338,15 @@ export default {
       "400_8": "The Form definition you have uploaded does not appear to be for this Form. It has the wrong formId (expected “{expected}”, got “{actual}”).",
       // The word "XLSForm" should not be translated.
       "400_15": "The XLSForm could not be converted: {error}",
+      // The spreadsheet itself is wrong and its author can fix it.
+      "400_15_invalid": "There is a problem in your XLSForm that needs to be fixed in the spreadsheet: {error}",
+      // The spreadsheet was read, but the form it produced was rejected by validation.
+      "400_15_compile": "Your spreadsheet was read, but the form it produces failed validation, so it was not saved: {error}",
+      // The file was never judged: the server cannot run the validator.
+      "502_4": "Your file was not rejected. This server cannot validate forms right now because a required component (Java) is missing. This is a server problem, so please contact your administrator. You can upload an XForms XML file in the meantime.",
+      "502_2": "Your file was not rejected. The server could not reach its XLSForm converter. This is a server problem, so please try again shortly or contact your administrator.",
+      "501_3": "XLSForm conversion is not turned on for this server. Upload an XForms XML file instead, or ask your administrator to enable it.",
+      "400_1_xml": "This file could not be read as XForms XML. Check that it is a complete, well-formed XForm.",
       "409_3": "A Form already exists in this Project with the Form ID of “{xmlFormId}”."
     },
     // Sub-heading for a warning details, followed by the list of fields

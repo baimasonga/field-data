@@ -8,8 +8,6 @@ const config = require('config');
 const crypto = require('crypto');
 const multer = require('multer');
 const path = require('path');
-const http = require('http');
-const https = require('https');
 const { Readable } = require('node:stream');
 const { User, Project, Config, Form, Submission } = require('../model/frames');
 const Problem = require('../util/problem');
@@ -40,22 +38,7 @@ const { buildEnvelope, validateEnvelope } = require('../util/provenance');
 
 const { webFormsHealth } = require('../util/web-forms-health');
 
-const pingUrl = (urlStr) => new Promise((resolve) => {
-  try {
-    const parsed = new URL(urlStr);
-    const client = parsed.protocol === 'https:' ? https : http;
-    const req = client.get(urlStr, { timeout: 1500 }, (res) => {
-      resolve(res.statusCode < 500);
-    });
-    req.on('error', () => resolve(false));
-    req.on('timeout', () => {
-      req.destroy();
-      resolve(false);
-    });
-  } catch (err) {
-    resolve(false);
-  }
-});
+const { compilerValidates } = require('../util/compiler-status');
 
 const uploadLimit = Number.parseInt(process.env.FIELD_DATA_UPLOAD_MAX_BYTES || '', 10) || 25 * 1024 * 1024;
 const allowedMediaTypes = new Map([
@@ -328,9 +311,11 @@ const probeSystemStatus = (db) => {
     // Keep the existing response key for dashboard clients; the runtime is native Web Forms.
     const enketo = await webFormsHealth();
 
+    // /readyz is 503 while the compiler cannot validate forms (no Java), so this
+    // reports the ability to compile, not merely that something is listening.
     const xlsConfig = config.has('default.xlsform') ? config.get('default.xlsform') : null;
     const pyxform = xlsConfig
-      ? await pingUrl(`${xlsConfig.protocol || 'http'}://${xlsConfig.host}:${xlsConfig.port}/`)
+      ? await compilerValidates(`${xlsConfig.protocol || 'http'}://${xlsConfig.host}:${xlsConfig.port}/readyz`)
       : false;
 
     const emailConfig = config.has('default.email') ? config.get('default.email') : null;
