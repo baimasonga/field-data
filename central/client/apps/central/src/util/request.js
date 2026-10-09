@@ -295,6 +295,8 @@ export const apiPaths = {
     `/v1/field-data/review-queue/${encodeURIComponent(caseId)}/backcheck-assignees`,
   reviewCaseBackcheckLink: (caseId, backcheckId) =>
     `/v1/field-data/review-queue/${encodeURIComponent(caseId)}/backchecks/${encodeURIComponent(backcheckId)}/link`,
+  reviewCaseBackcheckComparison: (caseId, backcheckId) =>
+    `/v1/field-data/review-queue/${encodeURIComponent(caseId)}/backchecks/${encodeURIComponent(backcheckId)}/comparison`,
   reviewCaseBackcheckCancel: (caseId, backcheckId) =>
     `/v1/field-data/review-queue/${encodeURIComponent(caseId)}/backchecks/${encodeURIComponent(backcheckId)}/cancel`,
   formIntegrityRun: (projectId, xmlFormId) =>

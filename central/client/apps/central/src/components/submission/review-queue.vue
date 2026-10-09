@@ -93,6 +93,7 @@
                   </router-link>
                   · Capture time: {{ backcheck.responseCapturedAt || 'unknown' }}
                   · Provenance: {{ backcheck.responseDegraded == null ? 'recorded' : 'degraded' }}
+                  <submission-backcheck-comparison :case-id="item.id" :backcheck-id="backcheck.id"/>
                 </div>
                 <div v-else-if="backcheck.status === 'requested' && canReview
                   && status === 'in-review' && item.assignedTo === currentUser.id && item.claim.current">
@@ -241,6 +242,7 @@ import useRequest from '../../composables/request';
 import { apiPaths } from '../../util/request';
 import { useRequestData } from '../../request-data';
 import SubmissionReviewMetrics from './review-metrics.vue';
+import SubmissionBackcheckComparison from './backcheck-comparison.vue';
 
 defineOptions({ name: 'SubmissionReviewQueue' });
 const props = defineProps({

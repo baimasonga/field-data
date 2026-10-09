@@ -7,6 +7,7 @@ const { Form } = require('../model/frames');
 const { UUID_PATTERN } = require('../util/claim-versioning');
 const { getOrNotFound } = require('../util/promise');
 const Problem = require('../util/problem');
+const { compareAnswers, MAX_BYTES } = require('../util/backcheck-comparison');
 const { trackReviewWrite, observeReviewConflicts } = require('../util/review-conflicts');
 
 const scopeFor = async (container, auth, caseId, edit = false) => {
@@ -66,6 +67,68 @@ module.exports = (service, endpoint) => {
       LEFT JOIN field_data_submission_provenance p
         ON p."submissionDefId" = b."responseSubmissionDefId"
       WHERE b."caseId" = ${params.caseId} ORDER BY b."createdAt", b.id`);
+  }));
+
+  service.get('/field-data/review-queue/:caseId/backchecks/:backcheckId/comparison', endpoint(async (
+    container, { params, auth }, request, response
+  ) => {
+    const { claim } = await scopeFor(container, auth, params.caseId);
+    if (!UUID_PATTERN.test(params.backcheckId)) throw Problem.user.notFound();
+    // Fetch both pinned versions in one snapshot, with both deletion and form
+    // boundaries checked before returning either source or any answer text.
+    const sources = await container.db.any(sql`SELECT src.kind,
+      sd.id AS "submissionDefId", sd."instanceId", sd.current,
+      s."instanceId" AS "rootInstanceId", v.id AS "claimVersionId", fd.version AS "formVersion",
+      p.origin, p."capturedAt", p."receivedAt", p.degraded, p."integrityHash",
+      octet_length(sd.xml) > ${MAX_BYTES} AS "tooLarge",
+      CASE WHEN octet_length(sd.xml) <= ${MAX_BYTES} THEN sd.xml ELSE NULL END AS xml,
+      CASE WHEN octet_length(sd.xml) <= ${MAX_BYTES} THEN
+        p."integrityHash" = encode(sha256(convert_to(sd.xml, 'UTF8')), 'hex') ELSE NULL END AS "hashMatches"
+      FROM field_data_backchecks b
+      JOIN field_data_review_cases c ON c.id = b."caseId" AND c."claimVersionId" = b."claimVersionId"
+      JOIN field_data_claim_versions original ON original.id = c."claimVersionId"
+      JOIN submission_defs original_def ON original_def.id = original."submissionDefId"
+      JOIN submissions original_submission ON original_submission.id = original_def."submissionId"
+        AND original_submission."deletedAt" IS NULL
+      JOIN submission_defs response_def ON response_def.id = b."responseSubmissionDefId"
+      JOIN submissions response_submission ON response_submission.id = response_def."submissionId"
+        AND response_submission."deletedAt" IS NULL
+        AND response_submission."formId" = original_submission."formId"
+      CROSS JOIN LATERAL (VALUES ('original', original_def.id), ('backcheck', response_def.id)) src(kind, id)
+      JOIN submission_defs sd ON sd.id = src.id
+      JOIN submissions s ON s.id = sd."submissionId"
+      JOIN form_defs fd ON fd.id = sd."formDefId"
+      LEFT JOIN field_data_claim_versions v ON v."submissionDefId" = sd.id
+      LEFT JOIN field_data_submission_provenance p ON p."submissionDefId" = sd.id
+      WHERE b.id = ${params.backcheckId} AND b."caseId" = ${params.caseId} AND b.status = 'linked'`);
+    if (sources.length !== 2) throw Problem.user.notFound();
+    const original = sources.find((source) => source.kind === 'original');
+    const backcheck = sources.find((source) => source.kind === 'backcheck');
+    const sourceMetadata = (source) => ({
+      submissionDefId: source.submissionDefId, claimVersionId: source.claimVersionId,
+      instanceId: source.instanceId, rootInstanceId: source.rootInstanceId,
+      current: source.current, formVersion: source.formVersion,
+      provenance: { origin: source.origin, capturedAt: source.capturedAt,
+        receivedAt: source.receivedAt, degraded: source.degraded, integrityHash: source.integrityHash },
+      integrityStatus: source.hashMatches === true ? 'verified'
+        : source.hashMatches === false ? 'mismatch' : 'unverified',
+      xmlDownloadUrl: `/v1/projects/${claim.scope.projectId}/forms/${encodeURIComponent(claim.scope.xmlFormId)}`
+        + `/submissions/${encodeURIComponent(source.rootInstanceId)}/versions/${encodeURIComponent(source.instanceId)}.xml`
+    });
+    const result = { algorithmVersion: 'backcheck-text@1', original: sourceMetadata(original),
+      backcheck: sourceMetadata(backcheck) };
+    let comparison;
+    if (sources.some((source) => source.tooLarge)) comparison = { unavailableReason: 'size-limit' };
+    else if (sources.some((source) => source.hashMatches !== true))
+      comparison = { unavailableReason: 'source-integrity' };
+    else {
+      try { comparison = compareAnswers(original.xml, backcheck.xml); } catch (error) {
+        if (error.reason == null) throw error;
+        comparison = { unavailableReason: error.reason };
+      }
+    }
+    response.set('Cache-Control', 'private, no-store');
+    return { ...result, ...comparison };
   }));
 
   service.post('/field-data/review-queue/:caseId/backchecks', endpoint(observeReviewConflicts(async (

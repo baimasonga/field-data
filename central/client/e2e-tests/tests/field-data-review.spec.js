@@ -6,14 +6,14 @@ const versionId = '22222222-2222-4222-8222-222222222222';
 const backcheckId = '33333333-3333-4333-8333-333333333333';
 const etag = revision => `"review-case-${revision}"`;
 
-const setup = async (page, { staleAssignment = false, canOverride = false, readOnly = false, noProjects = false, failQueue = false, failAssignment = false, manageQuality = false, delayOpen = false, failMetrics = false, delayMetrics = false } = {}) => {
+const setup = async (page, { comparisonUnavailable = false, failComparison = false, staleAssignment = false, canOverride = false, readOnly = false, noProjects = false, failQueue = false, failAssignment = false, manageQuality = false, delayOpen = false, failMetrics = false, delayMetrics = false } = {}) => {
   const errors = [];
   page.on('pageerror', error => errors.push(error.message));
   let releaseOpen;
   const openWait = delayOpen ? new Promise(resolve => { releaseOpen = resolve; }) : null;
   let releaseMetrics;
   const metricsWait = delayMetrics ? new Promise(resolve => { releaseMetrics = resolve; }) : null;
-  const state = { staleWrites: 0, conflictFailures: staleAssignment ? 1 : 0, status: 'open', assignedTo: null, revision: 1, backchecks: [], decisions: [], mutations: [], queueRequests: [], queueFailures: failQueue ? 1 : 0, assignmentFailures: failAssignment ? 1 : 0, metricsFailures: failMetrics ? 2 : 0 };
+  const state = { comparisonFailures: failComparison ? 1 : 0, comparisonRequests: 0, staleWrites: 0, conflictFailures: staleAssignment ? 1 : 0, status: 'open', assignedTo: null, revision: 1, backchecks: [], decisions: [], mutations: [], queueRequests: [], queueFailures: failQueue ? 1 : 0, assignmentFailures: failAssignment ? 1 : 0, metricsFailures: failMetrics ? 2 : 0 };
   await page.addInitScript(() => localStorage.setItem('sessionExpires', String(Date.now() + 3600000)));
   await page.route('**/client-config.json', route => route.fulfill({ json: {} }));
   await page.route('**/version.txt', route => route.fulfill({ body: 'test' }));
@@ -56,6 +56,20 @@ const setup = async (page, { staleAssignment = false, canOverride = false, readO
     }
     if (path === `/v1/field-data/claim-versions/${versionId}/evidence`) return respond({ items: [{ id: 'evidence-1', sourceKind: 'submission-xml', integrityStatus: 'verified', downloadUrl: '/v1/field-data/evidence/evidence-1/content' }], nextCursor: null });
     if (path === `/v1/field-data/review-queue/${caseId}`) return respond({ claim: { id: versionId, provenance: { origin: 'collected', capturedAt: '2026-10-03T09:00:00Z', receivedAt: '2026-10-03T10:00:00Z', integrityHash: 'abcdef', degraded: null }, degraded: null }, decisions: state.decisions, reversalRequired: state.decisions.some(d => ['accepted', 'rejected'].includes(d.outcome)), overridePolicy: { allowed: canOverride, reasonCodes: canOverride ? ['verified-by-supervisor'] : [] } });
+    if (path.endsWith('/comparison')) {
+      state.comparisonRequests += 1;
+      if (state.comparisonFailures-- > 0) return route.fulfill({ status: 503, json: { message: 'Unavailable' } });
+      const source = { instanceId: 'original-version', current: true, formVersion: '1',
+        provenance: { origin: 'collected', capturedAt: null, degraded: { capturedAt: 'unknown' } },
+        integrityStatus: 'verified', xmlDownloadUrl: '/v1/original-version.xml' };
+      return respond({ original: source, backcheck: { ...source, instanceId: 'linked-version', current: false,
+        xmlDownloadUrl: '/v1/linked-version.xml' },
+      ...(comparisonUnavailable ? { unavailableReason: 'source-integrity' } : {
+        summary: { same: 0, changed: 1, missingOriginal: 1, missingBackcheck: 1 },
+        rows: [{ path: '/name[1]', original: '<img src=x onerror=alert(1)>', backcheck: 'Corrected', status: 'changed' },
+          { path: '/age[1]', original: null, backcheck: '', status: 'missingOriginal' },
+          { path: '/note[1]', original: 'Observed', backcheck: null, status: 'missingBackcheck' }] }) });
+    }
     if (path.endsWith('/backcheck-assignees')) return respond([{ id: 42, name: 'Second collector' }, { id: 43, name: 'Replacement collector' }]);
     if (req.method() === 'GET' && path.endsWith('/backchecks')) return respond(state.backchecks);
     if (['POST', 'PATCH'].includes(req.method())) {
@@ -360,4 +374,42 @@ test('ordinary reviewers cannot replace the terminal decision of a reopened case
   await expect(page.getByRole('button', { name: 'Reject claim', exact: true })).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Replace decision with rejection' })).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Reopen for review', exact: true })).toHaveCount(0);
+});
+
+
+test('read-only comparison shows pinned versions, safe answer text, missing values and mobile reflow', async ({ page }) => {
+  const { state, errors } = await setup(page, { readOnly: true });
+  state.backchecks.push({ id: backcheckId, status: 'linked', responseInstanceId: 'uuid:backcheck',
+    question: 'Verify answers.', assigneeName: 'Independent checker' });
+  await openInspection(page);
+  expect(state.comparisonRequests).toBe(0);
+  await page.getByRole('button', { name: 'Compare answers', exact: true }).click();
+  const comparison = page.getByRole('region', { name: 'Back-check answer comparison' });
+  await expect(comparison).toContainText('Changed: 1');
+  await expect(comparison).toContainText('Not present');
+  await expect(comparison).toContainText('Empty answer');
+  await expect(comparison).toContainText('Historical version; newer edits are not included.');
+  await expect(comparison).toContainText('Repeats align by position');
+  await expect(comparison.getByRole('link', { name: 'Download back-check version XML' })).toHaveAttribute('href', '/v1/linked-version.xml');
+  await expect(comparison.getByText('<img src=x onerror=alert(1)>', { exact: true })).toBeVisible();
+  await expect(comparison.locator('img')).toHaveCount(0);
+  await page.setViewportSize({ width: 320, height: 720 });
+  await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= 320)).toBe(true);
+  expect(state.mutations).toEqual([]);
+  expect(errors).toEqual([]);
+});
+
+test('comparison failure retries independently and unverified sources do not show answer rows', async ({ page }) => {
+  const { state, errors } = await setup(page, { readOnly: true, failComparison: true, comparisonUnavailable: true });
+  state.backchecks.push({ id: backcheckId, status: 'linked', responseInstanceId: 'uuid:backcheck',
+    question: 'Verify answers.', assigneeName: 'Independent checker' });
+  await openInspection(page);
+  await page.getByRole('button', { name: 'Compare answers', exact: true }).click();
+  await expect(page.getByText('Answer comparison could not be loaded. Retry to inspect the linked versions.')).toBeVisible();
+  await page.getByRole('button', { name: 'Retry answer comparison', exact: true }).click();
+  const comparison = page.getByRole('region', { name: 'Back-check answer comparison' });
+  await expect(comparison).toContainText('source integrity could not be verified');
+  await expect(comparison.getByRole('table')).toHaveCount(0);
+  await expect(page.getByRole('heading', { name: 'Claim provenance' })).toBeVisible();
+  expect(errors).toEqual([]);
 });

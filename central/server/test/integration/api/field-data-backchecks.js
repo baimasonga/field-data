@@ -2,12 +2,14 @@
 // Licensed under the Apache License, Version 2.0.
 
 require('should');
+const { strict: assert } = require('assert');
+const { sql } = require('slonik');
 const { testService } = require('../setup');
 const testData = require('../../data/xml');
 
 describe('api: case back-check requests', () => {
   it('assigns a different App User and links their offline-compatible ODK submission',
-    testService(async (service) => {
+    testService(async (service, { run }) => {
       const alice = await service.login('alice');
       const chelsea = await service.login('chelsea');
       const appUser = (await alice.post('/v1/projects/1/app-users')
@@ -45,7 +47,8 @@ describe('api: case back-check requests', () => {
           evidenceIds: [], integrityFindingIds: [] })
         .expect(422);
       await service.post(`/v1/key/${appUser.token}/projects/1/forms/simple/submissions`)
-        .send(testData.instances.simple.one.replace('one</instanceID>', 'second</instanceID>'))
+        .send(testData.instances.simple.one.replace('one</instanceID>', 'second</instanceID>')
+          .replace('<age>30</age>', '<age>31</age>'))
         .set('Content-Type', 'application/xml').expect(200);
       const link = `${path}/${first.body.id}/link`;
       await alice.post(link).set('If-Match', first.headers.etag)
@@ -60,13 +63,47 @@ describe('api: case back-check requests', () => {
       backchecks[0].status.should.equal('linked');
       backchecks[0].responseInstanceId.should.equal('second');
       linked.headers.etag.should.not.equal(first.headers.etag);
+      const comparisonPath = `${path}/${first.body.id}/comparison`;
+      const comparison = await alice.get(comparisonPath).expect(200);
+      assert.equal(comparison.headers['cache-control'], 'private, no-store');
+      assert.deepEqual(comparison.body.summary, { same: 1, changed: 1, missingOriginal: 0, missingBackcheck: 0 });
+      assert.equal(comparison.body.original.instanceId, 'one');
+      assert.equal(comparison.body.backcheck.instanceId, 'second');
+      assert.equal(comparison.body.original.integrityStatus, 'verified');
+      assert.ok(comparison.body.original.provenance.degraded);
+      await alice.get(comparison.body.backcheck.xmlDownloadUrl).expect(200);
+      await chelsea.get(comparisonPath).expect(404);
+      const viewerId = (await chelsea.get('/v1/users/current').expect(200)).body.id;
+      await alice.post(`/v1/projects/1/assignments/viewer/${viewerId}`).expect(200);
+      await chelsea.get(comparisonPath).expect(200);
+      await alice.get(comparisonPath.replace(first.body.id, '00000000-0000-4000-8000-000000000099')).expect(404);
+      // Editing the linked response must not silently replace its pinned bytes.
+      await alice.put('/v1/projects/1/forms/simple/submissions/second')
+        .send(testData.instances.simple.one.replace('one</instance',
+          'edited</instanceID><deprecatedID>second</deprecated').replace('<age>30</age>', '<age>99</age>'))
+        .set('Content-Type', 'application/xml').expect(200);
+      const historical = (await alice.get(comparisonPath).expect(200)).body;
+      assert.equal(historical.backcheck.current, false);
+      assert.equal(historical.backcheck.instanceId, 'second');
+      assert.equal(historical.summary.changed, 1);
+      assert.equal(historical.rows.find(row => row.path === '/age[1]').backcheck, '31');
+      await run(sql`UPDATE submission_defs SET xml = xml || ' ' WHERE id = ${historical.backcheck.submissionDefId}`);
+      const tampered = (await alice.get(comparisonPath).expect(200)).body;
+      assert.equal(tampered.unavailableReason, 'source-integrity');
+      assert.equal(tampered.rows, undefined);
+      assert.equal(tampered.backcheck.integrityStatus, 'mismatch');
+      await run(sql`UPDATE submissions SET "deletedAt" = now() WHERE "instanceId" = 'second'`);
+      await alice.get(comparisonPath).expect(404);
+      const detail = (await alice.get(`/v1/field-data/review-queue/${item.id}`).expect(200)).body;
+      assert.equal(detail.revision, Number(linked.headers.etag.match(/\d+/)[0]));
+      assert.equal(detail.status, 'in-review');
+      assert.equal(detail.decisions.length, 0);
     }));
 });
 
 describe('api: back-check cancellation', () => {
   it('retains cancellation history and permits a replacement without allowing a cancelled result',
     testService(async (service, { one }) => {
-      const { sql } = require('slonik');
       const alice = await service.login('alice');
       const chelsea = await service.login('chelsea');
       const appUser = (await alice.post('/v1/projects/1/app-users')
