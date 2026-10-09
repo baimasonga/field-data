@@ -470,11 +470,15 @@ jobs:
           get "cross-project Map"         "/v1/field-data/map?limit=1" || true
           # Containers roll over asynchronously and the dashboard caches probes
           # for 30 seconds. Give the new runtime time to replace its predecessor.
+          # get() marks failed=1 on every 503 while the new container boots;
+          # only the final outcome of this retry loop should count.
           webforms_ready=0
+          failed_before_webforms=$failed
           for attempt in {1..6}; do
             if get "native Web Forms health" "/v1/field-data/stats"; then
               if printf '%s' "$body" | jq -e '.systemStatus.enketo == true' >/dev/null; then
                 webforms_ready=1
+                failed=$failed_before_webforms
                 break
               fi
             fi
