@@ -13,7 +13,7 @@ const setup = async (page, { comparisonUnavailable = false, failComparison = fal
   const openWait = delayOpen ? new Promise(resolve => { releaseOpen = resolve; }) : null;
   let releaseMetrics;
   const metricsWait = delayMetrics ? new Promise(resolve => { releaseMetrics = resolve; }) : null;
-  const state = { mappingRevision: 0, mappingHistory: [], mappingRequests: [], mappingFailures: 0, mappingConflict: false, comparisonFailures: failComparison ? 1 : 0, comparisonRequests: 0, staleWrites: 0, conflictFailures: staleAssignment ? 1 : 0, status: 'open', assignedTo: null, revision: 1, backchecks: [], decisions: [], mutations: [], queueRequests: [], queueFailures: failQueue ? 1 : 0, assignmentFailures: failAssignment ? 1 : 0, metricsFailures: failMetrics ? 2 : 0 };
+  const state = { assets: [], assetHistory: [], assetTasks: [], assetWrites: [], assetFailures: 0, assetConflict: false, mappingRevision: 0, mappingHistory: [], mappingRequests: [], mappingFailures: 0, mappingConflict: false, comparisonFailures: failComparison ? 1 : 0, comparisonRequests: 0, staleWrites: 0, conflictFailures: staleAssignment ? 1 : 0, status: 'open', assignedTo: null, revision: 1, backchecks: [], decisions: [], mutations: [], queueRequests: [], queueFailures: failQueue ? 1 : 0, assignmentFailures: failAssignment ? 1 : 0, metricsFailures: failMetrics ? 2 : 0 };
   await page.addInitScript(() => localStorage.setItem('sessionExpires', String(Date.now() + 3600000)));
   await page.route('**/client-config.json', route => route.fulfill({ json: {} }));
   await page.route('**/version.txt', route => route.fulfill({ body: 'test' }));
@@ -46,6 +46,38 @@ const setup = async (page, { comparisonUnavailable = false, failComparison = fal
       averageResolutionSeconds: null, assignedCaseCount: 0,
       backchecks: { pending: state.backchecks.filter(b => b.status === 'requested').length, overdue: 0 },
       activeReasons: selected ? [{ reasonCode: 'provenance-degraded', count: 1 }] : [] });
+    }
+    const assetRoot = '/v1/field-data/projects/7/assets';
+    if (path.startsWith(assetRoot)) {
+      const asset = state.assets[0];
+      if (req.method() === 'GET' && path === assetRoot)
+        return respond({ items: state.assets, allowed: canOverride, nextCursor: null });
+      if (req.method() === 'GET') return respond({ asset, allowed: canOverride,
+        history: state.assetHistory, facts: state.assetHistory.length ? [state.assetHistory[0]] : [],
+        tasks: state.assetTasks, at: '2026-10-09T09:00:00Z', knownAt: '2026-10-09T09:00:00Z' });
+      const data = req.postDataJSON();
+      state.assetWrites.push({ path, data, headers: req.headers() });
+      if (state.assetFailures-- > 0) return route.fulfill({ status: 503, json: { message: 'Retry asset' } });
+      if (path === assetRoot) {
+        expect(data.xmlFormId).toBe('health');
+        state.assets.push({ id: '55555555-5555-4555-8555-555555555555', ...data, revision: 1 });
+        return respond(state.assets[0]);
+      }
+      if (path.endsWith('/observations')) {
+        expect(req.headers()['if-match']).toBe(`"asset-${asset.revision}"`);
+        if (state.assetConflict) { state.assetConflict = false; asset.revision += 1; return route.fulfill({ status: 412, json: { message: 'Stale' } }); }
+        asset.revision += 1;
+        state.assetHistory.unshift({ id: data.requestId, ...data, actorId: 1, recordedAt: '2026-10-09T08:00:00Z',
+          integrityStatus: 'verified', sourceUrl: `/v1/field-data/claim-versions/${versionId}`,
+          freshness: { status: 'expired', dueAt: '2026-01-11T00:00:00Z', expiresAt: '2026-01-13T00:00:00Z',
+            limitations: 'Supervisor-defined age policy; no confidence or verification of field conditions.' } });
+        return respond({ id: data.requestId, revision: asset.revision });
+      }
+      if (path.endsWith('/refresh')) {
+        const generated = state.assetTasks.length ? 0 : 1;
+        if (generated) state.assetTasks.push({ id: 'task-1', predicate: 'condition', status: 'queued', dueAt: '2026-01-11T00:00:00Z' });
+        return respond({ generated });
+      }
     }
     if (path === '/v1/field-data/review-queue') {
       state.queueRequests.push(Object.fromEntries(url.searchParams));
@@ -515,5 +547,81 @@ test('mapping conflict requires reload before another save', async ({ page }) =>
   await expect(comparison.getByRole('alert')).toContainText('Another supervisor changed this mapping');
   await page.getByRole('button', { name: 'Compare answers', exact: true }).click();
   await expect(comparison).toContainText('Field mapping revision: 1');
+  expect(errors).toEqual([]);
+});
+
+
+test('asset passport registration, dated evidence, task generation and mobile history', async ({ page }) => {
+  const { state, errors } = await setup(page, { canOverride: true });
+  await openInspection(page);
+  await page.getByRole('button', { name: 'Use as asset observation source' }).click();
+  const assets = page.getByRole('region', { name: 'Asset passports and re-verification' });
+  await assets.getByRole('button', { name: 'Load assets', exact: true }).click();
+  await expect(assets).toContainText('No accessible assets');
+  await assets.getByText('Register physical asset', { exact: true }).click();
+  await assets.getByLabel('Asset name', { exact: true }).fill('Water point');
+  await assets.getByLabel('Asset type', { exact: true }).fill('water-point');
+  await assets.getByLabel('External asset identifier').fill('WP-01');
+  await assets.getByRole('button', { name: 'Register asset', exact: true }).click();
+  await expect(assets.getByRole('heading', { name: 'Water point · WP-01' })).toBeVisible();
+  await assets.getByText('Record asset observation', { exact: true }).click();
+  await expect(assets.getByLabel('Source claim version ID')).toHaveValue(versionId);
+  await assets.getByLabel('Fact / predicate').fill('condition');
+  await assets.getByLabel('Observed value').fill('<img src=x onerror=alert(1)>');
+  await assets.getByLabel('Valid from (ISO date and time)').fill('2026-01-01T00:00:00Z');
+  await assets.getByLabel('Validity in days').fill('10');
+  await assets.getByLabel('Grace period in days').fill('2');
+  await assets.getByLabel('Observation reason').fill('Recorded from inspected source.');
+  state.assetFailures = 1;
+  await assets.getByRole('button', { name: 'Save observation' }).click();
+  await expect(assets.getByRole('alert')).toContainText('Asset request failed');
+  await assets.getByRole('button', { name: 'Save observation' }).click();
+  await expect(assets).toContainText('expired');
+  expect(state.assetWrites[1].data.requestId).toBe(state.assetWrites[2].data.requestId);
+  await expect(assets.locator('img')).toHaveCount(0);
+  await assets.getByRole('button', { name: 'Generate due re-verification tasks' }).click();
+  await expect(assets).toContainText('Generated 1 new re-verification tasks.');
+  await assets.getByRole('button', { name: 'Generate due re-verification tasks' }).click();
+  await expect(assets).toContainText('Generated 0 new re-verification tasks.');
+  await assets.getByText('Observation history', { exact: true }).click();
+  await expect(assets).toContainText('Recorded from inspected source.');
+  await page.setViewportSize({ width: 320, height: 720 });
+  await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= 320)).toBe(true);
+  expect(state.decisions).toEqual([]);
+  expect(errors).toEqual([]);
+});
+
+test('asset viewers cannot register or write observations', async ({ page }) => {
+  const { state, errors } = await setup(page, { readOnly: true });
+  state.assets.push({ id: '55555555-5555-4555-8555-555555555555', name: 'Water point', externalId: 'WP-01', assetType: 'water-point', revision: 1 });
+  const assets = page.getByRole('region', { name: 'Asset passports and re-verification' });
+  await assets.getByRole('button', { name: 'Load assets', exact: true }).click();
+  await expect(assets.getByText('Register physical asset', { exact: true })).toHaveCount(0);
+  await assets.getByLabel('Asset', { exact: true }).selectOption(state.assets[0].id);
+  await expect(assets.getByText('Record asset observation', { exact: true })).toHaveCount(0);
+  await expect(assets.getByRole('button', { name: 'Generate due re-verification tasks' })).toHaveCount(0);
+  expect(state.assetWrites).toEqual([]);
+  expect(errors).toEqual([]);
+});
+
+
+test('asset stale-write recovery reloads the current revision before another observation', async ({ page }) => {
+  const { state, errors } = await setup(page, { canOverride: true });
+  state.assets.push({ id: '55555555-5555-4555-8555-555555555555', name: 'Water point', externalId: 'WP-01', assetType: 'water-point', revision: 1 });
+  state.assetConflict = true;
+  const assets = page.getByRole('region', { name: 'Asset passports and re-verification' });
+  await assets.getByRole('button', { name: 'Load assets', exact: true }).click();
+  await assets.getByLabel('Asset', { exact: true }).selectOption(state.assets[0].id);
+  await assets.getByText('Record asset observation', { exact: true }).click();
+  await assets.getByLabel('Source claim version ID').fill(versionId);
+  await assets.getByLabel('Fact / predicate').fill('condition');
+  await assets.getByLabel('Observed value').fill('operating');
+  await assets.getByLabel('Valid from (ISO date and time)').fill('2026-01-01T00:00:00Z');
+  await assets.getByLabel('Observation reason').fill('Recorded source.');
+  await assets.getByRole('button', { name: 'Save observation' }).click();
+  await expect(assets.getByRole('alert')).toContainText('Another supervisor changed this asset');
+  await assets.getByRole('button', { name: 'Query dated facts' }).click();
+  await expect(assets).toContainText('Revision 2');
+  expect(state.assetHistory).toEqual([]);
   expect(errors).toEqual([]);
 });

@@ -47,6 +47,7 @@
           </p>
           <template v-else-if="inspections[item.id]">
             <h3>Claim provenance</h3>
+            <button type="button" class="btn btn-default" @click="emit('asset-source', item.claimVersionId)">Use as asset observation source</button>
             <dl v-if="inspections[item.id].claim.provenance">
               <dt>Origin</dt><dd>{{ inspections[item.id].claim.provenance.origin }}</dd>
               <dt>Captured</dt><dd>{{ inspections[item.id].claim.provenance.capturedAt || 'Unknown' }}</dd>
@@ -259,6 +260,7 @@ import SubmissionReviewMetrics from './review-metrics.vue';
 import SubmissionBackcheckComparison from './backcheck-comparison.vue';
 
 defineOptions({ name: 'SubmissionReviewQueue' });
+const emit = defineEmits(['asset-source']);
 const props = defineProps({
   projectId: { type: String, required: true },
   xmlFormId: { type: String, required: true },

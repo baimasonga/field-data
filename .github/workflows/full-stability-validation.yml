@@ -207,6 +207,7 @@ jobs:
               test/integration/api/field-data-idempotency.js \
               test/integration/api/field-data-reviews.js \
               test/integration/api/field-data-backchecks.js \
+              test/integration/api/field-data-assets.js \
               test/integration/api/field-data-app-user-backchecks.js
 
   server-integration-report:
