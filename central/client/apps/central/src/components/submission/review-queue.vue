@@ -165,13 +165,15 @@ The assigned App User collects a second submission of this form in ODK Collect,
                 @click="recordDecision(item, 'needs-evidence')">
                 Record needs evidence
               </button>
-              <button type="button" class="btn btn-default"
+              <button v-if="!inspections[item.id].reversalRequired" type="button"
+                class="btn btn-default"
                 :disabled="!notes[item.id]?.trim() || assigning === item.id || !item.claim.current
                   || inspections[item.id].backchecks.some(b => b.status === 'requested')"
                 @click="recordDecision(item, 'accepted')">
                 Accept claim
               </button>
-              <button type="button" class="btn btn-default"
+              <button v-if="!inspections[item.id].reversalRequired" type="button"
+                class="btn btn-default"
                 :disabled="!notes[item.id]?.trim() || assigning === item.id || !item.claim.current
                   || inspections[item.id].backchecks.some(b => b.status === 'requested')"
                 @click="recordDecision(item, 'rejected')">
@@ -181,7 +183,7 @@ The assigned App User collects a second submission of this form in ODK Collect,
                 Link the pending back-check before accepting or rejecting this claim.
               </p>
               <p>Acceptance requires verified linked evidence, intact provenance and no unresolved findings.</p>
-              <template v-if="inspections[item.id].overridePolicy?.allowed">
+              <template v-if="inspections[item.id].overridePolicy?.allowed && !inspections[item.id].reversalRequired">
                 <p>
 Supervisor acceptance overrides provenance limitations or unresolved findings.
                   Explain your verification in the decision reason. Verified evidence is still required.
@@ -193,6 +195,34 @@ Supervisor acceptance overrides provenance limitations or unresolved findings.
                   Accept with supervisor override
                 </button>
               </template>
+              <template v-if="inspections[item.id].reversalRequired">
+                <p>This reopened case requires a supervisor to replace the earlier terminal decision.</p>
+                <template v-if="inspections[item.id].overridePolicy?.allowed">
+                  <p>
+Replacement acceptance may override provenance limitations or unresolved findings.
+                    Explain your verification in the decision reason. Verified evidence is still required.
+</p>
+                  <button v-for="outcome of ['accepted', 'rejected']" :key="outcome"
+                    type="button" class="btn btn-default"
+                    :disabled="!notes[item.id]?.trim() || assigning === item.id || !item.claim.current
+                      || inspections[item.id].backchecks.some(b => b.status === 'requested')"
+                    @click="recordDecision(item, outcome, true, 'reconsidered-decision')">
+                    {{ outcome === 'accepted' ? 'Replace decision with acceptance' : 'Replace decision with rejection' }}
+                  </button>
+                </template>
+              </template>
+            </div>
+            <div v-if="canReview && status === 'resolved' && item.claim.current
+              && inspections[item.id].overridePolicy?.allowed">
+              <p>Reopen this case for review. Earlier decisions remain in its history.</p>
+              <label :for="`reopen-note-${item.id}`">Reason for reopening</label>
+              <textarea :id="`reopen-note-${item.id}`" v-model="notes[item.id]"
+                class="form-control" maxlength="4000"></textarea>
+              <button type="button" class="btn btn-default"
+                :disabled="!notes[item.id]?.trim() || assigning === item.id"
+                @click="recordDecision(item, 'needs-evidence', true, 'reopen-for-review')">
+                Reopen for review
+              </button>
             </div>
           </template>
         </details>
@@ -294,6 +324,7 @@ const inspect = async (event, item) => {
       claim: detail.data.claim,
       decisions: detail.data.decisions,
       overridePolicy: detail.data.overridePolicy,
+      reversalRequired: detail.data.reversalRequired,
       evidence: evidence.data.items,
       backchecks: backchecks.data,
       assignees: assignees.data
@@ -370,9 +401,9 @@ const linkBackcheck = async (item, backcheck) => {
     assigning.value = null;
   }
 };
-const recordDecision = async (item, outcome, override = false) => {
+const recordDecision = async (item, outcome, override = false, overrideReason = 'verified-by-supervisor') => {
   const data = {
-    outcome, override, reasonCode: override ? 'verified-by-supervisor'
+    outcome, override, reasonCode: override ? overrideReason
       : selectedReasons.value[item.id] || item.reasonCodes[0],
     note: notes.value[item.id].trim(), evidenceIds: [], integrityFindingIds: []
   };

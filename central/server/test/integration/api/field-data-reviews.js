@@ -168,6 +168,173 @@ describe('api: review workload metrics', () => {
 /* eslint-enable no-await-in-loop */
 
 describe('api: P0.5 review case detail', () => {
+  it('rolls back reopening if its audit fails and safely retries the same operation',
+    testServiceFullTrx(async (service, { run, one }) => {
+      const alice = await service.login('alice');
+      const actorId = (await alice.get('/v1/users/current').expect(200)).body.id;
+      await alice.post('/v1/projects/1/forms/simple/submissions')
+        .send(testData.instances.simple.one).set('Content-Type', 'application/xml').expect(200);
+      const item = (await alice.get('/v1/field-data/review-queue?projectId=1&xmlFormId=simple')
+        .expect(200)).body.items[0];
+      const path = `/v1/field-data/review-queue/${item.id}`;
+      const assigned = await alice.patch(`${path}/assignment`).set('If-Match', item.etag)
+        .set('Idempotency-Key', 'audit-reopen-take').send({ assignedTo: actorId, status: 'in-review' })
+        .expect(200);
+      const base = { outcome: 'rejected', override: false, reasonCode: item.reasonCodes[0],
+        note: 'Original assessment.', evidenceIds: [], integrityFindingIds: [] };
+      const closed = await alice.post(`${path}/decisions`).set('If-Match', assigned.headers.etag)
+        .set('Idempotency-Key', 'audit-original').send(base)
+        .expect(201);
+      const body = { ...base, outcome: 'needs-evidence', override: true,
+        reasonCode: 'reopen-for-review', note: 'Review new information.' };
+      const reopen = () => alice.post(`${path}/decisions`).set('If-Match', closed.headers.etag)
+        .set('Idempotency-Key', 'audit-blocked-reopen').send(body);
+      await run(sql`CREATE FUNCTION field_data_test_reopen_audit_failure() RETURNS trigger
+        LANGUAGE plpgsql AS $$ BEGIN
+          IF NEW.action = 'field_data.review.case.decide'
+            AND NEW.details->>'reasonCode' = 'reopen-for-review' THEN
+            RAISE EXCEPTION 'Simulated reopen audit failure';
+          END IF;
+          RETURN NEW;
+        END $$`);
+      await run(sql`CREATE TRIGGER field_data_test_reopen_audit_failure
+        BEFORE INSERT ON audits FOR EACH ROW EXECUTE FUNCTION field_data_test_reopen_audit_failure()`);
+      try {
+        await reopen().expect(500);
+        const detail = (await alice.get(path).expect(200)).body;
+        assert.equal(detail.status, 'resolved');
+        assert.equal(detail.revision, closed.body.revision);
+        assert.equal(detail.decisions.length, 1);
+        assert.equal((await one(sql`SELECT count(*)::integer AS count FROM field_data_idempotency_records
+          WHERE "idempotencyKey" = 'audit-blocked-reopen'`)).count, 0);
+      } finally {
+        await run(sql`DROP TRIGGER field_data_test_reopen_audit_failure ON audits`);
+        await run(sql`DROP FUNCTION field_data_test_reopen_audit_failure()`);
+      }
+      await reopen().expect(201);
+      const replay = await reopen().expect(201);
+      assert.equal(replay.headers['idempotency-status'], 'replayed');
+      assert.equal((await alice.get(path).expect(200)).body.decisions.length, 2);
+    }));
+
+  it('reopens and replaces a terminal decision with an immutable supervisor chain',
+    testServiceFullTrx(async (service, { one, run }) => {
+      const alice = await service.login('alice');
+      const actorId = (await alice.get('/v1/users/current').expect(200)).body.id;
+      await alice.post('/v1/projects/1/forms/simple/submissions')
+        .send(testData.instances.simple.one).set('Content-Type', 'application/xml').expect(200);
+      const item = (await alice.get('/v1/field-data/review-queue?projectId=1&xmlFormId=simple')
+        .expect(200)).body.items[0];
+      const path = `/v1/field-data/review-queue/${item.id}`;
+      const take = (etag, key) => alice.patch(`${path}/assignment`).set('If-Match', etag)
+        .set('Idempotency-Key', key).send({ assignedTo: actorId, status: 'in-review' });
+      const decide = (etag, key, body) => alice.post(`${path}/decisions`).set('If-Match', etag)
+        .set('Idempotency-Key', key).send(body);
+      const base = { outcome: 'rejected', override: false, reasonCode: item.reasonCodes[0],
+        note: 'Original assessment.', evidenceIds: [], integrityFindingIds: [] };
+      const assigned = await take(item.etag, 'reversal-take').expect(200);
+      const original = await decide(assigned.headers.etag, 'original-decision', base).expect(201);
+      const originalDetail = (await alice.get(path).expect(200)).body.decisions[0];
+      const reopening = { ...base, outcome: 'needs-evidence', override: true,
+        reasonCode: 'reopen-for-review', note: 'New field information warrants another review.' };
+      await decide(original.headers.etag, 'empty-reopen', { ...reopening, note: ' ' }).expect(400);
+      await decide(assigned.headers.etag, 'stale-reopen', reopening).expect(412);
+      const reopened = await decide(original.headers.etag, 'reopen-decision', reopening).expect(201);
+      assert.equal(reopened.body.status, 'open');
+      const reopenedDetail = (await alice.get(path).expect(200)).body;
+      assert.equal(reopenedDetail.resolvedAt, null);
+      assert.equal(reopenedDetail.assignedTo, null);
+      assert.equal(reopenedDetail.reversalRequired, true);
+      assert.equal(reopenedDetail.decisions[1].previousDecisionId, original.body.id);
+      const replay = await decide(original.headers.etag, 'reopen-decision', reopening).expect(201);
+      assert.equal(replay.body.id, reopened.body.id);
+      assert.equal(replay.headers['idempotency-status'], 'replayed');
+      await decide(original.headers.etag, 'reopen-decision', { ...reopening, note: 'Changed.' }).expect(409);
+      await decide(reopened.headers.etag, 'duplicate-reopen', reopening).expect(409);
+      const reassigned = await take(reopened.headers.etag, 'reversal-retake').expect(200);
+      await decide(reassigned.headers.etag, 'ordinary-reversal', { ...base, outcome: 'accepted' }).expect(400);
+      await decide(reassigned.headers.etag, 'bypass-reversal', { ...base, outcome: 'accepted',
+        override: true, reasonCode: 'verified-by-supervisor' }).expect(400);
+      const replacement = { ...base, outcome: 'accepted', override: true,
+        reasonCode: 'reconsidered-decision', note: 'Verified originals and the new field explanation.' };
+      await run(sql`UPDATE submission_defs SET xml = xml || ' '
+        WHERE id = (SELECT "submissionDefId" FROM field_data_claim_versions WHERE id = ${item.claimVersionId})`);
+      await decide(reassigned.headers.etag, 'mismatch-reversal', replacement).expect(422);
+      await run(sql`UPDATE submission_defs SET xml = left(xml, length(xml) - 1)
+        WHERE id = (SELECT "submissionDefId" FROM field_data_claim_versions WHERE id = ${item.claimVersionId})`);
+      const replaced = await decide(reassigned.headers.etag, 'replacement-decision', replacement).expect(201);
+      await decide(reassigned.headers.etag, 'replacement-decision', replacement).expect(201);
+      const detail = (await alice.get(path).expect(200)).body;
+      assert.equal(detail.status, 'resolved');
+      assert.equal(detail.revision, 6);
+      assert.deepEqual(detail.decisions[0], originalDetail);
+      assert.deepEqual(detail.decisions.map(d => d.sequence), [1, 2, 3]);
+      assert.deepEqual(detail.decisions.map(d => d.outcome), ['rejected', 'needs-evidence', 'accepted']);
+      assert.equal(detail.decisions[2].previousDecisionId, reopened.body.id);
+      assert.equal(detail.decisions[2].override, true);
+      assert.equal(detail.decisions[2].evidenceSnapshot[0].integrityStatus, 'verified');
+      const audit = await one(sql`SELECT details FROM audits WHERE action = 'field_data.review.case.decide'
+        AND details->>'decisionId' = ${replaced.body.id}`);
+      assert.equal(audit.details.previousTerminalDecisionId, original.body.id);
+      assert.equal(audit.details.previousDecisionId, reopened.body.id);
+      assert.ok(audit.details.overrideContext.provenanceDegraded);
+      assert.equal((await one(sql`SELECT count(*)::integer AS count FROM audits
+        WHERE action = 'field_data.review.case.decide'`)).count, 3);
+      const secondReopen = await decide(replaced.headers.etag, 'second-reopen', reopening).expect(201);
+      const secondTake = await take(secondReopen.headers.etag, 'second-retake').expect(200);
+      await decide(secondTake.headers.etag, 'second-replacement', { ...replacement,
+        outcome: 'rejected', note: 'Further verification changes the assessment.' }).expect(201);
+      const final = (await alice.get(path).expect(200)).body;
+      assert.equal(final.revision, 9);
+      assert.deepEqual(final.decisions.map(d => d.outcome),
+        ['rejected', 'needs-evidence', 'accepted', 'needs-evidence', 'rejected']);
+      assert.deepEqual(final.decisions[0], originalDetail);
+      assert.equal(final.decisions[4].previousDecisionId, secondReopen.body.id);
+      await assert.rejects(run(sql`DELETE FROM field_data_review_decisions WHERE id = ${original.body.id}`),
+        /Review decisions are append-only/);
+    }));
+
+  it('requires project management to reopen and refuses obsolete claim versions',
+    testService(async (service, { run }) => {
+      const alice = await service.login('alice');
+      const chelsea = await service.login('chelsea');
+      const actorId = (await alice.get('/v1/users/current').expect(200)).body.id;
+      const reviewerId = (await chelsea.get('/v1/users/current').expect(200)).body.id;
+      await alice.post(`/v1/projects/1/assignments/viewer/${reviewerId}`).expect(200);
+      await run(sql`UPDATE roles SET verbs = verbs || '["submission.update"]'::jsonb WHERE system = 'viewer'`);
+      await alice.post('/v1/projects/1/forms/simple/submissions')
+        .send(testData.instances.simple.one).set('Content-Type', 'application/xml').expect(200);
+      const item = (await alice.get('/v1/field-data/review-queue?projectId=1&xmlFormId=simple')
+        .expect(200)).body.items[0];
+      const path = `/v1/field-data/review-queue/${item.id}`;
+      const assigned = await alice.patch(`${path}/assignment`).set('If-Match', item.etag)
+        .set('Idempotency-Key', 'closed-take').send({ assignedTo: actorId, status: 'in-review' })
+        .expect(200);
+      const base = { outcome: 'rejected', override: false, reasonCode: item.reasonCodes[0],
+        note: 'Original assessment.', evidenceIds: [], integrityFindingIds: [] };
+      const closed = await alice.post(`${path}/decisions`).set('If-Match', assigned.headers.etag)
+        .set('Idempotency-Key', 'closed-decision').send(base)
+        .expect(201);
+      const body = { ...base, outcome: 'needs-evidence', override: true,
+        reasonCode: 'reopen-for-review', note: 'Reconsider.' };
+      await chelsea.post(`${path}/decisions`).set('If-Match', closed.headers.etag)
+        .set('Idempotency-Key', 'denied-reopen').send(body)
+        .expect(403);
+      await alice.post(`${path}/decisions`).set('If-Match', closed.headers.etag)
+        .set('Idempotency-Key', 'ordinary-reopen').send({ ...base, outcome: 'needs-evidence' })
+        .expect(409);
+      await alice.put('/v1/projects/1/forms/simple/submissions/one')
+        .send(testData.instances.simple.one.replace('one</instance',
+          'two</instanceID><deprecatedID>one</deprecated'))
+        .set('Content-Type', 'application/xml').expect(200);
+      await alice.post(`${path}/decisions`).set('If-Match', closed.headers.etag)
+        .set('Idempotency-Key', 'obsolete-reopen').send(body)
+        .expect(409);
+      const detail = (await alice.get(path).expect(200)).body;
+      assert.equal(detail.status, 'resolved');
+      assert.equal(detail.decisions.length, 1);
+    }));
+
   it('audits supervisor acceptance, preserves limitations and protects retries',
     testService(async (service, { one, run }) => {
       const alice = await service.login('alice');

@@ -55,7 +55,7 @@ const setup = async (page, { staleAssignment = false, canOverride = false, readO
       return respond({ items: matches ? [{ id: caseId, claimVersionId: versionId, revision: state.revision, status: state.status, priority: 'normal', reasonCodes: ['missing-evidence', 'provenance-degraded'], assignedTo: state.assignedTo, claim: { ordinal: 1, current: true, rootInstanceId: 'uuid:original' }, etag: etag(state.revision) }] : [], nextCursor: null });
     }
     if (path === `/v1/field-data/claim-versions/${versionId}/evidence`) return respond({ items: [{ id: 'evidence-1', sourceKind: 'submission-xml', integrityStatus: 'verified', downloadUrl: '/v1/field-data/evidence/evidence-1/content' }], nextCursor: null });
-    if (path === `/v1/field-data/review-queue/${caseId}`) return respond({ claim: { id: versionId, provenance: { origin: 'collected', capturedAt: '2026-10-03T09:00:00Z', receivedAt: '2026-10-03T10:00:00Z', integrityHash: 'abcdef', degraded: null }, degraded: null }, decisions: state.decisions, overridePolicy: { allowed: canOverride, reasonCodes: canOverride ? ['verified-by-supervisor'] : [] } });
+    if (path === `/v1/field-data/review-queue/${caseId}`) return respond({ claim: { id: versionId, provenance: { origin: 'collected', capturedAt: '2026-10-03T09:00:00Z', receivedAt: '2026-10-03T10:00:00Z', integrityHash: 'abcdef', degraded: null }, degraded: null }, decisions: state.decisions, reversalRequired: state.decisions.some(d => ['accepted', 'rejected'].includes(d.outcome)), overridePolicy: { allowed: canOverride, reasonCodes: canOverride ? ['verified-by-supervisor'] : [] } });
     if (path.endsWith('/backcheck-assignees')) return respond([{ id: 42, name: 'Second collector' }, { id: 43, name: 'Replacement collector' }]);
     if (req.method() === 'GET' && path.endsWith('/backchecks')) return respond(state.backchecks);
     if (['POST', 'PATCH'].includes(req.method())) {
@@ -85,8 +85,9 @@ const setup = async (page, { staleAssignment = false, canOverride = false, readO
         state.backchecks[0] = { ...state.backchecks[0], status: 'linked', responseInstanceId: data.instanceId, responseCapturedAt: null, responseDegraded: { capturedAt: 'unknown' } };
       } else if (path.endsWith('/decisions')) {
         expect(data.override).toBe(canOverride);
-        state.decisions.push({ id: 'decision-1', override: data.override, outcome: data.outcome, reasonCode: data.reasonCode, note: data.note, reviewerId: 1, createdAt: '2026-10-03T11:00:00Z' });
+        state.decisions.push({ id: `decision-${state.decisions.length + 1}`, override: data.override, outcome: data.outcome, reasonCode: data.reasonCode, note: data.note, reviewerId: 1, createdAt: '2026-10-03T11:00:00Z' });
         state.status = data.outcome === 'needs-evidence' ? 'open' : 'resolved';
+        state.assignedTo = null;
       } else throw new Error(`Unexpected mutation: ${path}`);
       state.revision += 1;
       return respond({ revision: state.revision }, state.revision);
@@ -310,4 +311,53 @@ test('stale assignment refreshes revision and form conflict totals before retry'
   await page.locator('#review-form').selectOption('nutrition');
   await expect(metrics).toContainText('Stale write conflicts: 0');
   await expect(metrics).toContainText('No stale write conflicts recorded.');
+});
+
+
+test('supervisor reopens a resolved case and replaces its decision without erasing history', async ({ page }) => {
+  const { state, errors } = await setup(page, { canOverride: true });
+  await page.getByRole('button', { name: 'Assign to me' }).click();
+  await page.getByRole('button', { name: 'In review', exact: true }).click();
+  await openInspection(page);
+  await page.getByLabel('Decision reason', { exact: true }).fill('Initial supervisor assessment.');
+  await page.getByRole('button', { name: 'Accept with supervisor override' }).click();
+  await page.getByRole('button', { name: 'Resolved', exact: true }).click();
+  await openInspection(page);
+  const reopen = page.getByRole('button', { name: 'Reopen for review', exact: true });
+  await expect(reopen).toBeDisabled();
+  await page.getByLabel('Reason for reopening').fill('New field information requires review.');
+  await reopen.click();
+  await expect.poll(() => state.status).toBe('open');
+  await page.getByRole('button', { name: 'Open', exact: true }).click();
+  await page.getByRole('button', { name: 'Assign to me' }).click();
+  await page.getByRole('button', { name: 'In review', exact: true }).click();
+  await openInspection(page);
+  await expect(page.getByRole('button', { name: 'Accept claim', exact: true })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Reject claim', exact: true })).toHaveCount(0);
+  await page.getByLabel('Decision reason', { exact: true }).fill('Original decision corrected after verification.');
+  await page.getByRole('button', { name: 'Replace decision with rejection' }).click();
+  await page.getByRole('button', { name: 'Resolved', exact: true }).click();
+  await openInspection(page);
+  expect(state.decisions.map(d => d.outcome)).toEqual(['accepted', 'needs-evidence', 'rejected']);
+  await expect(page.getByText(/accepted · verified-by-supervisor/)).toBeVisible();
+  await expect(page.getByText(/needs-evidence · reopen-for-review/)).toBeVisible();
+  await expect(page.getByText(/rejected · reconsidered-decision/)).toBeVisible();
+  expect(state.mutations.map(m => m.headers['if-match'])).toEqual([etag(1), etag(2), etag(3), etag(4), etag(5)]);
+  expect(errors).toEqual([]);
+});
+
+
+test('ordinary reviewers cannot replace the terminal decision of a reopened case', async ({ page }) => {
+  const { state } = await setup(page);
+  state.decisions.push({ id: 'prior-decision', outcome: 'rejected', override: false,
+    reasonCode: 'provenance-degraded', note: 'Original decision.', reviewerId: 1 });
+  state.status = 'in-review';
+  state.assignedTo = 1;
+  await page.getByRole('button', { name: 'In review', exact: true }).click();
+  await openInspection(page);
+  await expect(page.getByText('This reopened case requires a supervisor to replace the earlier terminal decision.')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Accept claim', exact: true })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Reject claim', exact: true })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Replace decision with rejection' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Reopen for review', exact: true })).toHaveCount(0);
 });
