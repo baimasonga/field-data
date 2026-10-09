@@ -4,7 +4,7 @@
 require('should');
 const { strict: assert } = require('assert');
 const { sql } = require('slonik');
-const { testService } = require('../setup');
+const { testService, testServiceFullTrx } = require('../setup');
 const testData = require('../../data/xml');
 
 describe('api: case back-check requests', () => {
@@ -170,13 +170,13 @@ describe('api: back-check cancellation', () => {
 
 describe('api: dedicated back-check forms', () => {
   it('pins a published response form, scopes collectors and links only that form',
-    testService(async (service) => {
+    testServiceFullTrx(async (service, { one, run }) => {
       const alice = await service.login('alice');
       const chelsea = await service.login('chelsea');
       const viewerId = (await chelsea.get('/v1/users/current').expect(200)).body.id;
       await alice.post(`/v1/projects/1/forms/simple/assignments/viewer/${viewerId}`).expect(200);
       await alice.post('/v1/projects/1/forms?publish=true&ignoreWarnings=true')
-        .set('Content-Type', 'application/xml').send(testData.forms.simple2).expect(200);
+        .set('Content-Type', 'application/xml').send(testData.forms.simple2.replaceAll('age', 'verified_age')).expect(200);
       const checker = (await alice.post('/v1/projects/1/app-users')
         .send({ displayName: 'Dedicated checker' }).expect(200)).body;
       await alice.post(`/v1/projects/1/forms/simple2/assignments/app-user/${checker.id}`).expect(200);
@@ -209,10 +209,10 @@ describe('api: dedicated back-check forms', () => {
       await alice.post(`${base}/backchecks`).set('If-Match', created.headers.etag)
         .send({ ...body, responseXmlFormId: 'simple' }).expect(400);
       await service.post(`/v1/key/${checker.token}/projects/1/forms/simple2/submissions`)
-        .set('Content-Type', 'application/xml').send(testData.instances.simple2.one).expect(200);
+        .set('Content-Type', 'application/xml').send(testData.instances.simple2.one.replaceAll('age', 'verified_age').replace('>30<', '>31<')).expect(200);
       const link = `${base}/backchecks/${created.body.id}/link`;
       await alice.post(link).set('If-Match', created.headers.etag).send({ instanceId: 'one' }).expect(400);
-      await alice.post(link).set('If-Match', created.headers.etag).send({ instanceId: 's2one' }).expect(200);
+      const linked = await alice.post(link).set('If-Match', created.headers.etag).send({ instanceId: 's2one' }).expect(200);
       const listed = (await alice.get(`${base}/backchecks`).expect(200)).body;
       assert.equal(listed[0].responseXmlFormId, 'simple2');
       const comparison = (await alice.get(`${base}/backchecks/${created.body.id}/comparison`).expect(200)).body;
@@ -225,5 +225,68 @@ describe('api: dedicated back-check forms', () => {
       await alice.post(`/v1/projects/1/forms/simple2/assignments/viewer/${viewerId}`).expect(200);
       await chelsea.get(`${base}/backchecks`).expect(200);
       await chelsea.get(`${base}/backchecks/${created.body.id}/comparison`).expect(200);
+      const comparePath = `${base}/backchecks/${created.body.id}/comparison`;
+      const mappingPath = `${base}/backchecks/${created.body.id}/mapping`;
+      assert.equal(comparison.comparisonMode, 'unmapped');
+      assert.equal(comparison.summary.same, 0);
+      assert.equal(comparison.summary.unmappedOriginal, 2);
+      assert.equal(comparison.summary.unmappedBackcheck, 2);
+      assert.equal((await chelsea.get(comparePath).expect(200)).body.mapping.allowed, false);
+      const mapping = { requestId: '00000000-0000-4000-8000-000000000031', note: 'Age questions are equivalent.',
+        pairs: [{ originalPath: '/age[1]', backcheckPath: '/verified_age[1]', label: 'Age' }] };
+      await chelsea.post(mappingPath).set('If-Match', comparison.mapping.etag).send(mapping).expect(403);
+      await alice.post(mappingPath).send(mapping).expect(428);
+      await alice.post(mappingPath).set('If-Match', '"review-case-1"').send(mapping).expect(400);
+      await Promise.all([[...mapping.pairs, ...mapping.pairs],
+        [{ ...mapping.pairs[0], originalPath: '/meta[1]/instanceID[1]' }],
+        [{ ...mapping.pairs[0], originalPath: '/none[1]', backcheckPath: '/none[1]' }],
+        [{ ...mapping.pairs[0], backcheckPath: '/verified_age[*]' }]].map(pairs =>
+        alice.post(mappingPath).set('If-Match', comparison.mapping.etag).send({ ...mapping, pairs }).expect(400)));
+      const saved = await alice.post(mappingPath).set('If-Match', comparison.mapping.etag).send(mapping).expect(201);
+      assert.equal(saved.headers.etag, '"backcheck-mapping-1"');
+      const mappingReplay = await alice.post(mappingPath).set('If-Match', comparison.mapping.etag).send(mapping).expect(201);
+      assert.equal(mappingReplay.headers['idempotency-status'], 'replayed');
+      await alice.post(mappingPath).set('If-Match', saved.headers.etag).send({ ...mapping, note: 'Changed retry.' }).expect(400);
+      const next = { ...mapping, requestId: '00000000-0000-4000-8000-000000000032',
+        note: 'Include a question missing from the response.', pairs: [...mapping.pairs,
+          { originalPath: '/name[1]', backcheckPath: '/absent[1]', label: 'Respondent' }] };
+      await alice.post(mappingPath).set('If-Match', comparison.mapping.etag).send(next).expect(412);
+      await alice.post(mappingPath).set('If-Match', saved.headers.etag).send(next).expect(201);
+      const mapped = (await chelsea.get(comparePath).expect(200)).body;
+      assert.equal(mapped.comparisonMode, 'mapped');
+      assert.equal(mapped.mapping.revision, 2);
+      assert.equal(mapped.mapping.history.length, 2);
+      assert.deepEqual(mapped.mapping.history[1].pairs, mapping.pairs);
+      assert.equal(mapped.rows[0].originalPath, '/age[1]');
+      assert.equal(mapped.rows[0].backcheckPath, '/verified_age[1]');
+      assert.equal(mapped.summary.changed, 1);
+      assert.equal(mapped.summary.missingBackcheck, 1);
+      assert.equal(mapped.mapping.history[0].originalSubmissionDefId, mapped.original.submissionDefId);
+      assert.equal(mapped.mapping.history[0].backcheckHash, mapped.backcheck.provenance.integrityHash);
+      assert.equal(mapped.summary.unmappedBackcheck, 1);
+      const audits = await one(sql`SELECT count(*)::integer AS count FROM audits
+        WHERE action = 'field_data.backcheck.mapping'`);
+      assert.equal(audits.count, 2);
+      const detail = (await alice.get(base).expect(200)).body;
+      assert.equal(detail.revision, Number(linked.headers.etag.match(/\d+/)[0]));
+      assert.equal(detail.status, 'in-review');
+      assert.equal(detail.decisions.length, 0);
+      // Replays remain idempotent after later revisions, without restoring old mappings.
+      await alice.post(mappingPath).set('If-Match', comparison.mapping.etag).send(mapping).expect(201);
+      assert.equal((await alice.get(comparePath).expect(200)).body.mapping.revision, 2);
+      const competing = await Promise.all(['00000000-0000-4000-8000-000000000034',
+        '00000000-0000-4000-8000-000000000035'].map(requestId => alice.post(mappingPath)
+        .set('If-Match', mapped.mapping.etag).send({ ...next, requestId })));
+      assert.deepEqual(competing.map(result => result.status).sort(), [201, 412]);
+      assert.equal((await one(sql`SELECT count(*)::integer AS count FROM audits
+        WHERE action = 'field_data.backcheck.mapping'`)).count, 3);
+
+      await run(sql`UPDATE submission_defs SET xml = xml || ' ' WHERE id = ${mapped.backcheck.submissionDefId}`);
+      await alice.post(mappingPath).set('If-Match', '"backcheck-mapping-3"')
+        .send({ ...next, requestId: '00000000-0000-4000-8000-000000000033' }).expect(400);
+      const unavailable = (await alice.get(comparePath).expect(200)).body;
+      assert.equal(unavailable.unavailableReason, 'source-integrity');
+      assert.equal(unavailable.rows, undefined);
+
     }));
 });

@@ -1,6 +1,7 @@
 // Runs only against a fresh, disposable CI database.
 const assert = require('node:assert/strict');
 const knex = require('knex');
+const mappingMigration = require('../lib/model/migrations/20261009-03-add-backcheck-field-mappings');
 const pushMigration = require('../lib/model/migrations/20261009-02-add-app-user-backcheck-push');
 const responseFormMigration = require('../lib/model/migrations/20261009-01-add-backcheck-response-form');
 const cancellationMigration = require('../lib/model/migrations/20261008-01-add-backcheck-cancellation');
@@ -83,7 +84,7 @@ const checkResponseFormRollback = async (db) => {
     await tx.migrate.down(options);
     await tx.raw('INSERT INTO field_data_backchecks (id, "claimVersionId") VALUES (2, 1)');
     await tx.migrate.latest(options);
-    const rows = (await tx.raw('SELECT "responseFormId" FROM field_data_backchecks ORDER BY id')).rows;
+    const { rows } = await tx.raw('SELECT "responseFormId" FROM field_data_backchecks ORDER BY id');
     assert.deepEqual(rows.map(row => row.responseFormId), [2, 1]);
     await assert.rejects(tx.transaction(savepoint => savepoint.raw(
       'DELETE FROM forms WHERE id = 2'
@@ -120,6 +121,44 @@ const checkPushRollback = async (db) => {
   });
   console.log('Backcheck subscriptions and acknowledgments survive rollback/reapply');
 };
+const checkMappingRollback = async (db) => {
+  await db.transaction(async (tx) => {
+    const schema = 'backcheck_mapping_rollback_probe';
+    await tx.raw('CREATE SCHEMA ??', [schema]);
+    await tx.raw('SET LOCAL search_path TO ??', [schema]);
+    await tx.raw(`CREATE TABLE actors (id INTEGER PRIMARY KEY);
+      CREATE TABLE submission_defs (id INTEGER PRIMARY KEY);
+      CREATE TABLE field_data_backchecks (id UUID PRIMARY KEY);
+      INSERT INTO actors VALUES (1);
+      INSERT INTO submission_defs VALUES (1), (2);
+      INSERT INTO field_data_backchecks VALUES ('00000000-0000-4000-8000-000000000001')`);
+    const name = '20261009-03-add-backcheck-field-mappings.js';
+    const options = { schemaName: schema, migrationSource: {
+      getMigrations: () => Promise.resolve([name]), getMigrationName: migration => migration,
+      getMigration: () => mappingMigration
+    } };
+    await tx.migrate.latest(options);
+    await tx.raw(`INSERT INTO field_data_backcheck_mappings
+      ("backcheckId", revision, "requestId", "requestHash", "actorId", note, pairs,
+        "originalSubmissionDefId", "backcheckSubmissionDefId", "originalHash", "backcheckHash")
+      VALUES ('00000000-0000-4000-8000-000000000001', 1,
+        '00000000-0000-4000-8000-000000000002', 'fixture', 1, 'Equivalent questions', '[]', 1, 2, 'a', 'b')`);
+    const before = (await tx.raw('SELECT * FROM field_data_backcheck_mappings')).rows;
+    await tx.migrate.down(options);
+    await tx.migrate.latest(options);
+    assert.deepEqual((await tx.raw('SELECT * FROM field_data_backcheck_mappings')).rows, before);
+    await [
+      ['UPDATE field_data_backcheck_mappings SET revision = 0', '23514'],
+      ["UPDATE field_data_backcheck_mappings SET pairs = '{}'", '23514'],
+      ['UPDATE field_data_backcheck_mappings SET "actorId" = 999', '23503'],
+      ['DELETE FROM submission_defs WHERE id = 2', '23503']].reduce(async (previous, [query, code]) => {
+      await previous;
+      await assert.rejects(tx.transaction(savepoint => savepoint.raw(query)), { code });
+    }, Promise.resolve());
+    await tx.raw('DROP SCHEMA ?? CASCADE', [schema]);
+  });
+  console.log('Backcheck mapping evidence survives rollback/reapply with constraints');
+};
 (async () => {
   const schema = process.env.TEST_SCHEMA;
   assert.ok(['public', 'field_data'].includes(schema));
@@ -141,5 +180,6 @@ const checkPushRollback = async (db) => {
     await checkCancellationRollback(db);
     await checkResponseFormRollback(db);
     await checkPushRollback(db);
+    await checkMappingRollback(db);
   } finally { await db.destroy(); }
 })().catch(error => { console.error(error); process.exitCode = 1; });

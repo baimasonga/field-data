@@ -13,7 +13,7 @@ const setup = async (page, { comparisonUnavailable = false, failComparison = fal
   const openWait = delayOpen ? new Promise(resolve => { releaseOpen = resolve; }) : null;
   let releaseMetrics;
   const metricsWait = delayMetrics ? new Promise(resolve => { releaseMetrics = resolve; }) : null;
-  const state = { comparisonFailures: failComparison ? 1 : 0, comparisonRequests: 0, staleWrites: 0, conflictFailures: staleAssignment ? 1 : 0, status: 'open', assignedTo: null, revision: 1, backchecks: [], decisions: [], mutations: [], queueRequests: [], queueFailures: failQueue ? 1 : 0, assignmentFailures: failAssignment ? 1 : 0, metricsFailures: failMetrics ? 2 : 0 };
+  const state = { mappingRevision: 0, mappingHistory: [], mappingRequests: [], mappingFailures: 0, mappingConflict: false, comparisonFailures: failComparison ? 1 : 0, comparisonRequests: 0, staleWrites: 0, conflictFailures: staleAssignment ? 1 : 0, status: 'open', assignedTo: null, revision: 1, backchecks: [], decisions: [], mutations: [], queueRequests: [], queueFailures: failQueue ? 1 : 0, assignmentFailures: failAssignment ? 1 : 0, metricsFailures: failMetrics ? 2 : 0 };
   await page.addInitScript(() => localStorage.setItem('sessionExpires', String(Date.now() + 3600000)));
   await page.route('**/client-config.json', route => route.fulfill({ json: {} }));
   await page.route('**/version.txt', route => route.fulfill({ body: 'test' }));
@@ -62,9 +62,17 @@ const setup = async (page, { comparisonUnavailable = false, failComparison = fal
       const source = { instanceId: 'original-version', current: true, formVersion: '1',
         provenance: { origin: 'collected', capturedAt: null, degraded: { capturedAt: 'unknown' } },
         integrityStatus: 'verified', xmlDownloadUrl: '/v1/original-version.xml' };
-      return respond({ original: source, backcheck: { ...source, instanceId: 'linked-version', current: false,
+      return respond({ mapping: { revision: state.mappingRevision, etag: `"backcheck-mapping-${state.mappingRevision}"`,
+        allowed: canOverride, history: state.mappingHistory },
+        availablePaths: { original: ['/name[1]', '/note[1]'], backcheck: ['/name[1]', '/age[1]'] },
+        comparisonMode: state.mappingRevision ? 'mapped' : 'exact-path', original: source, backcheck: { ...source, instanceId: 'linked-version', current: false,
         xmlDownloadUrl: '/v1/linked-version.xml' },
-      ...(comparisonUnavailable ? { unavailableReason: 'source-integrity' } : {
+      ...(comparisonUnavailable ? { unavailableReason: 'source-integrity' } : state.mappingRevision && state.mappingHistory.length ? {
+        summary: { same: 0, changed: 1, missingOriginal: 0, missingBackcheck: 0, unmappedOriginal: 1, unmappedBackcheck: 1 },
+        rows: [{ path: 'mapped:/name[1]', originalPath: '/name[1]', backcheckPath: '/name[1]', label: 'Respondent',
+          original: '<img src=x onerror=alert(1)>', backcheck: 'Corrected', status: 'changed' },
+          { path: 'original:/note[1]', originalPath: '/note[1]', backcheckPath: null, original: 'Observed', backcheck: null, status: 'unmappedOriginal' }]
+      } : {
         summary: { same: 0, changed: 1, missingOriginal: 1, missingBackcheck: 1 },
         rows: [{ path: '/name[1]', original: '<img src=x onerror=alert(1)>', backcheck: 'Corrected', status: 'changed' },
           { path: '/age[1]', original: null, backcheck: '', status: 'missingOriginal' },
@@ -73,6 +81,23 @@ const setup = async (page, { comparisonUnavailable = false, failComparison = fal
     if (path.endsWith('/backcheck-forms')) return respond([{ id: 1, xmlFormId: 'health', name: 'Original', assignees: [{ id: 42, name: 'Second collector' }, { id: 43, name: 'Replacement collector' }] }, { id: 2, xmlFormId: 'verification', name: 'Verification', assignees: [{ id: 43, name: 'Replacement collector' }] }]);
     if (path.endsWith('/backcheck-assignees')) return respond([{ id: 42, name: 'Second collector' }, { id: 43, name: 'Replacement collector' }]);
     if (req.method() === 'GET' && path.endsWith('/backchecks')) return respond(state.backchecks);
+    if (req.method() === 'POST' && path.endsWith('/mapping')) {
+      const data = req.postDataJSON();
+      const headers = req.headers();
+      state.mappingRequests.push({ data, headers });
+      expect(headers['if-match']).toBe(`"backcheck-mapping-${state.mappingRevision}"`);
+      expect(data.requestId).toMatch(/^[0-9a-f-]{36}$/);
+      if (state.mappingConflict) {
+        state.mappingRevision += 1;
+        state.mappingConflict = false;
+        return route.fulfill({ status: 412, json: { message: 'Stale mapping' } });
+      }
+      if (state.mappingFailures-- > 0) return route.fulfill({ status: 503, json: { message: 'Retry mapping' } });
+      state.mappingRevision += 1;
+      state.mappingHistory.unshift({ id: data.requestId, revision: state.mappingRevision,
+        actorName: 'Supervisor', createdAt: '2026-10-09T08:00:00Z', note: data.note, pairs: data.pairs });
+      return respond({ revision: state.mappingRevision });
+    }
     if (['POST', 'PATCH'].includes(req.method())) {
       const data = req.postDataJSON();
       const headers = req.headers();
@@ -396,6 +421,7 @@ test('read-only comparison shows pinned versions, safe answer text, missing valu
   await expect(comparison.locator('img')).toHaveCount(0);
   await page.setViewportSize({ width: 320, height: 720 });
   await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= 320)).toBe(true);
+  await expect(comparison.getByText('Configure field mapping', { exact: true })).toHaveCount(0);
   expect(state.mutations).toEqual([]);
   expect(errors).toEqual([]);
 });
@@ -440,5 +466,54 @@ test('dedicated back-check form filters collectors and links to the selected for
   state.backchecks[0].seenAt = '2026-10-09T05:00:00Z';
   await page.getByRole('button', { name: 'Refresh back-checks' }).click();
   await expect(page.getByText('App User acknowledgment: 2026-10-09T05:00:00Z')).toBeVisible();
+  expect(errors).toEqual([]);
+});
+
+
+test('supervisor saves an audited mapping with independent revisions and stable retry IDs', async ({ page }) => {
+  const { state, errors } = await setup(page, { canOverride: true });
+  state.mappingFailures = 1;
+  state.backchecks.push({ id: backcheckId, status: 'linked', responseInstanceId: 'uuid:backcheck',
+    question: 'Verify answers.', assigneeName: 'Independent checker' });
+  await openInspection(page);
+  await page.getByRole('button', { name: 'Compare answers', exact: true }).click();
+  const comparison = page.getByRole('region', { name: 'Back-check answer comparison' });
+  await comparison.getByText('Configure field mapping', { exact: true }).click();
+  await comparison.getByRole('button', { name: 'Add field pair' }).click();
+  await comparison.getByLabel('Label', { exact: true }).fill('Respondent');
+  await comparison.getByLabel('Original field path', { exact: true }).fill('/name[1]');
+  await comparison.getByLabel('Back-check field path', { exact: true }).fill('/name[1]');
+  await comparison.getByLabel('Reason for mapping change').fill('Equivalent respondent questions.');
+  await comparison.getByRole('button', { name: 'Save field mapping' }).click();
+  await expect(comparison.getByRole('alert')).toContainText('could not be saved');
+  await comparison.getByRole('button', { name: 'Save field mapping' }).click();
+  await expect(comparison).toContainText('Field mapping revision: 1');
+  await expect(comparison).toContainText('Review decisions are unchanged.');
+  await expect(comparison).toContainText('Unmapped original: 1');
+  await expect(comparison.getByRole('cell', { name: 'Unmapped original', exact: true })).toBeVisible();
+  expect(state.mappingRequests[0].data.requestId).toBe(state.mappingRequests[1].data.requestId);
+  expect(state.mappingHistory[0].pairs).toEqual([{ label: 'Respondent', originalPath: '/name[1]', backcheckPath: '/name[1]' }]);
+  await comparison.getByText('Mapping history (latest 100 revisions)', { exact: true }).click();
+  await expect(comparison).toContainText('Equivalent respondent questions.');
+  await page.setViewportSize({ width: 320, height: 720 });
+  await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= 320)).toBe(true);
+  expect(state.revision).toBe(1);
+  expect(state.decisions).toEqual([]);
+  expect(errors).toEqual([]);
+});
+
+test('mapping conflict requires reload before another save', async ({ page }) => {
+  const { state, errors } = await setup(page, { canOverride: true });
+  state.mappingConflict = true;
+  state.backchecks.push({ id: backcheckId, status: 'linked', responseInstanceId: 'uuid:backcheck', question: 'Verify.', assigneeName: 'Checker' });
+  await openInspection(page);
+  await page.getByRole('button', { name: 'Compare answers', exact: true }).click();
+  const comparison = page.getByRole('region', { name: 'Back-check answer comparison' });
+  await comparison.getByText('Configure field mapping', { exact: true }).click();
+  await comparison.getByLabel('Reason for mapping change').fill('Keep all fields unmapped.');
+  await comparison.getByRole('button', { name: 'Save field mapping' }).click();
+  await expect(comparison.getByRole('alert')).toContainText('Another supervisor changed this mapping');
+  await page.getByRole('button', { name: 'Compare answers', exact: true }).click();
+  await expect(comparison).toContainText('Field mapping revision: 1');
   expect(errors).toEqual([]);
 });
