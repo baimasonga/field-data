@@ -34,7 +34,10 @@
         </div>
         <p v-if="forms.length === 0">{{ $t('noForms') }}</p>
         <submission-review-queue v-else :key="`${projectId}:${xmlFormId}`"
-          :project-id="projectId" :xml-form-id="xmlFormId" :can-review="canReview"/>
+          :project-id="projectId" :xml-form-id="xmlFormId" :can-review="canReview"
+          @asset-source="sourceClaimVersionId = $event"/>
+        <field-data-assets v-if="projectId && xmlFormId" :key="`assets:${projectId}:${xmlFormId}`"
+          :project-id="projectId" :xml-form-id="xmlFormId" :source-claim-version-id="sourceClaimVersionId"/>
       </template>
     </template>
     <details v-if="canManageQuality" class="submission-quality" @toggle="qualityOpen = $event.target.open">
@@ -49,6 +52,7 @@ import { computed, ref, watch } from 'vue';
 import Loading from '../loading.vue';
 import SubmissionReviewQueue from '../submission/review-queue.vue';
 import FieldDataSubmissionReview from './submission-review.vue';
+import FieldDataAssets from './assets.vue';
 import { useRequestData } from '../../request-data';
 
 defineOptions({ name: 'FieldDataReview' });
@@ -58,6 +62,8 @@ const canManageQuality = computed(() => currentUser.dataExists && currentUser.ca
 const projects = createResource('reviewProjects');
 const projectId = ref('');
 const xmlFormId = ref('');
+const sourceClaimVersionId = ref('');
+watch(() => [projectId.value, xmlFormId.value], () => { sourceClaimVersionId.value = ''; });
 const loadFailed = ref(false);
 const availableProjects = computed(() => (projects.dataExists
   ? projects.data.filter(project => project.verbs?.includes('submission.read')) : []));

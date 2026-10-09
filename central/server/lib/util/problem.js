@@ -161,6 +161,7 @@ const problems = {
     reviewQueueInvalid: problem(400.48, () => 'Review queue filters are invalid.'),
     reviewCursorInvalid: problem(400.49, () => 'Review queue cursor is invalid.'),
     reviewAssignmentInvalid: problem(400.51, () => 'Review assignment is invalid.'),
+    assetInvalid: problem(400.52, () => 'Asset identity, observation or temporal query is invalid.'),
 
     // no detail information for security reasons.
     authenticationFailed: problem(401.2, () => 'Could not authenticate with the provided credentials.'),
@@ -279,12 +280,15 @@ const problems = {
       'This Idempotency-Key is still in progress. Retry shortly.'),
     reviewCaseClosed: problem(409.32, () => 'This review case is no longer open.'),
     reviewCaseAssigned: problem(409.33, () => 'This review case is assigned to another reviewer.'),
+    assetDuplicate: problem(409.34, () => 'This external asset identifier is already registered in the project.'),
     reviewRevisionStale: problem(412.1, () => 'The review case has changed. Refresh and retry.'),
+    assetRevisionStale: problem(412.2, () => 'The asset has changed. Reload its history before saving.'),
     evidenceScopeInvalid: problem(422.1, () =>
       'The evidence link must refer to this claim version and a valid predecessor.'),
     reviewAcceptanceBlocked: problem(422.2, () =>
       'Acceptance requires verified linked evidence and no unresolved integrity findings.'),
     reviewRevisionRequired: problem(428.1, () => 'If-Match is required for review assignments.'),
+    assetRevisionRequired: problem(428.2, () => 'If-Match is required for asset observations.'),
   },
   internal: {
     // no detail information, as this is only called when we don't know what happened.
