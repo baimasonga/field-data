@@ -29,8 +29,11 @@ also exist. Those features must not be re-labelled as full completion of this pr
 - Asset identity, source-linked temporal observations and age-based freshness:
   implemented, validated and merged in PR #52 (first bounded knowledge slice).
 - Automatic expiry task generation and reviewer queue: implemented and locally validated;
-  automatic batches require the explicit operator flag. Collector dispatch/field closure
-  remain pending operations work.
+  automatic batches require the explicit operator flag.
+- Dispatch of freshness tasks to App Users and field closure by fresh collected evidence
+  (O2): implemented and locally validated; CI/merge pending. Collector push, inclusion in
+  the signed offline snapshot, sampling, route/capacity planning, workload balancing and
+  a Collect device pilot remain pending.
 - Remaining deliverables in all eight rows: pending.
 - Version-scoped evidence graph and recorded survey timeline: implemented and
   locally and CI validated, merged in PR #53 (E1). Capture sessions, sensor/challenge
