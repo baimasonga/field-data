@@ -247,9 +247,11 @@ const disconnect = async () => {
   // Disconnect ends notification access on shared devices as well as clearing
   // the in-memory credential. No key is put in a URL or browser storage.
   if (pushActive.value) await disablePush();
+  const cleanupFailed = pushActive.value;
   clear();
   pushMessage.value = '';
-  error.value = '';
+  error.value = cleanupFailed
+    ? 'Disconnected. Notification cleanup could not be confirmed. Disable notifications in browser site settings.' : '';
 };
 </script>
 <style scoped>

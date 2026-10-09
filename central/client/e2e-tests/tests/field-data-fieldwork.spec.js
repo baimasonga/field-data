@@ -3,7 +3,7 @@ const appUrl = process.env.ODK_URL || 'http://127.0.0.1:8989';
 const taskId = '11111111-1111-4111-8111-111111111111';
 const pushId = '22222222-2222-4222-8222-222222222222';
 const key = 'fixture-app-user-key';
-const setup = async (page, { push = false, denied = false, fail = false, delayed = false } = {}) => {
+const setup = async (page, { push = false, denied = false, fail = false, delayed = false, failDelete = false } = {}) => {
   const state = { inboxReads: 0, seen: false, registered: false, deleted: false, failures: fail ? 1 : 0, requests: [] };
   const errors = [];
   page.on('pageerror', error => errors.push(error.message));
@@ -42,7 +42,9 @@ const setup = async (page, { push = false, denied = false, fail = false, delayed
     if (path.endsWith('/push') && req.method() === 'GET')
       return route.fulfill({ json: { enabled: push, publicKey: 'AQID', subscriptions: [] } });
     if (path.endsWith('/push') && req.method() === 'POST') { state.registered = true; return route.fulfill({ json: { id: pushId } }); }
-    if (req.method() === 'DELETE') { state.deleted = true; return route.fulfill({ json: { success: true } }); }
+    if (req.method() === 'DELETE') {
+      if (failDelete) return route.fulfill({ status: 503, json: {} });
+      state.deleted = true; return route.fulfill({ json: { success: true } }); }
     return route.fulfill({ status: 404, json: {} });
   });
   await page.goto(`${appUrl}/fieldwork`);
@@ -117,6 +119,19 @@ test('a delayed refresh cannot restore tasks or credentials after disconnect', a
   await expect.poll(() => state.inboxReads).toBe(2);
   await page.getByRole('button', { name: 'Disconnect', exact: true }).click();
   release();
+  await expect(page.getByLabel('App User access key or Collect server URL')).toHaveValue('');
+  await expect(page.locator('.tasks')).toHaveCount(0);
+  expect(errors).toEqual([]);
+});
+
+
+test('disconnect clears private tasks and keys even when notification cleanup fails', async ({ page }) => {
+  const { errors } = await setup(page, { push: true, failDelete: true });
+  await connect(page);
+  await page.getByRole('button', { name: 'Enable browser notifications' }).click();
+  await expect(page.getByRole('button', { name: 'Turn off browser notifications' })).toBeVisible();
+  await page.getByRole('button', { name: 'Disconnect', exact: true }).click();
+  await expect(page.getByRole('alert')).toContainText('Notification cleanup could not be confirmed');
   await expect(page.getByLabel('App User access key or Collect server URL')).toHaveValue('');
   await expect(page.locator('.tasks')).toHaveCount(0);
   expect(errors).toEqual([]);
