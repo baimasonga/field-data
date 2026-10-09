@@ -226,6 +226,98 @@ describe('api: re-verification dispatch and field closure', () => {
       await alice.get(`${tasks}/not-a-uuid`).expect(404);
     }));
 
+  it('summarises the project queue, filters overdue work and collectors, and counts only work the caller may read',
+    testService(async (service, container) => {
+      const ctx = await setup(service, container);
+      const { alice, collector, other } = ctx;
+      const summary = async (agent = alice) => (await agent.get(`${tasks}/summary`).expect(200)).body;
+      const empty = { queued: 1, dispatched: 0, closed: 0, cancelled: 0, superseded: 0, overdue: 0 };
+      assert.deepEqual((await summary()).counts, empty);
+      assert.deepEqual((await summary()).workload, []);
+
+      await dispatch(ctx, 1, collector, { visitBy: future() }).expect(200);
+      let now = await summary();
+      assert.deepEqual(now.counts, { ...empty, queued: 0, dispatched: 1 });
+      assert.deepEqual(now.workload, [{ assignee: { id: collector.id, displayName: 'Collector' }, open: 1, overdue: 0 }]);
+      assert.equal(now.truncated, false);
+      assert.equal((await alice.get(`${tasks}?overdue=true`).expect(200)).body.items.length, 0, 'a future deadline is not overdue');
+
+      // Overdue is derived from the deadline, never stored.
+      await container.db.query(sql`UPDATE field_data_reverification_tasks SET "visitBy" = clock_timestamp() - interval '1 day'`);
+      now = await summary();
+      assert.equal(now.counts.overdue, 1);
+      assert.deepEqual(now.workload.map(row => [row.open, row.overdue]), [[1, 1]]);
+      const overdue = (await alice.get(`${tasks}?overdue=true`).expect(200)).body.items;
+      assert.equal(overdue.length, 1);
+      assert.equal(overdue[0].overdue, true);
+      assert.equal((await alice.get(`${tasks}?overdue=false`).expect(200)).body.items.length, 1, 'false means no filter');
+
+      // Collector and status filters combine.
+      const query = (qs) => alice.get(`${tasks}?${qs}`).expect(200).then(response => response.body.items.length);
+      assert.equal(await query(`assigneeId=${collector.id}`), 1);
+      assert.equal(await query(`assigneeId=${other.id}`), 0);
+      assert.equal(await query(`assigneeId=${collector.id}&status=dispatched&overdue=true`), 1);
+      assert.equal(await query(`assigneeId=${collector.id}&status=queued`), 0);
+      assert.equal(await query('status=closed&overdue=true'), 0);
+
+      // A bad filter is refused rather than ignored.
+      await Promise.all(['overdue=maybe', 'assigneeId=abc', 'assigneeId=0', 'assigneeId=-3', 'assigneeId=1.5', 'assigneeId=99999999999']
+        .map(bad => alice.get(`${tasks}?${bad}`).expect(400)));
+
+      // Access: a caller who can open the project but not read its submissions sees nothing,
+      // and a caller with no project access cannot tell the queue exists.
+      const chelsea = await service.login('chelsea');
+      const chelseaId = (await chelsea.get('/v1/users/current').expect(200)).body.id;
+      await chelsea.get(`${tasks}/summary`).expect(404);
+      await alice.post(`/v1/projects/1/assignments/formfill/${chelseaId}`).expect(200);
+      const blind = await chelsea.get(`${tasks}/summary`).expect(200);
+      assert.deepEqual(blind.body.counts, { queued: 0, dispatched: 0, closed: 0, cancelled: 0, superseded: 0, overdue: 0 });
+      assert.deepEqual(blind.body.workload, []);
+      assert.deepEqual((await chelsea.get(tasks).expect(200)).body.items, []);
+      // The case the early return above cannot reach: a caller who may read SOME forms. Give the
+      // project a second task on another form, and let this caller read only that form.
+      await alice.post('/v1/projects/1/forms?publish=true').send(testData.forms.simple2)
+        .set('Content-Type', 'application/xml').expect(200);
+      const second = await alice.post(ctx.root).send({ requestId: next(), name: 'Pump', assetType: 'pump',
+        externalId: 'PU-01', xmlFormId: 'simple2' }).expect(201);
+      await alice.post('/v1/projects/1/forms/simple2/submissions').send(testData.instances.simple2.one)
+        .set('Content-Type', 'application/xml').expect(200);
+      const claim2 = (await alice.get('/v1/projects/1/forms/simple2/submissions/s2one/claim').expect(200)).body.currentVersionId;
+      await alice.post(`${ctx.root}/${second.body.id}/observations`).set('If-Match', second.headers.etag).send({
+        requestId: next(), claimVersionId: claim2, predicate: 'condition', state: 'known', value: 'working',
+        validFrom: '2026-01-01T00:00:00Z', validityDays: 10, graceDays: 0, note: 'Recorded from the inspected original.'
+      }).expect(201);
+      await generateReverification(container.db);
+      assert.equal((await alice.get(tasks).expect(200)).body.items.length, 2, 'the manager sees both forms');
+      assert.equal((await summary()).counts.queued, 1);
+      await alice.post(`/v1/projects/1/forms/simple2/assignments/viewer/${chelseaId}`).expect(200);
+      const partial = (await chelsea.get(tasks).expect(200)).body.items;
+      assert.deepEqual(partial.map(task => [task.xmlFormId, task.externalId]), [['simple2', 'PU-01']],
+        'only the readable form\'s task is listed, and the page is not short-changed');
+      const partialSummary = await summary(chelsea);
+      assert.deepEqual(partialSummary.counts, { queued: 1, dispatched: 0, closed: 0, cancelled: 0, superseded: 0, overdue: 0 },
+        'counts describe only readable work, not the overdue dispatched task on the other form');
+      assert.deepEqual(partialSummary.workload, [], 'a collector\'s open work on a form the caller cannot read is not revealed');
+      assert.equal((await chelsea.get(`${tasks}?overdue=true`).expect(200)).body.items.length, 0);
+      assert.equal((await chelsea.get(`${tasks}?assigneeId=${collector.id}`).expect(200)).body.items.length, 0);
+      await alice.delete(`/v1/projects/1/forms/simple2/assignments/viewer/${chelseaId}`).expect(200);
+      // Cancelling removes work from the open count and keeps the history count.
+      const detail = (await alice.get(ctx.path).expect(200)).body;
+      await act(alice, ctx.path, 'cancel', detail.task.revision, { reasonCode: 'access-blocked' }).expect(200);
+      now = await summary();
+      assert.deepEqual(now.counts, { ...empty, queued: 1, cancelled: 1 }); // the second form's task is still queued
+      assert.deepEqual(now.workload, []);
+
+      await alice.delete(`/v1/projects/1/assignments/formfill/${chelseaId}`).expect(200);
+      await alice.post(`/v1/projects/1/assignments/viewer/${chelseaId}`).expect(200);
+      assert.equal((await chelsea.get(`${tasks}/summary`).expect(200)).body.counts.cancelled, 1);
+      assert.equal((await chelsea.get(tasks).expect(200)).body.allowed, false);
+      assert.equal((await alice.get(tasks).expect(200)).body.allowed, true);
+      const elsewhere = (await alice.post('/v1/projects').send({ name: 'Elsewhere queue' }).expect(200)).body;
+      assert.deepEqual((await alice.get(`/v1/field-data/projects/${elsewhere.id}/reverification-tasks/summary`).expect(200)).body.workload, []);
+      await alice.get('/v1/field-data/projects/abc/reverification-tasks/summary').expect(404);
+    }));
+
   it('does not close a task on a source submission that is being deleted at the same moment',
     testServiceFullTrx(async (service, container) => {
       const ctx = await setup(service, container);

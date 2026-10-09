@@ -14,6 +14,7 @@ const setup = async (page, { comparisonUnavailable = false, failComparison = fal
   let releaseMetrics;
   const metricsWait = delayMetrics ? new Promise(resolve => { releaseMetrics = resolve; }) : null;
   const state = { assets: [], assetHistory: [], assetTasks: [], assetWrites: [], assetFailures: 0, assetConflict: false, mappingRevision: 0, mappingHistory: [], mappingRequests: [], mappingFailures: 0, mappingConflict: false, comparisonFailures: failComparison ? 1 : 0, comparisonRequests: 0, staleWrites: 0, conflictFailures: staleAssignment ? 1 : 0, status: 'open', assignedTo: null, revision: 1, backchecks: [], decisions: [], mutations: [], queueRequests: [], queueFailures: failQueue ? 1 : 0, assignmentFailures: failAssignment ? 1 : 0, metricsFailures: failMetrics ? 2 : 0 };
+  Object.assign(state, { queueCalls: [], queueFailures_: 0, queueGate: null, queuePaged: false, queueTasks: [] });
   await page.addInitScript(() => globalThis.localStorage.setItem('sessionExpires', String(Date.now() + 3600000)));
   await page.route('**/client-config.json', route => route.fulfill({ json: {} }));
   await page.route('**/version.txt', route => route.fulfill({ body: 'test' }));
@@ -48,6 +49,36 @@ const setup = async (page, { comparisonUnavailable = false, failComparison = fal
       activeReasons: selected ? [{ reasonCode: 'provenance-degraded', count: 1 }] : [] });
     }
     if (path === '/v1/projects/7/app-users') return respond([{ id: 42, displayName: 'Collector' }]);
+    const queueRoot = path.replace(/\/summary$/, '');
+    if (/^\/v1\/field-data\/projects\/\d+\/reverification-tasks$/.test(queueRoot)) {
+      state.queueCalls.push({ path: path.slice(queueRoot.length) || '/', ...Object.fromEntries(url.searchParams) });
+      if (state.queueFailures_ > 0) { state.queueFailures_ -= 1; return route.fulfill({ status: 503, json: { message: 'Unavailable' } }); }
+      if (state.queueMalformed) return respond({ unexpected: true });
+      const rows = state.queueTasks;
+      if (path.endsWith('/summary')) {
+        const counts = { queued: 0, dispatched: 0, closed: 0, cancelled: 0, superseded: 0, overdue: 0 };
+        const people = new Map();
+        for (const task of rows) {
+          counts[task.status] += 1;
+          if (task.overdue) counts.overdue += 1;
+          if (task.status === 'dispatched') {
+            const row = people.get(task.assignee.id) ?? { assignee: task.assignee, open: 0, overdue: 0 };
+            row.open += 1;
+            if (task.overdue) row.overdue += 1;
+            people.set(task.assignee.id, row);
+          }
+        }
+        return respond({ counts, workload: [...people.values()], truncated: false });
+      }
+      const gate = state.queueGate;
+      if (gate != null) { state.queueGate = null; await gate; }
+      const wanted = rows.filter(task => (url.searchParams.get('status') == null || task.status === url.searchParams.get('status'))
+        && (url.searchParams.get('overdue') !== 'true' || task.overdue)
+        && (url.searchParams.get('assigneeId') == null || String(task.assignee?.id) === url.searchParams.get('assigneeId')));
+      const second = url.searchParams.get('cursor') === 'page-2';
+      const page = state.queuePaged ? (second ? wanted.slice(1) : wanted.slice(0, 1)) : wanted;
+      return respond({ items: page, allowed: true, nextCursor: state.queuePaged && !second && wanted.length > 1 ? 'page-2' : null });
+    }
     const taskRoot = '/v1/field-data/projects/7/reverification-tasks/';
     if (path.startsWith(taskRoot)) {
       const { task } = state;
@@ -806,5 +837,137 @@ test('viewers can read a task but cannot dispatch, close or cancel it', async ({
   await expect(assets.getByRole('group', { name: 'Dispatch to a collector' })).toHaveCount(0);
   await expect(assets.getByRole('button', { name: 'Cancel task' })).toHaveCount(0);
   expect(state.taskWrites).toEqual([]);
+  expect(errors).toEqual([]);
+});
+
+const queueTask = (over) => ({ id: crypto.randomUUID(), status: 'queued', revision: 1, reason: 'age-policy-review-due',
+  dueAt: '2026-01-11T00:00:00Z', visitBy: null, dispatchedAt: null, closedAt: null, assetId: '55555555-5555-4555-8555-555555555555',
+  assetName: 'Water point', externalId: 'WP-01', assetType: 'water-point', predicate: 'condition', xmlFormId: 'health',
+  assignee: null, overdue: false, closureObservationId: null, ...over });
+const seedQueue = (state, { paged = false } = {}) => {
+  state.queueCalls = [];
+  state.queueFailures_ = 0;
+  state.queueGate = null;
+  state.queuePaged = paged;
+  state.queueTasks = [
+    queueTask({ id: 'a1111111-1111-4111-8111-111111111111', externalId: 'WP-01' }),
+    queueTask({ id: 'a2222222-2222-4222-8222-222222222222', status: 'dispatched', externalId: 'WP-02', assignee: { id: 42, displayName: 'Collector' },
+      visitBy: '2026-09-01T00:00:00Z', overdue: true }),
+    queueTask({ id: 'a3333333-3333-4333-8333-333333333333', status: 'dispatched', externalId: 'PU-07', assetName: 'Pump', xmlFormId: 'nutrition',
+      assetId: '66666666-6666-4666-8666-666666666667', assignee: { id: 42, displayName: 'Collector' }, visitBy: '2027-01-01T00:00:00Z' }),
+    queueTask({ id: 'a4444444-4444-4444-8444-444444444444', status: 'dispatched', externalId: 'WP-04', assignee: { id: 43, displayName: 'Second collector' },
+      visitBy: '2027-01-01T00:00:00Z' }),
+    queueTask({ id: 'a5555555-5555-4555-8555-555555555555', status: 'cancelled', externalId: 'WP-05' })
+  ];
+};
+const queuePanel = page => page.getByRole('region', { name: 'Re-verification queue' });
+// The panel loads when the page opens, before a test can seed data, so seed and then refresh.
+const showSeededQueue = async (page, state, options) => {
+  seedQueue(state, options);
+  await queuePanel(page).getByRole('button', { name: 'Refresh queue' }).click();
+  return queuePanel(page);
+};
+
+test('project queue shows counts and workload, and its filters ask the server for exactly what was chosen', async ({ page }) => {
+  const { state, errors } = await setup(page, { canOverride: true });
+  const queue = await showSeededQueue(page, state);
+  await expect(queue).toContainText('1 waiting for dispatch');
+  await expect(queue).toContainText('3 dispatched');
+  await expect(queue).toContainText('1 overdue');
+  await expect(queue.getByText('Collector — 2 open (1 overdue)')).toBeVisible();
+  await expect(queue.getByText('Second collector — 1 open')).toBeVisible();
+  await expect(queue).toContainText('not a measure of performance');
+  await expect(queue.locator('.queue-items li')).toHaveCount(5);
+
+  await queue.getByLabel('Overdue only').check();
+  await expect(queue.locator('.queue-items li')).toHaveCount(1);
+  await expect(queue).toContainText('WP-02');
+  expect(state.queueCalls.filter(call => call.path === '/').at(-1)).toMatchObject({ overdue: 'true' });
+  await queue.getByLabel('Overdue only').uncheck();
+
+  await queue.getByLabel('Collector').selectOption('43');
+  await expect(queue.locator('.queue-items li')).toHaveCount(1);
+  await expect(queue).toContainText('WP-04');
+  expect(state.queueCalls.filter(call => call.path === '/').at(-1)).toMatchObject({ assigneeId: '43' });
+  await queue.getByLabel('Collector').selectOption('');
+
+  await queue.getByLabel('Status').selectOption('cancelled');
+  await expect(queue.locator('.queue-items li')).toHaveCount(1);
+  expect(state.queueCalls.filter(call => call.path === '/').at(-1)).toMatchObject({ status: 'cancelled' });
+  await queue.getByLabel('Status').selectOption('');
+  await expect(queue.locator('.queue-items li')).toHaveCount(5);
+  expect(errors).toEqual([]);
+});
+
+test('queue explains an empty result, pages on request, and retries a failed load', async ({ page }) => {
+  const { state, errors } = await setup(page, { canOverride: true });
+  const queue = await showSeededQueue(page, state, { paged: true });
+  await expect(queue.locator('.queue-items li')).toHaveCount(1);
+  await queue.getByRole('button', { name: 'Load more' }).click();
+  await expect(queue.locator('.queue-items li')).toHaveCount(5);
+  await expect(queue.getByRole('button', { name: 'Load more' })).toHaveCount(0);
+  expect(state.queueCalls.filter(call => call.cursor === 'page-2')).toHaveLength(1);
+  expect(state.queueCalls.filter(call => call.path === '/summary')).toHaveLength(1);
+
+  state.queueTasks = [];
+  await queue.getByRole('button', { name: 'Refresh queue' }).click();
+  await expect(queue).toContainText('No tasks match these filters.');
+
+  state.queueFailures_ = 2;
+  await queue.getByRole('button', { name: 'Refresh queue' }).click();
+  await expect(queue.getByRole('alert')).toContainText('could not be loaded');
+  state.queueTasks = [queueTask({})];
+  await queue.getByRole('button', { name: 'Retry' }).click();
+  await expect(queue.locator('.queue-items li')).toHaveCount(1);
+  await expect(queue.getByRole('alert')).toHaveCount(0);
+  expect(errors).toEqual([]);
+});
+
+test('a slow answer to an old filter cannot replace the rows for the current one', async ({ page }) => {
+  const { state, errors } = await setup(page, { canOverride: true });
+  const queue = await showSeededQueue(page, state);
+  await expect(queue.locator('.queue-items li')).toHaveCount(5);
+  let release;
+  state.queueGate = new Promise((resolve) => { release = resolve; });
+  await queue.getByLabel('Status').selectOption('cancelled'); // this answer is held back
+  await expect.poll(() => state.queueCalls.filter(call => call.status === 'cancelled').length).toBe(1);
+  await queue.getByLabel('Status').selectOption('dispatched'); // this one answers at once
+  await expect(queue.locator('.queue-items li')).toHaveCount(3);
+  release();
+  await page.waitForTimeout(300);
+  await expect(queue.locator('.queue-items li')).toHaveCount(3);
+  await expect(queue).not.toContainText('WP-05');
+  expect(errors).toEqual([]);
+});
+
+test('opening a task from the queue shows its asset on the right form, ready to manage', async ({ page }) => {
+  const { state, errors } = await setup(page, { canOverride: true });
+  const queue = await showSeededQueue(page, state);
+  state.assets.push({ id: '66666666-6666-4666-8666-666666666667', name: 'Pump', externalId: 'PU-07', assetType: 'pump', revision: 2, xmlFormId: 'nutrition' });
+  state.assetTasks.push({ id: 'a3333333-3333-4333-8333-333333333333', predicate: 'condition', status: 'dispatched', dueAt: '2026-01-11T00:00:00Z' });
+  await expect(page.locator('#review-form')).toHaveValue('health');
+  await queue.locator('.queue-items li', { hasText: 'PU-07' }).getByRole('button', { name: 'Open asset' }).click();
+  await expect(page.locator('#review-form')).toHaveValue('nutrition');
+  const assets = page.getByRole('region', { name: 'Asset passports and re-verification' });
+  await expect(assets.getByRole('heading', { name: 'Pump · PU-07' })).toBeVisible();
+  await expect(assets.getByRole('button', { name: 'Manage' })).toBeVisible();
+  // A later, manual change of form does not keep trying to open that asset.
+  await page.locator('#review-form').selectOption('health');
+  await expect(assets.getByRole('heading', { name: 'Pump · PU-07' })).toHaveCount(0);
+  await expect(assets.getByRole('alert')).toHaveCount(0);
+  expect(errors).toEqual([]);
+});
+
+test('a queue answer in an unexpected shape shows a retryable error instead of breaking the page', async ({ page }) => {
+  const { state, errors } = await setup(page, { canOverride: true });
+  const queue = await showSeededQueue(page, state);
+  await expect(queue.locator('.queue-items li')).toHaveCount(5);
+  state.queueMalformed = true;
+  await queue.getByRole('button', { name: 'Refresh queue' }).click();
+  await expect(queue.getByRole('alert')).toContainText('could not be loaded');
+  await expect(page.getByRole('heading', { name: 'Re-verification queue' })).toBeVisible();
+  state.queueMalformed = false;
+  await queue.getByRole('button', { name: 'Retry' }).click();
+  await expect(queue.locator('.queue-items li')).toHaveCount(5);
   expect(errors).toEqual([]);
 });

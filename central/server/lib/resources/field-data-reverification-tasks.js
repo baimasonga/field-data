@@ -55,6 +55,27 @@ const present = (row, now = new Date()) => ({
   overdue: row.status === 'dispatched' && row.visitBy != null && new Date(row.visitBy) < now
 });
 
+// The forms in this project that hold tasks and that the caller may read. Access
+// is resolved first and applied in SQL, so pages stay full and counts only ever
+// describe work the caller is allowed to see, rather than hiding rows after the fact.
+const readableFormIds = async (container, auth, projectId) => {
+  const forms = await container.db.any(sql`SELECT DISTINCT a."formId", f."xmlFormId"
+    FROM field_data_reverification_tasks t
+    JOIN field_data_asset_observations o ON o.id = t."observationId"
+    JOIN field_data_assets a ON a.id = o."assetId"
+    JOIN forms f ON f.id = a."formId" AND f."deletedAt" IS NULL
+    WHERE a."projectId" = ${projectId}`);
+  const checked = await Promise.all(forms.map(async ({ formId, xmlFormId }) => {
+    try { await formFor(container, auth, projectId, xmlFormId); return formId; } catch (error) {
+      if (error?.problemCode === Problem.user.notFound.code) return null;
+      throw error;
+    }
+  }));
+  return checked.filter(formId => formId != null);
+};
+// Dispatched, with a deadline that has passed. Derived, never stored.
+const OVERDUE = sql`t.status = 'dispatched' AND t."visitBy" IS NOT NULL AND t."visitBy" < clock_timestamp()`;
+
 const taskFor = async (container, auth, params) => {
   if (!UUID_PATTERN.test(params.taskId)) throw Problem.user.notFound();
   const [task] = await container.db.any(sql`SELECT ${taskColumns} ${taskJoins}
@@ -109,6 +130,8 @@ module.exports = (service, endpoint) => {
   service.get(root, endpoint(async (container, { auth, params, query }, request, response) => {
     const project = await scope(container, auth, params);
     if (query.status != null && !STATUSES.includes(query.status)) throw invalid();
+    if (query.overdue != null && !['true', 'false'].includes(query.overdue)) throw invalid();
+    if (query.assigneeId != null && !/^[1-9]\d{0,9}$/.test(query.assigneeId)) throw invalid();
     let cursor = null;
     if (query.cursor != null) {
       try {
@@ -119,27 +142,50 @@ module.exports = (service, endpoint) => {
           || !Number.isFinite(Date.parse(cursor.dueAt))) throw new Error();
       } catch { throw invalid(); }
     }
+    const allowed = await auth.can('project.update', project);
+    const formIds = await readableFormIds(container, auth, Number(params.projectId));
+    response.set('Cache-Control', 'private, no-store');
+    if (formIds.length === 0) return { items: [], allowed, nextCursor: null };
     const rows = await container.db.any(sql`SELECT ${taskColumns},
       to_char(t."dueAt" AT TIME ZONE 'UTC', ${US_UTC}) AS "dueCursor" ${taskJoins}
-      WHERE a."projectId" = ${Number(params.projectId)}
+      WHERE a."projectId" = ${Number(params.projectId)} AND a."formId" = ANY(${sql.array(formIds, 'int4')})
         ${query.status == null ? sql`` : sql`AND t.status = ${query.status}`}
+        ${query.overdue === 'true' ? sql`AND ${OVERDUE}` : sql``}
+        ${query.assigneeId == null ? sql`` : sql`AND t."assigneeId" = ${Number(query.assigneeId)}`}
         ${cursor == null ? sql`` : sql`AND (t."dueAt", t.id) > (${cursor.dueAt}::timestamptz, ${cursor.id}::uuid)`}
       ORDER BY t."dueAt", t.id LIMIT 51`);
     const page = rows.slice(0, 50);
-    const checked = await Promise.all([...new Set(page.map(row => row.xmlFormId))].map(async (xmlFormId) => {
-      try { await formFor(container, auth, Number(params.projectId), xmlFormId); return xmlFormId; } catch (error) {
-        if (error?.problemCode === Problem.user.notFound.code) return null;
-        throw error;
-      }
-    }));
-    const visible = new Set(checked.filter(xmlFormId => xmlFormId != null));
     const last = page[page.length - 1];
-    response.set('Cache-Control', 'private, no-store');
     return {
-      items: page.filter(row => visible.has(row.xmlFormId)).map(row => present(row)),
-      allowed: await auth.can('project.update', project),
+      items: page.map(row => present(row)),
+      allowed,
       nextCursor: rows.length > 50
         ? Buffer.from(JSON.stringify({ id: last.id, dueAt: last.dueCursor })).toString('base64url') : null
+    };
+  }));
+
+  // What needs attention across the project, and how much open work each collector
+  // holds. Workload is a current count, not a performance measure: a task can stay
+  // open because a road is blocked, and nothing here ranks or scores anyone.
+  service.get(`${root}/summary`, endpoint(async (container, { auth, params }, request, response) => {
+    await scope(container, auth, params);
+    const formIds = await readableFormIds(container, auth, Number(params.projectId));
+    const counts = Object.fromEntries([...STATUSES, 'overdue'].map(name => [name, 0]));
+    response.set('Cache-Control', 'private, no-store');
+    if (formIds.length === 0) return { counts, workload: [], truncated: false };
+    const within = sql`a."projectId" = ${Number(params.projectId)} AND a."formId" = ANY(${sql.array(formIds, 'int4')})`;
+    const byStatus = await container.db.any(sql`SELECT t.status, count(*)::integer AS count,
+      (count(*) FILTER (WHERE ${OVERDUE}))::integer AS overdue ${taskJoins} WHERE ${within} GROUP BY t.status`);
+    for (const row of byStatus) { counts[row.status] = row.count; counts.overdue += row.overdue; }
+    const people = await container.db.any(sql`SELECT t."assigneeId" AS id, asg."displayName",
+      count(*)::integer AS open, (count(*) FILTER (WHERE ${OVERDUE}))::integer AS overdue ${taskJoins}
+      WHERE ${within} AND t.status = 'dispatched'
+      GROUP BY t."assigneeId", asg."displayName" ORDER BY open DESC, asg."displayName", t."assigneeId" LIMIT 201`);
+    return {
+      counts,
+      workload: people.slice(0, 200).map(row => ({ assignee: { id: row.id, displayName: row.displayName },
+        open: row.open, overdue: row.overdue })),
+      truncated: people.length > 200
     };
   }));
 
