@@ -5,7 +5,10 @@ const appUrl = process.env.ODK_URL || 'http://127.0.0.1:8989';
 const taskId = '11111111-1111-4111-8111-111111111111';
 const pushId = '22222222-2222-4222-8222-222222222222';
 const key = 'fixture-app-user-key';
-const setup = async (page, { push = false, denied = false, fail = false, delayed = false, failDelete = false, offline = false, offlineOrigin = null } = {}) => {
+const visitFixture = { id: '88888888-8888-4888-8888-888888888888', assetName: 'Water point', externalId: 'WP-01', assetType: 'water-point',
+  predicate: 'condition', instruction: 'Check the pump handle. <img src=x onerror=alert(1)>', xmlFormId: 'verification',
+  formName: 'Independent verification', visitBy: '2026-10-20T00:00:00Z', dispatchedAt: '2026-10-09T10:00:00Z', actionable: true };
+const setup = async (page, { push = false, denied = false, fail = false, delayed = false, failDelete = false, offline = false, offlineOrigin = null, visits = [], failVisits = false } = {}) => {
   const state = { inboxReads: 0, seen: false, registered: false, deleted: false, failures: fail ? 1 : 0, requests: [] };
   const errors = [];
   if (offline) {
@@ -54,6 +57,10 @@ const setup = async (page, { push = false, denied = false, fail = false, delayed
         { id: taskId, question: '<img src=x onerror=alert(1)> Verify the visit.', xmlFormId: 'verification', formName: 'Independent verification',
           dueAt: null, status: 'requested', actionable: true, seenAt: state.seen ? '2026-10-09T04:00:00Z' : null }
       ] } });
+    }
+    if (path.endsWith('/reverification')) {
+      if (failVisits) return route.fulfill({ status: 503, json: {} });
+      return route.fulfill({ json: { appUser: { name: 'Checker', projectName: 'Project' }, items: visits, complete: true } });
     }
     if (path.endsWith('/seen')) { state.seen = true; return route.fulfill({ json: { id: taskId, seenAt: '2026-10-09T04:00:00Z' } }); }
     if (path.endsWith('/push') && req.method() === 'GET')
@@ -310,5 +317,38 @@ test('unconfigured offline signing preserves the live inbox and saves nothing', 
   await expect(offlinePanel(page).getByRole('status')).toContainText('not configured');
   await expect(page.getByRole('button', { name: 'Acknowledge request' })).toBeEnabled();
   expect(await vault(page)).toBeNull();
+  expect(errors).toEqual([]);
+});
+
+test('inbox lists re-verification visits as plain text', async ({ page }) => {
+  const { state, errors } = await setup(page, { visits: [visitFixture] });
+  await connect(page);
+  const visits = page.locator('.visits');
+  await expect(page.getByRole('heading', { name: 'Re-verification visits' })).toBeVisible();
+  await expect(visits).toContainText('Water point · WP-01');
+  await expect(visits).toContainText('Check: condition');
+  await expect(visits).toContainText('Check the pump handle.');
+  await expect(visits.locator('img')).toHaveCount(0);
+  await expect(visits).toContainText('Independent verification');
+  await expect(page.getByRole('button', { name: /complete|submit|acknowledge visit/i })).toHaveCount(0);
+  expect(state.requests.filter(request => request.url.endsWith('/reverification'))
+    .every(request => request.authorization === `Bearer ${key}` && request.method === 'GET')).toBe(true);
+  await page.getByRole('button', { name: 'Disconnect' }).click();
+  await expect(page.getByText('Water point')).toHaveCount(0);
+  expect(errors).toEqual([]);
+});
+
+test('a visit-list failure does not hide the backcheck inbox', async ({ page }) => {
+  const { errors } = await setup(page, { failVisits: true });
+  await connect(page);
+  await expect(page.getByText('Verify the visit.')).toBeVisible();
+  await expect(page.getByRole('alert')).toContainText('Re-verification visits could not be loaded');
+  expect(errors).toEqual([]);
+});
+
+test('an empty visit list says so', async ({ page }) => {
+  const { errors } = await setup(page);
+  await connect(page);
+  await expect(page.getByText('No re-verification visits are assigned to you.')).toBeVisible();
   expect(errors).toEqual([]);
 });

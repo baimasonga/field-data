@@ -79,8 +79,11 @@
         <button type="button" class="btn btn-default" :disabled="busy" @click="refreshTasks">Generate due re-verification tasks</button>
       </details>
       <h4>Re-verification queue</h4>
-      <p>Queued tasks need supervisor dispatch. Superseded tasks retain their history and do not indicate a completed field visit.</p>
-      <ul><li v-for="task of detail.tasks" :key="task.id">{{ task.predicate }} · {{ task.status }} · Due {{ task.dueAt }}</li></ul>
+      <p>Dispatch queued tasks to an App User and close them with the collector's visit as evidence. Superseded and cancelled tasks retain their history and do not indicate a completed field visit.</p>
+      <ul>
+<field-data-reverification-task v-for="task of detail.tasks" :key="task.id" :project-id="projectId"
+        :task="task" :history="detail.history" @changed="reloadDetail"/>
+</ul>
       <p v-if="detail.tasks.length === 0">No re-verification tasks recorded.</p>
     </template>
   </section>
@@ -88,6 +91,7 @@
 <script setup>
 import { onBeforeUnmount, reactive, ref, watch } from 'vue';
 import useRequest from '../../composables/request';
+import FieldDataReverificationTask from './reverification-task.vue';
 
 defineOptions({ name: 'FieldDataAssets' });
 const props = defineProps({ projectId: { type: String, required: true }, xmlFormId: { type: String, required: true }, sourceClaimVersionId: { type: String, default: '' } });
@@ -139,6 +143,10 @@ const readAsset = async current => {
   if (knownAt.value) query.set('knownAt', knownAt.value);
   const { data } = await request({ method: 'GET', url: `${root}/${assetId.value}?${query}`, alert: false });
   if (current === generation) detail.value = data;
+};
+const reloadDetail = async () => {
+  const current = generation;
+  try { await readAsset(current); } catch { /* the task panel already reports its own outcome */ }
 };
 const loadAsset = () => perform(async current => {
   detail.value = null;

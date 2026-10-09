@@ -47,6 +47,40 @@ const setup = async (page, { comparisonUnavailable = false, failComparison = fal
       backchecks: { pending: state.backchecks.filter(b => b.status === 'requested').length, overdue: 0 },
       activeReasons: selected ? [{ reasonCode: 'provenance-degraded', count: 1 }] : [] });
     }
+    if (path === '/v1/projects/7/app-users') return respond([{ id: 42, displayName: 'Collector' }]);
+    const taskRoot = '/v1/field-data/projects/7/reverification-tasks/';
+    if (path.startsWith(taskRoot)) {
+      const { task } = state;
+      const snapshot = () => route.fulfill({ json: { task, events: state.taskEvents, candidates: state.taskCandidates,
+        allowed: canOverride }, headers: { etag: `"task-${task.revision}"` } });
+      if (req.method() === 'GET') return snapshot();
+      const data = req.postDataJSON();
+      state.taskWrites.push({ path, data, headers: req.headers() });
+      if (state.taskConflict) { state.taskConflict = false; task.revision += 1; return route.fulfill({ status: 412, json: { message: 'Stale' } }); }
+      expect(req.headers()['if-match']).toBe(`"task-${task.revision}"`);
+      const reply = () => route.fulfill({ json: { id: task.id, status: task.status, revision: task.revision, replayed: false },
+        headers: { etag: `"task-${task.revision}"` } });
+      const event = action => state.taskEvents.push({ id: data.requestId, action, recordedAt: '2026-10-09T10:00:00Z', note: data.note,
+        assigneeName: task.assignee?.displayName ?? null, reasonCode: data.reasonCode ?? null });
+      if (path.endsWith('/dispatch')) {
+        Object.assign(task, { status: 'dispatched', assignee: { id: data.assigneeId, displayName: 'Collector' },
+          dispatchedAt: '2026-10-09T10:00:00Z', visitBy: data.visitBy ?? null, revision: task.revision + 1 });
+        event('dispatch');
+        return reply();
+      }
+      if (path.endsWith('/close')) {
+        if (state.proofRejection) return route.fulfill({ status: 409, json: { message: state.proofRejection } });
+        Object.assign(task, { status: 'closed', closureObservationId: data.observationId, revision: task.revision + 1 });
+        event('close');
+        return reply();
+      }
+      if (path.endsWith('/cancel')) {
+        Object.assign(task, { status: 'cancelled', revision: task.revision + 1 });
+        event('cancel');
+        return reply();
+      }
+      return route.fulfill({ status: 404, json: {} });
+    }
     const assetRoot = '/v1/field-data/projects/7/assets';
     if (path.startsWith(assetRoot)) {
       const asset = state.assets[0];
@@ -679,5 +713,98 @@ test('a delayed evidence graph cannot populate a different form', async ({ page 
   await response;
   await expect(page.locator('.evidence-graph')).toHaveCount(0);
   await expect(page.getByText('No open claim review cases for this form.')).toBeVisible();
+  expect(errors).toEqual([]);
+});
+
+const taskId = '66666666-6666-4666-8666-666666666666';
+const observationId = '77777777-7777-4777-8777-777777777777';
+const seedTask = (state) => {
+  state.assets.push({ id: '55555555-5555-4555-8555-555555555555', name: 'Water point', externalId: 'WP-01', assetType: 'water-point', revision: 3 });
+  state.assetTasks.push({ id: taskId, predicate: 'condition', status: 'queued', dueAt: '2026-01-11T00:00:00Z' });
+  state.task = { id: taskId, status: 'queued', revision: 1, predicate: 'condition', dueAt: '2026-01-11T00:00:00Z',
+    assignee: null, visitBy: null, dispatchedAt: null, overdue: false, closureObservationId: null };
+  state.taskEvents = [];
+  state.taskCandidates = [{ claimVersionId: versionId, instanceId: 'visit-1', receivedAt: '2026-10-09T10:30:00Z', capturedAt: null }];
+  state.taskWrites = [];
+  state.taskConflict = false;
+  state.proofRejection = null;
+  state.assetHistory.push({ id: observationId, predicate: 'condition', state: 'known', value: 'needs repair', actorId: 1,
+    validFrom: '2026-10-09T10:45:00Z', recordedAt: '2026-10-09T11:00:00Z', integrityStatus: 'verified',
+    sourceUrl: `/v1/field-data/claim-versions/${versionId}`,
+    freshness: { status: 'fresh', dueAt: '2027-01-01T00:00:00Z', expiresAt: '2027-01-01T00:00:00Z', limitations: 'Supervisor-defined age policy.' } });
+};
+const openTask = async (page, state) => {
+  await openInspection(page);
+  const assets = page.getByRole('region', { name: 'Asset passports and re-verification' });
+  await assets.getByRole('button', { name: 'Load assets', exact: true }).click();
+  await assets.getByLabel('Asset', { exact: true }).selectOption(state.assets[0].id);
+  await assets.getByRole('button', { name: 'Manage' }).click();
+  return assets;
+};
+
+test('supervisors dispatch a task, see why a closure is refused, and close it on collector evidence', async ({ page }) => {
+  const { state, errors } = await setup(page, { canOverride: true });
+  seedTask(state);
+  const assets = await openTask(page, state);
+  await expect(assets.getByRole('group', { name: 'Dispatch to a collector' })).toBeVisible();
+  await assets.getByLabel('App User').selectOption('42');
+  await assets.getByLabel('Instruction shown to the collector').fill('Check the pump handle. <img src=x onerror=alert(1)>');
+  await assets.getByRole('button', { name: 'Dispatch task' }).click();
+  await expect(assets).toContainText('Assignment saved');
+  expect(state.taskWrites[0].path).toMatch(/\/dispatch$/);
+  expect(state.taskWrites[0].headers['if-match']).toBe('"task-1"');
+  expect(state.taskWrites[0].data.assigneeId).toBe(42);
+  await expect(assets).toContainText('Assigned to Collector');
+  await expect(assets.locator('img')).toHaveCount(0);
+  await expect(assets).toContainText('visit-1');
+
+  // A refusal explains itself and leaves the task dispatched; the retry reuses its request ID.
+  state.proofRejection = 'The linked observation is not acceptable field evidence for this task: received-before-dispatch.';
+  await assets.getByLabel('Observation recorded from that submission').selectOption(observationId);
+  await assets.getByLabel('Closing note').fill('Collector visit received.');
+  await assets.getByRole('button', { name: 'Close task' }).click();
+  await expect(assets.getByRole('alert')).toContainText('received-before-dispatch');
+  await expect(assets).toContainText('Status: dispatched');
+  state.proofRejection = null;
+  await assets.getByRole('button', { name: 'Close task' }).click();
+  await expect(assets).toContainText('Closed by a collector visit');
+  const closes = state.taskWrites.filter(write => write.path.endsWith('/close'));
+  expect(closes).toHaveLength(2);
+  expect(closes[0].data.requestId).toBe(closes[1].data.requestId);
+  await expect(assets.getByRole('group', { name: 'Close with visit evidence' })).toHaveCount(0);
+  await page.setViewportSize({ width: 320, height: 720 });
+  await expect.poll(() => page.evaluate(() => globalThis.document.documentElement.scrollWidth <= 320)).toBe(true);
+  expect(errors).toEqual([]);
+});
+
+test('task stale-write recovery reloads the revision, and cancellation claims no visit', async ({ page }) => {
+  const { state, errors } = await setup(page, { canOverride: true });
+  seedTask(state);
+  const assets = await openTask(page, state);
+  state.taskConflict = true;
+  await assets.getByLabel('App User').selectOption('42');
+  await assets.getByLabel('Instruction shown to the collector').fill('Visit the site.');
+  await assets.getByRole('button', { name: 'Dispatch task' }).click();
+  await expect(assets.getByRole('alert')).toContainText('Another supervisor changed this task');
+  await assets.getByRole('button', { name: 'Dispatch task' }).click();
+  await expect(assets).toContainText('Assignment saved');
+  expect(state.taskWrites.map(write => write.headers['if-match'])).toEqual(['"task-1"', '"task-2"']);
+  await assets.locator('select').filter({ hasText: 'Site not reachable' }).selectOption('access-blocked');
+  await assets.getByLabel('Note', { exact: true }).fill('Road washed out.');
+  await assets.getByRole('button', { name: 'Cancel task' }).click();
+  await expect(assets).toContainText('Cancelled without a visit');
+  await expect(assets).toContainText('does not show the asset was checked');
+  expect(state.taskWrites[state.taskWrites.length - 1].data).toMatchObject({ reasonCode: 'access-blocked' });
+  expect(errors).toEqual([]);
+});
+
+test('viewers can read a task but cannot dispatch, close or cancel it', async ({ page }) => {
+  const { state, errors } = await setup(page, { readOnly: true });
+  seedTask(state);
+  const assets = await openTask(page, state);
+  await expect(assets).toContainText('Status: queued');
+  await expect(assets.getByRole('group', { name: 'Dispatch to a collector' })).toHaveCount(0);
+  await expect(assets.getByRole('button', { name: 'Cancel task' })).toHaveCount(0);
+  expect(state.taskWrites).toEqual([]);
   expect(errors).toEqual([]);
 });
