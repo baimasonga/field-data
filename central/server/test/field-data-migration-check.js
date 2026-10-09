@@ -2,6 +2,7 @@
 const assert = require('node:assert/strict');
 const knex = require('knex');
 const assetMigration = require('../lib/model/migrations/20261009-04-add-asset-freshness');
+const dispatchMigration = require('../lib/model/migrations/20261009-05-add-reverification-dispatch');
 const mappingMigration = require('../lib/model/migrations/20261009-03-add-backcheck-field-mappings');
 const pushMigration = require('../lib/model/migrations/20261009-02-add-app-user-backcheck-push');
 const responseFormMigration = require('../lib/model/migrations/20261009-01-add-backcheck-response-form');
@@ -211,6 +212,83 @@ const checkAssetRollback = async (db) => {
   });
   console.log('Asset observations and tasks survive rollback/reapply with append-only constraints');
 };
+const checkDispatchRollback = async (db) => {
+  await db.transaction(async (tx) => {
+    const schema = 'dispatch_rollback_probe';
+    await tx.raw('CREATE SCHEMA ??', [schema]);
+    await tx.raw('SET LOCAL search_path TO ??', [schema]);
+    await tx.raw(`CREATE TABLE actors (id INTEGER PRIMARY KEY);
+      CREATE TABLE projects (id INTEGER PRIMARY KEY);
+      CREATE TABLE forms (id INTEGER PRIMARY KEY, "projectId" INTEGER);
+      CREATE TABLE submissions (id INTEGER PRIMARY KEY, "formId" INTEGER);
+      CREATE TABLE submission_defs (id INTEGER PRIMARY KEY, "submissionId" INTEGER);
+      CREATE TABLE field_data_claim_versions (id UUID PRIMARY KEY, "submissionDefId" INTEGER);
+      INSERT INTO actors VALUES (1), (2); INSERT INTO projects VALUES (1);
+      INSERT INTO forms VALUES (1, 1); INSERT INTO submissions VALUES (1, 1);
+      INSERT INTO submission_defs VALUES (1, 1);
+      INSERT INTO field_data_claim_versions VALUES ('00000000-0000-4000-8000-000000000001', 1)`);
+    const names = ['20261009-04-add-asset-freshness.js', '20261009-05-add-reverification-dispatch.js'];
+    const modules = { [names[0]]: assetMigration, [names[1]]: dispatchMigration };
+    const options = { schemaName: schema, migrationSource: {
+      getMigrations: () => Promise.resolve(names), getMigrationName: migration => migration,
+      getMigration: migration => modules[migration]
+    } };
+    const columns = async () => (await tx.raw(`SELECT column_name FROM information_schema.columns
+      WHERE table_schema = ? AND table_name = 'field_data_reverification_tasks' ORDER BY column_name`, [schema]))
+      .rows.map(row => row.column_name);
+    await tx.migrate.latest(options);
+    await tx.raw(`INSERT INTO field_data_assets
+      (id, "projectId", "formId", name, "assetType", "externalId", "requestId", "requestHash", "actorId")
+      VALUES ('00000000-0000-4000-8000-000000000002', 1, 1, 'Water point', 'water-point', 'WP-01',
+        '00000000-0000-4000-8000-000000000003', 'fixture', 1);
+      INSERT INTO field_data_asset_observations ("assetId", sequence, "claimVersionId", "sourceHash",
+        predicate, state, value, "validFrom", "validityDays", "graceDays", "requestId", "requestHash", "actorId", note)
+      VALUES ('00000000-0000-4000-8000-000000000002', 1, '00000000-0000-4000-8000-000000000001',
+        'fixture', 'condition', 'known', 'operating', now(), 30, 2,
+        '00000000-0000-4000-8000-000000000004', 'fixture', 1, 'Recorded source evidence');
+      INSERT INTO field_data_reverification_tasks ("observationId", "dueAt")
+        SELECT id, now() FROM field_data_asset_observations`);
+
+    // With only queued tasks the migration removes itself cleanly and reapplies.
+    const upgraded = await columns();
+    await tx.migrate.down(options);
+    assert(!(await columns()).includes('assigneeId'));
+    assert.deepEqual((await tx.raw('SELECT status FROM field_data_reverification_tasks')).rows, [{ status: 'queued' }]);
+    await tx.migrate.latest(options);
+    assert.deepEqual(await columns(), upgraded);
+
+    // Dispatched work survives rollback and reapply untouched.
+    await tx.raw(`UPDATE field_data_reverification_tasks SET status = 'dispatched', "assigneeId" = 2,
+      "dispatchedAt" = now(), revision = 2`);
+    await tx.raw(`INSERT INTO field_data_reverification_task_events
+      ("taskId", sequence, action, "actorId", "assigneeId", note, "requestId", "requestHash")
+      SELECT id, 1, 'dispatch', 1, 2, 'Visit the site.', '00000000-0000-4000-8000-000000000005', 'fixture'
+      FROM field_data_reverification_tasks`);
+    const tasks = (await tx.raw('SELECT * FROM field_data_reverification_tasks')).rows;
+    const events = (await tx.raw('SELECT * FROM field_data_reverification_task_events')).rows;
+    await tx.migrate.down(options);
+    await tx.migrate.latest(options);
+    assert.deepEqual((await tx.raw('SELECT * FROM field_data_reverification_tasks')).rows, tasks);
+    assert.deepEqual((await tx.raw('SELECT * FROM field_data_reverification_task_events')).rows, events);
+
+    // Status and column combinations are enforced, and history is append-only.
+    await assert.rejects(tx.transaction(savepoint => savepoint.raw(
+      "UPDATE field_data_reverification_tasks SET status = 'closed'")), { code: '23514' });
+    await assert.rejects(tx.transaction(savepoint => savepoint.raw(
+      'UPDATE field_data_reverification_tasks SET "assigneeId" = NULL')), { code: '23514' });
+    await assert.rejects(tx.transaction(savepoint => savepoint.raw(
+      "UPDATE field_data_reverification_task_events SET note = 'edited'")), { code: '23514' });
+    await assert.rejects(tx.transaction(savepoint => savepoint.raw(
+      'DELETE FROM field_data_reverification_task_events')), { code: '23514' });
+    await assert.rejects(tx.transaction(savepoint => savepoint.raw(
+      `INSERT INTO field_data_reverification_task_events
+        ("taskId", sequence, action, "actorId", "reasonCode", note, "requestId", "requestHash")
+        SELECT id, 2, 'cancel', 1, 'weather', 'x', '00000000-0000-4000-8000-000000000006', 'x'
+        FROM field_data_reverification_tasks`)), { code: '23514' });
+    await tx.raw('DROP SCHEMA ?? CASCADE', [schema]);
+  });
+  console.log('Re-verification dispatch history survives rollback/reapply with state and append-only constraints');
+};
 (async () => {
   const schema = process.env.TEST_SCHEMA;
   assert.ok(['public', 'field_data'].includes(schema));
@@ -234,5 +312,6 @@ const checkAssetRollback = async (db) => {
     await checkPushRollback(db);
     await checkMappingRollback(db);
     await checkAssetRollback(db);
+    await checkDispatchRollback(db);
   } finally { await db.destroy(); }
 })().catch(error => { console.error(error); process.exitCode = 1; });
