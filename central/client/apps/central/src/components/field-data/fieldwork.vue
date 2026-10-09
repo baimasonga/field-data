@@ -47,10 +47,13 @@ Acknowledge request
     </template>
     <p v-if="loading" role="status">Loading your inbox…</p>
     <p v-if="error" role="alert">{{ error }}</p>
+    <field-data-offline-assignments :connected="connected" :session-id="sessionId"
+      :revocation="offlineRevocation" :fetch-bundle="fetchOfflineBundle"/>
   </section>
 </template>
 <script setup>
 import { onBeforeUnmount, onMounted, ref } from 'vue';
+import FieldDataOfflineAssignments from './offline-assignments.vue';
 
 defineOptions({ name: 'FieldDataFieldwork' });
 const inputKey = ref('');
@@ -65,25 +68,15 @@ const pushEnabled = ref(false);
 const pushActive = ref(false);
 const pushBusy = ref(false);
 const pushMessage = ref('');
+const sessionId = ref(0);
+const offlineRevocation = ref(0);
 let token = '';
 let publicKey = null;
 let subscriptionId = null;
 let generation = 0;
 let controller = new AbortController();
-const api = async (path, method = 'GET', body = null) => {
-  const result = await fetch(`/v1/field-data/app-user/${path}`, {
-    method, credentials: 'omit', cache: 'no-store', signal: controller.signal,
-    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-    ...(body == null ? {} : { body: JSON.stringify(body) })
-  });
-  if (!result.ok) {
-    const failure = new Error('Request failed');
-    failure.status = result.status;
-    throw failure;
-  }
-  return result.json();
-};
 const clear = () => {
+  sessionId.value += 1;
   generation += 1;
   controller.abort();
   controller = new AbortController();
@@ -101,6 +94,25 @@ const clear = () => {
   pushBusy.value = false;
   acknowledging.value = null;
 };
+const api = async (path, method = 'GET', body = null) => {
+  const current = generation;
+  const result = await fetch(`/v1/field-data/app-user/${path}`, {
+    method, credentials: 'omit', cache: 'no-store', signal: controller.signal,
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    ...(body == null ? {} : { body: JSON.stringify(body) })
+  });
+  if (!result.ok) {
+    if ((result.status === 401 || result.status === 403) && current === generation) {
+      offlineRevocation.value += 1;
+      clear();
+      error.value = 'Access is unavailable. Ask your supervisor for an active App User key.';
+    }
+    const failure = new Error('Request failed');
+    failure.status = result.status;
+    throw failure;
+  }
+  return result.json();
+};
 const parseKey = (value) => {
   if (!value.includes('://')) return value;
   const url = new URL(value);
@@ -116,18 +128,17 @@ const load = async (cursor = null) => {
   try {
     const data = await api(`backchecks${cursor == null ? '' : `?cursor=${encodeURIComponent(cursor)}`}`);
     if (current !== generation) return;
+    if (cursor == null) offlineRevocation.value += 1;
     identity.value = data.appUser;
     items.value = cursor == null ? data.items : [...items.value, ...data.items];
     nextCursor.value = data.nextCursor;
     connected.value = true;
   } catch (failure) {
     if (current !== generation) return;
-    if (failure.status === 401 || failure.status === 403) {
-      clear();
-      error.value = 'Access is unavailable. Ask your supervisor for an active App User key.';
-    } else error.value = 'The inbox could not be loaded. Refresh or try opening it again.';
+    error.value = 'The inbox could not be loaded. Refresh or try opening it again.';
   } finally { if (current === generation) loading.value = false; }
 };
+const fetchOfflineBundle = () => api('offline-assignments');
 const handlePushUpdate = (event) => {
   if (event.origin === window.location.origin && event.data?.type === 'fieldwork-inbox-update' &&
     connected.value && !loading.value && acknowledging.value == null) load();

@@ -33,8 +33,11 @@ also exist. Those features must not be re-labelled as full completion of this pr
   remain pending operations work.
 - Remaining deliverables in all eight rows: pending.
 - Version-scoped evidence graph and recorded survey timeline: implemented and
-  locally validated (E1; CI/merge pending). Capture sessions, sensor/challenge
+  locally and CI validated, merged in PR #53 (E1). Capture sessions, sensor/challenge
   evidence and witnessing remain pending.
+- Signed, encrypted, read-only companion assignment snapshots: implemented and
+  locally validated (O1; CI/merge pending). Application caching, progressive
+  uploads and encrypted relays remain pending.
 - Collect pilot and production browser push: pending external acceptance.
 
 ## Selected client and providers
