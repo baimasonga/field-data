@@ -1,6 +1,6 @@
 // Copyright 2026 Field Data Developers. Licensed under the Apache License, Version 2.0.
 const { strict: assert } = require('assert');
-const { createECDH, randomBytes } = require('crypto');
+const { createECDH, randomBytes, generateKeyPairSync, verify } = require('crypto');
 const { sql } = require('slonik');
 const { promisify } = require('util');
 const { workerQueue } = require('../../../lib/worker/worker');
@@ -8,6 +8,7 @@ const webpush = require('web-push');
 const { testService } = require('../setup');
 const testData = require('../../data/xml');
 const { dispatchBackcheckPush } = require('../../../lib/worker/backcheck-push');
+const offlineAssignments = require('../../../lib/util/offline-assignments');
 const base = '/v1/field-data/app-user';
 const setup = async (service) => {
   const alice = await service.login('alice');
@@ -47,6 +48,68 @@ const withPush = async (test) => {
 };
 
 describe('api: App User backcheck notifications', () => {
+  it('signs bounded offline snapshots without leaking source answers and honors live access removal',
+    testService(async (service, { one, run }) => {
+      const { checker, other, alice } = await setup(service);
+      const saved = { key: process.env.FIELD_DATA_OFFLINE_SIGNING_KEY,
+        origin: process.env.FIELD_DATA_OFFLINE_ORIGIN };
+      try {
+        delete process.env.FIELD_DATA_OFFLINE_SIGNING_KEY;
+        delete process.env.FIELD_DATA_OFFLINE_ORIGIN;
+        const path = `${base}/offline-assignments`;
+        const get = token => service.get(path).set('Authorization', `Bearer ${token}`);
+        await service.get(path).expect(401);
+        await alice.get(path).expect(403);
+        assert.deepEqual((await get(checker.token).expect(200)).body, { enabled: false });
+        const { privateKey, publicKey } = generateKeyPairSync('ec', { namedCurve: 'prime256v1' });
+        process.env.FIELD_DATA_OFFLINE_SIGNING_KEY = privateKey.export({ type: 'pkcs8', format: 'pem' });
+        process.env.FIELD_DATA_OFFLINE_ORIGIN = 'https://field.example.test';
+        assert.throws(() => offlineAssignments.issue(offlineAssignments.config(), {
+          actorId: checker.id, projectId: 1, displayName: 'Checker', projectName: 'x'.repeat(262145)
+        }, []), error => error.isProblem === true);
+        const response = await get(checker.token).expect(200);
+        assert.equal(response.headers['cache-control'], 'private, no-store');
+        const { bundle } = response.body;
+        const bytes = Buffer.from(bundle.payload, 'base64url');
+        assert(verify('sha256', bytes, { key: publicKey, dsaEncoding: 'ieee-p1363' }, Buffer.from(bundle.signature, 'base64url')));
+        const data = JSON.parse(bytes.toString('utf8'));
+        assert.equal(data.actorId, checker.id);
+        assert.equal(data.items.length, 1);
+        assert.equal(data.items[0].question, 'Verify the visit.');
+        assert.equal(data.items[0].claimVersionId, undefined);
+        assert.equal(data.items[0].caseId, undefined);
+        assert.equal(data.audience, 'https://field.example.test');
+        assert.equal(Date.parse(data.expiresAt) - Date.parse(data.issuedAt), 8 * 3600000);
+        assert(!JSON.stringify(response.body).includes(checker.token));
+        assert.equal(JSON.parse(Buffer.from((await get(other.token).expect(200)).body.bundle.payload,
+          'base64url').toString('utf8')).items.length, 0);
+        const audit = await one(sql`SELECT details FROM audits
+          WHERE action = 'field_data.offline.assignments.issue' AND details->>'bundleId' = ${data.id}`);
+        assert.equal(audit.details.count, 1);
+        assert.equal(audit.details.keyId, bundle.keyId);
+        await run(sql`INSERT INTO field_data_backchecks
+          ("caseId", "claimVersionId", "requestId", "requestHash", "assignedTo", question, status, "responseFormId")
+          SELECT b."caseId", b."claimVersionId", gen_random_uuid(), 'offline-pagination', b."assignedTo",
+            'Older instruction', 'cancelled', b."responseFormId"
+          FROM field_data_backchecks b CROSS JOIN generate_series(1, 51) n WHERE b.id = ${data.items[0].id}`);
+        const bounded = JSON.parse(Buffer.from((await get(checker.token).expect(200)).body.bundle.payload,
+          'base64url').toString('utf8'));
+        assert.equal(bounded.items.length, 50);
+        assert.equal(bounded.complete, false);
+        await alice.delete(`/v1/projects/1/forms/simple/assignments/app-user/${checker.id}`).expect(200);
+        assert.equal(JSON.parse(Buffer.from((await get(checker.token).expect(200)).body.bundle.payload,
+          'base64url').toString('utf8')).items.length, 0);
+        await alice.delete(`/v1/projects/1/app-users/${checker.id}`).expect(200);
+        await get(checker.token).expect(401);
+        process.env.FIELD_DATA_OFFLINE_ORIGIN = 'http://untrusted.test';
+        assert.deepEqual((await get(other.token).expect(200)).body, { enabled: false });
+      } finally {
+        if (saved.key == null) delete process.env.FIELD_DATA_OFFLINE_SIGNING_KEY;
+        else process.env.FIELD_DATA_OFFLINE_SIGNING_KEY = saved.key;
+        if (saved.origin == null) delete process.env.FIELD_DATA_OFFLINE_ORIGIN;
+        else process.env.FIELD_DATA_OFFLINE_ORIGIN = saved.origin;
+      }
+    }));
   it('scopes instructions and acknowledgment to the assignee and paginates without losing microseconds',
     testService(async (service, container) => {
       const { alice, checker, other, item, created } = await setup(service);

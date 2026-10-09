@@ -3,6 +3,7 @@ const { sql } = require('slonik');
 const Problem = require('../util/problem');
 const { UUID_PATTERN } = require('../util/claim-versioning');
 const { pushConfig, subscriptionBody } = require('../util/backcheck-push');
+const offlineAssignments = require('../util/offline-assignments');
 
 const appUser = async (container, auth) => {
   const actor = auth.actor.orNull();
@@ -36,6 +37,19 @@ const inboxQuery = (user, cursor = null, id = null) => sql`SELECT b.id, b.questi
   ORDER BY b."createdAt" DESC, b.id DESC LIMIT 51`;
 
 module.exports = (service, endpoint) => {
+  service.get('/field-data/app-user/offline-assignments', endpoint(async (container, { auth }, request, response) => {
+    const user = await appUser(container, auth);
+    response.set('Cache-Control', 'private, no-store');
+    const settings = offlineAssignments.config();
+    if (settings == null) return { enabled: false };
+    const rows = await container.db.any(inboxQuery(user));
+    const bundle = offlineAssignments.issue(settings, user, rows);
+    const data = JSON.parse(Buffer.from(bundle.payload, 'base64url').toString('utf8'));
+    await container.Audits.log(auth.actor.orNull(), 'field_data.offline.assignments.issue', null,
+      { bundleId: data.id, projectId: user.projectId, actorId: user.actorId,
+        expiresAt: data.expiresAt, count: data.items.length, keyId: settings.keyId });
+    return { enabled: true, bundle };
+  }));
   service.get('/field-data/app-user/backchecks', endpoint(async (container, { auth, query }, request, response) => {
     const user = await appUser(container, auth);
     let cursor = null;
