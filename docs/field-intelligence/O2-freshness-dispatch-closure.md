@@ -102,6 +102,31 @@ are audited. All responses are `private, no-store`.
 `GET /v1/field-data/app-user/reverification` lists the calling App User's own
 dispatched tasks (inbox fields above only).
 
+## Project queue
+
+Supervisors need to see what is overdue across a project, not open assets one at a time.
+`GET .../reverification-tasks` therefore also takes `overdue=true` (dispatched with a
+`visitBy` that has passed; `overdue=false` means no filter) and `assigneeId`, alongside
+`status`. Bad values are refused with 400, not ignored. A new
+`GET .../reverification-tasks/summary` returns counts by status plus the overdue count and
+the number of open (dispatched) tasks and overdue tasks held by each collector. It also
+lists `collectors`: everyone assigned work on a readable form, including people whose tasks are
+all closed or cancelled, so the collector filter can find historical work. `assigneeId` must fit
+a 32-bit integer; larger values are refused with 400.
+
+- **Access:** the forms the caller may read are resolved first and applied in the query, so
+  pages are full and the counts and workload describe only work on forms the caller may
+  read. A caller who can open the project but read none of its forms sees empty results;
+  one with no project access gets 404.
+- **Workload is a current count, not a score.** It is a number of open tasks to help spread
+  the work. It ranks no one and measures no one's performance, because a task stays open
+  for reasons the collector does not control (a blocked road, an unsafe site).
+- **Screen:** a "Re-verification queue" section on the review screen shows the counts, the
+  workload, filters (status, collector, overdue only), paging and an "Open asset" action
+  that selects the task's form and opens its asset in the existing panel, where the task is
+  dispatched, closed or cancelled. Only the newest request's answer is ever shown, and an
+  answer in an unexpected shape becomes a retryable error.
+
 ## Acceptance
 
 Actual PostgreSQL: dispatch/reassign/cancel/close happy paths and every closure

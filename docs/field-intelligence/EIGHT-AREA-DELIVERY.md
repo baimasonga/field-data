@@ -33,7 +33,9 @@ also exist. Those features must not be re-labelled as full completion of this pr
 - Dispatch of freshness tasks to App Users and field closure by fresh collected evidence
   (O2): implemented and locally validated; CI/merge pending. Collector push, inclusion in
   the signed offline snapshot, sampling, route/capacity planning, workload balancing and
-  a Collect device pilot remain pending.
+  a Collect device pilot remain pending. A project-wide queue with overdue and collector
+  filters and a workload count (current open tasks, not a performance measure) is
+  implemented and locally validated; CI/merge pending.
 - Remaining deliverables in all eight rows: pending.
 - Version-scoped evidence graph and recorded survey timeline: implemented and
   locally and CI validated, merged in PR #53 (E1). Capture sessions, sensor/challenge

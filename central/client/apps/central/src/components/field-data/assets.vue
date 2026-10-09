@@ -94,7 +94,14 @@ import useRequest from '../../composables/request';
 import FieldDataReverificationTask from './reverification-task.vue';
 
 defineOptions({ name: 'FieldDataAssets' });
-const props = defineProps({ projectId: { type: String, required: true }, xmlFormId: { type: String, required: true }, sourceClaimVersionId: { type: String, default: '' } });
+const props = defineProps({
+  projectId: { type: String, required: true },
+  xmlFormId: { type: String, required: true },
+  sourceClaimVersionId: { type: String, default: '' },
+  // Ask the panel to open one asset, for example from the project queue. An object, so
+  // asking for the same asset twice is still a new request.
+  focus: { type: Object, default: null }
+});
 const { request } = useRequest();
 const root = `/v1/field-data/projects/${encodeURIComponent(props.projectId)}/assets`;
 const busy = ref(false);
@@ -144,6 +151,36 @@ const readAsset = async current => {
   const { data } = await request({ method: 'GET', url: `${root}/${assetId.value}?${query}`, alert: false });
   if (current === generation) detail.value = data;
 };
+const focusAsset = () => perform(async (current) => {
+  const { data } = await request({ method: 'GET', url: root, alert: false });
+  if (current !== generation) return;
+  items.value = data.items;
+  allowed.value = data.allowed;
+  nextCursor.value = data.nextCursor;
+  loaded.value = true;
+  assetId.value = props.focus.assetId;
+  at.value = '';
+  knownAt.value = '';
+  detail.value = null;
+  await readAsset(current);
+  // The asset may sit beyond the first page of the list; keep it selectable.
+  if (current === generation && detail.value != null && !items.value.some(item => item.id === assetId.value)) {
+    items.value = [...items.value, detail.value.asset];
+  }
+});
+// A request to open an asset that arrives while the panel is busy is carried out
+// afterwards, using the newest request, rather than lost.
+let pendingFocus = false;
+const focusWanted = () => props.focus?.assetId && props.focus.xmlFormId === props.xmlFormId;
+watch(() => props.focus, () => {
+  if (!focusWanted()) return;
+  if (busy.value) pendingFocus = true; else focusAsset();
+}, { immediate: true });
+watch(busy, (now) => {
+  if (now || !pendingFocus) return;
+  pendingFocus = false;
+  if (focusWanted()) focusAsset();
+});
 const reloadDetail = async () => {
   const current = generation;
   try { await readAsset(current); } catch { /* the task panel already reports its own outcome */ }

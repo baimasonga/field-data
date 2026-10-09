@@ -36,8 +36,11 @@
         <submission-review-queue v-else :key="`${projectId}:${xmlFormId}`"
           :project-id="projectId" :xml-form-id="xmlFormId" :can-review="canReview"
           @asset-source="sourceClaimVersionId = $event"/>
+        <field-data-reverification-queue v-if="projectId" :key="`queue:${projectId}`"
+          :project-id="projectId" @open="openFromQueue"/>
         <field-data-assets v-if="projectId && xmlFormId" :key="`assets:${projectId}:${xmlFormId}`"
-          :project-id="projectId" :xml-form-id="xmlFormId" :source-claim-version-id="sourceClaimVersionId"/>
+          :project-id="projectId" :xml-form-id="xmlFormId" :source-claim-version-id="sourceClaimVersionId"
+          :focus="assetFocus"/>
       </template>
     </template>
     <details v-if="canManageQuality" class="submission-quality" @toggle="qualityOpen = $event.target.open">
@@ -53,6 +56,7 @@ import Loading from '../loading.vue';
 import SubmissionReviewQueue from '../submission/review-queue.vue';
 import FieldDataSubmissionReview from './submission-review.vue';
 import FieldDataAssets from './assets.vue';
+import FieldDataReverificationQueue from './reverification-queue.vue';
 import { useRequestData } from '../../request-data';
 
 defineOptions({ name: 'FieldDataReview' });
@@ -63,7 +67,19 @@ const projects = createResource('reviewProjects');
 const projectId = ref('');
 const xmlFormId = ref('');
 const sourceClaimVersionId = ref('');
-watch(() => [projectId.value, xmlFormId.value], () => { sourceClaimVersionId.value = ''; });
+const assetFocus = ref(null);
+watch(projectId, () => { assetFocus.value = null; });
+watch(() => [projectId.value, xmlFormId.value], () => {
+  sourceClaimVersionId.value = '';
+  // A request to open an asset belongs to one form; drop it once the selection moves elsewhere.
+  if (assetFocus.value != null && assetFocus.value.xmlFormId !== xmlFormId.value) assetFocus.value = null;
+});
+// Opening a task from the project queue selects the form it belongs to and asks the
+// asset panel to show that asset, where the task can be dispatched, closed or cancelled.
+const openFromQueue = (task) => {
+  xmlFormId.value = task.xmlFormId;
+  assetFocus.value = { assetId: task.assetId, xmlFormId: task.xmlFormId, at: Date.now() };
+};
 const loadFailed = ref(false);
 const availableProjects = computed(() => (projects.dataExists
   ? projects.data.filter(project => project.verbs?.includes('submission.read')) : []));
