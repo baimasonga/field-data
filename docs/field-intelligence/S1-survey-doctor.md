@@ -48,7 +48,7 @@ the other questions involved.
 
 | Code | Finds |
 | --- | --- |
-| `forward-reference` | Relevance, a constraint or `required` of a question that depends on a question asked **later**. When the question is reached, that answer does not exist yet. |
+| `forward-reference` | Relevance, a constraint or `required` of a question that depends on a question asked **later** (in the order the form presents them). When the question is reached, that answer does not exist yet. Also a group that opens only on an answer inside it, which cannot be given while the group is hidden (unless that answer has its own calculation or default). |
 | `missing-translation` | A form with several languages where a question or choice has a label in some languages and not others (pyxform's `-` placeholder counts as missing). A language missing from most of the form is one finding for the form, not one per question. |
 | `duplicate-choice-label` | Two choices in one list with the same label in the same language: the collector cannot tell them apart. |
 | `empty-choice-list` | A choice question with no choices and no external or filtered list. |
@@ -149,7 +149,7 @@ version needs attention. See decision 1 for publishing.
 
 Locally:
 
-- Unit: 23 tests (`test/unit/util/survey-doctor.js`), including a pyxform form
+- Unit: 26 tests (`test/unit/util/survey-doctor.js`), including a pyxform form
   with one planted instance of each problem (all found) and the same form
   corrected (no findings), and the benign lookalikes in the acceptance list.
 - Real forms: 150 XForms swept without a crash: ODK Web Forms and JavaRosa
@@ -164,6 +164,12 @@ Locally:
   The remaining findings are real: deliberately broken JavaRosa test forms,
   self-referencing calculations (which ODK Collect refuses as cycles), and
   genuine translation gaps.
+- Review (Codex, PR #64) found three gaps, all fixed with tests: question order
+  is now taken from the form body (a hand-written form may order its instance
+  differently; this removed 12 false forward-reference warnings on the eIMCI
+  form, whose body asks the referral question before the questions that
+  depend on it); a group that opens only on an answer inside it is reported;
+  and relevance that is always true no longer counts as a condition.
 - Integration: 3 tests (`test/integration/api/field-data-survey-doctor.js`):
   published, draft and earlier versions; the report follows publishing;
   permissions (viewer and collector read the published check, only managers
@@ -176,7 +182,7 @@ Locally:
   request-order tests and the shared request map were updated. The form-edit
   and draft specs pass (99); the full suite has 60 failures, all pre-existing
   and under the CI baseline of 61.
-- Deliberate breakages: 22 in the checker, 3 in the route and 6 in the client;
+- Deliberate breakages: 26 in the checker, 3 in the route and 6 in the client;
   each made at least one test fail (three survived the first tests, which were
   then strengthened).
 - Gates: CI integration set 67, feature set 22, server unit 1,734 (1 existing

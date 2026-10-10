@@ -132,6 +132,9 @@ const readForm = (xml) => {
 
   // Body: controls, groups, repeats and choice lists.
   const lists = [];
+  // The order questions are presented in: the body's, which a hand-written
+  // form may give differently from its instance.
+  let shown = 0;
   const walkBody = (node, base) => {
     for (const c of node.children) {
       if (c.name === 'group' || c.name === 'repeat') {
@@ -139,6 +142,7 @@ const readForm = (xml) => {
         const path = ref == null ? base : resolveRef(ref, base);
         const found = nodes.get(path);
         if (found != null) {
+          found.asked ??= shown; shown += 1;
           found.kind = c.name === 'repeat' ? 'repeat' : (found.kind === 'repeat' ? 'repeat' : 'group');
           const label = child(c, 'label');
           if (label != null) found.label = labelOf(label);
@@ -149,6 +153,7 @@ const readForm = (xml) => {
         const found = nodes.get(path);
         if (found == null) continue; // eslint-disable-line no-continue
         found.kind = 'question';
+        found.asked ??= shown; shown += 1;
         found.control = c.name;
         found.label = labelOf(child(c, 'label'));
         if (SELECTS.has(c.name)) {
@@ -498,7 +503,8 @@ const examine = (xml) => {
     if (node.kind !== 'question') continue; // eslint-disable-line no-continue
     // A required read-only question shown only under a condition is a common,
     // deliberate way to stop the form when answers conflict.
-    const conditional = [...form.nodes.values()].some((a) => a.binds.relevant != null && (a.path === node.path || isWithin(node.path, a.path)));
+    const conditional = [...form.nodes.values()].some((a) => (a.path === node.path || isWithin(node.path, a.path))
+      && parsed.get(a.path)?.relevant != null && truth(parsed.get(a.path).relevant.tree, a.path, form) !== true);
     if (isTrue(node.binds.required) && isTrue(node.binds.readonly) && node.binds.calculate == null && node.defaultValue === '' && !conditional)
       add({ code: 'unanswerable-required', severity: 'error', path: node.path, attribute: 'required', expression: node.binds.required, related: [],
         message: 'This question is always shown, required and read-only, with no calculation or default, so the form can never be finished.' });
@@ -544,9 +550,14 @@ const examine = (xml) => {
     const node = form.nodes.get(path);
     if (!asked(node) && node.kind !== 'group' && node.kind !== 'repeat') continue; // eslint-disable-line no-continue
     for (const name of ['relevant', 'constraint', 'required']) {
-      const later = (entries[name]?.refs ?? [])
-        .map((r) => form.nodes.get(r))
-        .filter((r) => r != null && asked(r) && r.path !== path && r.order > node.order && !isWithin(r.path, path));
+      const refs = (entries[name]?.refs ?? []).map((r) => form.nodes.get(r)).filter((r) => r != null && asked(r) && r.path !== path);
+      // A question inside this group cannot be answered while the group is
+      // hidden, unless it has a value of its own (a calculation or a default).
+      const inside = refs.filter((r) => isWithin(r.path, path) && r.binds.calculate == null && r.defaultValue === '');
+      const later = refs.filter((r) => !isWithin(r.path, path) && (r.asked ?? r.order) > (node.asked ?? node.order));
+      if (inside.length > 0 && name === 'relevant')
+        add({ code: 'forward-reference', severity: 'warning', path, attribute: name, expression: entries[name].source, related: inside.map((r) => r.path),
+          message: `This group is shown only depending on ${inside.map((r) => r.path).join(', ')}, inside it. ${inside.length > 1 ? 'Those questions' : 'That question'} cannot be answered while the group is hidden, so it may never open.` });
       if (later.length > 0)
         add({ code: 'forward-reference', severity: 'warning', path, attribute: name, expression: entries[name].source, related: later.map((r) => r.path),
           message: `Its ${name} depends on ${later.map((r) => r.path).join(', ')}, asked later in the form. When this is reached, ${later.length > 1 ? 'those answers do' : 'that answer does'} not exist yet.` });

@@ -196,6 +196,34 @@ describe('(util) survey doctor', () => {
       report.findings[0].message.should.match(/French is missing for 29 of 30/);
     });
 
+    it('takes question order from the body, not the instance', () => {
+      // The instance lists b before a; the body asks a first.
+      // b depends on a (asked earlier: fine); a's constraint depends on b (asked later).
+      const binds = `<bind nodeset="/data/b" relevant="/data/a = 'x'"/><bind nodeset="/data/a" constraint=". != /data/b"/>`;
+      codes(examine(xform({ instance: '<b/><a/>', binds, body: input('/data/a') + input('/data/b') })))
+        .should.eql([['forward-reference', '/data/a']]);
+    });
+
+    it('warns about a group that opens only on an answer inside it, unless that answer has its own value', () => {
+      const group = (inner) => xform({
+        instance: '<g><q/></g>', binds: `<bind nodeset="/data/g" relevant="/data/g/q = 'y'"/>${inner}`,
+        body: `<group ref="/data/g">${input('/data/g/q')}</group>`
+      });
+      const report = examine(group(''));
+      report.findings.map((f) => [f.code, f.path, f.related]).should.eql([['forward-reference', '/data/g', ['/data/g/q']]]);
+      report.findings[0].message.should.match(/may never open/);
+      codes(examine(group('<bind nodeset="/data/g/q" calculate="\'y\'"/>'))).should.eql([]);
+    });
+
+    it('does not treat always-true relevance as a condition', () => {
+      const report = examine(xform({
+        instance: '<g><stop/></g>',
+        binds: '<bind nodeset="/data/g" relevant="true()"/><bind nodeset="/data/g/stop" required="true()" readonly="true()"/>',
+        body: `<group ref="/data/g">${input('/data/g/stop')}</group>`
+      }));
+      codes(report).should.eql([['unanswerable-required', '/data/g/stop']]);
+    });
+
     it('does not call an external or filtered list empty, and lists it as not checked', () => {
       const report = examine(xform({
         instance: '<v/><w/>',
