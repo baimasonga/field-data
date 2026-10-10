@@ -234,12 +234,14 @@ const recordDecision = ({ caseId, revision, actorId, projectId, formActeeId,
       ("instanceId" = ${reviewCase.instanceId}
         OR "relatedInstanceId" = ${reviewCase.instanceId})
     ORDER BY id FOR SHARE`);
-  if (override && !reopening && !reconsidering && !findings.some((item) => item.status !== 'resolved')
+  // A finding a later run withdrew no longer stands, whoever has looked at it.
+  const unresolved = (item) => item.status !== 'resolved' && item.outcome !== 'withdrawn';
+  if (override && !reopening && !reconsidering && !findings.some(unresolved)
     && reviewCase.claimDegraded == null && reviewCase.provenanceDegraded == null)
     throw Problem.user.reviewAssignmentInvalid();
   if (outcome === 'accepted' && (evidence.length === 0
     || evidence.some((item) => item.hashMatches !== true || item.relation === 'contradicts')
-    || (!override && (findings.some((item) => item.status !== 'resolved')
+    || (!override && (findings.some(unresolved)
       || reviewCase.claimDegraded != null || reviewCase.provenanceDegraded != null))))
     throw Problem.user.reviewAcceptanceBlocked();
   let snapshot;

@@ -19,6 +19,9 @@ const { storage, formatBytes } = require('../external/field-data-storage');
 const { resolveWebhookUrl } = require('../util/safe-webhook-url');
 const { encryptSecret } = require('../util/field-data-secret');
 const { parseGeopoint, checkImplausibleTravel, IMPLAUSIBLE_TRAVEL } = require('../util/fieldwork-integrity');
+const { LOCATION_ACCURACY, OUTSIDE_PROJECT_AREA, REPEATED_LOCATION } = require('../util/location-evidence');
+const { checkLocationAccuracy, checkOutsideProjectArea, checkRepeatedLocation, locationComponents } = require('../util/location-evidence');
+const { projectAreaFor } = require('../util/map-layer-store');
 const { normalizeDefinition, resolveStoredDefinition, compileFilter, extractObject, projectObject } = require('../util/filtered-datasets');
 const { normalizeWidget, capRows, tooManyDistinct, MAX_BARS } = require('../util/widgets');
 const { chartableFields } = require('../util/summary-fields');
@@ -1970,7 +1973,8 @@ module.exports = (service, endpoint) => {
       geopoint as (
         -- The first geopoint answer in the form. ODK writes these as
         -- "latitude longitude altitude accuracy".
-        select l.id, btrim((xpath('/*' || ff.path || '/text()', sd.xml::xml))[1]::text) as value
+        select l.id, btrim((xpath('/*' || ff.path || '/text()', sd.xml::xml))[1]::text) as value,
+               ff.path as field
         from live l
         join submission_defs sd on sd.id = l."currentDefId"
         join lateral (
@@ -1993,7 +1997,7 @@ module.exports = (service, endpoint) => {
              l."reviewState",
              actors."displayName" as submitter, l."submitterId",
              d."deviceStart", d."deviceEnd", d.events as "deviceEvents",
-             g.value as "geopoint",
+             g.value as "geopoint", g.field as "geopointField",
              coalesce(a.files, 0) as "attachments",
              coalesce(a.hashed, 0) as "attachmentsHashed"
       from live l
@@ -2017,6 +2021,10 @@ module.exports = (service, endpoint) => {
         captureTimeSource: row.deviceStart != null ? 'device-audit-log' : null,
         location,
         locationSource: location != null ? 'form-answer' : null,
+        // The answer exactly as written, for the location checks; not returned
+        // by the evidence route, which gives the parsed reading and components.
+        geopoint: row.geopoint ?? null,
+        geopointField: row.geopointField ?? null,
         reviewState: row.reviewState ?? 'received',
         attachments: row.attachments,
         attachmentsHashed: row.attachmentsHashed,
@@ -2030,6 +2038,27 @@ module.exports = (service, endpoint) => {
     });
   };
 
+  // The G1 location checks over a form's evidence. Encrypted forms cannot be
+  // read, so nothing is checked and the response says so.
+  const locationChecks = async (db, form, evidence) => {
+    const encrypted = await db.oneFirst(sql`select "keyId" is not null from form_defs where id = ${form.currentDefId}`);
+    const area = await projectAreaFor(db, form.projectId);
+    const rows = encrypted ? [] : evidence;
+    const accuracy = checkLocationAccuracy(rows);
+    const repeated = checkRepeatedLocation(rows);
+    const outside = area.usable ? checkOutsideProjectArea(rows, area) : null;
+    const ran = encrypted ? [] : [LOCATION_ACCURACY, REPEATED_LOCATION, ...(outside ? [OUTSIDE_PROJECT_AREA] : [])];
+    return {
+      encrypted,
+      area: area.usable
+        ? { status: 'set', layerId: area.layerId, layerRevision: area.layerRevision, title: area.title, geometrySha256: area.hash }
+        : { status: 'unusable', reason: area.reason, layerId: area.layerId ?? null },
+      ran,
+      results: { accuracy, repeated, outside },
+      findings: [...accuracy.findings, ...repeated.findings, ...(outside?.findings ?? [])]
+    };
+  };
+
   service.get('/projects/:projectId/forms/:xmlFormId/evidence', endpoint(async (container, { params, auth }) => {
     const form = await container.Forms
       .getByProjectAndXmlFormId(params.projectId, params.xmlFormId, Form.PublishedVersion)
@@ -2038,14 +2067,38 @@ module.exports = (service, endpoint) => {
     await auth.canOrReject('submission.read', form);
 
     const evidence = await evidenceFor(container.db, form.id);
+    const checks = await locationChecks(container.db, form, evidence);
+    const areaStatus = new Map((checks.results.outside?.findings ?? [])
+      .map((f) => [f.instanceId, f.outcome === 'concern' ? 'outside' : 'near-edge']));
+    const repeats = new Map(checks.results.repeated.findings.map((f) => [f.instanceId, f.evidence.groupSize - 1]));
+    for (const f of checks.results.repeated.findings)
+      if (!repeats.has(f.relatedInstanceId)) repeats.set(f.relatedInstanceId, f.evidence.groupSize - 1);
+    const submissions = evidence.map(({ geopoint, ...rest }) => ({
+      ...rest,
+      locationComponents: locationComponents({ ...rest, geopoint }, {
+        areaStatus: checks.encrypted ? 'not-checked'
+          : checks.results.outside == null ? 'no-area-set'
+            : areaStatus.get(rest.instanceId) ?? 'inside',
+        repeats: repeats.get(rest.instanceId) ?? 0
+      })
+    }));
+    const countBy = (key) => submissions.reduce((acc, e) => {
+      const value = e.locationComponents[key] ?? 'none';
+      acc[value] = (acc[value] ?? 0) + 1;
+      return acc;
+    }, {});
     return {
-      submissions: evidence,
+      submissions,
+      projectArea: checks.area,
+      encrypted: checks.encrypted,
       // A summary of the evidence itself, so somebody can see at a glance
       // whether the checks below have anything to work with.
       coverage: {
         total: evidence.length,
         withCaptureTime: evidence.filter((e) => e.capturedAt != null).length,
-        withLocation: evidence.filter((e) => e.location != null).length
+        withLocation: evidence.filter((e) => e.location != null).length,
+        byAccuracyBand: countBy('accuracyBand'),
+        byProjectArea: countBy('withinProjectArea')
       },
       limits: [
         'A location reading shows where a device believed it was, not that anybody was present.',
@@ -2064,6 +2117,9 @@ module.exports = (service, endpoint) => {
       .getByProjectAndXmlFormId(params.projectId, params.xmlFormId, Form.PublishedVersion)
       .then(getOrNotFound);
     await auth.canOrReject('submission.update', form);
+    // One run per form at a time, so a run cannot withdraw a finding that a
+    // concurrent run has just recorded.
+    await container.db.query(sql`select pg_advisory_xact_lock(74135, ${form.id})`);
 
     const evidence = await evidenceFor(container.db, form.id);
 
@@ -2086,9 +2142,11 @@ module.exports = (service, endpoint) => {
     for (const rows of byCollector.values())
       findings.push(...checkImplausibleTravel(rows));
 
+    const location = await locationChecks(container.db, form, evidence);
+
     // Only what a person should see is stored. A plausible pair is the normal
     // case and recording every one of them would bury the rest.
-    const worthKeeping = findings.filter((f) => f.outcome !== 'plausible');
+    const worthKeeping = [...findings.filter((f) => f.outcome !== 'plausible'), ...location.findings];
 
     for (const finding of worthKeeping) {
       // eslint-disable-next-line no-await-in-loop
@@ -2103,7 +2161,43 @@ module.exports = (service, endpoint) => {
         do update set evidence = excluded.evidence, outcome = excluded.outcome`);
     }
 
+    // A location finding that this run no longer observes is withdrawn rather
+    // than left open or deleted: a person's status, decision and note are kept,
+    // and review treats it as settled. Only rules that ran can withdraw.
+    const observed = new Set(location.findings.map((f) => `${f.rule}|${f.instanceId}|${f.relatedInstanceId ?? ''}`));
+    let withdrawn = 0;
+    for (const spec of location.ran) {
+      // eslint-disable-next-line no-await-in-loop
+      const existing = await container.db.any(sql`
+        select id, rule, "instanceId", "relatedInstanceId" from field_data_integrity_flags
+        where "formId" = ${form.id} and rule = ${spec.rule} and "ruleVersion" = ${spec.version}
+          and outcome <> 'withdrawn'`);
+      const gone = existing.filter((f) => !observed.has(`${f.rule}|${f.instanceId}|${f.relatedInstanceId ?? ''}`)).map((f) => f.id);
+      if (gone.length > 0) {
+        // eslint-disable-next-line no-await-in-loop
+        await container.db.query(sql`
+          update field_data_integrity_flags
+          set outcome = 'withdrawn',
+              evidence = evidence || jsonb_build_object('withdrawnAt', clock_timestamp(),
+                'withdrawnReason', 'A later run no longer found this.')
+          where id = any(${sql.array(gone, 'int4')})`);
+        withdrawn += gone.length;
+      }
+    }
+
+    const summary = (spec, result, thresholds) => ({
+      rule: spec.rule, ruleVersion: spec.version, thresholds, ...(result?.counts ?? {}), ran: result != null
+    });
+
     return {
+      locationRules: [
+        summary(LOCATION_ACCURACY, location.encrypted ? null : location.results.accuracy, { maxAccuracyM: LOCATION_ACCURACY.maxAccuracyM }),
+        summary(OUTSIDE_PROJECT_AREA, location.results.outside, { defaultToleranceM: OUTSIDE_PROJECT_AREA.defaultToleranceM }),
+        summary(REPEATED_LOCATION, location.encrypted ? null : location.results.repeated, { minDecimals: REPEATED_LOCATION.minDecimals })
+      ],
+      projectArea: location.area,
+      encrypted: location.encrypted,
+      withdrawn,
       rule: IMPLAUSIBLE_TRAVEL.rule,
       ruleVersion: IMPLAUSIBLE_TRAVEL.version,
       thresholds: {

@@ -31,18 +31,21 @@ also exist. Those features must not be re-labelled as full completion of this pr
 - Automatic expiry task generation and reviewer queue: implemented and locally validated;
   automatic batches require the explicit operator flag.
 - Dispatch of freshness tasks to App Users and field closure by fresh collected evidence
-  (O2): implemented and locally validated; CI/merge pending. Collector push, inclusion in
-  the signed offline snapshot, sampling, route/capacity planning, workload balancing and
-  a Collect device pilot remain pending. A project-wide queue with overdue and collector
-  filters and a workload count (current open tasks, not a performance measure) is
-  implemented and locally validated; CI/merge pending.
+  (O2): merged in PR #57. The project-wide queue with overdue and collector filters and a
+  workload count (current open tasks, not a performance measure): merged in PR #58.
+  Collector push, inclusion in the signed offline snapshot, sampling, route/capacity
+  planning, workload balancing and a Collect device pilot remain pending.
+- Location evidence and deterministic spatial checks (G1, first geospatial slice):
+  accuracy, outside-project-area and repeated-location rules in the existing integrity
+  framework, location components, project-area designation, withdrawal of findings no
+  longer observed: implemented and locally validated; CI/merge pending. Imagery
+  availability (G1b), imagery analysis and change detection remain pending.
 - Remaining deliverables in all eight rows: pending.
 - Version-scoped evidence graph and recorded survey timeline: implemented and
   locally and CI validated, merged in PR #53 (E1). Capture sessions, sensor/challenge
   evidence and witnessing remain pending.
-- Signed, encrypted, read-only companion assignment snapshots: implemented and
-  locally validated (O1; CI/merge pending). Application caching, progressive
-  uploads and encrypted relays remain pending.
+- Signed, encrypted, read-only companion assignment snapshots: merged in PR #54 (O1).
+  Application caching, progressive uploads and encrypted relays remain pending.
 - Collect pilot and production browser push: pending external acceptance.
 
 ## Selected client and providers
