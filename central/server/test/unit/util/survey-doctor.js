@@ -51,19 +51,20 @@ describe('(util) survey doctor', () => {
         ['error', 'never-shown', '/data/tv_brand'],
         ['error', 'cycle', '/data/a'],
         ['error', 'unanswerable-required', '/data/locked'],
-        ['error', 'never-shown', '/data/never'],
         ['warning', 'missing-translation', '/data/hh_size'],
         ['warning', 'duplicate-choice-label', '/data/assets'],
         ['warning', 'forward-reference', '/data/early'],
-        ['note', 'number-without-range', '/data/hh_size']
+        ['note', 'number-without-range', '/data/hh_size'],
+        // Written as false(): hidden on purpose, so a note.
+        ['note', 'never-shown', '/data/never']
       ]);
       report.findings.find((f) => f.code === 'cycle').related.should.eql(['/data/b']);
       report.findings.find((f) => f.code === 'missing-translation').related.should.eql(['Krio (kri)']);
       report.findings.find((f) => f.code === 'duplicate-choice-label').related.should.eql(['radio', 'phone']);
-      report.findings.find((f) => f.code === 'never-shown' && f.path === '/data/never').message.should.match(/group and everything in it/);
+      report.findings.find((f) => f.code === 'never-shown' && f.path === '/data/never').message.should.match(/group and everything in it is always hidden/);
       // The question inside the never-shown group is not reported again.
       report.findings.some((f) => f.path === '/data/never/inside').should.be.false();
-      report.summary.should.containEql({ questions: 14, groups: 1, repeats: 1, calculations: 2, choiceLists: 3, errors: 6, warnings: 3, notes: 1 });
+      report.summary.should.containEql({ questions: 14, groups: 1, repeats: 1, calculations: 2, choiceLists: 3, errors: 5, warnings: 3, notes: 2 });
       report.summary.languages.should.eql(['English (en)', 'Krio (kri)']);
     });
 
@@ -140,6 +141,59 @@ describe('(util) survey doctor', () => {
       }));
       codes(report).should.eql([]);
       report.summary.repeats.should.equal(1);
+    });
+
+    it('does not stop on a required read-only question shown only under a condition (a deliberate stop)', () => {
+      const report = examine(xform({
+        instance: '<a/><g><stop/></g><always/>',
+        binds: `<bind nodeset="/data/stop" required="true()" readonly="true()" relevant="/data/a = 'x'"/>`
+          + `<bind nodeset="/data/g" relevant="/data/a = 'y'"/><bind nodeset="/data/g/stop" required="true()" readonly="true()"/>`
+          + '<bind nodeset="/data/always" required="true()" readonly="true()"/>',
+        body: input('/data/a') + `<group ref="/data/g">${input('/data/g/stop')}</group>` + input('/data/always')
+      }));
+      codes(report).should.eql([['unanswerable-required', '/data/always']]);
+    });
+
+    it('does not check the labels of a list hidden on purpose', () => {
+      const body = '<select1 ref="/data/h"><label>h</label><item><label>Same</label><value>a</value></item><item><label>Same</label><value>b</value></item></select1>';
+      codes(examine(xform({ instance: '<h/>', binds: '<bind nodeset="/data/h" relevant="false()"/>', body })))
+        .should.eql([['never-shown', '/data/h']]);
+      codes(examine(xform({ instance: '<h/>', body }))).should.eql([['duplicate-choice-label', '/data/h']]);
+    });
+
+    it('treats null as an empty value, not a question', () => {
+      const report = examine(xform({
+        instance: '<a/><b/>', binds: "<bind nodeset=\"/data/b\" calculate=\"if(/data/a = 'x', /data/a, null)\"/>", body: input('/data/a')
+      }));
+      codes(report).should.eql([]);
+    });
+
+    it('reads choice entries by the path the list declares, including inside randomize()', () => {
+      const report = examine(xform({
+        instance: '<c/><f/>',
+        extra: '<instance id="choices"><counties><county><value>a</value></county><county><value>a</value></county></counties></instance>'
+          + '<instance id="fruits"><root><item><name>apple</name><label>Apple</label></item></root></instance>',
+        body: `<select1 ref="/data/c"><label>c</label><itemset nodeset="instance('choices')/counties/county"><value ref="value"/><label ref="value"/></itemset></select1>`
+          + `<select1 ref="/data/f"><label>f</label><itemset nodeset="randomize(instance('fruits')/root/item, 42)"><value ref="name"/><label ref="label"/></itemset></select1>`
+      }));
+      report.findings.map((f) => [f.code, f.path, f.related]).should.eql([['duplicate-choice', '/data/c', ['a']]]);
+      report.notChecked.should.eql([]);
+    });
+
+    it('reports a language missing from most of the form once', () => {
+      const n = 30;
+      const ids = Array.from({ length: n }, (_, i) => `q${i}`);
+      const text = (lang, done) => `<translation lang="${lang}">${ids.map((id, i) => `<text id="${id}"><value>${done(i) ? id : '-'}</value></text>`).join('')}</translation>`;
+      const report = examine(xform({
+        instance: ids.map((id) => `<${id}/>`).join(''),
+        itext: `<itext>${text('English', () => true)}${text('French', (i) => i === 0)}${text('Krio', (i) => i !== 5)}</itext>`,
+        body: ids.map((id) => `<input ref="/data/${id}"><label ref="jr:itext('${id}')"/></input>`).join('')
+      }));
+      report.findings.map((f) => [f.code, f.path, f.related]).should.eql([
+        ['missing-translation', '/data', ['French']],
+        ['missing-translation', '/data/q5', ['Krio']]
+      ]);
+      report.findings[0].message.should.match(/French is missing for 29 of 30/);
     });
 
     it('does not call an external or filtered list empty, and lists it as not checked', () => {

@@ -174,6 +174,8 @@ const problems = {
       `The contradiction rule is invalid: ${field} ${reason}.`),
     identityKeyInvalid: problem(400.56, ({ field, reason }) =>
       `The identity key is invalid: ${field} ${reason}.`),
+    formTooLargeToCheck: problem(400.57, () =>
+      'This form is too large for the form check (more than 5,000 questions or 5 MB), so it was not checked.'),
 
     // no detail information for security reasons.
     authenticationFailed: problem(401.2, () => 'Could not authenticate with the provided credentials.'),

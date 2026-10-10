@@ -44,9 +44,6 @@ const attr = (node, name) => {
   const key = Object.keys(node.attrs).find((k) => local(k) === name);
   return key == null ? null : node.attrs[key];
 };
-const descendants = function* descendants(node) {
-  for (const c of node.children) { yield c; yield* descendants(c); }
-};
 
 ////////////////////////////////////////////////////////////////////////////////
 // PATHS
@@ -108,8 +105,7 @@ const readForm = (xml) => {
     const id = attr(instance, 'id');
     if (id == null) continue; // eslint-disable-line no-continue
     const external = attr(instance, 'src') != null;
-    const items = external ? [] : [...descendants(instance)].filter((n) => n.name === 'item');
-    secondary.set(id, { external, items });
+    secondary.set(id, { external, root: external ? null : instance.children[0] ?? null });
   }
 
   // Translations: text id -> language -> has a usable label.
@@ -161,14 +157,19 @@ const readForm = (xml) => {
             const nodeset = attr(itemset, 'nodeset') ?? '';
             const instanceId = /instance\(\s*['"]([^'"]+)['"]\s*\)/.exec(nodeset)?.[1];
             const source = instanceId == null ? null : secondary.get(instanceId);
+            // The entries are the elements the itemset's path names, whatever they are called.
+            const tail = /instance\(\s*['"][^'"]+['"]\s*\)((?:\/[A-Za-z_][\w.-]*(?:\[[^\]]*\])?)*)/.exec(nodeset)?.[1] ?? '';
+            const steps = tail.replace(/\[[^\]]*\]/g, '').split('/').filter(Boolean);
+            const entries = source?.root == null || steps[0] !== source.root.name ? null
+              : steps.slice(1).reduce((matched, step) => matched.flatMap((n) => children(n, step)), [source.root]);
             const valueRef = attr(child(itemset, 'value'), 'ref') ?? 'name';
             const labelRef = attr(child(itemset, 'label'), 'ref') ?? 'label';
             const filtered = /\[/.test(nodeset);
-            if (source == null || source.external || /search\(/.test(attr(c, 'appearance') ?? '')) {
+            if (entries == null || source.external || /search\(/.test(attr(c, 'appearance') ?? '')) {
               found.choices = { kind: 'external', items: [] };
             } else {
               const itextRef = /jr:itext\(\s*([A-Za-z_][\w.-]*)\s*\)/.exec(labelRef)?.[1];
-              const items = source.items.map((item) => {
+              const items = entries.map((item) => {
                 const value = child(item, valueRef.replace(/^.*\//, ''))?.text.trim() ?? '';
                 const labelNode = itextRef != null ? null : child(item, labelRef.replace(/^.*\//, ''));
                 const itextId = itextRef != null ? child(item, itextRef)?.text.trim() ?? null : null;
@@ -233,7 +234,9 @@ const referencesOf = (tree, context) => {
           for (const p of step.predicates) nested.push([p, at]);
         }
         nested.forEach(([p, at]) => visit(p, at, secondary || inSecondary));
-        if (usable && n.steps.length + (n.filter != null ? 1 : 0) > 0) refs.push(path);
+        // `null` on its own is a common way to write an empty value, not a question.
+        const nullIdiom = n.filter == null && !n.absolute && n.steps.length === 1 && n.steps[0].test === 'null';
+        if (usable && !nullIdiom && n.steps.length + (n.filter != null ? 1 : 0) > 0) refs.push(path);
         break;
       }
       case 'call': n.args.forEach((a) => visit(a, ctx, inSecondary)); break;
@@ -454,12 +457,25 @@ const examine = (xml) => {
     if (value === false) hidden.push({ path, relevant });
     else if (value == null) notEvaluated.add(path);
   }
+  // Relevance written as a constant (false(), 0, 1 = 2) hides on purpose: a
+  // question kept for its choice list or a calculation. It is a note; a
+  // comparison that can never be true is an error.
+  const constant = (tree) => !referencesOf(tree, '').length && !JSON.stringify(tree).includes('"type":"call","name":"selected"');
+  const byDesign = new Set();
   for (const { path, relevant } of hidden) {
     if (hidden.some((h) => isWithin(path, h.path))) continue; // eslint-disable-line no-continue
     const node = form.nodes.get(path);
-    add({ code: 'never-shown', severity: 'error', path, attribute: 'relevant', expression: relevant.source, related: [],
-      message: `${node.kind === 'group' || node.kind === 'repeat' ? 'This group and everything in it' : 'This question'} can never be shown: its relevance is never true. Check that the values it compares with are choice names exactly as written in the choice list.` });
+    const what = node.kind === 'group' || node.kind === 'repeat' ? 'This group and everything in it' : 'This question';
+    if (constant(relevant.tree)) {
+      byDesign.add(path);
+      add({ code: 'never-shown', severity: 'note', path, attribute: 'relevant', expression: relevant.source, related: [],
+        message: `${what} is always hidden: its relevance is written as ${relevant.source.trim()}. If that is deliberate, nothing needs to change.` });
+    } else {
+      add({ code: 'never-shown', severity: 'error', path, attribute: 'relevant', expression: relevant.source, related: [],
+        message: `${what} can never be shown: its relevance is never true. Check that the values it compares with are choice names exactly as written in the choice list.` });
+    }
   }
+  const hiddenByDesign = (path) => [...byDesign].some((h) => h === path || isWithin(path, h));
 
   // impossible-constraint
   for (const [path, entries] of parsed) {
@@ -480,9 +496,12 @@ const examine = (xml) => {
   const isTrue = (source) => source != null && /^\s*true\(\)\s*$/.test(source);
   for (const node of form.nodes.values()) {
     if (node.kind !== 'question') continue; // eslint-disable-line no-continue
-    if (isTrue(node.binds.required) && isTrue(node.binds.readonly) && node.binds.calculate == null && node.defaultValue === '')
+    // A required read-only question shown only under a condition is a common,
+    // deliberate way to stop the form when answers conflict.
+    const conditional = [...form.nodes.values()].some((a) => a.binds.relevant != null && (a.path === node.path || isWithin(node.path, a.path)));
+    if (isTrue(node.binds.required) && isTrue(node.binds.readonly) && node.binds.calculate == null && node.defaultValue === '' && !conditional)
       add({ code: 'unanswerable-required', severity: 'error', path: node.path, attribute: 'required', expression: node.binds.required, related: [],
-        message: 'This question is required but read-only, with no calculation or default. When it is shown, the form cannot be finished.' });
+        message: 'This question is always shown, required and read-only, with no calculation or default, so the form can never be finished.' });
   }
 
   // Choice lists.
@@ -490,7 +509,7 @@ const examine = (xml) => {
   for (const node of form.lists) {
     const { kind, items } = node.choices;
     if (kind !== 'list') externalChoices.push(node.path);
-    if (kind === 'external') continue; // eslint-disable-line no-continue
+    if (kind === 'external' || hiddenByDesign(node.path)) continue; // eslint-disable-line no-continue
     if (items.length === 0 && kind === 'list') {
       add({ code: 'empty-choice-list', severity: 'warning', path: node.path, attribute: 'choices', expression: null, related: [],
         message: 'This choice question has no choices.' });
@@ -542,18 +561,34 @@ const examine = (xml) => {
       const present = form.languages.filter((l) => byLang.get(l)?.usable);
       return present.length === 0 ? [] : form.languages.filter((l) => !byLang.get(l)?.usable);
     };
+    const gaps = [];
     for (const node of form.nodes.values()) {
       if (node.label == null && node.choices == null) continue; // eslint-disable-line no-continue
       const missing = new Set(node.label?.itextId != null ? missingFor(node.label.itextId) : []);
       let choiceGaps = 0;
       for (const item of node.choices?.kind === 'list' ? node.choices.items : []) {
         if (item.label.itextId == null) continue; // eslint-disable-line no-continue
-        const gaps = missingFor(item.label.itextId);
-        if (gaps.length > 0) { choiceGaps += 1; gaps.forEach((g) => missing.add(g)); }
+        const absent = missingFor(item.label.itextId);
+        if (absent.length > 0) { choiceGaps += 1; absent.forEach((g) => missing.add(g)); }
       }
-      if (missing.size > 0)
-        add({ code: 'missing-translation', severity: 'warning', path: node.path, attribute: 'label', expression: null, related: [...missing],
-          message: `Missing in ${[...missing].join(', ')}${choiceGaps > 0 ? ` (including ${choiceGaps} choice label${choiceGaps > 1 ? 's' : ''})` : ''}. Collectors using ${missing.size > 1 ? 'those languages' : 'that language'} will see the default text or nothing.` });
+      gaps.push({ node, missing, choiceGaps, labelled: node.label?.itextId != null || choiceGaps > 0 || (node.choices?.items ?? []).some((i) => i.label.itextId != null) });
+    }
+    // A language missing from most of the form is one finding, not hundreds.
+    const labelled = gaps.filter((g) => g.labelled).length;
+    const mostly = new Set(form.languages.filter((lang) => {
+      const count = gaps.filter((g) => g.missing.has(lang)).length;
+      return count > 20 && count > labelled / 2;
+    }));
+    for (const lang of mostly) {
+      const count = gaps.filter((g) => g.missing.has(lang)).length;
+      add({ code: 'missing-translation', severity: 'warning', path: form.root, attribute: 'label', expression: null, related: [lang],
+        message: `${lang} is missing for ${count} of ${labelled} questions and groups. Collectors using ${lang} will see the default text or nothing; either translate the form or remove the language.` });
+    }
+    for (const { node, missing, choiceGaps } of gaps) {
+      const rest = [...missing].filter((l) => !mostly.has(l));
+      if (rest.length > 0)
+        add({ code: 'missing-translation', severity: 'warning', path: node.path, attribute: 'label', expression: null, related: rest,
+          message: `Missing in ${rest.join(', ')}${choiceGaps > 0 ? ` (including ${choiceGaps} choice label${choiceGaps > 1 ? 's' : ''})` : ''}. Collectors using ${rest.length > 1 ? 'those languages' : 'that language'} will see the default text or nothing.` });
     }
   }
 
