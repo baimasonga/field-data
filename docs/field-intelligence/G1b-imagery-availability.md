@@ -49,8 +49,9 @@ is sent.
 - Results are cached by (cell, day window, collection, catalogue) in
   `field_data_imagery_lookups`, so repeated checks and nearby submissions cost
   one request. A cached answer older than 7 days is refreshed when asked.
-- At most 500 located submissions per request (the most recently received
-  first; the answer says when it was cut short); at most 4 catalogue requests
+- At most 500 located submissions without a fresh answer per request (the
+  most recently received first; the answer says when it was cut short, and
+  checking again continues with the rest); at most 4 catalogue requests
   at a time, each with a 15 s timeout. A failed or slow catalogue marks the
   cells "unavailable, try again" without failing the request or caching the
   failure.
@@ -82,7 +83,7 @@ or collections, automatic checks on new submissions.
 - The request sent carries the cell centre and the day window only (checked).
 - Cache: two submissions in one cell and window make one request; a stale
   cache entry is refreshed.
-- Off by default (503); limits; permissions as other integrity routes.
+- Off by default (501.12); limits; permissions as other integrity routes.
 - Browser: coverage line and per-submission evidence; the button absent when
   the feature is off.
 - Not part of this acceptance: a live run against the real catalogue from the

@@ -2463,16 +2463,14 @@ module.exports = (service, endpoint) => {
 
     const targets = imageryTargets(await evidenceFor(container.db, form.id));
     const located = targets.filter((t) => t.skipped == null);
-    const considered = located.slice(0, IMAGERY.maxSubmissions);
-    // One lookup per cell and visit day; fresh cached answers are reused.
-    const wanted = new Map();
-    for (const t of considered) wanted.set(`${t.cell.key}|${t.window.day}`, t);
+    // Fresh cached answers are reused; of the rest, one lookup per cell and
+    // visit day, for at most maxSubmissions submissions per check.
     const fresh = new Set((await container.db.any(sql`select "cellKey", to_char("visitDay", 'YYYY-MM-DD') as day
       from field_data_imagery_lookups where catalogue = ${setup.catalogue} and collection = ${imagery.COLLECTION}
         and "windowDays" = ${imagery.WINDOW_DAYS}
         and "fetchedAt" > clock_timestamp() - make_interval(days => ${IMAGERY.freshDays})`))
       .map((r) => `${r.cellKey}|${r.day}`));
-    const todo = [...wanted.entries()].filter(([k]) => !fresh.has(k)).map(([, t]) => t);
+    const { todo, considered, truncated, cached } = imagery.plan(located, fresh, IMAGERY.maxSubmissions);
     const unavailable = [];
     let looked = 0;
     for (let i = 0; i < todo.length; i += IMAGERY.concurrency) {
@@ -2492,8 +2490,7 @@ module.exports = (service, endpoint) => {
     }
     return {
       encrypted: false, submissions: targets.length, located: located.length,
-      considered: considered.length, truncated: located.length > considered.length,
-      lookups: wanted.size, looked, cached: wanted.size - todo.length, unavailable
+      considered, truncated, lookups: todo.length, looked, cached, unavailable
     };
   }));
 

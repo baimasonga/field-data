@@ -1,5 +1,5 @@
 const should = require('should');
-const { cellOf, windowAround, searchBody, scenesOf, summarize, lookup } = require('../../../lib/util/imagery');
+const { cellOf, windowAround, searchBody, scenesOf, summarize, keyOf, plan, lookup } = require('../../../lib/util/imagery');
 
 // A real Earth Search answer for the cell holding central Freetown, 2026-08-21
 // to 2026-10-20 (recorded 2026-10-10): 15 scenes, all cloudy (rainy season).
@@ -48,6 +48,21 @@ describe('(util) imagery availability', () => {
     summary.nearest.id.should.equal('a');
     summary.clearest.id.should.equal('c');
     scenesOf(null).should.eql([]);
+  });
+
+  it('plans lookups so repeated checks work through a large form', () => {
+    const visit = windowAround(new Date('2026-09-20T00:00:00Z'));
+    // Five submissions in four cells (the first two share one).
+    const located = [[8.48, -13.23], [8.481, -13.231], [8.53, -13.23], [8.58, -13.23], [8.63, -13.23]]
+      .map(([lat, lon]) => ({ cell: cellOf(lat, lon), window: visit }));
+    const first = plan(located, new Set(), 3);
+    first.should.containEql({ pending: 5, considered: 3, truncated: true, cached: 0 });
+    first.todo.map(keyOf).should.eql([keyOf(located[0]), keyOf(located[2])]);
+    // Once those are answered, the next check reaches the rest.
+    const second = plan(located, new Set(first.todo.map(keyOf)), 3);
+    second.should.containEql({ pending: 2, considered: 2, truncated: false, cached: 2 });
+    second.todo.map(keyOf).should.eql([keyOf(located[3]), keyOf(located[4])]);
+    plan(located, new Set(located.map(keyOf)), 3).should.containEql({ todo: [], pending: 0, cached: 4, truncated: false });
   });
 
   describe('catalogue requests', () => {

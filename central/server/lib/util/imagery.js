@@ -62,6 +62,20 @@ const summarize = (scenes, visit) => {
   };
 };
 
+// Which lookups a check makes. `located` are targets ({ cell, window }) in the
+// order they should be served; `fresh` holds the "cell|day" keys already
+// answered recently. Only submissions still without a fresh answer count
+// against `max`, so repeated checks of a large form work through all of it.
+const keyOf = (t) => `${t.cell.key}|${t.window.day}`;
+const plan = (located, fresh, max) => {
+  const pending = located.filter((t) => !fresh.has(keyOf(t)));
+  const considered = pending.slice(0, max);
+  const lookups = new Map();
+  for (const t of considered) if (!lookups.has(keyOf(t))) lookups.set(keyOf(t), t);
+  const cached = new Set(located.filter((t) => fresh.has(keyOf(t))).map(keyOf));
+  return { todo: [...lookups.values()], pending: pending.length, considered: considered.length, truncated: pending.length > considered.length, cached: cached.size };
+};
+
 // One catalogue request with a timeout. `fetchImpl` is injectable for tests.
 // Resolves { ok: true, scenes } or { ok: false, reason }; never throws.
 const lookup = async (catalogueUrl, cell, window, { fetchImpl = fetch, timeoutMs = 15000 } = {}) => {
@@ -83,4 +97,4 @@ const lookup = async (catalogueUrl, cell, window, { fetchImpl = fetch, timeoutMs
   }
 };
 
-module.exports = { CELL_DEGREES, WINDOW_DAYS, COLLECTION, CLEAR, cellOf, windowAround, searchBody, scenesOf, summarize, lookup };
+module.exports = { CELL_DEGREES, WINDOW_DAYS, COLLECTION, CLEAR, cellOf, windowAround, searchBody, scenesOf, summarize, keyOf, plan, lookup };
