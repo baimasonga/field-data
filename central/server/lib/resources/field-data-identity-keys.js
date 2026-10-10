@@ -11,7 +11,7 @@ const { sql } = require('slonik');
 const { Form } = require('../model/frames');
 const Problem = require('../util/problem');
 const { getOrNotFound } = require('../util/promise');
-const { LIMITS, normalizeKey, usability } = require('../util/identity-keys');
+const { LIMITS, normalizeKey, usability, usabilityIn } = require('../util/identity-keys');
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -27,18 +27,38 @@ const ifMatch = (headers) => {
   return Number(matched[1]);
 };
 
-const normalized = (body, fields) => {
-  try { return normalizeKey(body, fields); } catch (error) {
+const normalized = (body, fields, context) => {
+  try { return normalizeKey(body, fields, context); } catch (error) {
     if (error.reason != null) throw Problem.user.identityKeyInvalid({ field: error.field, reason: error.reason });
     throw error;
   }
 };
 
-const present = (row, fields) => ({
+// Other forms (F2b): the current fields of each form a key names that the
+// caller may read submissions of. A form the caller cannot read is left out,
+// so it reads as "not a form in this project" rather than revealing it exists.
+const otherForms = async (container, auth, projectId, names) => {
+  const others = new Map();
+  const wanted = [...new Set((Array.isArray(names) ? names : []).map((n) => n?.xmlFormId).filter((n) => typeof n === 'string' && n.length <= 255))].slice(0, LIMITS.alsoIn + 1);
+  for (const xmlFormId of wanted) {
+    // eslint-disable-next-line no-await-in-loop
+    const found = await container.Forms.getByProjectAndXmlFormId(projectId, xmlFormId, Form.PublishedVersion);
+    // eslint-disable-next-line no-await-in-loop
+    if (found.isDefined() && await auth.can('submission.read', found.get()))
+      // eslint-disable-next-line no-await-in-loop
+      others.set(xmlFormId, await container.Forms.getFields(found.get().def.id));
+  }
+  return others;
+};
+const alsoInStatus = (definition, others) => Object.fromEntries((definition.alsoIn ?? []).map((entry) => [entry.xmlFormId,
+  others.has(entry.xmlFormId) ? usabilityIn(definition, entry, others.get(entry.xmlFormId)) : { usable: false, reason: 'not-available' }]));
+
+const present = (row, fields, others = new Map()) => ({
   id: row.id, title: row.title, explanation: row.explanation, benignExplanations: row.benignExplanations,
   nextStep: row.nextStep, ...row.definition, active: row.active, version: row.version,
   revision: row.revision, createdAt: row.createdAt, updatedAt: row.updatedAt,
-  status: usability(row.definition, fields)
+  status: usability(row.definition, fields),
+  ...(row.definition.alsoIn != null ? { alsoInStatus: alsoInStatus(row.definition, others) } : {})
 });
 
 module.exports = (service, endpoint) => {
@@ -71,13 +91,15 @@ module.exports = (service, endpoint) => {
     const fields = await container.Forms.getFields(form.def.id);
     const rows = await container.db.any(sql`select * from field_data_identity_keys
       where "formId" = ${form.id} order by active desc, "createdAt", id`);
-    return rows.map((row) => present(row, fields));
+    const others = await otherForms(container, auth, form.projectId, rows.flatMap((row) => row.definition.alsoIn ?? []));
+    return rows.map((row) => present(row, fields, others));
   }));
 
   service.post(root, endpoint(async (container, { params, auth, body }, _, response) => {
     const form = await managed(container, params, auth);
     const fields = await container.Forms.getFields(form.def.id);
-    const key = normalized(body, fields);
+    const others = await otherForms(container, auth, form.projectId, body?.alsoIn);
+    const key = normalized(body, fields, { xmlFormId: form.xmlFormId, others });
     await container.db.query(sql`select pg_advisory_xact_lock(74137, ${form.id})`);
     if (key.active && await activeCount(container.db, form.id) >= LIMITS.keys) throw Problem.user.identityKeyLimit();
     const id = crypto.randomUUID();
@@ -89,14 +111,15 @@ module.exports = (service, endpoint) => {
       returning *`);
     await audit(container.db, actorId, form.id, 'field_data.identity_key.create', { keyId: id, version: 1 });
     response.status(201); response.set('Cache-Control', 'private, no-store');
-    return present(row, fields);
+    return present(row, fields, others);
   }));
 
   service.put(`${root}/:keyId`, endpoint(async (container, { params, auth, body, headers }, _, response) => {
     const form = await managed(container, params, auth);
     const expected = ifMatch(headers);
     const fields = await container.Forms.getFields(form.def.id);
-    const key = normalized(body, fields);
+    const others = await otherForms(container, auth, form.projectId, body?.alsoIn);
+    const key = normalized(body, fields, { xmlFormId: form.xmlFormId, others });
     await container.db.query(sql`select pg_advisory_xact_lock(74137, ${form.id})`);
     const current = await keyFor(container.db, form, params.keyId);
     if (current.revision !== expected) throw Problem.user.identityKeyRevisionStale();
@@ -113,7 +136,7 @@ module.exports = (service, endpoint) => {
     await audit(container.db, auth.actor.map((a) => a.id).orNull(), form.id, 'field_data.identity_key.update',
       { keyId: current.id, version, previousVersion: current.version, active: key.active });
     response.set('Cache-Control', 'private, no-store');
-    return present(row, fields);
+    return present(row, fields, others);
   }));
 
   // Deactivates; the key and the findings it produced are kept.
@@ -129,7 +152,8 @@ module.exports = (service, endpoint) => {
       where id = ${current.id} returning *`);
     await audit(container.db, auth.actor.map((a) => a.id).orNull(), form.id, 'field_data.identity_key.deactivate',
       { keyId: current.id, version: current.version });
+    const others = await otherForms(container, auth, form.projectId, row.definition.alsoIn);
     response.set('Cache-Control', 'private, no-store');
-    return present(row, fields);
+    return present(row, fields, others);
   }));
 };

@@ -32,7 +32,7 @@ const seed = async (service, { run, one }) => {
     ['repeated-location', 'five', { outcome: 'withdrawn', at: '2026-10-01T05:00:00Z' }]
   ]);
   await insert(run, one, 'withrepeat', 1, [
-    ['identity-reused:22222222-2222-4222-8222-222222222222', 'rone', { related: 'rtwo', evidence: { title: 'Household code', kind: 'reused' }, status: 'investigating', at: '2026-10-01T06:00:00Z' }]
+    ['identity-reused:22222222-2222-4222-8222-222222222222', 'rone', { related: 'rtwo', evidence: { title: 'Household code', kind: 'reused', others: [{ instanceId: 'rtwo', xmlFormId: 'simple' }] }, status: 'investigating', at: '2026-10-01T06:00:00Z' }]
   ]);
   // Another project's finding must never appear.
   const other = (await alice.post('/v1/projects').send({ name: 'Other' }).expect(200)).body;
@@ -54,7 +54,10 @@ describe('api: F3 project findings inbox', () => {
       ['simple', 'location', 'two', 'open', 'inconclusive']
     ]);
     body.items[0].title.should.equal('No electricity but a fridge');
-    body.items[2].should.containEql({ title: 'Household code', kind: 'reused', relatedInstanceId: 'rtwo' });
+    // The related submission of a cross-form identity finding is in the other form (F2b).
+    body.items[2].should.containEql({ title: 'Household code', kind: 'reused', relatedInstanceId: 'rtwo', relatedXmlFormId: 'simple' });
+    body.items[1].should.containEql({ relatedInstanceId: 'two', relatedXmlFormId: 'simple' });
+    body.items[3].should.containEql({ relatedInstanceId: null, relatedXmlFormId: null });
     body.items[0].should.not.have.property('evidence');
     JSON.stringify(body).should.not.match(/secret answer|elsewhere/);
     (body.nextCursor == null).should.be.true();

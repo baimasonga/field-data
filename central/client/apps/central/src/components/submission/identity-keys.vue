@@ -20,6 +20,9 @@ must say at least one ordinary reason the same key could appear again. -->
         <p v-if="!key.status.usable" class="key-unusable">
           Not run: the current Form version no longer has {{ key.status.missing?.length ? key.status.missing.join(', ') : 'what this key uses' }}. Edit the key to match the Form.
         </p>
+        <p v-for="(status, other) of key.alsoInStatus ?? {}" v-show="!status.usable" :key="other" class="key-unusable">
+          Runs without {{ other }}: {{ status.reason === 'not-available' ? 'that Form is not available to you' : `it no longer has ${status.missing?.join(', ') || 'the mapped questions'}` }}.
+        </p>
         <div v-if="canManage" class="key-actions">
           <button type="button" class="btn btn-default btn-sm" :disabled="busy" @click="edit(key)">Edit</button>
           <button v-if="key.active" type="button" class="btn btn-default btn-sm" :disabled="busy" @click="deactivate(key)">Deactivate</button>
@@ -74,6 +77,35 @@ must say at least one ordinary reason the same key could appear again. -->
         </label>
       </fieldset>
 
+      <fieldset class="key-also-in">
+        <legend>Also count uses in other Forms of this project (optional)</legend>
+        <p class="key-hint">For surveys split across Forms, such as one Form per round. Only this Form's Submissions are flagged; the others are evidence.</p>
+        <div v-for="(entry, i) of editing.alsoIn" :key="i" class="key-other">
+          <label>Form
+            <select v-model="entry.xmlFormId" class="form-control" :aria-label="`Other form ${i + 1}`" required @change="loadOther(entry.xmlFormId)">
+              <option value="" disabled>Choose a Form</option>
+              <option v-for="f of projectForms.filter((pf) => pf.xmlFormId !== xmlFormId)" :key="f.xmlFormId" :value="f.xmlFormId">{{ f.name || f.xmlFormId }}</option>
+            </select>
+          </label>
+          <template v-if="entry.xmlFormId && otherFields[entry.xmlFormId]">
+            <label v-for="row of editing.fields.filter((r) => r.field)" :key="row.field">{{ row.field }} is
+              <select v-model="entry.fields[row.field]" class="form-control" :aria-label="`Other form ${i + 1} question for ${row.field}`" required>
+                <option value="" disabled>Choose a question</option>
+                <option v-for="q of keyQuestions(otherFields[entry.xmlFormId])" :key="q.path" :value="q.path">{{ q.path }}</option>
+              </select>
+            </label>
+            <label v-for="p of editing.sameFields" :key="p">{{ p }} is
+              <select v-model="entry.sameFields[p]" class="form-control" :aria-label="`Other form ${i + 1} question for ${p}`">
+                <option value="">Not compared</option>
+                <option v-for="q of sameQuestions(otherFields[entry.xmlFormId])" :key="q.path" :value="q.path">{{ q.path }}</option>
+              </select>
+            </label>
+          </template>
+          <button type="button" class="btn btn-link" @click="editing.alsoIn.splice(i, 1)">Remove Form</button>
+        </div>
+        <button v-if="editing.alsoIn.length < 5" type="button" class="btn btn-default btn-sm" @click="editing.alsoIn.push({ xmlFormId: '', fields: {}, sameFields: {} })">Add another Form</button>
+      </fieldset>
+
       <label>Placeholder values that are never an identity (one per line)
         <textarea v-model="editing.ignore" class="form-control" rows="3"></textarea>
       </label>
@@ -107,6 +139,17 @@ const base = () => `/v1/projects/${props.projectId}/forms/${encodeURIComponent(p
 
 const keys = ref([]); const fields = ref([]); const loaded = ref(false); const busy = ref(false);
 const error = ref(''); const editing = ref(null);
+// Other forms of the project (F2b) and their questions, loaded when chosen.
+const projectForms = ref([]); const otherFields = ref({});
+const loadOther = async (otherXmlFormId) => {
+  if (!otherXmlFormId || otherFields.value[otherXmlFormId] != null) return;
+  try {
+    const { data } = await request({ method: 'GET', url: `/v1/projects/${props.projectId}/forms/${encodeURIComponent(otherXmlFormId)}/fields`, alert: false });
+    otherFields.value = { ...otherFields.value, [otherXmlFormId]: data };
+  } catch {
+    error.value = `The questions of ${otherXmlFormId} could not be loaded.`;
+  }
+};
 const candidates = computed(() => ({ key: keyQuestions(fields.value), same: sameQuestions(fields.value) }));
 
 const load = async () => {
@@ -125,6 +168,11 @@ load();
 const edit = (key) => {
   error.value = '';
   editing.value = key == null ? blankKey() : toEditor(key);
+  if (props.canManage && projectForms.value.length === 0)
+    request({ method: 'GET', url: `/v1/projects/${props.projectId}/forms`, alert: false })
+      .then(({ data }) => { projectForms.value = data; })
+      .catch(() => { error.value = 'The other Forms of this project could not be loaded.'; });
+  for (const entry of editing.value.alsoIn) loadOther(entry.xmlFormId);
 };
 
 const save = async () => {
@@ -179,6 +227,7 @@ const deactivate = async (key) => {
     .checkbox-label { display: flex; gap: 6px; align-items: center; margin: 4px 0; }
   }
   .key-field { border-left: 3px solid #e9e9f1; display: flex; flex-wrap: wrap; gap: 0 12px; margin: 10px 0; padding-left: 10px; label { flex: 1 1 200px; } }
+  .key-other { border-left: 3px solid #e9e9f1; margin: 10px 0; padding-left: 10px; }
   .key-numbers { display: flex; flex-wrap: wrap; gap: 0 12px; label { flex: 1 1 180px; } }
 }
 </style>

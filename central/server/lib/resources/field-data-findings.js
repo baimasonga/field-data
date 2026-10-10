@@ -60,6 +60,7 @@ const readableForms = async (container, auth, projectId) => {
 const present = (row) => ({
   id: row.id, xmlFormId: row.xmlFormId, formName: row.formName, rule: row.rule, family: row.family,
   ruleVersion: row.ruleVersion, instanceId: row.instanceId, relatedInstanceId: row.relatedInstanceId,
+  relatedXmlFormId: row.relatedXmlFormId ?? (row.relatedInstanceId == null ? null : row.xmlFormId),
   outcome: row.outcome, status: row.status, decision: row.decision, note: row.note,
   decidedAt: row.decidedAt, decidedByName: row.decidedByName, createdAt: row.createdAt,
   // A rule's or key's title, so the row says which one; no other evidence.
@@ -93,6 +94,9 @@ module.exports = (service, endpoint) => {
     const rows = await container.db.any(sql`
       SELECT i.*, f."xmlFormId", COALESCE(fd.name, f."xmlFormId") AS "formName", ${familyOf} AS family,
         i.evidence->>'title' AS title, i.evidence->>'kind' AS kind, actors."displayName" AS "decidedByName",
+        -- An identity finding's related submission may be in another form (F2b).
+        (SELECT o->>'xmlFormId' FROM jsonb_array_elements(CASE WHEN jsonb_typeof(i.evidence->'others') = 'array'
+          THEN i.evidence->'others' ELSE '[]'::jsonb END) o WHERE o->>'instanceId' = i."relatedInstanceId" LIMIT 1) AS "relatedXmlFormId",
         ${rank} AS rank, to_char(i."createdAt" AT TIME ZONE 'UTC', ${US_UTC}) AS at
       FROM field_data_integrity_flags i
       JOIN forms f ON f.id = i."formId"

@@ -21,7 +21,7 @@ const { encryptSecret } = require('../util/field-data-secret');
 const { parseGeopoint, checkImplausibleTravel, IMPLAUSIBLE_TRAVEL } = require('../util/fieldwork-integrity');
 const { LOCATION_ACCURACY, OUTSIDE_PROJECT_AREA, REPEATED_LOCATION } = require('../util/location-evidence');
 const { checkLocationAccuracy, checkOutsideProjectArea, checkRepeatedLocation, locationComponents } = require('../util/location-evidence');
-const { LIMITS: IDENTITY_LIMITS, REUSED, INCONSISTENT, usability: identityUsability, findIdentityIssues } = require('../util/identity-keys');
+const { LIMITS: IDENTITY_LIMITS, REUSED, INCONSISTENT, usability: identityUsability, usabilityIn: identityUsabilityIn, findIdentityIssues } = require('../util/identity-keys');
 const { projectAreaFor } = require('../util/map-layer-store');
 const { RULE_PREFIX, usability, parseInstance, evaluateRule, answerAt } = require('../util/contradiction-rules');
 const { normalizeDefinition, resolveStoredDefinition, compileFilter, extractObject, projectObject } = require('../util/filtered-datasets');
@@ -2113,7 +2113,27 @@ module.exports = (service, endpoint) => {
 
   // Identity keys (F2): grouped across the form's submissions in the order
   // they were received. Findings hold submission IDs, never answers.
-  const identityChecks = async (container, form, encrypted) => {
+  // The current version of each submission of a form, parsed once, answering
+  // by path. `map` translates the key's own paths to another form's (F2b).
+  const identitySubmissions = async (db, formId, map = null, xmlFormId = null) => {
+    const rows = await db.any(sql`
+      select s."instanceId", s."createdAt", s."submitterId", sd.xml from submissions s
+      join submission_defs sd on sd."submissionId" = s.id and sd.current = true
+      where s."formId" = ${formId} and s."deletedAt" is null and s.draft = false
+      order by s."createdAt", s.id`);
+    return rows.map((row) => {
+      let instance;
+      try { instance = parseInstance(row.xml); } catch { instance = null; }
+      const read = (at) => (instance == null || at == null ? null : answerAt(instance, at, null));
+      return {
+        instanceId: row.instanceId, receivedAt: new Date(row.createdAt), submitter: row.submitterId,
+        ...(xmlFormId != null ? { xmlFormId } : {}),
+        answer: map == null ? read : (at) => read(map[at])
+      };
+    });
+  };
+
+  const identityChecks = async (container, form, encrypted, auth) => {
     const keys = await container.db.any(sql`select * from field_data_identity_keys
       where "formId" = ${form.id} and active order by "createdAt", id`);
     if (keys.length === 0) return { keys: [], ran: [], findings: [] };
@@ -2126,26 +2146,51 @@ module.exports = (service, endpoint) => {
     }));
     const runnable = summaries.filter((k) => k.status.usable);
     const results = new Map();
+    const elsewhere = new Map(); // key id -> { xmlFormId: status }
     if (runnable.length > 0) {
-      const rows = await container.db.any(sql`
-        select s."instanceId", s."createdAt", s."submitterId", sd.xml from submissions s
-        join submission_defs sd on sd."submissionId" = s.id and sd.current = true
-        where s."formId" = ${form.id} and s."deletedAt" is null and s.draft = false
-        order by s."createdAt", s.id`);
-      const submissions = rows.map((row) => {
-        let instance;
-        try { instance = parseInstance(row.xml); } catch { instance = null; }
-        return {
-          instanceId: row.instanceId, receivedAt: new Date(row.createdAt), submitter: row.submitterId,
-          answer: (at) => (instance == null ? null : answerAt(instance, at, null))
-        };
-      });
+      const submissions = await identitySubmissions(container.db, form.id);
       const multiple = new Set(fields.filter((f) => f.selectMultiple === true).map((f) => f.path));
-      for (const { key } of runnable) results.set(key.id, findIdentityIssues(key, submissions, multiple));
+      // Other forms a key also looks at (F2b), used only when the person
+      // running the checks may read them, and only while the mapping fits.
+      const formsCache = new Map();
+      const otherForm = async (xmlFormId) => {
+        if (!formsCache.has(xmlFormId)) {
+          const found = await container.Forms.getByProjectAndXmlFormId(form.projectId, xmlFormId, Form.PublishedVersion);
+          const readable = found.isDefined() && await auth.can('submission.read', found.get());
+          formsCache.set(xmlFormId, readable ? { form: found.get(), fields: await container.Forms.getFields(found.get().def.id) } : null);
+        }
+        return formsCache.get(xmlFormId);
+      };
+      for (const { key } of runnable) {
+        let combined = submissions;
+        const statuses = {};
+        for (const entry of key.definition.alsoIn ?? []) {
+          // eslint-disable-next-line no-await-in-loop
+          const other = await otherForm(entry.xmlFormId);
+          const status = other == null ? { usable: false, reason: 'not-available' }
+            : other.form.def.keyId != null ? { usable: false, reason: 'encrypted-form' }
+              : identityUsabilityIn(key.definition, entry, other.fields);
+          statuses[entry.xmlFormId] = status;
+          if (!status.usable) continue; // eslint-disable-line no-continue
+          // eslint-disable-next-line no-await-in-loop
+          const theirs = await identitySubmissions(container.db, other.form.id, { ...entry.fields, ...entry.sameFields }, entry.xmlFormId);
+          if (combined.length + theirs.length > IDENTITY_LIMITS.submissions) {
+            statuses[entry.xmlFormId] = { usable: false, reason: 'too-many-submissions' };
+            continue; // eslint-disable-line no-continue
+          }
+          combined = [...combined, ...theirs];
+        }
+        if (key.definition.alsoIn != null) {
+          elsewhere.set(key.id, statuses);
+          combined = combined.slice().sort((a, b) => a.receivedAt - b.receivedAt);
+        }
+        results.set(key.id, findIdentityIssues(key, combined, multiple));
+      }
     }
     return {
       keys: summaries.map(({ key, status }) => ({
-        id: key.id, title: key.title, version: key.version, status, ...(results.get(key.id)?.counts ?? {})
+        id: key.id, title: key.title, version: key.version, status, ...(results.get(key.id)?.counts ?? {}),
+        ...(elsewhere.has(key.id) ? { alsoIn: elsewhere.get(key.id) } : {})
       })),
       ran: runnable.flatMap(({ key }) => [
         { rule: `${REUSED}${key.id}`, version: key.version },
@@ -2240,7 +2285,7 @@ module.exports = (service, endpoint) => {
 
     const location = await locationChecks(container.db, form, evidence);
     const contradictions = await contradictionChecks(container, form, location.encrypted);
-    const identities = await identityChecks(container, form, location.encrypted);
+    const identities = await identityChecks(container, form, location.encrypted, auth);
 
     // Only what a person should see is stored. A plausible pair is the normal
     // case and recording every one of them would bury the rest.
@@ -2324,26 +2369,48 @@ module.exports = (service, endpoint) => {
   // read here, from the current version of each submission, for someone who
   // may read the form's submissions. A deleted submission's answers are not
   // shown: its entry is null.
-  const withIdentityAnswers = async (db, formId, findings) => {
+  const withIdentityAnswers = async (container, form, auth, findings) => {
+    const { db } = container;
     const identity = findings.filter((f) => f.rule.startsWith(REUSED) || f.rule.startsWith(INCONSISTENT));
     if (identity.length === 0) return findings;
-    const ids = [...new Set(identity.flatMap((f) => [f.instanceId, f.relatedInstanceId, ...(f.evidence.others ?? []).map((o) => o.instanceId)]).filter((id) => id != null))];
-    const rows = await db.any(sql`
+    const parse = (rows) => new Map(rows.map((row) => {
+      try { return [row.instanceId, parseInstance(row.xml)]; } catch { return [row.instanceId, null]; }
+    }));
+    const read = (formId, ids) => db.any(sql`
       select s."instanceId", sd.xml from submissions s
       join submission_defs sd on sd."submissionId" = s.id and sd.current = true
       where s."formId" = ${formId} and s."deletedAt" is null and s.draft = false
         and s."instanceId" = any(${sql.array(ids, 'text')})`);
-    const instances = new Map(rows.map((row) => {
-      try { return [row.instanceId, parseInstance(row.xml)]; } catch { return [row.instanceId, null]; }
-    }));
+    // This form's submissions, and (F2b) other forms' that the viewer may read.
+    const ownIds = [...new Set(identity.flatMap((f) => [f.instanceId, ...(f.evidence.others ?? []).filter((o) => o.xmlFormId == null).map((o) => o.instanceId)]))];
+    const own = parse(await read(form.id, ownIds));
+    const elsewhere = new Map(); // xmlFormId -> Map(instanceId -> instance) or null when not readable
+    for (const xmlFormId of new Set(identity.flatMap((f) => (f.evidence.others ?? []).map((o) => o.xmlFormId)).filter((x) => x != null))) {
+      // eslint-disable-next-line no-await-in-loop
+      const found = await container.Forms.getByProjectAndXmlFormId(form.projectId, xmlFormId, Form.WithoutDef);
+      // eslint-disable-next-line no-await-in-loop
+      if (!found.isDefined() || !(await auth.can('submission.read', found.get()))) { elsewhere.set(xmlFormId, null); continue; } // eslint-disable-line no-continue
+      const ids = [...new Set(identity.flatMap((f) => (f.evidence.others ?? []).filter((o) => o.xmlFormId === xmlFormId).map((o) => o.instanceId)))];
+      // eslint-disable-next-line no-await-in-loop
+      elsewhere.set(xmlFormId, parse(await read(found.get().id, ids)));
+    }
+    // The mapping each key uses for each other form, from the key as it is now.
+    const keyIds = [...new Set(identity.map((f) => f.evidence.keyId).filter((id) => id != null))];
+    const keys = keyIds.length === 0 ? [] : await db.any(sql`select id, definition from field_data_identity_keys
+      where "formId" = ${form.id} and id = any(${sql.array(keyIds, 'uuid')})`);
+    const mappings = new Map(keys.map((k) => [k.id, new Map((k.definition.alsoIn ?? []).map((e) => [e.xmlFormId, { ...e.fields, ...e.sameFields }]))]));
     return findings.map((f) => {
       if (!identity.includes(f)) return f;
       const paths = [...(f.evidence.fields ?? []), ...(f.evidence.differing ?? [])];
-      const involved = [f.instanceId, ...(f.evidence.others ?? []).map((o) => o.instanceId)];
-      const answers = Object.fromEntries(involved.map((id) => {
-        if (!instances.has(id)) return [id, null];
-        const instance = instances.get(id);
-        return [id, Object.fromEntries(paths.map((at) => [at, instance == null ? null : answerAt(instance, at, null)]))];
+      const involved = [{ instanceId: f.instanceId }, ...(f.evidence.others ?? [])];
+      const answers = Object.fromEntries(involved.map(({ instanceId, xmlFormId }) => {
+        const source = xmlFormId == null ? own : elsewhere.get(xmlFormId);
+        if (source == null || !source.has(instanceId)) return [instanceId, null];
+        const instance = source.get(instanceId);
+        const map = xmlFormId == null ? null : mappings.get(f.evidence.keyId)?.get(xmlFormId);
+        if (xmlFormId != null && map == null) return [instanceId, null];
+        const target = (at) => (map == null ? at : map[at] ?? null);
+        return [instanceId, Object.fromEntries(paths.map((at) => [at, instance == null || target(at) == null ? null : answerAt(instance, target(at), null)]))];
       }));
       return { ...f, answers };
     });
@@ -2365,7 +2432,7 @@ module.exports = (service, endpoint) => {
         case f.outcome when 'concern' then 0 else 1 end,
         case f.status when 'open' then 0 when 'investigating' then 1 else 2 end,
         f."createdAt" desc`);
-    return withIdentityAnswers(container.db, form.id, findings);
+    return withIdentityAnswers(container, form, auth, findings);
   }));
 
   // A reviewer's decision. The rule never writes here: a finding is closed by

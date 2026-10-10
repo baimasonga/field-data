@@ -1,5 +1,5 @@
 const should = require('should');
-const { normalizeKey, usability, keyOf, findIdentityIssues, DEFAULT_IGNORE } = require('../../../lib/util/identity-keys');
+const { normalizeKey, usability, usabilityIn, keyOf, findIdentityIssues, DEFAULT_IGNORE } = require('../../../lib/util/identity-keys');
 
 const fields = [
   { path: '/meta', type: 'structure' },
@@ -181,6 +181,74 @@ describe('(util) identity keys', () => {
     it('records the key version with each finding', () => {
       const a = sub({ hh_code: 'WA0123' }); const b = sub({ hh_code: 'WA0123' });
       findIdentityIssues(key({}, 3), [a, b]).findings[0].ruleVersion.should.equal(3);
+    });
+  });
+
+  describe('across forms (F2b)', () => {
+    const round2 = [
+      { path: '/household', type: 'structure' },
+      { path: '/household/code', name: 'code', type: 'string' },
+      { path: '/household/area', name: 'area', type: 'string' },
+      { path: '/household/gps', name: 'gps', type: 'geopoint' },
+      { path: '/members', type: 'repeat' },
+      { path: '/members/id', name: 'id', type: 'string' }
+    ];
+    const others = new Map([['round2', round2]]);
+    const crossKey = (alsoIn, extra = {}) => ({ id: 'k1', version: 1, ...normalizeKey({
+      title: 'Household code', explanation: 'Once per household.', benignExplanations: ['A follow-up.'], nextStep: 'Ask.',
+      fields: [{ field: '/survey/hh_code' }], sameFields: ['/survey/district'], alsoIn, ...extra
+    }, fields, { xmlFormId: 'round1', others }) });
+    const mapped = [{ xmlFormId: 'round2', fields: { '/survey/hh_code': '/household/code' }, sameFields: { '/survey/district': '/household/area' } }];
+
+    it('keeps the fingerprint of a key without other forms, and changes it with them', () => {
+      const plain = normalizeKey({ title: 't', explanation: 'e', benignExplanations: ['b'], nextStep: 'n', fields: [{ field: '/survey/hh_code' }], sameFields: ['/survey/district'] }, fields);
+      plain.definition.should.not.have.property('alsoIn');
+      crossKey(mapped).definitionHash.should.not.equal(plain.definitionHash);
+      crossKey(mapped).definition.alsoIn.should.eql(mapped);
+    });
+
+    it('refuses mappings that cannot work', () => {
+      const cases = [
+        [[{ xmlFormId: 'round1', fields: {} }], 'alsoIn[0].xmlFormId'],
+        [[{ xmlFormId: 'other-project', fields: {} }], 'alsoIn[0].xmlFormId'],
+        [[{ xmlFormId: 'round2', fields: {} }], 'alsoIn[0].fields'],
+        [[{ xmlFormId: 'round2', fields: { '/survey/hh_code': '/household/nope' } }], 'alsoIn[0].fields["/survey/hh_code"]'],
+        [[{ xmlFormId: 'round2', fields: { '/survey/hh_code': '/household/gps' } }], 'alsoIn[0].fields["/survey/hh_code"]'],
+        [[{ xmlFormId: 'round2', fields: { '/survey/hh_code': '/members/id' } }], 'alsoIn[0].fields["/survey/hh_code"]'],
+        [[{ xmlFormId: 'round2', fields: { '/survey/hh_code': '/household/code', '/survey/phone': '/household/area' } }], 'alsoIn[0].fields'],
+        [[mapped[0], mapped[0]], 'alsoIn'],
+        [Array.from({ length: 6 }, () => mapped[0]), 'alsoIn'],
+        ['round2', 'alsoIn']
+      ];
+      for (const [alsoIn, field] of cases) {
+        const error = failure(() => crossKey(alsoIn));
+        should.exist(error, JSON.stringify(alsoIn));
+        error.field.should.equal(field, JSON.stringify(alsoIn));
+      }
+      // Questions that should stay the same may be left unmapped.
+      crossKey([{ xmlFormId: 'round2', fields: { '/survey/hh_code': '/household/code' } }]).definition.alsoIn[0].sameFields.should.eql({});
+    });
+
+    it('reports a mapping the other form no longer fits', () => {
+      const k = crossKey(mapped);
+      usabilityIn(k.definition, k.definition.alsoIn[0], round2).should.eql({ usable: true });
+      usabilityIn(k.definition, k.definition.alsoIn[0], round2.filter((f) => f.path !== '/household/area'))
+        .should.eql({ usable: false, reason: 'missing-fields', missing: ['/household/area'] });
+    });
+
+    it('counts uses in the other form but flags only this form, naming the other form in the evidence', () => {
+      const elsewhere = { ...sub({ hh_code: 'WA0001', district: 'Bo' }, { day: 0 }), xmlFormId: 'round2' };
+      const here = sub({ hh_code: 'wa0001', district: 'Kenema' }, { day: 30 });
+      const laterElsewhere = { ...sub({ hh_code: 'WA0001', district: 'Bo' }, { day: 60 }), xmlFormId: 'round2' };
+      const { findings, counts } = findIdentityIssues(crossKey(mapped), [elsewhere, here, laterElsewhere]);
+      counts.should.containEql({ examined: 1, examinedElsewhere: 2, reused: 1, inconsistent: 1 });
+      findings.map((f) => [f.rule, f.instanceId, f.relatedInstanceId]).sort().should.eql([
+        ['identity-inconsistent:k1', here.instanceId, elsewhere.instanceId],
+        ['identity-reused:k1', here.instanceId, elsewhere.instanceId]
+      ]);
+      findings[0].evidence.others[0].xmlFormId.should.equal('round2');
+      // A panel with one form per round allows one use per round.
+      findIdentityIssues(crossKey(mapped, { maxUses: 2 }), [elsewhere, here]).counts.reused.should.equal(0);
     });
   });
 });
