@@ -141,7 +141,7 @@ The assigned App User collects a submission of the selected form in ODK Collect,
               <label :for="`backcheck-form-${item.id}`">Back-check form</label>
               <select :id="`backcheck-form-${item.id}`" class="form-control"
                 :value="responseForms[item.id] || xmlFormId"
-                @change="responseForms[item.id] = $event.target.value; assigneesSelected[item.id] = null">
+                @change="responseForms[item.id] = $event.target.value; assigneesSelected[item.id] = suggestedFor(item)">
                 <option v-for="form of inspections[item.id].forms" :key="form.id" :value="form.xmlFormId">
                   {{ form.name || form.xmlFormId }} ({{ form.xmlFormId }})
                 </option>
@@ -150,11 +150,14 @@ The assigned App User collects a submission of the selected form in ODK Collect,
               <select :id="`backcheck-assignee-${item.id}`" v-model="assigneesSelected[item.id]"
                 class="form-control">
                 <option :value="null">Choose a different collector</option>
-                <option v-for="assignee of (inspections[item.id].forms.find(f => f.xmlFormId === (responseForms[item.id] || xmlFormId))?.assignees || [])" :key="assignee.id"
-                  :value="assignee.id">
-{{ assignee.name }}
+                <option v-for="assignee of assigneesFor(item)" :key="assignee.id"
+                  :value="assignee.id" :disabled="assignee.original">
+{{ assigneeLabel(assignee) }}
 </option>
               </select>
+              <p v-if="assigneesFor(item).some(a => a.suggested)" class="backcheck-workload-hint">
+                Suggested: the collector with the fewest open back-checks. You can choose another.
+              </p>
               <label :for="`backcheck-question-${item.id}`">What should they verify?</label>
               <textarea :id="`backcheck-question-${item.id}`" v-model.trim="questions[item.id]"
                 class="form-control" maxlength="2000"></textarea>
@@ -329,6 +332,17 @@ const load = async (cursor = null) => {
   }
 };
 const loadMore = () => load(nextCursor.value);
+// Back-check workload (O4): eligible App Users with their open back-checks;
+// the original collector cannot be chosen; the least loaded is preselected.
+const assigneesFor = (item) => inspections.value[item.id]?.forms
+  .find(f => f.xmlFormId === (responseForms.value[item.id] || props.xmlFormId))?.assignees ?? [];
+const suggestedFor = (item) => assigneesFor(item).find(a => a.suggested)?.id ?? null;
+const assigneeLabel = (a) => {
+  if (a.original) return `${a.name} (collected this submission)`;
+  if (a.pending == null) return a.name;
+  const load = `${a.pending} open${a.overdue > 0 ? `, ${a.overdue} overdue` : ''}`;
+  return `${a.name} — ${load}${a.suggested ? ' (suggested)' : ''}`;
+};
 const inspect = async (event, item) => {
   if (!event.target.open || inspections.value[item.id]) return;
   inspecting.value[item.id] = true;
@@ -353,6 +367,7 @@ const inspect = async (event, item) => {
       backchecks: backchecks.data,
       forms: forms.data
     };
+    if (assigneesSelected.value[item.id] == null) assigneesSelected.value[item.id] = suggestedFor(item);
   } catch {
     inspectionError.value[item.id] = true;
   } finally {
