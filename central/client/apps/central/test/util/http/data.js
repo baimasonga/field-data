@@ -217,6 +217,14 @@ const responsesByComponent = {
     odata: [
       ({ url }) => matchesApiPath((projectId, xmlFormId) => apiPaths.odataSubmissions(projectId, xmlFormId, true), url),
       () => testData.submissionOData()
+    ],
+    // Field Data form check (S1), on the draft or the published version.
+    formDoctor: [
+      ({ url }) => /^\/v1\/projects\/\d+\/forms\/[^/]+(\/draft)?\/doctor$/.test(url),
+      () => ({
+        doctorVersion: 1, formVersion: '1', hash: 'h', draft: true, findings: [], notChecked: [],
+        summary: { questions: 1, groups: 0, repeats: 0, calculations: 0, choiceLists: 0, languages: [], expressions: 0, errors: 0, warnings: 0, notes: 0 }
+      })
     ]
   }),
   FormSettings: [],

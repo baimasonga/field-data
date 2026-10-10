@@ -14,9 +14,12 @@ except according to the terms contained in the LICENSE file.
     backdrop @shown="focusInput" @hide="$emit('hide')">
     <template #title>{{ $t('title') }}</template>
     <template #body>
-      <div v-if="rendersAttachmentsWarning || rendersTestingWarning"
+      <div v-if="rendersAttachmentsWarning || rendersTestingWarning || doctorErrors > 0"
         class="modal-warnings">
         <ul>
+          <li v-if="doctorErrors > 0" class="doctor-warning">
+            The form check found {{ doctorErrors }} {{ doctorErrors === 1 ? 'error' : 'errors' }} in this Draft (see “Form check” on this page). You can still publish.
+          </li>
           <i18n-t v-if="rendersAttachmentsWarning" tag="li"
             keypath="warnings.attachments.full">
             <template #formAttachments>
@@ -83,6 +86,11 @@ export default {
     state: {
       type: Boolean,
       default: false
+    },
+    // Errors found by the form check (S1). Publishing is still allowed.
+    doctorErrors: {
+      type: Number,
+      default: 0
     }
   },
   emits: ['hide', 'success'],

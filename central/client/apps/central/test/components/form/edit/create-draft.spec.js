@@ -47,6 +47,8 @@ describe('FormEditCreateDraft', () => {
         { url: '/v1/projects/1/forms/a%20b/draft', extended: true },
         { url: '/v1/projects/1/forms/a%20b/draft/attachments' },
         { url: '/v1/projects/1/forms/a%20b/versions', extended: true },
+        // The form check (Field Data S1).
+        { url: '/v1/projects/1/forms/a%20b/draft/doctor' },
         { url: '/v1/projects/1/forms/a%20b/draft/submissions/keys' },
         { url: '/v1/projects/1/forms/a%20b/draft/fields?odata=true' },
         {

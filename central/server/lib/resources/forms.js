@@ -21,6 +21,7 @@ const { success } = require('../util/http');
 const { formList, formManifest } = require('../formats/openrosa');
 const { noargs, isPresent, isBlank, attachmentToDatasetName } = require('../util/util');
 const { streamEntityCsvAttachment } = require('../data/entity');
+const { examine, FormTooLarge } = require('../util/survey-doctor');
 
 // excel-related util funcs/data used below:
 const isExcel = (contentType) => (contentType === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet') || (contentType === 'application/vnd.ms-excel');
@@ -285,6 +286,21 @@ module.exports = (service, endpoint, anonymousEndpoint) => {
             .then(getOrNotFound)
             .then(rejectIf(((blob) => blob.contentType !== excelMimeTypes[extension]), noargs(Problem.user.notFound)))
             .then((blob) => blobResponse(s3, `${form.xmlFormId}.${extension}`, blob)))));
+    // Survey doctor (S1): static checks of this version's definition, for the
+    // people who may read it. Computed on request; nothing is stored.
+    service.get(`${base}/doctor`, endpoint(({ Forms }, { params, auth }, _, response) =>
+      getInstance(Forms, params, true)
+        .then((form) => canReadForm(auth, form))
+        .then((form) => {
+          let report;
+          try { report = examine(form.xml); } catch (error) {
+            if (error instanceof FormTooLarge) throw Problem.user.formTooLargeToCheck();
+            throw error;
+          }
+          response.set('Cache-Control', 'private, no-store');
+          return { ...report, formVersion: form.def.version, hash: form.def.hash, draft: form.def.publishedAt == null };
+        })));
+
     service.get(`${base}.xls`, getXls('xls'));
     service.get(`${base}.xlsx`, getXls('xlsx'));
 
