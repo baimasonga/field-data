@@ -222,6 +222,7 @@ jobs:
               test/integration/api/field-data-near-duplicates.js \
               test/integration/api/field-data-collusion.js \
               test/integration/api/field-data-receipts.js \
+              test/integration/api/field-data-search.js \
               test/integration/api/field-data-app-user-backchecks.js
 
   server-integration-report:

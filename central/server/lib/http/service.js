@@ -138,6 +138,7 @@ module.exports = (container) => {
   require('../resources/field-data-findings')(service, endpoint);
   require('../resources/field-data-backcheck-samples')(service, endpoint);
   require('../resources/field-data-receipts')(service, endpoint);
+  require('../resources/field-data-search')(service, endpoint);
   require('../resources/field-data-evidence')(service, endpoint);
   require('../resources/field-data-reviews')(service, endpoint);
   require('../resources/field-data-backchecks')(service, endpoint);
