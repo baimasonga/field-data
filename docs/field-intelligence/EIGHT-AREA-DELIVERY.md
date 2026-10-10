@@ -50,8 +50,13 @@ also exist. Those features must not be re-labelled as full completion of this pr
   explanations and no answers stored: merged in PR #70. Groups of collectors
   whose submissions keep matching (F5, first collusion-subgraph slice):
   collectors connected by repeated pair findings across forms, on the Review
-  page, with no score: implemented and locally validated. Triage remains
-  pending.
+  page, with no score: merged in PR #71. Triage remains pending.
+- Receipt and custody ledger (R1, first offline-resilience custody slice):
+  an append-only, hash-chained receipt per submission version received,
+  written by a database trigger; manager verification of chain and stored
+  content; a head signed with the offline key when configured; collectors see
+  their own receipts on the fieldwork page: implemented and locally validated.
+  Device-side hashes, relays and couriers remain pending.
 - Static survey doctor (S1, first adaptive-surveys slice): checks of a form
   definition for unknown references, cycles, never-shown questions, impossible
   constraints and choice-list problems, on the Draft page and in the publish

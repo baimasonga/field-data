@@ -8,7 +8,7 @@ const key = 'fixture-app-user-key';
 const visitFixture = { id: '88888888-8888-4888-8888-888888888888', assetName: 'Water point', externalId: 'WP-01', assetType: 'water-point',
   predicate: 'condition', instruction: 'Check the pump handle. <img src=x onerror=alert(1)>', xmlFormId: 'verification',
   formName: 'Independent verification', visitBy: '2026-10-20T00:00:00Z', dispatchedAt: '2026-10-09T10:00:00Z', actionable: true };
-const setup = async (page, { push = false, denied = false, fail = false, delayed = false, failDelete = false, offline = false, offlineOrigin = null, visits = [], failVisits = false } = {}) => {
+const setup = async (page, { push = false, denied = false, fail = false, delayed = false, failDelete = false, offline = false, offlineOrigin = null, visits = [], failVisits = false, receipts = [], failReceipts = false } = {}) => {
   const state = { inboxReads: 0, seen: false, registered: false, deleted: false, failures: fail ? 1 : 0, requests: [] };
   const errors = [];
   if (offline) {
@@ -61,6 +61,10 @@ const setup = async (page, { push = false, denied = false, fail = false, delayed
     if (path.endsWith('/reverification')) {
       if (failVisits) return route.fulfill({ status: 503, json: {} });
       return route.fulfill({ json: { appUser: { name: 'Checker', projectName: 'Project' }, items: visits, complete: true } });
+    }
+    if (path.endsWith('/receipts')) {
+      if (failReceipts) return route.fulfill({ status: 503, json: {} });
+      return route.fulfill({ json: { receipts, head: { projectId: 7, seq: receipts[0]?.seq ?? 0, entryHash: receipts[0]?.entryHash ?? '0'.repeat(64), signed: receipts.length ? { algorithm: 'ES256' } : null } } });
     }
     if (path.endsWith('/seen')) { state.seen = true; return route.fulfill({ json: { id: taskId, seenAt: '2026-10-09T04:00:00Z' } }); }
     if (path.endsWith('/push') && req.method() === 'GET')
@@ -353,5 +357,34 @@ test('an empty visit list says so', async ({ page }) => {
   const { errors } = await setup(page);
   await connect(page);
   await expect(page.getByText('No re-verification visits are assigned to you.')).toBeVisible();
+  expect(errors).toEqual([]);
+});
+
+test('the collector sees the receipts the server recorded for their uploads', async ({ page }) => {
+  const receipt = { seq: 12, xmlFormId: 'verification', formName: 'Independent verification', instanceId: 'uuid:visit-1',
+    receivedAt: '2026-10-10T12:00:00.123456Z', contentHash: 'a'.repeat(64), entryHash: 'b'.repeat(64) };
+  const { errors } = await setup(page, { receipts: [receipt] });
+  await page.getByLabel('App User access key or Collect server URL').fill(key);
+  await page.getByRole('button', { name: 'Open my inbox' }).click();
+  const list = page.locator('.receipts li');
+  await expect(list).toHaveCount(1);
+  await expect(list).toContainText('Independent verification · uuid:visit-1');
+  await expect(list).toContainText('Receipt 12 · Received 2026-10-10T12:00:00.123456Z');
+  await expect(list).toContainText(`Content fingerprint: ${'a'.repeat(64)}`);
+  await expect(page.getByText(`The ledger holds 12 receipts; latest ${'b'.repeat(64)}, signed by the server.`)).toBeVisible();
+  await page.setViewportSize({ width: 360, height: 800 });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= 360)).toBe(true);
+  // Disconnecting clears them with everything else.
+  await page.getByRole('button', { name: 'Disconnect' }).click();
+  await expect(page.locator('.receipts li')).toHaveCount(0);
+  expect(errors).toEqual([]);
+});
+
+test('a receipts failure does not hide the inbox', async ({ page }) => {
+  const { errors } = await setup(page, { failReceipts: true });
+  await page.getByLabel('App User access key or Collect server URL').fill(key);
+  await page.getByRole('button', { name: 'Open my inbox' }).click();
+  await expect(page.getByText('Receipts could not be loaded. Refresh to retry.')).toBeVisible();
+  await expect(page.locator('.tasks li').first()).toContainText('Verify the visit.');
   expect(errors).toEqual([]);
 });

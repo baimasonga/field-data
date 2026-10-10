@@ -20,6 +20,7 @@ const identityMigration = require('../../../lib/model/migrations/20261010-03-add
 const imageryMigration = require('../../../lib/model/migrations/20261010-04-add-imagery-lookups');
 const sampleMigration = require('../../../lib/model/migrations/20261010-05-add-backcheck-samples');
 const nearDuplicateMigration = require('../../../lib/model/migrations/20261010-06-route-near-duplicates');
+const receiptMigration = require('../../../lib/model/migrations/20261010-07-add-receipt-ledger');
 const mappingMigration = require('../../../lib/model/migrations/20261009-03-add-backcheck-field-mappings');
 const backcheckMigration = require('../../../lib/model/migrations/20260924-07-add-backcheck-requests');
 const { testService, testServiceFullTrx } = require('../setup');
@@ -137,6 +138,7 @@ describe('api: P0.2 claim versioning', () => {
       const db = knexConnect(config.get('test.database'));
       try {
         await db.transaction(async (trx) => {
+          await receiptMigration.down(trx);
           await nearDuplicateMigration.down(trx);
           await sampleMigration.down(trx);
           await imageryMigration.down(trx);
@@ -177,6 +179,7 @@ describe('api: P0.2 claim versioning', () => {
           await imageryMigration.up(trx);
           await sampleMigration.up(trx);
           await nearDuplicateMigration.up(trx);
+          await receiptMigration.up(trx);
         });
       } finally {
         await db.destroy();

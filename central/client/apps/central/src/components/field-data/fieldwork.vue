@@ -58,6 +58,21 @@ Acknowledge request
         </li>
       </ul>
       <p v-if="visits.length && !visitsComplete">Showing your 50 most recent visits.</p>
+      <h2>Received by the server</h2>
+      <p>Each submission the server received from you gets a numbered receipt in the project's ledger, with a fingerprint (SHA-256) of exactly what arrived. Use it to confirm an upload reached the server.</p>
+      <p v-if="receiptsError" role="alert">{{ receiptsError }}</p>
+      <p v-else-if="!loading && receipts.length === 0">The server has no submissions from you yet.</p>
+      <ul class="tasks receipts">
+        <li v-for="r of receipts" :key="r.seq">
+          <h3>{{ r.formName || r.xmlFormId }} · {{ r.instanceId }}</h3>
+          <p>Receipt {{ r.seq }} · Received {{ r.receivedAt }}</p>
+          <p class="hash">Content fingerprint: <code>{{ r.contentHash }}</code></p>
+          <p class="hash">Receipt: <code>{{ r.entryHash }}</code></p>
+        </li>
+      </ul>
+      <p v-if="receiptsHead" class="hash">
+        The ledger holds {{ receiptsHead.seq }} receipts; latest <code>{{ receiptsHead.entryHash }}</code><template v-if="receiptsHead.signed">, signed by the server</template>.
+      </p>
     </template>
     <p v-if="loading" role="status">Loading your inbox…</p>
     <p v-if="error" role="alert">{{ error }}</p>
@@ -80,6 +95,9 @@ const nextCursor = ref(null);
 const visits = ref([]);
 const visitsComplete = ref(true);
 const visitsError = ref('');
+const receipts = ref([]);
+const receiptsHead = ref(null);
+const receiptsError = ref('');
 const acknowledging = ref(null);
 const pushEnabled = ref(false);
 const pushActive = ref(false);
@@ -103,6 +121,9 @@ const clear = () => {
   items.value = [];
   visits.value = [];
   visitsError.value = '';
+  receipts.value = [];
+  receiptsHead.value = null;
+  receiptsError.value = '';
   identity.value = {};
   nextCursor.value = null;
   pushEnabled.value = false;
@@ -152,6 +173,18 @@ const loadVisits = async (current) => {
     if (current === generation) visitsError.value = 'Re-verification visits could not be loaded. Refresh to retry.';
   }
 };
+// Receipts load beside the rest; a failure here must not hide the inbox.
+const loadReceipts = async (current) => {
+  try {
+    const data = await api('receipts');
+    if (current !== generation) return;
+    receipts.value = data.receipts;
+    receiptsHead.value = data.head;
+    receiptsError.value = '';
+  } catch {
+    if (current === generation) receiptsError.value = 'Receipts could not be loaded. Refresh to retry.';
+  }
+};
 const load = async (cursor = null) => {
   const current = generation;
   loading.value = true;
@@ -164,7 +197,7 @@ const load = async (cursor = null) => {
     items.value = cursor == null ? data.items : [...items.value, ...data.items];
     nextCursor.value = data.nextCursor;
     connected.value = true;
-    if (cursor == null) await loadVisits(current);
+    if (cursor == null) await Promise.all([loadVisits(current), loadReceipts(current)]);
   } catch (failure) {
     if (current !== generation) return;
     error.value = 'The inbox could not be loaded. Refresh or try opening it again.';
@@ -304,4 +337,5 @@ const disconnect = async () => {
 .tasks li { border: 1px solid #bbb; border-radius: 4px; padding: 16px; margin-top: 16px; }
 .tasks h2 { font-size: 20px; margin-top: 0; }
 .question { white-space: pre-wrap; }
+  .hash { overflow-wrap: anywhere; }
 </style>
