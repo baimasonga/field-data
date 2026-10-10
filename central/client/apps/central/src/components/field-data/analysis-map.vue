@@ -71,6 +71,8 @@ import useRequest from '../../composables/request';
 
 defineOptions({ name: 'AnalysisMap' });
 const props = defineProps({ data: { type: Object, required: true }, projectId: { type: String, required: true }, canEdit: Boolean });
+// Tells a parent that shows the project area (the verification screen) to reload it.
+const emit = defineEmits(['changed']);
 const { request } = useRequest(); const layers = ref([]); const error = ref(''); const busy = ref(false);
 const remoteTitle = ref(''); const remoteType = ref('wms'); const remoteUrl = ref(''); const remoteLayers = ref(''); const remoteAuthorization = ref(''); const remoteAttribution = ref('');
 const title = ref(''); const attribution = ref(''); const upload = ref(null); const editing = ref(null);
@@ -127,11 +129,11 @@ const downloadLayer = async id => {
 // The server refuses remote layers and boundaries without valid polygons.
 const setArea = async (layer, on) => {
   busy.value = true; error.value = '';
-  try { await request({ method: 'PUT', url: `${base()}/${layer.id}`, headers: { 'If-Match': `"layer-${layer.revision}"` }, data: { role: on ? 'project-area' : null }, alert: false }); await load(); } catch (e) { error.value = e.response?.data?.message || 'The project area could not be changed.'; } finally { busy.value = false; }
+  try { await request({ method: 'PUT', url: `${base()}/${layer.id}`, headers: { 'If-Match': `"layer-${layer.revision}"` }, data: { role: on ? 'project-area' : null }, alert: false }); await load(); emit('changed'); } catch (e) { error.value = e.response?.data?.message || 'The project area could not be changed.'; } finally { busy.value = false; }
 };
 const fit = id => { const bounds = rendered.get(id)?.getBounds(); if (bounds?.isValid()) map.fitBounds(bounds); };
 const move = async (index, delta) => { const a = layers.value[index]; await update(a, { position: index + delta }); await load(); };
-const remove = async layer => { await request({ method: 'DELETE', url: `${base()}/${layer.id}`, headers: { 'If-Match': `"layer-${layer.revision}"` } }); await load(); };
+const remove = async layer => { await request({ method: 'DELETE', url: `${base()}/${layer.id}`, headers: { 'If-Match': `"layer-${layer.revision}"` } }); await load(); emit('changed'); };
 const edit = layer => { editing.value = layer; title.value = layer.title; attribution.value = layer.definition.attribution; upload.value = null; styleText.value = JSON.stringify(layer.definition.style, null, 2); };
 const readFile = async event => { const file = event.target.files[0]; if (!file) return; if (file.size > 2097152) { error.value = 'GeoJSON exceeds 2 MB.'; return; } try { upload.value = JSON.parse(await file.text()); } catch { error.value = 'Choose valid GeoJSON.'; } };
 const saveRemote = async () => {
@@ -143,7 +145,7 @@ const save = async () => {
   try {
     const data = { title: title.value, attribution: attribution.value, style: JSON.parse(styleText.value), ...(upload.value ? { data: upload.value } : {}) };
     if (editing.value) await update(editing.value, data); else await request({ method: 'POST', url: base(), data });
-    editing.value = null; upload.value = null; await load();
+    editing.value = null; upload.value = null; await load(); emit('changed');
   } catch (e) { error.value = e.response?.data?.message || 'Layer could not be saved. Check the GeoJSON and style.'; } finally { busy.value = false; }
 };
 onMounted(load); watch(() => props.data, render); watch(() => props.projectId, load);

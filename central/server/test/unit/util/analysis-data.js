@@ -9,6 +9,19 @@ describe('(util) analysis workspace', () => {
     for (const extra of [{ query: [{ column: '/secret', filter: '=', value: 'x' }] }, { chart: { column: '/secret', aggregation: 'count' } }, { geometry: '/secret' }])
       assert.throws(() => normalizeAnalysis({ source: { kind: 'filtered', id: 1 }, ...extra }, source));
   });
+  it('maps a location question in scope even when it is not a table column, and explains a question outside the scope', () => {
+    const form = { kind: 'form', repeatPaths: ['/household/member'], fields: [
+      { path: '/name', name: 'name', type: 'string' },
+      { path: '/home_gps', name: 'home_gps', type: 'geopoint' },
+      { path: '/household/member', name: 'member', type: 'repeat' },
+      { path: '/household/member/age', name: 'age', type: 'int', repeated: true }
+    ] };
+    const parent = normalizeAnalysis({ source: { kind: 'form', id: 1 }, columns: ['/name'], geometry: '/home_gps' }, form);
+    assert.equal(parent.geometry, '/home_gps');
+    assert.deepEqual(parent.columns, ['/name']);
+    assert.throws(() => normalizeAnalysis({ source: { kind: 'form', id: 1 }, repeatPath: '/household/member', geometry: '/home_gps' }, form),
+      /inside this repeat, or set the analysis scope to parent submissions/);
+  });
   it('projects delegated fields after applying the saved boundary', () => {
     const token = sql`${sourceRowsSql(source)}`;
     assert.ok(token.values.includes('/secret'));

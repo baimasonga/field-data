@@ -32,6 +32,20 @@ describe('api: remaining feature extensions', () => {
     const selection = { source: { kind: 'form', id: form.id }, columns: ['/name', '/age'], geometry: '/age', query: [{ column: '/name', filter: '=', value: 'Include' }], limit: 1 };
     const result = (await alice.post('/v1/projects/1/analysis/query').send(selection).expect(200)).body;
     assert.equal(result.rows.length, 1); assert.equal(result.total, 2); assert.equal(result.map.features.length, 2); assert.equal(result.mapScope, 'full-selection'); assert.ok(result.map.features.every(f => !Object.hasOwn(f.properties, 'name')));
+    // The location question need not be a table column: the map and a KML export
+    // still read it, while other formats export only the chosen columns.
+    const mapOnly = { ...selection, columns: ['/name'] };
+    assert.equal((await alice.post('/v1/projects/1/analysis/query').send(mapOnly).expect(200)).body.map.features.length, 2);
+    const kml = (await alice.post('/v1/projects/1/analysis/export/kml').send(mapOnly).buffer(true).parse((res, done) => {
+      let text = ''; res.setEncoding('utf8'); res.on('data', (chunk) => { text += chunk; }); res.on('end', () => done(null, text));
+    })
+      .expect(200)).body;
+    assert.equal((kml.match(/<Placemark>/g) || []).length, 2, kml);
+    const csv = (await alice.post('/v1/projects/1/analysis/export/csv').send(mapOnly).buffer(true).parse((res, done) => {
+      const chunks = []; res.on('data', (chunk) => chunks.push(chunk)); res.on('end', () => done(null, Buffer.concat(chunks)));
+    })
+      .expect(200)).body;
+    assert.ok(!csv.toString('latin1').includes('/age') && !csv.toString('latin1').includes('8.1 -13.1'), 'CSV keeps only the chosen columns');
   }));
   it('imports an XLSForm through the authorized API and validates the resulting entity form with the real compiler', testService(async service => {
     const alice = await service.login('alice'); const chelsea = await service.login('chelsea');

@@ -61,7 +61,12 @@ const normalizeAnalysis = (body, source) => {
     throw e;
   }
   const geometry = body?.geometry || null;
-  if (geometry && !definition.columns.includes(geometry)) throw invalid('geometry', geometry, 'Choose a visible field.');
+  // The map reads its location column on its own, so it need not be one of the
+  // table's columns; it must only belong to the scope being analysed.
+  if (geometry && !fields.some(f => f.path === geometry))
+    throw invalid('geometry', geometry, repeatPath
+      ? 'Choose a location question inside this repeat, or set the analysis scope to parent submissions.'
+      : 'Choose a location question from this form.');
   const tab = body?.tab || 'table';
   if (!['table', 'chart', 'map'].includes(tab)) throw invalid('tab', tab, 'Choose table, chart or map.');
   return { version: 1, source: body.source, columns: definition.columns, query: definition.query, chart, geometry, tab, ...(repeatPath ? { repeatPath } : {}) };
