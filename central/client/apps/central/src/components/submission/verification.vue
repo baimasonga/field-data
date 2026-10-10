@@ -20,7 +20,7 @@ and a number that looks like one would be believed.
     <loading :state="loading"/>
 
     <template v-if="!loading && evidence != null">
-      <submission-review-queue :project-id="projectId" :xml-form-id="xmlFormId"
+      <submission-review-queue :key="queueKey" :project-id="projectId" :xml-form-id="xmlFormId"
         :can-review="canReview"/>
       <section class="verification-evidence">
         <h2>{{ $t('evidence.title') }}</h2>
@@ -89,6 +89,8 @@ and a number that looks like one would be believed.
       </section>
 
       <imagery-availability :project-id="projectId" :xml-form-id="xmlFormId" :can-check="canReview"/>
+      <backcheck-sample :project-id="projectId" :xml-form-id="xmlFormId" :can-draw="canReview"
+        @drawn="queueKey += 1"/>
       <contradiction-rules v-if="canReview" :project-id="projectId" :xml-form-id="xmlFormId"
         :can-manage="canManage"/>
       <identity-keys v-if="canReview" :project-id="projectId" :xml-form-id="xmlFormId"
@@ -309,6 +311,7 @@ import SubmissionReviewQueue from './review-queue.vue';
 import ContradictionRules from './contradiction-rules.vue';
 import IdentityKeys from './identity-keys.vue';
 import ImageryAvailability from './imagery-availability.vue';
+import BackcheckSample from './backcheck-sample.vue';
 // The map and its library load only when a manager opens the project area panel.
 const AnalysisMap = defineAsyncComponent(() => import('../field-data/analysis-map.vue'));
 import { describeCondition } from '../../util/contradiction-rules';
@@ -342,6 +345,8 @@ const review = reactive({});
 // that reads it.
 const canReview = computed(() =>
   project.dataExists && project.permits('submission.update'));
+// A drawn backcheck sample adds cases: the queue above is reloaded.
+const queueKey = ref(0);
 // Writing contradiction rules is project management.
 const canManage = computed(() => project.dataExists && project.permits('project.update'));
 

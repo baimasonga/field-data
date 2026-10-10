@@ -59,9 +59,15 @@ also exist. Those features must not be re-labelled as full completion of this pr
   merged in PR #66.
 - Imagery availability (G1b): Sentinel-2 scenes covering each located submission
   within 30 days of its visit, from an open STAC catalogue, sending only a 0.05°
-  cell centre and whole days; off until an operator enables it: implemented and
-  locally validated with a recorded catalogue answer. A live run from the
-  deployed server, imagery analysis and change detection remain pending.
+  cell centre and whole days; off until an operator enables it: merged in PR #67,
+  validated with a recorded catalogue answer. A live run from the deployed
+  server, imagery analysis and change detection remain pending.
+- Random backcheck sample (O3): a seeded, reproducible share of every
+  collector's submissions of a form, routed into review with the reason
+  `backcheck-sample` for a backcheck by another App User, with coverage by
+  collector: implemented and locally validated. Scheduled samples, other
+  strata, backchecker workload balancing and estimates from backcheck results
+  remain pending.
 - Remaining deliverables in all eight rows: pending.
 - Version-scoped evidence graph and recorded survey timeline: implemented and
   locally and CI validated, merged in PR #53 (E1). Capture sessions, sensor/challenge
