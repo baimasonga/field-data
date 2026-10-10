@@ -28,6 +28,12 @@ also exist. Those features must not be re-labelled as full completion of this pr
 
 - Asset identity, source-linked temporal observations and age-based freshness:
   implemented, validated and merged in PR #52 (first bounded knowledge slice).
+- Asset status across a project (K3, first decision-specific projection):
+  one predicate's current fact for every asset, chosen as the passport chooses
+  it, with a count by value of facts still fresh or due for review and the
+  rest counted by freshness status, on the Review page: implemented and
+  locally validated. Several predicates, maps and aggregation by area remain
+  pending.
 - Cited search (K2, first cited-retrieval slice): one search across a
   project's assets, asset facts, integrity findings and review decisions on
   the Review page, each result citing the submission it rests on, limited to
@@ -93,7 +99,7 @@ also exist. Those features must not be re-labelled as full completion of this pr
   merged in PR #73. Backcheck agreement (O5): the linked backchecks of a form
   compared as their comparison views do and added up by collector and by
   question, counting only asked questions or mapped pairs, with counts rather
-  than estimates: implemented and locally validated. Scheduled samples, other
+  than estimates: merged in PR #75. Scheduled samples, other
   strata and calibrated estimates from backcheck results remain pending.
 - Remaining deliverables in all eight rows: pending.
 - Version-scoped evidence graph and recorded survey timeline: implemented and
