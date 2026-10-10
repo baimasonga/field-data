@@ -1,6 +1,6 @@
 # S1: survey doctor (static form checks)
 
-Status: draft contract, awaiting decisions (see "Decisions needed").
+Status: contract agreed 2026-10-10. Errors warn in the publish dialog but do not block publishing; number questions without a range are collapsed notes; shown on the Draft page in this slice.
 
 First slice of the adaptive-surveys area (row 7 of the delivery ledger: "static
 survey doctor"). It reads a form definition, before or after publishing, and
@@ -131,13 +131,12 @@ form's page when there is no draft. See decision 1 for publishing.
 - Browser: the Draft page shows findings grouped by severity and the clean
   state, at narrow width.
 
-## Decisions needed
+## Decisions (agreed 2026-10-10)
 
-1. **Publishing with errors**: show the error count in the publish dialog and
-   let the person publish anyway (recommended: the checker can be wrong and
-   must not block urgent fixes), or block publishing until errors are fixed.
-2. **Number questions without a range**: report them as notes (recommended:
-   collapsed by default, useful on a first review), or leave them out (they
-   are common and often deliberate).
-3. **Where else to show it**: Draft page only (recommended for this slice), or
-   also inside the form builder while editing.
+1. Publishing with errors is allowed: the publish dialog shows the error count
+   and links to the check. The checker can be wrong and must not block an
+   urgent fix.
+2. Number questions without a range are reported as notes, collapsed by
+   default.
+3. The check appears on the form's Draft page (and on the published form when
+   there is no draft). The builder is not changed in this slice.
