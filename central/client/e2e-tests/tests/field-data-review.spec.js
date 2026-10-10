@@ -15,7 +15,7 @@ const setup = async (page, { comparisonUnavailable = false, failComparison = fal
   const metricsWait = delayMetrics ? new Promise(resolve => { releaseMetrics = resolve; }) : null;
   const state = { assets: [], assetHistory: [], assetTasks: [], assetWrites: [], assetFailures: 0, assetConflict: false, mappingRevision: 0, mappingHistory: [], mappingRequests: [], mappingFailures: 0, mappingConflict: false, comparisonFailures: failComparison ? 1 : 0, comparisonRequests: 0, staleWrites: 0, conflictFailures: staleAssignment ? 1 : 0, status: 'open', assignedTo: null, revision: 1, backchecks: [], decisions: [], mutations: [], queueRequests: [], queueFailures: failQueue ? 1 : 0, assignmentFailures: failAssignment ? 1 : 0, metricsFailures: failMetrics ? 2 : 0 };
   Object.assign(state, { queueCalls: [], queueFailures_: 0, queueGate: null, queuePaged: false, queueTasks: [] });
-  Object.assign(state, { findings: [], findingsCalls: [], findingsFailures: 0, findingsPaged: false, collectorGroups: [], collectorCalls: [], workload: false, search: null, searchCalls: [], searchFailures: 0 });
+  Object.assign(state, { findings: [], findingsCalls: [], findingsFailures: 0, findingsPaged: false, collectorGroups: [], collectorCalls: [], workload: false, search: null, searchCalls: [], searchFailures: 0, projection: null, projectionCalls: [], projectionFailures: 0 });
   await page.addInitScript(() => globalThis.localStorage.setItem('sessionExpires', String(Date.now() + 3600000)));
   await page.route('**/client-config.json', route => route.fulfill({ json: {} }));
   await page.route('**/version.txt', route => route.fulfill({ body: 'test' }));
@@ -150,6 +150,15 @@ const setup = async (page, { comparisonUnavailable = false, failComparison = fal
         return reply();
       }
       return route.fulfill({ status: 404, json: {} });
+    }
+    // K3 asset status: the predicate list, then one predicate's projection.
+    if (/^\/v1\/field-data\/projects\/\d+\/assets\/projection$/.test(path)) {
+      const predicate = url.searchParams.get('predicate');
+      state.projectionCalls.push(url.search);
+      if (state.projectionFailures-- > 0) return route.fulfill({ status: 500, json: { message: 'Failed' } });
+      const p = state.projection ?? { predicates: [], assets: [], summary: { byValue: [], byStatus: {} }, excluded: { notReadable: 0, sourceDeleted: 0 }, truncated: false };
+      return respond({ ...p, predicate, at: '2026-10-10T00:00:00.000Z', knownAt: '2026-10-10T00:00:00.000Z',
+        assets: predicate == null ? [] : p.assets.filter((a) => !url.searchParams.get('assetType') || a.assetType === url.searchParams.get('assetType')) });
     }
     const assetRoot = '/v1/field-data/projects/7/assets';
     if (path.startsWith(assetRoot)) {
@@ -1249,5 +1258,70 @@ test('searching the project records shows each kind with its citation', async ({
   expect(state.searchCalls).toEqual(['nowhere', 'nowhere', 'kissy']);
   await page.setViewportSize({ width: 360, height: 800 });
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= 360)).toBe(true);
+  expect(errors).toEqual([]);
+});
+
+test('asset status shows one fact for every asset, counting only current values', async ({ page }) => {
+  const { state, errors } = await setup(page, { canOverride: true });
+  const assetId = '55555555-5555-4555-8555-555555555555';
+  state.assets.push({ id: assetId, name: 'Kissy water point', externalId: 'WP-01', assetType: 'water-point', revision: 2 });
+  state.assetTasks.push({ id: 'a2222222-2222-4222-8222-222222222222', predicate: 'condition', status: 'dispatched', dueAt: '2026-01-11T00:00:00Z' });
+  const fresh = { status: 'fresh', dueAt: '2026-12-01T00:00:00Z', expiresAt: '2026-12-11T00:00:00Z' };
+  state.projection = {
+    predicates: ['condition', 'depth'],
+    assets: [
+      { id: assetId, name: 'Kissy water point', externalId: 'WP-01', assetType: 'water-point', xmlFormId: 'health',
+        fact: { value: 'broken', state: 'known', validFrom: '2026-09-01T00:00:00.000Z', freshness: fresh } },
+      { id: 'b1', name: 'Lumley school', externalId: 'SC-02', assetType: 'school', xmlFormId: 'health',
+        fact: { value: 'operating', state: 'known', validFrom: '2026-01-01T00:00:00.000Z', freshness: { ...fresh, status: 'expired' } } },
+      { id: 'b2', name: 'Wellington pump', externalId: 'WP-03', assetType: 'water-point', xmlFormId: 'health', fact: null }
+    ],
+    summary: { byValue: [{ value: 'broken', count: 1 }], byStatus: { fresh: 1, 'review-due': 0, expired: 1, unknown: 0, 'source-unverified': 0, 'not-yet-valid': 0, none: 1 } },
+    excluded: { notReadable: 0, sourceDeleted: 2 },
+    truncated: false
+  };
+  state.projectionCalls = [];
+  await page.reload();
+  const section = page.getByRole('region', { name: 'Asset status across the project' });
+  await expect(section.locator('.asset-status-summary')).toHaveText('Current: 1 broken. Also: 1 expired, 1 with no fact.');
+  await expect(section.locator('.asset-status-excluded')).toHaveText('Not shown: 2 resting on a deleted Submission.');
+  expect(state.projectionCalls).toEqual(['', '?predicate=condition']);
+  const rows = section.locator('tbody tr');
+  await expect(rows).toHaveCount(3);
+  await expect(rows.nth(0)).toContainText('broken');
+  await expect(rows.nth(0)).toContainText('Fresh');
+  await expect(rows.nth(0)).toContainText('2026-09-01');
+  await expect(rows.nth(1)).toContainText('Expired');
+  await expect(rows.nth(2)).toContainText('No fact');
+
+  // Filters go to the server; "as of" is the end of that day.
+  await section.getByLabel('Asset type (optional)').fill('water-point');
+  await section.getByLabel('As of (optional)').fill('2026-10-01');
+  await section.getByRole('button', { name: 'Show' }).click();
+  await expect(rows).toHaveCount(2);
+  expect(state.projectionCalls.at(-1)).toBe('?predicate=condition&assetType=water-point&at=2026-10-01T23%3A59%3A59Z');
+
+  // A failure says so and keeps the form.
+  state.projectionFailures = 1;
+  await section.getByRole('button', { name: 'Show' }).click();
+  await expect(section.getByRole('alert')).toHaveText('Asset status could not be loaded. Try again.');
+  await expect(section.locator('table')).toHaveCount(0);
+  await section.getByRole('button', { name: 'Show' }).click();
+  await expect(section.getByRole('alert')).toHaveCount(0);
+
+  await rows.nth(0).getByRole('button', { name: 'Open asset' }).click();
+  const assets = page.getByRole('region', { name: 'Asset passports and re-verification' });
+  await expect(assets.getByRole('button', { name: 'Manage' })).toBeVisible();
+  await page.setViewportSize({ width: 360, height: 800 });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= 360)).toBe(true);
+  expect(errors).toEqual([]);
+});
+
+test('asset status says when no asset has a recorded fact', async ({ page }) => {
+  const { state, errors } = await setup(page);
+  const section = page.getByRole('region', { name: 'Asset status across the project' });
+  await expect(section.locator('.asset-status-empty')).toHaveText('No asset in this project has a recorded fact yet.');
+  await expect(section.locator('form')).toHaveCount(0);
+  expect(state.projectionCalls).toEqual(['']);
   expect(errors).toEqual([]);
 });
