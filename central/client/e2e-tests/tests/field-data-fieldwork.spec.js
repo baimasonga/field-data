@@ -199,6 +199,9 @@ test('encrypted assignments survive reload and unlock offline without persisted 
   expect(raw).not.toContain('Verify the visit');
   await page.reload();
   await expect(panel.getByLabel('Saved snapshot passphrase')).toBeVisible();
+  // The app downloads some cosmetic components (such as the hover cards) just after load. Let
+  // those finish before going offline, or the test fails on a download it cut off itself.
+  await page.waitForLoadState('networkidle');
   const reads = state.requests.length;
   await context.setOffline(true);
   await unlockOffline(page, 'incorrect-passphrase');
