@@ -33,6 +33,10 @@ Contract: docs/field-intelligence/F5-collusion-groups.md -->
             <strong>{{ group.members.map((m) => name(m)).join(', ') }}</strong>
             · {{ group.findingsTotal }} linking findings · {{ group.forms.map((f) => f.formName).join(', ') }}
           </p>
+          <button v-if="canInvestigate" type="button" class="btn btn-default btn-sm collector-group-investigate"
+            @click="$emit('investigate', investigationOf(group))">
+Open an investigation
+</button>
           <ul class="collector-group-connections">
             <li v-for="c of group.connections" :key="`${c.a}-${c.b}`">
               {{ nameOf(group, c.a) }} and {{ nameOf(group, c.b) }}: {{ c.links }} ({{ ruleSummary(c.byRule) }})
@@ -65,7 +69,11 @@ import Spinner from '../spinner.vue';
 import useRequest from '../../composables/request';
 
 defineOptions({ name: 'FieldDataCollectorGroups' });
-const props = defineProps({ projectId: { type: [String, Number], required: true } });
+const props = defineProps({
+  projectId: { type: [String, Number], required: true },
+  canInvestigate: { type: Boolean, default: false }
+});
+defineEmits(['investigate']);
 const { request, awaitingResponse: busy } = useRequest();
 
 const OPTIONS = [2, 3, 4, 5, 10];
@@ -88,6 +96,11 @@ const nameOf = (group, actorId) => {
   const member = group.members.find((m) => m.actorId === actorId);
   return member == null ? `Collector ${actorId}` : name(member);
 };
+// An investigation of a group starts with the group's listed findings.
+const investigationOf = (group) => ({
+  title: `Collectors ${group.members.map((m) => name(m)).join(', ')}`,
+  findingIds: group.findings.map((f) => f.id), at: Date.now()
+});
 const family = (rule) => (rule.startsWith('identity-reused:') ? 'identity' : rule);
 const ruleSummary = (byRule) => Object.entries(byRule).map(([k, n]) => `${n} ${RULES[k].toLowerCase()}`).join(', ');
 const formPath = (xmlFormId) => `/projects/${props.projectId}/forms/${encodeURIComponent(xmlFormId)}`;
@@ -106,6 +119,7 @@ const submissionPath = (xmlFormId, instanceId) => `${formPath(xmlFormId)}/submis
   .collector-groups-error { color: $color-danger; }
   .collector-groups-list { padding-left: 20px; }
   .collector-group { margin-bottom: 12px; }
+  .collector-group-investigate { margin: 4px 0; }
   .collector-group-connections, .collector-group-findings ul { margin: 4px 0; padding-left: 18px; }
 }
 </style>

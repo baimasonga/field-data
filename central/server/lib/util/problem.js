@@ -183,6 +183,8 @@ const problems = {
     // 400.60 would equal 400.6 as a number.
     simulationInvalid: problem(400.61, ({ field, reason }) =>
       `The simulation settings are invalid: ${field} ${reason}.`),
+    investigationInvalid: problem(400.62, ({ field, reason }) =>
+      `The investigation's ${field} is not valid: ${reason}.`),
 
     // no detail information for security reasons.
     authenticationFailed: problem(401.2, () => 'Could not authenticate with the provided credentials.'),
@@ -307,11 +309,13 @@ const problems = {
       `The linked observation is not acceptable field evidence for this task: ${reason}.`),
     contradictionRuleLimit: problem(409.37, () => 'This form already has the maximum of 50 active contradiction rules.'),
     identityKeyLimit: problem(409.38, () => 'This form already has the maximum of 20 active identity keys.'),
+    investigationState: problem(409.39, ({ status }) => `This investigation is ${status}; that change is not possible.`),
     reviewRevisionStale: problem(412.1, () => 'The review case has changed. Refresh and retry.'),
     assetRevisionStale: problem(412.2, () => 'The asset has changed. Reload its history before saving.'),
     reverificationRevisionStale: problem(412.3, () => 'The re-verification task has changed. Reload it before saving.'),
     contradictionRuleRevisionStale: problem(412.4, () => 'The contradiction rule has changed. Reload it before saving.'),
     identityKeyRevisionStale: problem(412.5, () => 'The identity key has changed. Reload it before saving.'),
+    investigationRevisionStale: problem(412.6, () => 'The investigation has changed. Reload it before saving.'),
     evidenceScopeInvalid: problem(422.1, () =>
       'The evidence link must refer to this claim version and a valid predecessor.'),
     reviewAcceptanceBlocked: problem(422.2, () =>
@@ -321,6 +325,7 @@ const problems = {
     reverificationRevisionRequired: problem(428.3, () => 'If-Match is required for re-verification task changes.'),
     contradictionRuleRevisionRequired: problem(428.4, () => 'If-Match is required for contradiction rule changes.'),
     identityKeyRevisionRequired: problem(428.5, () => 'If-Match is required for identity key changes.'),
+    investigationRevisionRequired: problem(428.6, () => 'If-Match is required for investigation changes.'),
   },
   internal: {
     // no detail information, as this is only called when we don't know what happened.

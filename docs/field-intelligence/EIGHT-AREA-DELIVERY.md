@@ -31,8 +31,8 @@ also exist. Those features must not be re-labelled as full completion of this pr
 - Asset status across a project (K3, first decision-specific projection):
   one predicate's current fact for every asset, chosen as the passport chooses
   it, with a count by value of facts still fresh or due for review and the
-  rest counted by freshness status, on the Review page: implemented and
-  locally validated. Several predicates, maps and aggregation by area remain
+  rest counted by freshness status, on the Review page: merged in PR #76.
+  Several predicates, maps and aggregation by area remain
   pending.
 - Cited search (K2, first cited-retrieval slice): one search across a
   project's assets, asset facts, integrity findings and review decisions on
@@ -61,7 +61,11 @@ also exist. Those features must not be re-labelled as full completion of this pr
   explanations and no answers stored: merged in PR #70. Groups of collectors
   whose submissions keep matching (F5, first collusion-subgraph slice):
   collectors connected by repeated pair findings across forms, on the Review
-  page, with no score: merged in PR #71. Triage remains pending.
+  page, with no score: merged in PR #71. Investigation records (F6): findings
+  looked into together, an append-only history, a disposition from a fixed
+  list and reopening as the correction path, for project managers only and
+  changing nothing else: implemented and locally validated. Triage, linking
+  review cases and metrics over dispositions remain pending.
 - Receipt and custody ledger (R1, first offline-resilience custody slice):
   an append-only, hash-chained receipt per submission version received,
   written by a database trigger; manager verification of chain and stored
