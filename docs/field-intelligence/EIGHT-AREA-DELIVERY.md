@@ -55,8 +55,13 @@ also exist. Those features must not be re-labelled as full completion of this pr
   an append-only, hash-chained receipt per submission version received,
   written by a database trigger; manager verification of chain and stored
   content; a head signed with the offline key when configured; collectors see
-  their own receipts on the fieldwork page: implemented and locally validated.
-  Device-side hashes, relays and couriers remain pending.
+  their own receipts on the fieldwork page: merged in PR #72 (deploy backfilled
+  existing submissions). Device-side hashes, relays and couriers remain pending.
+- Backcheck workload (O4, first workload-balancing slice): the backcheck
+  request form shows each eligible App User's open and overdue backchecks,
+  marks the original collector unavailable and preselects the least loaded:
+  implemented and locally validated. Distance, capacity and automatic
+  assignment remain pending.
 - Static survey doctor (S1, first adaptive-surveys slice): checks of a form
   definition for unknown references, cycles, never-shown questions, impossible
   constraints and choice-list problems, on the Draft page and in the publish

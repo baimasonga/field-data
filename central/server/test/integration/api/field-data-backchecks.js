@@ -290,3 +290,50 @@ describe('api: dedicated back-check forms', () => {
 
     }));
 });
+
+describe('api: O4 backcheck workload', () => {
+  it('lists each App User\'s open backchecks and suggests the least loaded one, never the original collector',
+    testService(async (service, { run }) => {
+      const alice = await service.login('alice');
+      const actorId = (await alice.get('/v1/users/current').expect(200)).body.id;
+      const users = {};
+      for (const name of ['Aminata', 'Bockarie', 'Christiana']) {
+        users[name] = (await alice.post('/v1/projects/1/app-users').send({ displayName: name }).expect(200)).body; // eslint-disable-line no-await-in-loop
+        await alice.post(`/v1/projects/1/forms/simple/assignments/app-user/${users[name].id}`).expect(200); // eslint-disable-line no-await-in-loop
+      }
+      // Aminata collects "one"; Alice collects "two".
+      await service.post(`/v1/key/${users.Aminata.token}/projects/1/forms/simple/submissions`)
+        .send(testData.instances.simple.one).set('Content-Type', 'application/xml').expect(200);
+      await alice.post('/v1/projects/1/forms/simple/submissions')
+        .send(testData.instances.simple.two).set('Content-Type', 'application/xml').expect(200);
+      const { items } = (await alice.get('/v1/field-data/review-queue?projectId=1&xmlFormId=simple').expect(200)).body;
+      const caseOf = (instanceId) => items.find((item) => item.claim.rootInstanceId === instanceId);
+      // Bockarie already has an open, overdue backcheck on "two".
+      const two = caseOf('two');
+      const taken = await alice.patch(`/v1/field-data/review-queue/${two.id}/assignment`).set('If-Match', two.etag)
+        .set('Idempotency-Key', 'o4-two').send({ assignedTo: actorId, status: 'in-review' })
+        .expect(200);
+      await alice.post(`/v1/field-data/review-queue/${two.id}/backchecks`).set('If-Match', taken.headers.etag)
+        .send({ requestId: '00000000-0000-4000-8000-0000000000a1', assignedTo: users.Bockarie.id, question: 'Revisit.', dueAt: '2026-01-01T00:00:00Z' })
+        .expect(201);
+
+      const one = caseOf('one');
+      await alice.patch(`/v1/field-data/review-queue/${one.id}/assignment`).set('If-Match', one.etag)
+        .set('Idempotency-Key', 'o4-one').send({ assignedTo: actorId, status: 'in-review' })
+        .expect(200);
+      const assignees = (await alice.get(`/v1/field-data/review-queue/${one.id}/backcheck-assignees`).expect(200)).body;
+      assignees.map((a) => [a.name, a.pending, a.overdue, a.original, a.suggested]).should.eql([
+        ['Aminata', 0, 0, true, false],
+        ['Bockarie', 1, 1, false, false],
+        ['Christiana', 0, 0, false, true]
+      ]);
+      const forms = (await alice.get(`/v1/field-data/review-queue/${one.id}/backcheck-forms`).expect(200)).body;
+      forms.find((f) => f.xmlFormId === 'simple').assignees.find((a) => a.suggested).name.should.equal('Christiana');
+
+      // Without a due date it is no longer overdue, but still open.
+      await run(sql`UPDATE field_data_backchecks SET "dueAt" = NULL`);
+      const again = (await alice.get(`/v1/field-data/review-queue/${one.id}/backcheck-assignees`).expect(200)).body;
+      again.find((a) => a.name === 'Bockarie').should.containEql({ pending: 1, overdue: 0 });
+      again.find((a) => a.suggested).name.should.equal('Christiana');
+    }));
+});

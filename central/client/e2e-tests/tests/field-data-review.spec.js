@@ -15,7 +15,7 @@ const setup = async (page, { comparisonUnavailable = false, failComparison = fal
   const metricsWait = delayMetrics ? new Promise(resolve => { releaseMetrics = resolve; }) : null;
   const state = { assets: [], assetHistory: [], assetTasks: [], assetWrites: [], assetFailures: 0, assetConflict: false, mappingRevision: 0, mappingHistory: [], mappingRequests: [], mappingFailures: 0, mappingConflict: false, comparisonFailures: failComparison ? 1 : 0, comparisonRequests: 0, staleWrites: 0, conflictFailures: staleAssignment ? 1 : 0, status: 'open', assignedTo: null, revision: 1, backchecks: [], decisions: [], mutations: [], queueRequests: [], queueFailures: failQueue ? 1 : 0, assignmentFailures: failAssignment ? 1 : 0, metricsFailures: failMetrics ? 2 : 0 };
   Object.assign(state, { queueCalls: [], queueFailures_: 0, queueGate: null, queuePaged: false, queueTasks: [] });
-  Object.assign(state, { findings: [], findingsCalls: [], findingsFailures: 0, findingsPaged: false, collectorGroups: [], collectorCalls: [] });
+  Object.assign(state, { findings: [], findingsCalls: [], findingsFailures: 0, findingsPaged: false, collectorGroups: [], collectorCalls: [], workload: false });
   await page.addInitScript(() => globalThis.localStorage.setItem('sessionExpires', String(Date.now() + 3600000)));
   await page.route('**/client-config.json', route => route.fulfill({ json: {} }));
   await page.route('**/version.txt', route => route.fulfill({ body: 'test' }));
@@ -221,6 +221,14 @@ const setup = async (page, { comparisonUnavailable = false, failComparison = fal
           { path: '/age[1]', original: null, backcheck: '', status: 'missingOriginal' },
           { path: '/note[1]', original: 'Observed', backcheck: null, status: 'missingBackcheck' }] }) });
     }
+    // O4: with workload, the original collector, open counts and a suggestion.
+    if (path.endsWith('/backcheck-forms') && state.workload) return respond([
+      { id: 1, xmlFormId: 'health', name: 'Original', assignees: [
+        { id: 41, name: 'First collector', pending: 0, overdue: 0, linkedRecently: 0, original: true, suggested: false },
+        { id: 42, name: 'Second collector', pending: 2, overdue: 1, linkedRecently: 0, original: false, suggested: false },
+        { id: 43, name: 'Replacement collector', pending: 0, overdue: 0, linkedRecently: 3, original: false, suggested: true }] },
+      { id: 2, xmlFormId: 'verification', name: 'Verification', assignees: [
+        { id: 42, name: 'Second collector', pending: 2, overdue: 1, linkedRecently: 0, original: false, suggested: true }] }]);
     if (path.endsWith('/backcheck-forms')) return respond([{ id: 1, xmlFormId: 'health', name: 'Original', assignees: [{ id: 42, name: 'Second collector' }, { id: 43, name: 'Replacement collector' }] }, { id: 2, xmlFormId: 'verification', name: 'Verification', assignees: [{ id: 43, name: 'Replacement collector' }] }]);
     if (path.endsWith('/backcheck-assignees')) return respond([{ id: 42, name: 'Second collector' }, { id: 43, name: 'Replacement collector' }]);
     if (req.method() === 'GET' && path.endsWith('/backchecks')) return respond(state.backchecks);
@@ -1148,5 +1156,28 @@ test('collector groups show who keeps matching whom, with links to the findings'
   expect(state.collectorCalls.at(-1)).toBe(4);
   await page.setViewportSize({ width: 360, height: 800 });
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= 360)).toBe(true);
+  expect(errors).toEqual([]);
+});
+
+test('the back-check request shows each collector\'s open work and preselects the least loaded', async ({ page }) => {
+  const { state, errors } = await setup(page);
+  state.workload = true;
+  await page.getByRole('button', { name: 'Assign to me' }).click();
+  await page.getByRole('button', { name: 'In review', exact: true }).click();
+  await openInspection(page);
+  const select = page.getByLabel('App User', { exact: true });
+  await expect(select.locator('option:checked')).toHaveText('Replacement collector — 0 open (suggested)');
+  await expect(select.locator('option[value="42"]')).toHaveText('Second collector — 2 open, 1 overdue');
+  await expect(select.locator('option[value="41"]')).toHaveText('First collector (collected this submission)');
+  await expect(select.locator('option[value="41"]')).toBeDisabled();
+  await expect(page.getByText('Suggested: the collector with the fewest open back-checks. You can choose another.')).toBeVisible();
+  // Another form has other collectors: its own suggestion is preselected.
+  await page.getByLabel('Back-check form', { exact: true }).selectOption('verification');
+  await expect(select.locator('option:checked')).toHaveText('Second collector — 2 open, 1 overdue (suggested)');
+  await page.getByLabel('Back-check form', { exact: true }).selectOption('health');
+  await page.getByLabel('What should they verify?').fill('Verify the visit independently.');
+  await page.getByRole('button', { name: 'Request back-check', exact: true }).click();
+  await expect.poll(() => state.backchecks.length).toBe(1);
+  expect(state.backchecks[0].assignedTo).toBe(43);
   expect(errors).toEqual([]);
 });

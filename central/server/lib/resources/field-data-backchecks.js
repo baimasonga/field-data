@@ -9,6 +9,7 @@ const { getOrNotFound } = require('../util/promise');
 const Problem = require('../util/problem');
 const { answers, compareAnswers, compareMappedAnswers, validatePairs, MAX_BYTES } = require('../util/backcheck-comparison');
 const { trackReviewWrite, observeReviewConflicts } = require('../util/review-conflicts');
+const { suggest } = require('../util/backcheck-allocation');
 
 const scopeFor = async (container, auth, caseId, edit = false) => {
   if (!UUID_PATTERN.test(caseId)) throw Problem.user.notFound();
@@ -36,6 +37,26 @@ const responseFormFor = async (container, auth, projectId, xmlFormId) => {
     throw error;
   }
   return form;
+};
+
+// App Users who can submit the response form, with their current backcheck
+// workload (O4), and which one to suggest: never the original collector.
+const assigneesFor = async (db, projectId, formActeeId, claimVersionId) => {
+  const rows = await db.any(sql`SELECT a.id, a."displayName" AS name,
+      count(b.id) FILTER (WHERE b.status = 'requested')::integer AS pending,
+      count(b.id) FILTER (WHERE b.status = 'requested' AND b."dueAt" < clock_timestamp())::integer AS overdue,
+      count(b.id) FILTER (WHERE b.status = 'linked' AND b."linkedAt" > clock_timestamp() - interval '30 days')::integer AS "linkedRecently"
+    FROM field_keys fk JOIN actors a ON a.id = fk."actorId"
+    LEFT JOIN field_data_backchecks b ON b."assignedTo" = a.id
+    WHERE fk."projectId" = ${projectId} AND a."deletedAt" IS NULL
+      AND EXISTS (SELECT 1 FROM assignments ass JOIN roles r ON r.id = ass."roleId"
+        WHERE ass."actorId" = a.id AND ass."acteeId" = ${formActeeId} AND r.verbs ? 'submission.create')
+    GROUP BY a.id, a."displayName"
+    ORDER BY a."displayName", a.id`);
+  const original = await db.maybeOneFirst(sql`SELECT s."submitterId" FROM field_data_claim_versions v
+    JOIN submission_defs sd ON sd.id = v."submissionDefId" JOIN submissions s ON s.id = sd."submissionId"
+    WHERE v.id = ${claimVersionId}`);
+  return suggest(rows, original);
 };
 
 const matchRevision = (headers) => {
@@ -97,7 +118,7 @@ module.exports = (service, endpoint) => {
   service.get('/field-data/review-queue/:caseId/backcheck-forms', endpoint(async (
     container, { params, auth }, request, response
   ) => {
-    const { claim } = await scopeFor(container, auth, params.caseId, true);
+    const { claim, reviewCase } = await scopeFor(container, auth, params.caseId, true);
     const forms = await container.db.any(sql`SELECT f.id, f."xmlFormId", fd.name
       FROM forms f JOIN form_defs fd ON fd.id = f."currentDefId"
       WHERE f."projectId" = ${claim.scope.projectId} AND f."deletedAt" IS NULL
@@ -107,13 +128,8 @@ module.exports = (service, endpoint) => {
         if (error?.problemCode === Problem.user.notFound.code) return null;
         throw error;
       }
-      const assignees = await container.db.any(sql`SELECT a.id, a."displayName" AS name
-        FROM field_keys fk JOIN actors a ON a.id = fk."actorId"
-        JOIN forms f ON f.id = ${candidate.id}
-        WHERE fk."projectId" = ${claim.scope.projectId} AND a."deletedAt" IS NULL
-          AND EXISTS (SELECT 1 FROM assignments ass JOIN roles r ON r.id = ass."roleId"
-            WHERE ass."actorId" = a.id AND ass."acteeId" = f."acteeId"
-              AND r.verbs ? 'submission.create') ORDER BY a."displayName", a.id`);
+      const acteeId = await container.db.oneFirst(sql`SELECT "acteeId" FROM forms WHERE id = ${candidate.id}`);
+      const assignees = await assigneesFor(container.db, claim.scope.projectId, acteeId, reviewCase.claimVersionId);
       return { ...candidate, assignees };
     }));
     response.set('Cache-Control', 'private, no-store');
@@ -123,14 +139,8 @@ module.exports = (service, endpoint) => {
   service.get('/field-data/review-queue/:caseId/backcheck-assignees', endpoint(async (
     container, { params, auth }
   ) => {
-    const { form, claim } = await scopeFor(container, auth, params.caseId, true);
-    return container.db.any(sql`SELECT fk."actorId" AS id, a."displayName" AS name
-      FROM field_keys fk JOIN actors a ON a.id = fk."actorId"
-      WHERE fk."projectId" = ${claim.scope.projectId} AND a."deletedAt" IS NULL
-        AND EXISTS (SELECT 1 FROM assignments ass JOIN roles r ON r.id = ass."roleId"
-          WHERE ass."actorId" = a.id AND ass."acteeId" = ${form.acteeId}
-            AND r.verbs ? 'submission.create')
-      ORDER BY a."displayName", a.id`);
+    const { form, claim, reviewCase } = await scopeFor(container, auth, params.caseId, true);
+    return assigneesFor(container.db, claim.scope.projectId, form.acteeId, reviewCase.claimVersionId);
   }));
 
   service.get('/field-data/review-queue/:caseId/backchecks', endpoint(async (
