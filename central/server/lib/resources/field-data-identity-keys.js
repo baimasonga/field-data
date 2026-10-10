@@ -152,7 +152,8 @@ module.exports = (service, endpoint) => {
       where id = ${current.id} returning *`);
     await audit(container.db, auth.actor.map((a) => a.id).orNull(), form.id, 'field_data.identity_key.deactivate',
       { keyId: current.id, version: current.version });
+    const others = await otherForms(container, auth, form.projectId, row.definition.alsoIn);
     response.set('Cache-Control', 'private, no-store');
-    return present(row, fields);
+    return present(row, fields, others);
   }));
 };

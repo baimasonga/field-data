@@ -110,6 +110,10 @@ describe('api: F2b identity keys across forms', () => {
     run.should.containEql({ examined: 2, reused: 0 });
     run.should.not.have.property('examinedElsewhere');
     (await alice.get(`${base}/identity-keys`).expect(200)).body[0].alsoInStatus.round1.usable.should.equal(false);
+    // Every response describes the other forms the same way, deactivation included.
+    const listed = (await alice.get(`${base}/identity-keys`).expect(200)).body[0];
+    (await alice.delete(`${base}/identity-keys/${listed.id}`).set('If-Match', `"key-${listed.revision}"`).expect(200))
+      .body.alsoInStatus.round1.should.containEql({ usable: false, reason: 'missing-fields' });
   }));
 
   it('stops showing a deleted form\'s answers, and withdraws what depended on it', testService(async (service) => {
