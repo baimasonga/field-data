@@ -43,8 +43,9 @@ also exist. Those features must not be re-labelled as full completion of this pr
 - Deterministic answer contradictions (F1, first fraud-intelligence slice): per-form
   rules written by project managers, evaluated in the integrity framework with the
   answers shown, benign explanations required, versioned, withdrawn when no longer
-  observed: implemented and locally validated; CI/merge pending. Identity-reuse and
-  cross-submission checks (F2), similarity, collusion and triage remain pending.
+  observed: merged in PR #61. Identity reuse across submissions of one form (F2):
+  contract drafted in `F2-identity-reuse.md`, awaiting decisions. Cross-form matching
+  (F2b), similarity, collusion and triage remain pending.
 - Remaining deliverables in all eight rows: pending.
 - Version-scoped evidence graph and recorded survey timeline: implemented and
   locally and CI validated, merged in PR #53 (E1). Capture sessions, sensor/challenge
