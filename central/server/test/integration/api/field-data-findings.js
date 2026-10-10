@@ -99,7 +99,7 @@ describe('api: F3 project findings inbox', () => {
     const summary = (await alice.get('/v1/projects/1/findings/summary').expect(200)).body;
     summary.should.eql({
       open: 4,
-      byFamily: { travel: 1, location: 1, contradiction: 1, identity: 1 },
+      byFamily: { travel: 1, location: 1, contradiction: 1, identity: 1, similarity: 0 },
       byForm: [{ xmlFormId: 'simple', formName: 'Simple', open: 3 }, { xmlFormId: 'withrepeat', formName: 'withrepeat', open: 1 }]
     });
     (await alice.get(`/v1/projects/${otherProjectId}/findings`).expect(200)).body.items.map((f) => f.instanceId).should.eql(['elsewhere']);

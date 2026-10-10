@@ -44,16 +44,19 @@ also exist. Those features must not be re-labelled as full completion of this pr
   answers shown, benign explanations required, versioned, withdrawn when no longer
   observed: merged in PR #61. Identity reuse across submissions of one form (F2):
   manager-declared identity keys, reuse and changed-detail findings with answers
-  read live rather than stored: merged in PR #63. Similarity, collusion and triage
-  remain pending.
+  read live rather than stored: merged in PR #63. Near-duplicate submissions
+  (F4, first similarity signal): a later submission whose informative answers
+  match an earlier one's at least 90%, routed to review with benign
+  explanations and no answers stored: implemented and locally validated.
+  Collusion graphs and triage remain pending.
 - Static survey doctor (S1, first adaptive-surveys slice): checks of a form
   definition for unknown references, cycles, never-shown questions, impossible
   constraints and choice-list problems, on the Draft page and in the publish
   dialog: merged in PR #64 (including a sweep of 150 real forms). Reproducible
   interview simulation (S2): seeded simulated interviews of a form version
   reporting never-shown questions, constraints not met, interview length and
-  what was not simulated, on the Draft page: implemented and locally validated
-  (swept over 158 forms). Approved policies and evolution remain pending.
+  what was not simulated, on the Draft page: merged in PR #69 (swept over 158
+  forms). Approved policies and evolution remain pending.
 - Project findings inbox (F3): integrity findings from every readable form of a
   project in one list on the Review page, with filters and open counts, linking
   to each form's Verification page: merged in PR #65.

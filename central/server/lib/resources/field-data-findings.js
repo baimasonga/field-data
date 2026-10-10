@@ -12,7 +12,7 @@ const { Form } = require('../model/frames');
 const Problem = require('../util/problem');
 const { getOrNotFound } = require('../util/promise');
 
-const FAMILIES = ['travel', 'location', 'contradiction', 'identity'];
+const FAMILIES = ['travel', 'location', 'contradiction', 'identity', 'similarity'];
 const STATUSES = ['open', 'investigating', 'resolved'];
 const OUTCOMES = ['concern', 'inconclusive', 'withdrawn'];
 const LOCATION_RULES = ['location-accuracy', 'outside-project-area', 'repeated-location'];
@@ -24,6 +24,7 @@ const familyOf = sql`CASE
   WHEN i.rule = ANY(${sql.array(LOCATION_RULES, 'text')}) THEN 'location'
   WHEN i.rule LIKE 'contradiction:%' THEN 'contradiction'
   WHEN i.rule LIKE 'identity-reused:%' OR i.rule LIKE 'identity-inconsistent:%' THEN 'identity'
+  WHEN i.rule = 'near-duplicate' THEN 'similarity'
   ELSE 'other' END`;
 // The same order as a form's own findings list: concerns first, then open
 // before investigating before resolved, newest first.
