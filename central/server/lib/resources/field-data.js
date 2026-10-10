@@ -21,8 +21,9 @@ const { encryptSecret } = require('../util/field-data-secret');
 const { parseGeopoint, checkImplausibleTravel, IMPLAUSIBLE_TRAVEL } = require('../util/fieldwork-integrity');
 const { LOCATION_ACCURACY, OUTSIDE_PROJECT_AREA, REPEATED_LOCATION } = require('../util/location-evidence');
 const { checkLocationAccuracy, checkOutsideProjectArea, checkRepeatedLocation, locationComponents } = require('../util/location-evidence');
+const { LIMITS: IDENTITY_LIMITS, REUSED, INCONSISTENT, usability: identityUsability, findIdentityIssues } = require('../util/identity-keys');
 const { projectAreaFor } = require('../util/map-layer-store');
-const { RULE_PREFIX, usability, parseInstance, evaluateRule } = require('../util/contradiction-rules');
+const { RULE_PREFIX, usability, parseInstance, evaluateRule, answerAt } = require('../util/contradiction-rules');
 const { normalizeDefinition, resolveStoredDefinition, compileFilter, extractObject, projectObject } = require('../util/filtered-datasets');
 const { normalizeWidget, capRows, tooManyDistinct, MAX_BARS } = require('../util/widgets');
 const { chartableFields } = require('../util/summary-fields');
@@ -2110,6 +2111,50 @@ module.exports = (service, endpoint) => {
     };
   };
 
+  // Identity keys (F2): grouped across the form's submissions in the order
+  // they were received. Findings hold submission IDs, never answers.
+  const identityChecks = async (container, form, encrypted) => {
+    const keys = await container.db.any(sql`select * from field_data_identity_keys
+      where "formId" = ${form.id} and active order by "createdAt", id`);
+    if (keys.length === 0) return { keys: [], ran: [], findings: [] };
+    const fields = await container.Forms.getFields(form.def.id);
+    const total = await container.db.oneFirst(sql`select count(*)::integer from submissions
+      where "formId" = ${form.id} and "deletedAt" is null and draft = false`);
+    const blocked = encrypted ? 'encrypted-form' : total > IDENTITY_LIMITS.submissions ? 'too-many-submissions' : null;
+    const summaries = keys.map((key) => ({
+      key, status: blocked != null ? { usable: false, reason: blocked } : identityUsability(key.definition, fields)
+    }));
+    const runnable = summaries.filter((k) => k.status.usable);
+    const results = new Map();
+    if (runnable.length > 0) {
+      const rows = await container.db.any(sql`
+        select s."instanceId", s."createdAt", s."submitterId", sd.xml from submissions s
+        join submission_defs sd on sd."submissionId" = s.id and sd.current = true
+        where s."formId" = ${form.id} and s."deletedAt" is null and s.draft = false
+        order by s."createdAt", s.id`);
+      const submissions = rows.map((row) => {
+        let instance;
+        try { instance = parseInstance(row.xml); } catch { instance = null; }
+        return {
+          instanceId: row.instanceId, receivedAt: new Date(row.createdAt), submitter: row.submitterId,
+          answer: (at) => (instance == null ? null : answerAt(instance, at, null))
+        };
+      });
+      const multiple = new Set(fields.filter((f) => f.selectMultiple === true).map((f) => f.path));
+      for (const { key } of runnable) results.set(key.id, findIdentityIssues(key, submissions, multiple));
+    }
+    return {
+      keys: summaries.map(({ key, status }) => ({
+        id: key.id, title: key.title, version: key.version, status, ...(results.get(key.id)?.counts ?? {})
+      })),
+      ran: runnable.flatMap(({ key }) => [
+        { rule: `${REUSED}${key.id}`, version: key.version },
+        { rule: `${INCONSISTENT}${key.id}`, version: key.version }
+      ]),
+      findings: [...results.values()].flatMap((r) => r.findings)
+    };
+  };
+
   service.get('/projects/:projectId/forms/:xmlFormId/evidence', endpoint(async (container, { params, auth }) => {
     const form = await container.Forms
       .getByProjectAndXmlFormId(params.projectId, params.xmlFormId, Form.PublishedVersion)
@@ -2170,7 +2215,7 @@ module.exports = (service, endpoint) => {
     await auth.canOrReject('submission.update', form);
     // One run per form at a time, so a run cannot withdraw a finding that a
     // concurrent run has just recorded.
-    await container.db.query(sql`select pg_advisory_xact_lock(74135, ${form.id})`);
+    await container.db.query(sql`select pg_advisory_xact_lock(74138, ${form.id})`);
 
     const evidence = await evidenceFor(container.db, form.id);
 
@@ -2195,10 +2240,11 @@ module.exports = (service, endpoint) => {
 
     const location = await locationChecks(container.db, form, evidence);
     const contradictions = await contradictionChecks(container, form, location.encrypted);
+    const identities = await identityChecks(container, form, location.encrypted);
 
     // Only what a person should see is stored. A plausible pair is the normal
     // case and recording every one of them would bury the rest.
-    const worthKeeping = [...findings.filter((f) => f.outcome !== 'plausible'), ...location.findings, ...contradictions.findings];
+    const worthKeeping = [...findings.filter((f) => f.outcome !== 'plausible'), ...location.findings, ...contradictions.findings, ...identities.findings];
 
     for (const finding of worthKeeping) {
       // eslint-disable-next-line no-await-in-loop
@@ -2220,9 +2266,9 @@ module.exports = (service, endpoint) => {
     // withdrawn too: that version no longer exists to be checked, and its
     // finding stays readable with the conditions it was found under.
     const key = (f) => `${f.rule}|${f.ruleVersion}|${f.instanceId}|${f.relatedInstanceId ?? ''}`;
-    const observed = new Set([...location.findings, ...contradictions.findings].map(key));
+    const observed = new Set([...location.findings, ...contradictions.findings, ...identities.findings].map(key));
     let withdrawn = 0;
-    for (const spec of [...location.ran, ...contradictions.ran]) {
+    for (const spec of [...location.ran, ...contradictions.ran, ...identities.ran]) {
       // eslint-disable-next-line no-await-in-loop
       const existing = await container.db.any(sql`
         select id, rule, "ruleVersion", "instanceId", "relatedInstanceId" from field_data_integrity_flags
@@ -2250,6 +2296,7 @@ module.exports = (service, endpoint) => {
 
     return {
       contradictionRules: contradictions.rules,
+      identityKeys: identities.keys,
       locationRules: [
         summary(LOCATION_ACCURACY, location.encrypted ? null : location.results.accuracy, { maxAccuracyM: LOCATION_ACCURACY.maxAccuracyM }),
         summary(OUTSIDE_PROJECT_AREA, location.results.outside, { defaultToleranceM: OUTSIDE_PROJECT_AREA.defaultToleranceM }),
@@ -2273,6 +2320,35 @@ module.exports = (service, endpoint) => {
     };
   }));
 
+  // Identity findings store no answers (F2). The answers they are about are
+  // read here, from the current version of each submission, for someone who
+  // may read the form's submissions. A deleted submission's answers are not
+  // shown: its entry is null.
+  const withIdentityAnswers = async (db, formId, findings) => {
+    const identity = findings.filter((f) => f.rule.startsWith(REUSED) || f.rule.startsWith(INCONSISTENT));
+    if (identity.length === 0) return findings;
+    const ids = [...new Set(identity.flatMap((f) => [f.instanceId, f.relatedInstanceId, ...(f.evidence.others ?? []).map((o) => o.instanceId)]).filter((id) => id != null))];
+    const rows = await db.any(sql`
+      select s."instanceId", sd.xml from submissions s
+      join submission_defs sd on sd."submissionId" = s.id and sd.current = true
+      where s."formId" = ${formId} and s."deletedAt" is null and s.draft = false
+        and s."instanceId" = any(${sql.array(ids, 'text')})`);
+    const instances = new Map(rows.map((row) => {
+      try { return [row.instanceId, parseInstance(row.xml)]; } catch { return [row.instanceId, null]; }
+    }));
+    return findings.map((f) => {
+      if (!identity.includes(f)) return f;
+      const paths = [...(f.evidence.fields ?? []), ...(f.evidence.differing ?? [])];
+      const involved = [f.instanceId, ...(f.evidence.others ?? []).map((o) => o.instanceId)];
+      const answers = Object.fromEntries(involved.map((id) => {
+        if (!instances.has(id)) return [id, null];
+        const instance = instances.get(id);
+        return [id, Object.fromEntries(paths.map((at) => [at, instance == null ? null : answerAt(instance, at, null)]))];
+      }));
+      return { ...f, answers };
+    });
+  };
+
   service.get('/projects/:projectId/forms/:xmlFormId/integrity', endpoint(async (container, { params, auth }) => {
     const form = await container.Forms
       .getByProjectAndXmlFormId(params.projectId, params.xmlFormId, Form.PublishedVersion)
@@ -2280,7 +2356,7 @@ module.exports = (service, endpoint) => {
     await auth.canOrReject('submission.list', form);
     await auth.canOrReject('submission.read', form);
 
-    return container.db.any(sql`
+    const findings = await container.db.any(sql`
       select f.*, actors."displayName" as "decidedByName"
       from field_data_integrity_flags f
       left join actors on actors.id = f."decidedBy"
@@ -2289,6 +2365,7 @@ module.exports = (service, endpoint) => {
         case f.outcome when 'concern' then 0 else 1 end,
         case f.status when 'open' then 0 when 'investigating' then 1 else 2 end,
         f."createdAt" desc`);
+    return withIdentityAnswers(container.db, form.id, findings);
   }));
 
   // A reviewer's decision. The rule never writes here: a finding is closed by

@@ -127,7 +127,7 @@ test('verification shows location coverage, rule-specific findings, withdrawn fi
   const report = panel.locator('.run-report');
   await expect(report).toContainText('Outside the project area v1: 1 to look at.');
   await expect(report).toContainText('Repeated location v1: 1 to look at.');
-  await expect(report).toContainText('1 earlier location findings are no longer found and were withdrawn.');
+  await expect(report).toContainText('1 earlier findings are no longer found and were withdrawn.');
   expect(ran).toBe(true);
 
   await page.setViewportSize({ width: 360, height: 800 });

@@ -257,5 +257,6 @@ const evaluateRule = (conditions, instance, fields) => {
 const RULE_PREFIX = 'contradiction:';
 
 module.exports = {
-  LIMITS, RULE_PREFIX, normalizeRule, usability, conditionsHash, parseInstance, evaluateRule, invalid
+  LIMITS, RULE_PREFIX, normalizeRule, usability, conditionsHash, parseInstance, evaluateRule, invalid,
+  answerAt
 };

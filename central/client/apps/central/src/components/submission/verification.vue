@@ -90,6 +90,8 @@ and a number that looks like one would be believed.
 
       <contradiction-rules v-if="canReview" :project-id="projectId" :xml-form-id="xmlFormId"
         :can-manage="canManage"/>
+      <identity-keys v-if="canReview" :project-id="projectId" :xml-form-id="xmlFormId"
+        :can-manage="canManage"/>
 
       <section class="verification-findings">
         <div class="findings-head">
@@ -121,6 +123,11 @@ and a number that looks like one would be believed.
             {{ rule.status.usable
               ? $t('findings.contradictionRule', { title: rule.title, version: rule.version, matched: $n(rule.matched, 'default'), unknown: $n(rule.notEvaluated, 'default') })
               : $t('findings.contradictionRuleSkipped', { title: rule.title }) }}
+          </span>
+          <span v-for="key of lastRun.identityKeys ?? []" :key="key.id" class="run-rule">
+            {{ key.status.usable
+              ? $t('findings.identityKey', { title: key.title, version: key.version, reused: $n(key.reused, 'default'), inconsistent: $n(key.inconsistent, 'default'), noKey: $n(key.noKey, 'default') })
+              : $t(`findings.identityKeySkipped.${key.status.reason === 'encrypted-form' || key.status.reason === 'too-many-submissions' ? key.status.reason : 'changed'}`, { title: key.title }) }}
           </span>
           <span v-if="lastRun.withdrawn > 0" class="run-rule">
             {{ $t('findings.withdrawnReport', { count: $n(lastRun.withdrawn, 'default') }) }}
@@ -208,6 +215,35 @@ and a number that looks like one would be believed.
               </div>
             </dl>
 
+            <template v-else-if="isIdentity(flag)">
+              <p class="finding-subhead">{{ $t(flag.evidence.kind === 'reused'
+                ? 'identity.reusedLead' : 'identity.inconsistentLead', {
+                count: $n(flag.evidence.sharedBy ?? 2, 'default'),
+                allowed: $n(flag.evidence.maxUses ?? 1, 'default')
+              }) }}</p>
+              <div class="identity-table-wrap">
+                <table class="table identity-table">
+                  <thead>
+                    <tr>
+                      <th>{{ $t('identity.submission') }}</th>
+                      <th>{{ $t('identity.received') }}</th>
+                      <th v-for="path of identityPaths(flag)" :key="path">{{ path }}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr v-for="row of identityRows(flag)" :key="row.instanceId">
+                      <td>{{ $t(row.instanceId === flag.instanceId ? 'identity.this' : 'identity.other') }}</td>
+                      <td>{{ row.receivedAt == null ? '' : new Date(row.receivedAt).toLocaleString() }}</td>
+                      <template v-if="flag.answers?.[row.instanceId] != null">
+                        <td v-for="path of identityPaths(flag)" :key="path">{{ flag.answers[row.instanceId][path] ?? $t('answers.blank') }}</td>
+                      </template>
+                      <td v-else :colspan="identityPaths(flag).length" class="identity-gone">{{ $t('identity.gone') }}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </template>
+
             <p v-if="flag.outcome === 'withdrawn'" class="finding-next">{{ $t('findings.withdrawnNote') }}</p>
 
             <template v-if="flag.evidence.alternatives != null">
@@ -224,7 +260,8 @@ and a number that looks like one would be believed.
               </router-link>
               <router-link v-if="flag.relatedInstanceId != null"
                 :to="submissionPath(flag.relatedInstanceId)">
-                {{ $t(flag.rule === 'repeated-location' ? 'findings.openEarliest' : 'findings.openPrevious') }}
+                {{ $t(flag.rule === 'repeated-location' ? 'findings.openEarliest'
+                  : isIdentity(flag) ? 'findings.openEarliestKey' : 'findings.openPrevious') }}
               </router-link>
             </p>
 
@@ -266,6 +303,7 @@ import Loading from '../loading.vue';
 import Spinner from '../spinner.vue';
 import SubmissionReviewQueue from './review-queue.vue';
 import ContradictionRules from './contradiction-rules.vue';
+import IdentityKeys from './identity-keys.vue';
 // The map and its library load only when a manager opens the project area panel.
 const AnalysisMap = defineAsyncComponent(() => import('../field-data/analysis-map.vue'));
 import { describeCondition } from '../../util/contradiction-rules';
@@ -374,9 +412,18 @@ const describe = (flag) => {
 };
 
 const isContradiction = (flag) => flag.rule.startsWith('contradiction:');
-const ruleLabel = (flag) => (isContradiction(flag)
-  ? t('ruleName.contradiction', { title: flag.evidence.title ?? '' })
-  : t(`ruleName.${flag.rule}`, flag.rule));
+const isIdentity = (flag) => flag.rule.startsWith('identity-reused:') || flag.rule.startsWith('identity-inconsistent:');
+const ruleLabel = (flag) => {
+  if (isContradiction(flag)) return t('ruleName.contradiction', { title: flag.evidence.title ?? '' });
+  if (isIdentity(flag)) return t(`ruleName.identity-${flag.evidence.kind}`, { title: flag.evidence.title ?? '' });
+  return t(`ruleName.${flag.rule}`, flag.rule);
+};
+// Identity findings store no answers; the server reads them from the
+// Submissions when the findings are listed (null for a deleted one).
+const identityPaths = (flag) => (flag.evidence.kind === 'inconsistent'
+  ? [...(flag.evidence.fields ?? []), ...(flag.evidence.differing ?? [])]
+  : flag.evidence.fields ?? []);
+const identityRows = (flag) => [flag.evidence.submission ?? { instanceId: flag.instanceId }, ...(flag.evidence.others ?? [])];
 // What the Submission actually answered, beside each condition of the rule.
 const answerText = (c) => {
   if (c.counted != null) {
@@ -428,7 +475,15 @@ const coverageText = (counts, kind) => COVERAGE_ORDER[kind]
       // {title} is a contradiction rule's title.
       "contradictionRule": "Contradiction \"{title}\" v{version}: {matched} found, {unknown} could not be checked.",
       "contradictionRuleSkipped": "Contradiction \"{title}\": not run, the Form no longer has what it checks.",
-      "withdrawnReport": "{count} earlier location findings are no longer found and were withdrawn.",
+      // {title} is an identity key's title.
+      "identityKey": "Identity \"{title}\" v{version}: {reused} used too often, {inconsistent} with changed answers, {noKey} without a usable key.",
+      "identityKeySkipped": {
+        "changed": "Identity \"{title}\": not run, the Form no longer has what it uses.",
+        "encrypted-form": "Identity \"{title}\": not run, the Form is encrypted.",
+        "too-many-submissions": "Identity \"{title}\": not run, the Form has more Submissions than identity checks handle."
+      },
+      "openEarliestKey": "Open the earliest with this key",
+      "withdrawnReport": "{count} earlier findings are no longer found and were withdrawn.",
       "withdrawnNote": "A later run no longer found this. It no longer holds up a review, and any decision recorded here is kept."
     },
     "outcome": {
@@ -442,7 +497,20 @@ const coverageText = (counts, kind) => COVERAGE_ORDER[kind]
       "outside-project-area": "Outside the project area",
       "repeated-location": "Repeated location",
       // {title} is the title a project manager gave the rule.
-      "contradiction": "Contradiction: {title}"
+      "contradiction": "Contradiction: {title}",
+      // {title} is the title a project manager gave the identity key.
+      "identity-reused": "Repeated identity: {title}",
+      "identity-inconsistent": "Changed details: {title}"
+    },
+    "identity": {
+      // {count} Submissions share the key; {allowed} are allowed.
+      "reusedLead": "{count} Submissions share this key; {allowed} allowed.",
+      "inconsistentLead": "The same key appears with different answers to questions that should stay the same.",
+      "submission": "Submission",
+      "received": "Received",
+      "this": "This one",
+      "other": "Other",
+      "gone": "Deleted; answers no longer shown"
     },
     "answers": {
       "blank": "(blank)",
@@ -692,6 +760,10 @@ const coverageText = (counts, kind) => COVERAGE_ORDER[kind]
       margin: 2px 0 0;
     }
   }
+
+  .identity-table-wrap { margin: 6px 0 8px; overflow-x: auto; }
+  .identity-table { font-size: 13px; margin: 0; }
+  .identity-gone { color: $color-text-muted; font-style: italic; }
 
   .finding-subhead {
     color: $color-text-muted;
