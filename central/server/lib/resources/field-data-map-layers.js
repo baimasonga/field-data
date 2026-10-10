@@ -3,22 +3,18 @@ const crypto = require('node:crypto');
 const { sql } = require('slonik');
 const { getOrNotFound } = require('../util/promise');
 const Problem = require('../util/problem');
-const { normalizeLayer, MAX_BYTES } = require('../util/map-layers');
+const { normalizeLayer } = require('../util/map-layers');
 const { invalid } = require('../util/analysis-data');
 const { storage } = require('../external/field-data-storage');
+const { loadLayer } = require('../util/map-layer-store');
+const { projectAreaFrom } = require('../util/location-evidence');
 module.exports = (service, endpoint) => {
   const access = async (c, p, auth, write = false) => {
     const project = await c.Projects.getById(p).then(getOrNotFound);
     await auth.canOrReject(write ? 'project.update' : 'project.read', project);
     return project;
   };
-  const load = async row => {
-    if (row.remoteConfig) { const { remoteConfig, storageKey, createdBy, ...safe } = row; return { ...safe, data: { type: 'FeatureCollection', features: [] } }; }
-    const stream = await storage.getStream(row.storageKey); const chunks = []; let size = 0;
-    try { for await (const chunk of stream) { size += chunk.length; if (size > MAX_BYTES) throw new Error('Layer exceeds limit.'); chunks.push(chunk); } } finally { stream.destroy(); }
-    const { storageKey, remoteConfig, createdBy, ...safe } = row;
-    return { ...safe, data: JSON.parse(Buffer.concat(chunks).toString()) };
-  };
+  const load = loadLayer;
   service.post('/projects/:projectId/map-layers/remote', endpoint(async (c, { params, auth, body }) => {
     const p = await access(c, params.projectId, auth, true);
     await c.db.query(sql`select pg_advisory_xact_lock(74134, ${p.id})`);
@@ -60,7 +56,8 @@ module.exports = (service, endpoint) => {
     if (!row) throw Problem.user.notFound();
     if (headers['if-match'] !== `"layer-${row.revision}"`) throw invalid('If-Match', null, 'Reload the layer before changing it.');
     if (row.remoteConfig) {
-      if (Object.keys(body).some(k => !['visible', 'position', 'title'].includes(k))) throw invalid('layer', null, 'Remove and recreate a remote connection to change its configuration.');
+      if (body.role != null) throw Problem.user.projectAreaUnsupported({ reason: 'remote-layer' });
+      if (Object.keys(body).some(k => !['visible', 'position', 'title', 'role'].includes(k))) throw invalid('layer', null, 'Remove and recreate a remote connection to change its configuration.');
       if (body.position != null && (!Number.isSafeInteger(body.position) || body.position < 0 || body.position > 9)) throw invalid('position', null, 'Use a position from zero to nine.');
       let position = body.position ?? row.position;
       if (body.position != null) {
@@ -79,6 +76,17 @@ module.exports = (service, endpoint) => {
       return { success: true };
     }
     const existing = await load(row); const layer = normalizeLayer({ ...existing.definition, title: row.title, ...body, data: body.data || existing.data, style: body.style || existing.definition.style });
+    // One uploaded polygon layer per project may be the project area that
+    // location checks use. Choosing it here moves the role from any other.
+    const role = body.role === undefined ? (row.definition.role ?? null) : body.role;
+    if (role != null && role !== 'project-area') throw invalid('role', role, 'Use project-area, or null to clear it.');
+    if (role === 'project-area') {
+      const area = projectAreaFrom(layer.data);
+      if (!area.usable) throw Problem.user.projectAreaUnsupported({ reason: area.reason });
+      layer.definition.role = role;
+      await c.db.query(sql`update field_data_map_layers set definition = definition - 'role', revision = revision + 1
+        where "projectId" = ${p.id} and id <> ${row.id} and definition->>'role' is not null`);
+    }
     const key = `map-layers/${crypto.randomUUID()}.json`;
     let position = body.position == null ? row.position : Number(body.position);
     if (!Number.isSafeInteger(position) || position < 0 || position > 9) throw invalid('position', position, 'Use a position from 0 to 9.');

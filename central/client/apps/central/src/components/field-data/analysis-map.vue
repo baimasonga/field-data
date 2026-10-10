@@ -19,9 +19,11 @@ Background map unavailable. Submission locations and reference layers remain vis
           <button type="button" class="btn btn-default" :disabled="index === 0" @click="move(index, -1)">Move up</button>
           <button type="button" class="btn btn-default" :disabled="index === layers.length - 1" @click="move(index, 1)">Move down</button>
           <button v-if="layer.definition.sourceType === 'geojson-upload'" type="button" class="btn btn-default" @click="edit(layer)">Edit / replace</button>
+          <button v-if="layer.definition.sourceType === 'geojson-upload'" type="button" class="btn btn-default" :disabled="busy" @click="setArea(layer, layer.definition.role !== 'project-area')">{{ layer.definition.role === 'project-area' ? 'Stop using as project area' : 'Use as project area' }}</button>
           <button type="button" class="btn btn-default" @click="remove(layer)">Remove</button>
         </template>
         <p>{{ layer.definition.attribution }} · {{ layer.data.features.length }} features</p>
+        <p v-if="layer.definition.role === 'project-area'" class="project-area-note"><strong>Project area.</strong> Location checks flag readings outside this boundary, after allowing for each reading's accuracy.</p>
         <ul v-if="layer.definition.style && layer.definition.style.mode !== 'single'" aria-label="Layer legend">
           <li v-for="(bin, i) of legend(layer)" :key="i"><span :style="{ background: bin.color }" class="layer-swatch"></span>{{ bin.label }}</li>
           <li><span :style="{ background: layer.definition.style.missingColor }" class="layer-swatch"></span>Missing or unclassified</li>
@@ -120,6 +122,12 @@ const toggle = async (layer, visible) => { if (props.canEdit) { await update(lay
 const downloadLayer = async id => {
   const { data } = await request({ method: 'GET', url: base() }); const layer = data.find(l => l.id === id); if (!layer) return;
   const url = URL.createObjectURL(new Blob([JSON.stringify(layer.data)], { type: 'application/geo+json' })); const a = document.createElement('a'); a.href = url; a.download = `reference-${id}.geojson`; a.click(); URL.revokeObjectURL(url);
+};
+// One uploaded polygon layer can be the project area used by location checks.
+// The server refuses remote layers and boundaries without valid polygons.
+const setArea = async (layer, on) => {
+  busy.value = true; error.value = '';
+  try { await request({ method: 'PUT', url: `${base()}/${layer.id}`, headers: { 'If-Match': `"layer-${layer.revision}"` }, data: { role: on ? 'project-area' : null }, alert: false }); await load(); } catch (e) { error.value = e.response?.data?.message || 'The project area could not be changed.'; } finally { busy.value = false; }
 };
 const fit = id => { const bounds = rendered.get(id)?.getBounds(); if (bounds?.isValid()) map.fitBounds(bounds); };
 const move = async (index, delta) => { const a = layers.value[index]; await update(a, { position: index + delta }); await load(); };

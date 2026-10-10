@@ -164,6 +164,12 @@ const problems = {
     assetInvalid: problem(400.52, () => 'Asset identity, observation or temporal query is invalid.'),
     reverificationAssigneeInvalid: problem(400.53, () =>
       'The assignee must be an App User of this project who can submit to the asset form.'),
+    projectAreaUnsupported: problem(400.54, ({ reason }) => ({
+      'remote-layer': 'A remote map connection has no geometry, so it cannot be the project area. Upload the boundary as GeoJSON.',
+      'no-polygon': 'The project area must contain at least one polygon.',
+      antimeridian: 'A project area crossing the antimeridian is not supported.',
+      'self-intersecting': 'A project area boundary crosses itself. Correct the polygon and upload it again.'
+    })[reason] ?? 'This layer cannot be used as the project area.'),
 
     // no detail information for security reasons.
     authenticationFailed: problem(401.2, () => 'Could not authenticate with the provided credentials.'),

@@ -51,6 +51,23 @@ and a number that looks like one would be believed.
           </div>
         </div>
 
+        <dl class="location-coverage">
+          <div>
+            <dt>{{ $t('location.area') }}</dt>
+            <dd v-if="evidence.projectArea?.status === 'set'">{{ evidence.projectArea.title }}</dd>
+            <dd v-else>{{ $t(`location.areaUnusable.${evidence.projectArea?.reason ?? 'no-area-set'}`) }}</dd>
+          </div>
+          <div v-if="evidence.coverage.byProjectArea">
+            <dt>{{ $t('location.where') }}</dt>
+            <dd>{{ coverageText(evidence.coverage.byProjectArea, 'withinArea') }}</dd>
+          </div>
+          <div v-if="evidence.coverage.byAccuracyBand">
+            <dt>{{ $t('location.accuracy') }}</dt>
+            <dd>{{ coverageText(evidence.coverage.byAccuracyBand, 'band') }}</dd>
+          </div>
+        </dl>
+        <p v-if="evidence.encrypted" class="section-lead">{{ $t('location.encrypted') }}</p>
+
         <!-- Stated plainly and up front, because every finding below rests on
         these and a reader who does not know them will over-read the rest. -->
         <details class="evidence-limits">
@@ -82,6 +99,14 @@ and a number that looks like one would be believed.
             rule: lastRun.rule, version: lastRun.ruleVersion,
             speed: lastRun.thresholds.maxSpeedKmh
           }) }}</span>
+          <span v-for="rule of lastRun.locationRules ?? []" :key="rule.rule" class="run-rule">
+            {{ rule.ran
+              ? $t('findings.locationRule', { name: $t(`ruleName.${rule.rule}`), version: rule.ruleVersion, concerns: $n(rule.concern ?? 0, 'default') })
+              : $t('findings.locationRuleSkipped', { name: $t(`ruleName.${rule.rule}`) }) }}
+          </span>
+          <span v-if="lastRun.withdrawn > 0" class="run-rule">
+            {{ $t('findings.withdrawnReport', { count: $n(lastRun.withdrawn, 'default') }) }}
+          </span>
         </div>
 
         <p v-if="flags.length === 0" class="empty-table-message">
@@ -96,12 +121,14 @@ and a number that looks like one would be believed.
                 <span :class="outcomeIcon(flag.outcome)" aria-hidden="true"></span>
                 {{ $t(`outcome.${flag.outcome}`) }}
               </span>
-              <span class="finding-status">{{ $t(`status.${flag.status}`) }}</span>
+              <span class="finding-status">
+                {{ $t(`ruleName.${flag.rule}`, flag.rule) }} · {{ $t(`status.${flag.status}`) }}
+              </span>
             </div>
 
             <p class="finding-what">{{ describe(flag) }}</p>
 
-            <dl v-if="flag.outcome === 'concern'" class="finding-evidence">
+            <dl v-if="flag.rule === 'implausible-travel' && flag.outcome === 'concern'" class="finding-evidence">
               <div>
                 <dt>{{ $t('evidenceLabel.distance') }}</dt>
                 <dd>{{ $t('evidenceLabel.distanceValue', {
@@ -121,6 +148,43 @@ and a number that looks like one would be believed.
               </div>
             </dl>
 
+            <dl v-else-if="flag.rule === 'location-accuracy'" class="finding-evidence">
+              <div>
+                <dt>{{ $t('evidenceLabel.reportedAccuracy') }}</dt>
+                <dd>{{ $t('evidenceLabel.metres', { m: $n(flag.evidence.reportedAccuracyM, 'default') }) }}</dd>
+              </div>
+              <div>
+                <dt>{{ $t('evidenceLabel.threshold') }}</dt>
+                <dd>{{ $t('evidenceLabel.metres', { m: $n(flag.evidence.thresholdM, 'default') }) }}</dd>
+              </div>
+            </dl>
+            <dl v-else-if="flag.rule === 'outside-project-area' && flag.evidence.distanceOutsideM != null" class="finding-evidence">
+              <div>
+                <dt>{{ $t('evidenceLabel.outsideBy') }}</dt>
+                <dd>{{ $t('evidenceLabel.metres', { m: $n(flag.evidence.distanceOutsideM, 'default') }) }}</dd>
+              </div>
+              <div>
+                <dt>{{ $t('evidenceLabel.allowed') }}</dt>
+                <dd>{{ $t(`evidenceLabel.tolerance.${flag.evidence.toleranceSource}`, { m: $n(flag.evidence.toleranceM, 'default') }) }}</dd>
+              </div>
+            </dl>
+            <dl v-else-if="flag.rule === 'repeated-location' && flag.evidence.coordinates != null" class="finding-evidence">
+              <div>
+                <dt>{{ $t('evidenceLabel.coordinates') }}</dt>
+                <dd>{{ flag.evidence.coordinates }}</dd>
+              </div>
+              <div>
+                <dt>{{ $t('evidenceLabel.sameCollector') }}</dt>
+                <dd>{{ $t(flag.evidence.sameSubmitter ? 'evidenceLabel.yes' : 'evidenceLabel.no') }}</dd>
+              </div>
+              <div>
+                <dt>{{ $t('evidenceLabel.sameDevice') }}</dt>
+                <dd>{{ $t(flag.evidence.sameDevice ? 'evidenceLabel.yes' : 'evidenceLabel.no') }}</dd>
+              </div>
+            </dl>
+
+            <p v-if="flag.outcome === 'withdrawn'" class="finding-next">{{ $t('findings.withdrawnNote') }}</p>
+
             <template v-if="flag.evidence.alternatives != null">
               <p class="finding-subhead">{{ $t('findings.alternatives') }}</p>
               <ul class="finding-alternatives">
@@ -135,7 +199,7 @@ and a number that looks like one would be believed.
               </router-link>
               <router-link v-if="flag.relatedInstanceId != null"
                 :to="submissionPath(flag.relatedInstanceId)">
-                {{ $t('findings.openPrevious') }}
+                {{ $t(flag.rule === 'repeated-location' ? 'findings.openEarliest' : 'findings.openPrevious') }}
               </router-link>
             </p>
 
@@ -255,13 +319,31 @@ const submissionPath = (instanceId) =>
 
 // A concern is not a status colour taken from the review palette by accident:
 // it is a state, and it arrives with an icon and a word, never colour alone.
-const outcomeIcon = (outcome) => (outcome === 'concern'
-  ? 'icon-exclamation-triangle'
-  : 'icon-question-circle');
+const outcomeIcon = (outcome) => {
+  if (outcome === 'concern') return 'icon-exclamation-triangle';
+  if (outcome === 'withdrawn') return 'icon-check-circle';
+  return 'icon-question-circle';
+};
 
-const describe = (flag) => (flag.outcome === 'concern'
-  ? t('describe.concern')
-  : t(`describe.${flag.evidence.reason}`, t('describe.inconclusive')));
+// The travel rule's text is written here; the location rules (G1) carry their
+// own explanation in the finding, written by the server with its numbers.
+const describe = (flag) => {
+  if (flag.rule !== 'implausible-travel' && flag.evidence.explanation != null)
+    return flag.evidence.explanation;
+  return flag.outcome === 'concern'
+    ? t('describe.concern')
+    : t(`describe.${flag.evidence.reason}`, t('describe.inconclusive'));
+};
+
+// "3 inside · 1 outside · 2 not checked", in a fixed order, omitting zeros.
+const COVERAGE_ORDER = {
+  withinArea: ['inside', 'near-edge', 'outside', 'no-area-set', 'not-checked'],
+  band: ['≤10', '≤30', '≤100', '>100', 'unknown', 'none']
+};
+const coverageText = (counts, kind) => COVERAGE_ORDER[kind]
+  .filter((key) => counts[key] > 0)
+  .map((key) => t(`location.${kind}.${key}`, { count: counts[key] }))
+  .join(' · ');
 </script>
 
 <i18n lang="json5">
@@ -286,11 +368,52 @@ const describe = (flag) => (flag.outcome === 'concern'
       "rule": "Rule {rule} v{version}, above {speed} km/h.",
       "alternatives": "This would also be explained by:",
       "openSubmission": "Open this Submission",
-      "openPrevious": "Open the previous one"
+      "openPrevious": "Open the previous one",
+      "openEarliest": "Open the earliest with this location",
+      // {name} is a rule name such as "Location accuracy".
+      "locationRule": "{name} v{version}: {concerns} to look at.",
+      "locationRuleSkipped": "{name}: not run.",
+      "withdrawnReport": "{count} earlier location findings are no longer found and were withdrawn.",
+      "withdrawnNote": "A later run no longer found this. It no longer holds up a review, and any decision recorded here is kept."
     },
     "outcome": {
       "concern": "Worth a look",
-      "inconclusive": "Could not tell"
+      "inconclusive": "Could not tell",
+      "withdrawn": "No longer found"
+    },
+    "ruleName": {
+      "implausible-travel": "Travel between Submissions",
+      "location-accuracy": "Location accuracy",
+      "outside-project-area": "Outside the project area",
+      "repeated-location": "Repeated location"
+    },
+    "location": {
+      "area": "Project area",
+      "areaUnusable": {
+        "no-area-set": "Not set. Mark an uploaded boundary as the project area on the map to check locations against it.",
+        "remote-layer": "The chosen layer is a remote map and has no boundary to check against.",
+        "no-polygon": "The chosen layer has no polygon.",
+        "antimeridian": "The chosen boundary crosses the antimeridian, which is not supported.",
+        "self-intersecting": "The chosen boundary crosses itself, so it cannot be checked against. Correct and upload it again."
+      },
+      "where": "Where readings fall",
+      "accuracy": "Reported accuracy",
+      "encrypted": "This Form is encrypted, so its locations cannot be read and the location checks do not run.",
+      "withinArea": {
+        "inside": "{count} inside",
+        "near-edge": "{count} near the edge",
+        "outside": "{count} outside",
+        "no-area-set": "{count} not checked (no area)",
+        "not-checked": "{count} without a location"
+      },
+      "band": {
+        "≤10": "{count} within 10 m",
+        "≤30": "{count} within 30 m",
+        "≤100": "{count} within 100 m",
+        ">100": "{count} worse than 100 m",
+        "unknown": "{count} not reported",
+        "none": "{count} without a location"
+      }
     },
     "status": {
       "open": "Not yet reviewed",
@@ -312,7 +435,21 @@ const describe = (flag) => (flag.outcome === 'concern'
       "apart": "Time between",
       "minutes": "{minutes} minutes",
       "implied": "Implied speed",
-      "speed": "{speed} km/h"
+      "speed": "{speed} km/h",
+      "reportedAccuracy": "Reported accuracy",
+      "threshold": "Limit",
+      "metres": "{m} m",
+      "outsideBy": "Outside by",
+      "allowed": "Allowed for",
+      "tolerance": {
+        "reported-accuracy": "{m} m (reported accuracy)",
+        "default-no-accuracy-reported": "{m} m (no accuracy reported)"
+      },
+      "coordinates": "Coordinates",
+      "sameCollector": "Same collector",
+      "sameDevice": "Same device",
+      "yes": "Yes",
+      "no": "No"
     },
     "decision": {
       "explained": "Explained",
@@ -380,6 +517,17 @@ const describe = (flag) => (flag.outcome === 'concern'
     text-transform: uppercase;
   }
 
+  .location-coverage {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 22px;
+    margin: 0 0 14px;
+
+    > * { border-bottom: none; padding-block: 0; }
+    dt { color: $color-text-muted; font-size: 11px; font-weight: normal; letter-spacing: 0.05em; text-transform: uppercase; }
+    dd { color: $color-text; font-size: 13px; margin: 2px 0 0; max-width: 60ch; }
+  }
+
   .evidence-limits {
     margin-bottom: 34px;
 
@@ -428,6 +576,7 @@ const describe = (flag) => (flag.outcome === 'concern'
     // say the same thing, so colour is never the only channel.
     &.outcome-concern { border-left-color: #a86f14; }  // gradient --warning-text
     &.outcome-inconclusive { border-left-color: #8a8a9c; } // gradient --gray-500
+    &.outcome-withdrawn { border-left-color: #d6d6e0; } // gradient --gray-200
   }
 
   .finding-head {
