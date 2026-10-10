@@ -56,6 +56,12 @@ and a number that looks like one would be believed.
             <dt>{{ $t('location.area') }}</dt>
             <dd v-if="evidence.projectArea?.status === 'set'">{{ evidence.projectArea.title }}</dd>
             <dd v-else>{{ $t(`location.areaUnusable.${evidence.projectArea?.reason ?? 'no-area-set'}`) }}</dd>
+            <dd v-if="canManage">
+              <button type="button" class="btn btn-link btn-sm area-toggle" :aria-expanded="showArea"
+                @click="showArea = !showArea">
+                {{ showArea ? $t('location.closeArea') : $t('location.setArea') }}
+              </button>
+            </dd>
           </div>
           <div v-if="evidence.coverage.byProjectArea">
             <dt>{{ $t('location.where') }}</dt>
@@ -67,6 +73,10 @@ and a number that looks like one would be believed.
           </div>
         </dl>
         <p v-if="evidence.encrypted" class="section-lead">{{ $t('location.encrypted') }}</p>
+        <div v-if="showArea && canManage" class="project-area-panel">
+          <p class="section-lead">{{ $t('location.areaHelp') }}</p>
+          <analysis-map :data="noPoints" :project-id="projectId" can-edit @changed="reloadEvidence"/>
+        </div>
 
         <!-- Stated plainly and up front, because every finding below rests on
         these and a reader who does not know them will over-read the rest. -->
@@ -249,13 +259,15 @@ and a number that looks like one would be believed.
 </template>
 
 <script setup>
-import { computed, reactive, ref, watchEffect } from 'vue';
+import { computed, defineAsyncComponent, reactive, ref, watchEffect } from 'vue';
 import { useI18n } from 'vue-i18n';
 
 import Loading from '../loading.vue';
 import Spinner from '../spinner.vue';
 import SubmissionReviewQueue from './review-queue.vue';
 import ContradictionRules from './contradiction-rules.vue';
+// The map and its library load only when a manager opens the project area panel.
+const AnalysisMap = defineAsyncComponent(() => import('../field-data/analysis-map.vue'));
 import { describeCondition } from '../../util/contradiction-rules';
 
 import useRequest from '../../composables/request';
@@ -278,6 +290,8 @@ const evidence = ref(null);
 const flags = ref([]);
 const lastRun = ref(null);
 const loading = ref(true);
+const showArea = ref(false);
+const noPoints = { type: 'FeatureCollection', features: [] };
 const review = reactive({});
 
 // Running a check and recording a decision both change the form's record of
@@ -297,6 +311,11 @@ const load = () => Promise.all([
   .catch(noop)
   .finally(() => { loading.value = false; });
 load();
+
+// After the project area changes, the coverage above describes the old one.
+const reloadEvidence = () => request({ method: 'GET', url: apiPaths.formEvidence(props.projectId, props.xmlFormId) })
+  .then(({ data }) => { evidence.value = data; })
+  .catch(noop);
 
 // Every open finding needs somewhere to hold a half-written decision.
 watchEffect(() => {
@@ -435,12 +454,15 @@ const coverageText = (counts, kind) => COVERAGE_ORDER[kind]
     "location": {
       "area": "Project area",
       "areaUnusable": {
-        "no-area-set": "Not set. Mark an uploaded boundary as the project area on the map to check locations against it.",
+        "no-area-set": "Not set. Upload a boundary and mark it as the project area to check locations against it.",
         "remote-layer": "The chosen layer is a remote map and has no boundary to check against.",
         "no-polygon": "The chosen layer has no polygon.",
         "antimeridian": "The chosen boundary crosses the antimeridian, which is not supported.",
         "self-intersecting": "The chosen boundary crosses itself, so it cannot be checked against. Correct and upload it again."
       },
+      "setArea": "Set project area",
+      "closeArea": "Close",
+      "areaHelp": "Upload the project boundary as GeoJSON (WGS84 polygons), then press “Use as project area” on it. Location checks flag readings outside it, after allowing for each reading's accuracy. Run the checks again afterwards.",
       "where": "Where readings fall",
       "accuracy": "Reported accuracy",
       "encrypted": "This Form is encrypted, so its locations cannot be read and the location checks do not run.",

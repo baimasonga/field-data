@@ -144,7 +144,16 @@ export class FieldDataContainer extends Container {
   }
 
   async fetch(request) {
-    await this.#retireStaleContainer();
+    // Nothing below may throw out of here: an exception becomes Cloudflare's
+    // "error code: 1101" page, which no client can read, instead of the
+    // starting-up answer it should be.
+    try {
+      await this.#retireStaleContainer();
+    } catch (error) {
+      console.log('Retiring the old container failed, reporting as starting up:', String(error));
+      this.#boot = null;
+      return startingUp(request);
+    }
 
     // A boot that has already resolved says the container started once, not
     // that it is running now. It stops on its own: after `sleepAfter`, when a
@@ -166,12 +175,18 @@ export class FieldDataContainer extends Container {
     // hanging on a blank tab until Cloudflare gave up on it. Wait a little, then
     // say what is happening. The boot is memoised, so it is still running when
     // the page reloads.
+    // A boot that fails is not an error for this caller either: the next
+    // request starts it again.
     const late = Symbol('late');
+    const failed = Symbol('failed');
     const waited = await Promise.race([
-      this.#boot.then(() => null),
+      this.#boot.then(() => null, (error) => {
+        console.log('Container boot failed, reporting as starting up:', String(error));
+        return failed;
+      }),
       scheduler.wait(PATIENCE_MS).then(() => late)
     ]);
-    if (waited === late) return startingUp(request);
+    if (waited === late || waited === failed) return startingUp(request);
 
     // The container can still stop between the boot resolving and this proxy
     // being attempted, and the library reports that by throwing. Tell the
@@ -235,8 +250,16 @@ export class FieldDataContainer extends Container {
 const primary = (env) => env.FIELD_DATA_CONTAINER.getByName('field-data-primary');
 
 export default {
-  fetch(request, env) {
-    return primary(env).fetch(request);
+  // A deploy replaces the container object's code, and requests in flight at
+  // that moment fail with an exception rather than a response. Left uncaught
+  // that is a 1101 crash page; it is the same "not ready yet" as any other.
+  async fetch(request, env) {
+    try {
+      return await primary(env).fetch(request);
+    } catch (error) {
+      console.log('The container object could not answer, reporting as starting up:', String(error));
+      return startingUp(request);
+    }
   },
 
   async scheduled(controller, env, ctx) {

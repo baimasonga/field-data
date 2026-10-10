@@ -146,7 +146,7 @@ test('verification says why locations are not checked against an area', async ({
   });
   await page.goto(`${appUrl}/projects/1/forms/geo_survey/verification`);
   const coverage = page.locator('.location-coverage');
-  await expect(coverage).toContainText('Not set. Mark an uploaded boundary as the project area on the map');
+  await expect(coverage).toContainText('Not set. Upload a boundary and mark it as the project area');
   await expect(coverage).toContainText('1 not checked (no area)');
   expect(errors).toEqual([]);
 });
@@ -197,5 +197,76 @@ test('a manager marks an uploaded boundary as the project area and sees a refusa
   await boundary.getByRole('button', { name: 'Stop using as project area' }).click();
   expect(puts.at(-1)).toEqual({ id: 'boundary', body: { role: null }, ifMatch: '"layer-2"' });
   await expect(boundary).not.toContainText('Project area.');
+  expect(errors).toEqual([]);
+});
+
+test('a manager sets the project area from the verification screen, and the summary refreshes', async ({ page }) => {
+  let evidenceCalls = 0;
+  const layers = [{ id: 'boundary', title: 'Study area', revision: 1, definition: { sourceType: 'geojson-upload', visible: true, attribution: 'Survey office', style: { mode: 'single', color: '#137d92', missingColor: '#777777' } },
+    data: { type: 'FeatureCollection', features: [{ type: 'Feature', geometry: { type: 'Polygon', coordinates: [[[-13.3, 8.4], [-13.15, 8.4], [-13.15, 8.52], [-13.3, 8.52], [-13.3, 8.4]]] }, properties: {} }] } }];
+  const errors = await api(page, async (route, path) => {
+    if (path === '/v1/projects/1/forms/geo_survey/evidence') {
+      evidenceCalls += 1;
+      await route.fulfill({ json: evidence(layers[0].definition.role === 'project-area' ? { ...area, title: 'Study area' } : { status: 'unusable', reason: 'no-area-set', layerId: null }) });
+      return true;
+    }
+    if (path === '/v1/projects/1/forms/geo_survey/integrity') { await route.fulfill({ json: [] }); return true; }
+    if (path === '/v1/projects/1/map-layers') { await route.fulfill({ json: layers }); return true; }
+    if (path === '/v1/projects/1/map-layers/boundary' && route.request().method() === 'PUT') {
+      layers[0].definition = { ...layers[0].definition, role: route.request().postDataJSON().role ?? undefined }; layers[0].revision += 1;
+      await route.fulfill({ json: { success: true } }); return true;
+    }
+    return false;
+  });
+  await page.goto(`${appUrl}/projects/1/forms/geo_survey/verification`);
+  const coverage = page.locator('.location-coverage');
+  await expect(coverage).toContainText('Not set.');
+  await coverage.getByRole('button', { name: 'Set project area' }).click();
+  const panel = page.locator('.project-area-panel');
+  await expect(panel.getByLabel('GeoJSON (WGS84, up to 2 MB)')).toBeVisible();
+  await panel.locator('.reference-layer').getByRole('button', { name: 'Use as project area' }).click();
+  await expect(coverage).toContainText('Study area');
+  expect(evidenceCalls).toBe(2);
+  await expect(coverage.getByRole('button', { name: 'Close' })).toHaveAttribute('aria-expanded', 'true');
+  expect(errors).toEqual([]);
+});
+
+test('reviewers without project management do not see the project area control', async ({ page }) => {
+  await page.addInitScript(() => localStorage.setItem('sessionExpires', String(Date.now() + 3600000)));
+  const errors = await api(page, async (route, path) => {
+    if (path === '/v1/projects/1') { await route.fulfill({ json: { id: 1, name: 'Synthetic', forms: 1, datasets: 0, archived: false, verbs: verbs.filter((v) => v !== 'project.update') } }); return true; }
+    if (path === '/v1/projects') { await route.fulfill({ json: [{ id: 1, name: 'Synthetic', forms: 1, datasets: 0, archived: false, verbs: verbs.filter((v) => v !== 'project.update') }] }); return true; }
+    if (path === '/v1/projects/1/forms/geo_survey/evidence') { await route.fulfill({ json: evidence() }); return true; }
+    if (path === '/v1/projects/1/forms/geo_survey/integrity') { await route.fulfill({ json: [] }); return true; }
+    return false;
+  });
+  await page.goto(`${appUrl}/projects/1/forms/geo_survey/verification`);
+  await expect(page.locator('.location-coverage')).toContainText('Freetown study area');
+  await expect(page.getByRole('button', { name: 'Set project area' })).toHaveCount(0);
+  expect(errors).toEqual([]);
+});
+
+test('the analysis map lists GPS questions first and explains a repeat scope without one', async ({ page }) => {
+  const fields = [{ path: '/name', name: 'name', type: 'string' }, { path: '/home_gps', name: 'home_gps', type: 'geopoint' }];
+  const memberFields = [{ path: '/member/age', name: 'age', type: 'int' }];
+  const errors = await api(page, async (route, path) => {
+    if (path.endsWith('/sources')) { await route.fulfill({ json: { forms: [{ id: 1, name: 'Survey' }], filtered: [], merged: [] } }); return true; }
+    if (path.endsWith('/query')) {
+      const scope = route.request().postDataJSON().repeatPath;
+      const available = scope ? memberFields : fields;
+      await route.fulfill({ json: { total: 1, fields: available, availableFields: available, repeatPaths: ['/member'],
+        definition: { version: 1, source: { kind: 'form', id: 1 }, columns: available.map((f) => f.path), query: [], chart: null, geometry: null, tab: 'table', ...(scope ? { repeatPath: scope } : {}) },
+        rows: [], nextOffset: null, map: null } });
+      return true;
+    }
+    return false;
+  });
+  await page.goto(`${appUrl}/field-data/analysis?project=1`);
+  await page.getByLabel('Source', { exact: true }).selectOption('form:1');
+  await page.getByRole('button', { name: 'map', exact: true }).click();
+  await expect(page.getByLabel('Location field').locator('optgroup').first()).toHaveAttribute('label', 'GPS questions');
+  await expect(page.getByLabel('Location field').locator('optgroup').first().locator('option')).toHaveText(['home_gps']);
+  await page.getByLabel('Analysis scope').selectOption('/member');
+  await expect(page.getByText('This repeat has no GPS question. To map a GPS question from the main form, set Analysis scope to Parent submissions.')).toBeVisible();
   expect(errors).toEqual([]);
 });

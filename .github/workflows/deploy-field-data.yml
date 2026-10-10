@@ -426,11 +426,19 @@ jobs:
           # run reports every broken thing rather than only the first.
           get() {
             local label=$1 path=$2
-            local out status
-            out=$(curl --silent --show-error --max-time 45 --write-out '\n%{http_code}' \
-              --header "$auth" "$BASE$path") || out=$'\n000'
-            status=${out##*$'\n'}
-            body=${out%$'\n'*}
+            local out status attempt
+            # A 503 is the Worker saying the container is still starting: the
+            # deploy can retire the old container in the middle of this walk.
+            # Wait that out (up to three minutes); anything else counts at once.
+            for attempt in $(seq 1 9); do
+              out=$(curl --silent --show-error --max-time 45 --write-out '\n%{http_code}' \
+                --header "$auth" "$BASE$path") || out=$'\n000'
+              status=${out##*$'\n'}
+              body=${out%$'\n'*}
+              [[ "$status" == 503 && "$attempt" -lt 9 ]] || break
+              echo "  ..   $label ($path) is starting up (attempt $attempt); waiting 20s."
+              sleep 20
+            done
             if [[ "$status" == 200 ]]; then
               echo "  ok   $label ($path)"
               return 0

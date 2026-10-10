@@ -86,8 +86,10 @@ Export {{ format.toUpperCase() }}
 </template>
       </div>
       <div v-if="tab === 'map'">
-<label>Location field<select v-model="geometry" aria-label="Location field" class="form-control"><option value="">Choose a visible location field</option>
-        <option v-for="f of fields" :key="f.path" :value="f.path">{{ f.name || f.path }}</option></select></label>
+<label>Location field<select v-model="geometry" aria-label="Location field" class="form-control"><option value="">Choose a location question</option>
+        <optgroup v-if="gpsFields.length" label="GPS questions"><option v-for="f of gpsFields" :key="f.path" :value="f.path">{{ f.name || f.path }}</option></optgroup>
+        <optgroup label="Other questions (only if they hold coordinates)"><option v-for="f of otherFields" :key="f.path" :value="f.path">{{ f.name || f.path }}</option></optgroup></select></label>
+        <p v-if="!gpsFields.length" class="map-hint">{{ repeatPath ? 'This repeat has no GPS question. To map a GPS question from the main form, set Analysis scope to Parent submissions.' : 'This form has no GPS question.' }}</p>
         <button type="button" class="btn btn-primary" @click="refresh">Update map</button>
         <p>The map shows valid locations from the full filtered selection (up to 100,000 records). Coordinates are available below.</p>
         <analysis-map v-if="result.map" :data="result.map" :project-id="projectId" :can-edit="projects.find(p => String(p.id) === projectId)?.verbs?.includes('project.update')"/>
@@ -127,6 +129,10 @@ const views = ref([]); const result = ref(null); const fields = ref([]); const l
 const tab = ref('table'); const offset = ref(0); const query = ref([]); const viewTitle = ref(''); const notice = ref('');
 const filterField = ref(''); const filterOperator = ref('='); const filterValue = ref('');
 const chartField = ref(''); const groupField = ref(''); const aggregation = ref('count'); const geometry = ref('');
+// GPS questions first: those are what the map can show. Others stay available for
+// imported data that keeps coordinates in a text column.
+const gpsFields = computed(() => fields.value.filter(f => f.type === 'geopoint'));
+const otherFields = computed(() => fields.value.filter(f => f.type !== 'geopoint'));
 let generation = 0; let scopeGeneration = 0; let saveId = null; let saveFingerprint = null;
 const source = computed(() => { const [kind, id] = sourceKey.value.split(':'); return { kind, id: Number(id) }; });
 const definition = () => ({
