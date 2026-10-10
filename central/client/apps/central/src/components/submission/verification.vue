@@ -91,6 +91,7 @@ and a number that looks like one would be believed.
       <imagery-availability :project-id="projectId" :xml-form-id="xmlFormId" :can-check="canReview"/>
       <backcheck-sample :project-id="projectId" :xml-form-id="xmlFormId" :can-draw="canReview"
         @drawn="queueKey += 1"/>
+      <backcheck-agreement :project-id="projectId" :xml-form-id="xmlFormId"/>
       <contradiction-rules v-if="canReview" :project-id="projectId" :xml-form-id="xmlFormId"
         :can-manage="canManage"/>
       <identity-keys v-if="canReview" :project-id="projectId" :xml-form-id="xmlFormId"
@@ -335,6 +336,7 @@ import ContradictionRules from './contradiction-rules.vue';
 import IdentityKeys from './identity-keys.vue';
 import ImageryAvailability from './imagery-availability.vue';
 import BackcheckSample from './backcheck-sample.vue';
+import BackcheckAgreement from './backcheck-agreement.vue';
 // The map and its library load only when a manager opens the project area panel.
 const AnalysisMap = defineAsyncComponent(() => import('../field-data/analysis-map.vue'));
 import { describeCondition } from '../../util/contradiction-rules';

@@ -31,7 +31,7 @@ also exist. Those features must not be re-labelled as full completion of this pr
 - Cited search (K2, first cited-retrieval slice): one search across a
   project's assets, asset facts, integrity findings and review decisions on
   the Review page, each result citing the submission it rests on, limited to
-  forms the caller may read: implemented and locally validated. Ranking,
+  forms the caller may read: merged in PR #74. Ranking,
   searching answers and model-based retrieval remain pending.
 - Automatic expiry task generation and reviewer queue: implemented and locally validated;
   automatic batches require the explicit operator flag.
@@ -89,9 +89,12 @@ also exist. Those features must not be re-labelled as full completion of this pr
 - Random backcheck sample (O3): a seeded, reproducible share of every
   collector's submissions of a form, routed into review with the reason
   `backcheck-sample` for a backcheck by another App User, with coverage by
-  collector: merged in PR #68. Scheduled samples, other
-  strata, backchecker workload balancing and estimates from backcheck results
-  remain pending.
+  collector: merged in PR #68. Backchecker workload in the request form (O4):
+  merged in PR #73. Backcheck agreement (O5): the linked backchecks of a form
+  compared as their comparison views do and added up by collector and by
+  question, counting only asked questions or mapped pairs, with counts rather
+  than estimates: implemented and locally validated. Scheduled samples, other
+  strata and calibrated estimates from backcheck results remain pending.
 - Remaining deliverables in all eight rows: pending.
 - Version-scoped evidence graph and recorded survey timeline: implemented and
   locally and CI validated, merged in PR #53 (E1). Capture sessions, sensor/challenge
