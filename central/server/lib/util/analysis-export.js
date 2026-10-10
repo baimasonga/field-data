@@ -18,9 +18,15 @@ const write = payload => new Promise((resolve, reject) => {
 const prepareExport = async (container, params, auth, body) => {
   if (!['csv', 'xlsx', 'kml', 'sav', 'dta'].includes(params.format)) throw invalid('format', params.format, 'Unsupported export format.');
   const { source } = await authorizeSource(container, params.projectId, body?.source, auth);
-  const definition = normalizeAnalysis(body, source);
+  const analysed = normalizeAnalysis(body, source);
+  // The location question need not be a table column, but KML is built from
+  // it, so a KML export reads it too. Other formats keep exactly the columns
+  // that were chosen.
+  const withGeometry = params.format === 'kml' && analysed.geometry != null && !analysed.columns.includes(analysed.geometry);
+  const definition = withGeometry ? { ...analysed, columns: [...analysed.columns, analysed.geometry] } : analysed;
+  const chosen = body.columns == null ? null : (withGeometry ? [...body.columns, analysed.geometry] : body.columns);
   // Repeat descendants are exported in separate joinable tables; never flattened to first answers.
-  const fields = (definition.repeatPath ? analysisFields(source, definition.repeatPath) : source.fields).filter(f => !['structure', 'group', 'repeat'].includes(f.type) && (definition.repeatPath ? definition.columns.includes(f.path) : (body.columns == null || body.columns.includes(f.path) || (f.repeated && body.includeRepeats !== false))));
+  const fields = (definition.repeatPath ? analysisFields(source, definition.repeatPath) : source.fields).filter(f => !['structure', 'group', 'repeat'].includes(f.type) && (definition.repeatPath ? definition.columns.includes(f.path) : (chosen == null || chosen.includes(f.path) || (f.repeated && body.includeRepeats !== false))));
   const boundary = source.kind === 'filtered'
     ? { formId: source.dataset.formId, columns: source.definition.columns, query: source.definition.query }
     : { forms: source.forms.map(f => f.formId), fields: source.fields.map(f => [f.path, f.type]) };
