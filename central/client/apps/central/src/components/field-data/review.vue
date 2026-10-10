@@ -38,6 +38,7 @@
           @asset-source="sourceClaimVersionId = $event"/>
         <field-data-findings-inbox v-if="projectId" :key="`findings:${projectId}`" :project-id="projectId"/>
         <field-data-collector-groups v-if="projectId" :key="`collectors:${projectId}`" :project-id="projectId"/>
+        <field-data-project-search v-if="projectId" :key="`search:${projectId}`" :project-id="projectId" @open="openFromQueue"/>
         <field-data-reverification-queue v-if="projectId" :key="`queue:${projectId}`"
           :project-id="projectId" @open="openFromQueue"/>
         <field-data-assets v-if="projectId && xmlFormId" :key="`assets:${projectId}:${xmlFormId}`"
@@ -61,6 +62,7 @@ import FieldDataAssets from './assets.vue';
 import FieldDataReverificationQueue from './reverification-queue.vue';
 import FieldDataFindingsInbox from './findings-inbox.vue';
 import FieldDataCollectorGroups from './collector-groups.vue';
+import FieldDataProjectSearch from './project-search.vue';
 import { useRequestData } from '../../request-data';
 
 defineOptions({ name: 'FieldDataReview' });
@@ -78,8 +80,9 @@ watch(() => [projectId.value, xmlFormId.value], () => {
   // A request to open an asset belongs to one form; drop it once the selection moves elsewhere.
   if (assetFocus.value != null && assetFocus.value.xmlFormId !== xmlFormId.value) assetFocus.value = null;
 });
-// Opening a task from the project queue selects the form it belongs to and asks the
-// asset panel to show that asset, where the task can be dispatched, closed or cancelled.
+// Opening a task from the project queue (or an asset from the search) selects the form it
+// belongs to and asks the asset panel to show that asset, where a task can be dispatched,
+// closed or cancelled.
 const openFromQueue = (task) => {
   xmlFormId.value = task.xmlFormId;
   assetFocus.value = { assetId: task.assetId, xmlFormId: task.xmlFormId, at: Date.now() };

@@ -15,7 +15,7 @@ const setup = async (page, { comparisonUnavailable = false, failComparison = fal
   const metricsWait = delayMetrics ? new Promise(resolve => { releaseMetrics = resolve; }) : null;
   const state = { assets: [], assetHistory: [], assetTasks: [], assetWrites: [], assetFailures: 0, assetConflict: false, mappingRevision: 0, mappingHistory: [], mappingRequests: [], mappingFailures: 0, mappingConflict: false, comparisonFailures: failComparison ? 1 : 0, comparisonRequests: 0, staleWrites: 0, conflictFailures: staleAssignment ? 1 : 0, status: 'open', assignedTo: null, revision: 1, backchecks: [], decisions: [], mutations: [], queueRequests: [], queueFailures: failQueue ? 1 : 0, assignmentFailures: failAssignment ? 1 : 0, metricsFailures: failMetrics ? 2 : 0 };
   Object.assign(state, { queueCalls: [], queueFailures_: 0, queueGate: null, queuePaged: false, queueTasks: [] });
-  Object.assign(state, { findings: [], findingsCalls: [], findingsFailures: 0, findingsPaged: false, collectorGroups: [], collectorCalls: [], workload: false });
+  Object.assign(state, { findings: [], findingsCalls: [], findingsFailures: 0, findingsPaged: false, collectorGroups: [], collectorCalls: [], workload: false, search: null, searchCalls: [], searchFailures: 0 });
   await page.addInitScript(() => globalThis.localStorage.setItem('sessionExpires', String(Date.now() + 3600000)));
   await page.route('**/client-config.json', route => route.fulfill({ json: {} }));
   await page.route('**/version.txt', route => route.fulfill({ body: 'test' }));
@@ -50,6 +50,13 @@ const setup = async (page, { comparisonUnavailable = false, failComparison = fal
       activeReasons: selected ? [{ reasonCode: 'provenance-degraded', count: 1 }] : [] });
     }
     if (path === '/v1/projects/7/app-users') return respond([{ id: 42, displayName: 'Collector' }]);
+    // K2 cited search.
+    if (/^\/v1\/projects\/\d+\/search$/.test(path)) {
+      state.searchCalls.push(url.searchParams.get('q'));
+      if (state.searchFailures-- > 0) return route.fulfill({ status: 500, json: { message: 'Failed' } });
+      const empty = { assets: [], facts: [], findings: [], decisions: [] };
+      return respond({ q: url.searchParams.get('q'), results: state.search ?? empty, more: { assets: 0, facts: 0, findings: 0, decisions: 0, ...state.searchMore } });
+    }
     // F5 collector groups: those whose strongest connection meets the minimum.
     if (/^\/v1\/projects\/\d+\/findings\/collectors$/.test(path)) {
       const minLinks = Number(url.searchParams.get('minLinks') ?? 3);
@@ -1179,5 +1186,68 @@ test('the back-check request shows each collector\'s open work and preselects th
   await page.getByRole('button', { name: 'Request back-check', exact: true }).click();
   await expect.poll(() => state.backchecks.length).toBe(1);
   expect(state.backchecks[0].assignedTo).toBe(43);
+  expect(errors).toEqual([]);
+});
+
+test('searching the project records shows each kind with its citation', async ({ page }) => {
+  const { state, errors } = await setup(page, { canOverride: true });
+  const assetId = '55555555-5555-4555-8555-555555555555';
+  state.assets.push({ id: assetId, name: 'Kissy water point', externalId: 'WP-01', assetType: 'water-point', revision: 2 });
+  state.assetTasks.push({ id: 'a2222222-2222-4222-8222-222222222222', predicate: 'condition', status: 'dispatched', dueAt: '2026-01-11T00:00:00Z' });
+  const section = page.getByRole('region', { name: "Search the project's records" });
+  await expect(section).toContainText('Submission answers are not searched');
+
+  // Nothing found, then a failure, each said plainly.
+  await section.getByLabel('Search for').fill('  nowhere ');
+  await section.getByRole('button', { name: 'Search' }).click();
+  await expect(section.locator('.project-search-empty')).toHaveText("Nothing in this project's records matches “nowhere”.");
+  expect(state.searchCalls).toEqual(['nowhere']);
+  state.searchFailures = 1;
+  await section.getByRole('button', { name: 'Search' }).click();
+  await expect(section.getByRole('alert')).toHaveText('The search could not be completed. Try again.');
+  await expect(section.locator('.project-search-empty')).toHaveCount(0);
+
+  state.search = {
+    assets: [{ id: assetId, name: 'Kissy water point', externalId: 'WP-01', assetType: 'water-point',
+      match: { field: 'name', excerpt: 'Kissy water point' }, source: { xmlFormId: 'health' } }],
+    facts: [{ id: 'f1', assetId, assetName: 'Kissy water point', assetXmlFormId: 'health', predicate: 'condition', state: 'known', value: 'broken at Kissy',
+      match: { field: 'value', excerpt: 'broken at Kissy' }, source: { xmlFormId: 'nutrition', instanceId: 'uuid:fact', claimVersionId: 'c1' } }],
+    findings: [{ id: 9, rule: 'near-duplicate', title: 'Same household at Kissy', outcome: 'inconclusive', status: 'open',
+      match: { field: 'title', excerpt: 'Same household at Kissy' }, source: { xmlFormId: 'health', instanceId: 'uuid:a', relatedInstanceId: 'uuid:b' } }],
+    decisions: [{ id: 'd1', caseId: 'c', outcome: 'needs-evidence', reasonCode: 'provenance-degraded',
+      match: { field: 'note', excerpt: '…shared phone at Kissy market…' }, source: { xmlFormId: 'health', instanceId: 'uuid:dec', claimVersionId: 'c2' } }]
+  };
+  state.searchMore = { findings: 3 };
+  await section.getByLabel('Search for').fill('kissy');
+  await section.getByRole('button', { name: 'Search' }).click();
+  await expect(section.getByRole('alert')).toHaveCount(0);
+  await expect(section.locator('.project-search-assets h3')).toHaveText('Assets (1)');
+  await expect(section.locator('.project-search-assets li')).toContainText('Kissy water point · water-point · WP-01');
+  const fact = section.locator('.project-search-facts li');
+  await expect(fact).toContainText('Kissy water point: condition broken at Kissy');
+  await expect(fact).toContainText('Matched in value: “broken at Kissy”');
+  await expect(fact.getByRole('link', { name: 'uuid:fact' })).toHaveAttribute('href', '/projects/7/forms/nutrition/submissions/uuid%3Afact');
+  const finding = section.locator('.project-search-findings');
+  await expect(finding.locator('h3')).toHaveText('Findings (4)');
+  await expect(finding.getByRole('link', { name: 'uuid:b' })).toHaveAttribute('href', '/projects/7/forms/health/submissions/uuid%3Ab');
+  await expect(finding.getByRole('link', { name: 'Verification' })).toHaveAttribute('href', '/projects/7/forms/health/verification');
+  await expect(finding.locator('.project-search-more')).toHaveText('3 more not shown, newest first. Add words to narrow the search.');
+  const decision = section.locator('.project-search-decisions li');
+  await expect(decision).toContainText('needs-evidence · provenance-degraded');
+  await expect(decision).toContainText('Matched in note: “…shared phone at Kissy market…”');
+  await expect(decision.getByRole('link', { name: 'uuid:dec' })).toHaveAttribute('href', '/projects/7/forms/health/submissions/uuid%3Adec');
+
+  // Opening the asset from a fact shows it in the asset panel.
+  await fact.getByRole('button', { name: 'Open asset' }).click();
+  const assets = page.getByRole('region', { name: 'Asset passports and re-verification' });
+  await expect(assets.getByRole('button', { name: 'Manage' })).toBeVisible();
+
+  // Too short a query is not sent.
+  await section.getByLabel('Search for').fill(' k ');
+  await section.getByRole('button', { name: 'Search' }).click();
+  await expect(section.getByRole('alert')).toHaveText('Enter 2 to 100 characters to search for.');
+  expect(state.searchCalls).toEqual(['nowhere', 'nowhere', 'kissy']);
+  await page.setViewportSize({ width: 360, height: 800 });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= 360)).toBe(true);
   expect(errors).toEqual([]);
 });

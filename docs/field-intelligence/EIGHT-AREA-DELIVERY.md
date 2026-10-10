@@ -28,6 +28,11 @@ also exist. Those features must not be re-labelled as full completion of this pr
 
 - Asset identity, source-linked temporal observations and age-based freshness:
   implemented, validated and merged in PR #52 (first bounded knowledge slice).
+- Cited search (K2, first cited-retrieval slice): one search across a
+  project's assets, asset facts, integrity findings and review decisions on
+  the Review page, each result citing the submission it rests on, limited to
+  forms the caller may read: implemented and locally validated. Ranking,
+  searching answers and model-based retrieval remain pending.
 - Automatic expiry task generation and reviewer queue: implemented and locally validated;
   automatic batches require the explicit operator flag.
 - Dispatch of freshness tasks to App Users and field closure by fresh collected evidence
@@ -60,7 +65,7 @@ also exist. Those features must not be re-labelled as full completion of this pr
 - Backcheck workload (O4, first workload-balancing slice): the backcheck
   request form shows each eligible App User's open and overdue backchecks,
   marks the original collector unavailable and preselects the least loaded:
-  implemented and locally validated. Distance, capacity and automatic
+  merged in PR #73. Distance, capacity and automatic
   assignment remain pending.
 - Static survey doctor (S1, first adaptive-surveys slice): checks of a form
   definition for unknown references, cycles, never-shown questions, impossible
