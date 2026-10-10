@@ -176,6 +176,10 @@ const problems = {
       `The identity key is invalid: ${field} ${reason}.`),
     formTooLargeToCheck: problem(400.57, () =>
       'This form is too large for the form check (more than 5,000 questions or 5 MB), so it was not checked.'),
+    backcheckSampleInvalid: problem(400.58, ({ field, reason }) =>
+      `The backcheck sample settings are invalid: ${field} ${reason}.`),
+    backcheckSampleTooLarge: problem(400.59, ({ what, count, max }) =>
+      `This sample would take ${count} ${what}, more than the ${max} allowed. Use a lower rate or minimum, or a shorter date range.`),
 
     // no detail information for security reasons.
     authenticationFailed: problem(401.2, () => 'Could not authenticate with the provided credentials.'),
