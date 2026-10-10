@@ -1,6 +1,6 @@
 # F2: identity reuse across submissions
 
-Status: draft contract, awaiting decisions (see "Decisions needed").
+Status: contract agreed 2026-10-10. A repeated key is a finding unless the manager raises `maxUses`; `windowDays` uses received time; findings do not store answers, which are read from the submissions when a finding is shown.
 
 Second slice of the fraud-intelligence area (row 6 of the delivery ledger:
 "similarity/identity-reuse signals"). F1 looks inside one submission. F2 looks
@@ -54,13 +54,19 @@ blank, ignored and too-short values are skipped and counted as "no usable key".
    submissions (within `windowDays` where set). The earliest `maxUses`
    submissions are taken as expected; every later one gets one finding related
    to the earliest submission in its group, as repeated locations do in G1.
-   Evidence: the key value, how many submissions share it, the other
-   submissions' IDs, received times and collectors.
+   Evidence: how many submissions share the key, the other submissions' IDs,
+   received times and collectors.
 2. **`identity-inconsistent`** (outcome `concern`): two submissions share a key
    (whether or not reuse is allowed) but differ on a `sameFields` question.
-   Each later submission gets one finding related to the earliest, showing both
-   answers for each field that differs. Blank answers on either side are not
-   counted as a difference.
+   Each later submission gets one finding related to the earliest, naming each
+   field that differs. Blank answers on either side are not counted as a
+   difference.
+
+**Answers are not stored in findings.** The key value and the differing
+answers are read from the current versions of the submissions each time a
+finding is shown, for people who may read those submissions. When a
+submission has been deleted its answers are no longer shown; the finding is
+withdrawn on the next run.
 
 Both are stored in `field_data_integrity_flags` with `rule` =
 `identity:<keyId>` and the evidence's `kind` = `reused` or `inconsistent`, so
@@ -113,8 +119,6 @@ Encrypted forms cannot be read and are reported as such.
   matching first; similarity needs labelled data to tune.
 - Keys inside repeats (roster member IDs).
 - Collector-level aggregation, collusion graphs and scores.
-- Hashing or masking key values. Reviewers who see findings can already read
-  the submissions; see decision 3.
 
 ## Acceptance
 
@@ -131,6 +135,9 @@ code, phone number and district:
   `digits` and do not under `exact`; (e) a blank `sameFields` answer is not a
   difference; (f) a shared phone resolved as `explained` stays resolved on the
   next run.
+- Stored evidence holds no answers (checked in the database); values are
+  shown only to people who may read the submissions, and not for a deleted
+  submission.
 - Deleting the duplicate withdraws the finding with the note kept; editing the
   key's fields creates a new version and withdraws old-version findings.
 - Reason codes reach the review case; acceptance waits on open findings.
@@ -141,17 +148,12 @@ code, phone number and district:
 - Deliberate breakages in normalising, grouping, window, inconsistency and
   withdrawal each fail at least one test.
 
-## Decisions needed
+## Decisions (agreed 2026-10-10)
 
-1. **Default when a key repeats**: is a repeated key a finding by default
-   (`maxUses` 1, managers raise it for panels), or should managers choose
-   per key with no default?
-2. **Received time or a form date question for `windowDays`**: received time
-   is always present but reflects when the phone synced, not when the visit
-   happened. Using the form's `start` or a date question is closer to the
-   visit but can be missing or set wrongly on the device.
-3. **Key values in stored evidence**: store the key value (e.g. the phone
-   number) in the finding so reviewers see it at a glance, or store only the
-   submission IDs and show the value by reading the submissions when the
-   finding is opened (so a deleted or purged submission's number does not
-   remain in the findings table).
+1. A repeated key is a finding by default (`maxUses` 1); managers raise it for
+   panel or follow-up surveys.
+2. `windowDays` is measured on received time: always present and not set on the
+   device, at the cost of reflecting sync time rather than visit time.
+3. Findings store submission IDs and field paths, not answers. Answers are read
+   live when a finding is shown, so a deleted submission's phone number does not
+   remain in the findings table.
