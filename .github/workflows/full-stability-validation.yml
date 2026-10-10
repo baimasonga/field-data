@@ -219,6 +219,7 @@ jobs:
               test/integration/api/field-data-findings.js \
               test/integration/api/field-data-imagery.js \
               test/integration/api/field-data-backcheck-samples.js \
+              test/integration/api/field-data-near-duplicates.js \
               test/integration/api/field-data-app-user-backchecks.js
 
   server-integration-report:

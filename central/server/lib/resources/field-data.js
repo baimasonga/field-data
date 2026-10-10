@@ -22,6 +22,7 @@ const { parseGeopoint, checkImplausibleTravel, IMPLAUSIBLE_TRAVEL } = require('.
 const { LOCATION_ACCURACY, OUTSIDE_PROJECT_AREA, REPEATED_LOCATION } = require('../util/location-evidence');
 const { checkLocationAccuracy, checkOutsideProjectArea, checkRepeatedLocation, locationComponents } = require('../util/location-evidence');
 const imagery = require('../util/imagery');
+const { NEAR_DUPLICATE, comparableFields: nearDuplicateFields, findNearDuplicates } = require('../util/near-duplicates');
 const { LIMITS: IDENTITY_LIMITS, REUSED, INCONSISTENT, usability: identityUsability, usabilityIn: identityUsabilityIn, findIdentityIssues } = require('../util/identity-keys');
 const { projectAreaFor } = require('../util/map-layer-store');
 const { RULE_PREFIX, usability, parseInstance, evaluateRule, answerAt } = require('../util/contradiction-rules');
@@ -2134,6 +2135,38 @@ module.exports = (service, endpoint) => {
     });
   };
 
+  // Near-duplicate submissions (F4): always run, on the current version of
+  // each submission, unless the form is encrypted or too large to compare.
+  const nearDuplicateChecks = async (container, form, encrypted) => {
+    const result = (counts, findings, reason = null) => ({
+      summary: { rule: NEAR_DUPLICATE.rule, ruleVersion: NEAR_DUPLICATE.version, ran: reason == null, ...(reason == null ? {} : { reason }),
+        thresholds: { similarity: NEAR_DUPLICATE.threshold, minShared: NEAR_DUPLICATE.minShared, maxCommonShare: NEAR_DUPLICATE.maxCommonShare }, ...counts },
+      ran: reason == null ? [{ rule: NEAR_DUPLICATE.rule, version: NEAR_DUPLICATE.version }] : [],
+      findings
+    });
+    if (encrypted) return result({}, [], 'encrypted-form');
+    const total = await container.db.oneFirst(sql`select count(*)::integer from submissions
+      where "formId" = ${form.id} and "deletedAt" is null and draft = false`);
+    if (total > NEAR_DUPLICATE.maxSubmissions) return result({ examined: total }, [], 'too-many-submissions');
+    const fields = await container.Forms.getFields(form.def.id);
+    const paths = nearDuplicateFields(fields);
+    const rows = await container.db.any(sql`
+      select s."instanceId", s."createdAt", s."submitterId", s."deviceId", sd.xml from submissions s
+      join submission_defs sd on sd."submissionId" = s.id and sd.current = true
+      where s."formId" = ${form.id} and s."deletedAt" is null and s.draft = false
+      order by s."createdAt", s.id`);
+    const submissions = rows.map((row) => {
+      let instance;
+      try { instance = parseInstance(row.xml); } catch { instance = null; }
+      return {
+        instanceId: row.instanceId, receivedAt: new Date(row.createdAt), submitterId: row.submitterId, deviceId: row.deviceId,
+        answers: new Map(instance == null ? [] : paths.map((at) => [at, answerAt(instance, at, null)]))
+      };
+    });
+    const { findings, counts } = findNearDuplicates(submissions, fields);
+    return result(counts, findings);
+  };
+
   const identityChecks = async (container, form, encrypted, auth) => {
     const keys = await container.db.any(sql`select * from field_data_identity_keys
       where "formId" = ${form.id} and active order by "createdAt", id`);
@@ -2287,10 +2320,11 @@ module.exports = (service, endpoint) => {
     const location = await locationChecks(container.db, form, evidence);
     const contradictions = await contradictionChecks(container, form, location.encrypted);
     const identities = await identityChecks(container, form, location.encrypted, auth);
+    const nearDuplicates = await nearDuplicateChecks(container, form, location.encrypted);
 
     // Only what a person should see is stored. A plausible pair is the normal
     // case and recording every one of them would bury the rest.
-    const worthKeeping = [...findings.filter((f) => f.outcome !== 'plausible'), ...location.findings, ...contradictions.findings, ...identities.findings];
+    const worthKeeping = [...findings.filter((f) => f.outcome !== 'plausible'), ...location.findings, ...contradictions.findings, ...identities.findings, ...nearDuplicates.findings];
 
     for (const finding of worthKeeping) {
       // eslint-disable-next-line no-await-in-loop
@@ -2312,9 +2346,9 @@ module.exports = (service, endpoint) => {
     // withdrawn too: that version no longer exists to be checked, and its
     // finding stays readable with the conditions it was found under.
     const key = (f) => `${f.rule}|${f.ruleVersion}|${f.instanceId}|${f.relatedInstanceId ?? ''}`;
-    const observed = new Set([...location.findings, ...contradictions.findings, ...identities.findings].map(key));
+    const observed = new Set([...location.findings, ...contradictions.findings, ...identities.findings, ...nearDuplicates.findings].map(key));
     let withdrawn = 0;
-    for (const spec of [...location.ran, ...contradictions.ran, ...identities.ran]) {
+    for (const spec of [...location.ran, ...contradictions.ran, ...identities.ran, ...nearDuplicates.ran]) {
       // eslint-disable-next-line no-await-in-loop
       const existing = await container.db.any(sql`
         select id, rule, "ruleVersion", "instanceId", "relatedInstanceId" from field_data_integrity_flags
@@ -2343,6 +2377,7 @@ module.exports = (service, endpoint) => {
     return {
       contradictionRules: contradictions.rules,
       identityKeys: identities.keys,
+      nearDuplicates: nearDuplicates.summary,
       locationRules: [
         summary(LOCATION_ACCURACY, location.encrypted ? null : location.results.accuracy, { maxAccuracyM: LOCATION_ACCURACY.maxAccuracyM }),
         summary(OUTSIDE_PROJECT_AREA, location.results.outside, { defaultToleranceM: OUTSIDE_PROJECT_AREA.defaultToleranceM }),

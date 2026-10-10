@@ -132,6 +132,11 @@ and a number that looks like one would be believed.
               ? $t('findings.identityKey', { title: key.title, version: key.version, reused: $n(key.reused, 'default'), inconsistent: $n(key.inconsistent, 'default'), noKey: $n(key.noKey, 'default') })
               : $t(`findings.identityKeySkipped.${key.status.reason === 'encrypted-form' || key.status.reason === 'too-many-submissions' ? key.status.reason : 'changed'}`, { title: key.title }) }}
           </span>
+          <span v-if="lastRun.nearDuplicates != null" class="run-rule">
+            {{ lastRun.nearDuplicates.ran
+              ? $t('findings.nearDuplicateRule', { version: lastRun.nearDuplicates.ruleVersion, concerns: $n(lastRun.nearDuplicates.concern ?? 0, 'default'), questions: $n(lastRun.nearDuplicates.comparedQuestions ?? 0, 'default') })
+              : $t(`findings.nearDuplicateSkipped.${lastRun.nearDuplicates.reason}`) }}
+          </span>
           <span v-if="lastRun.withdrawn > 0" class="run-rule">
             {{ $t('findings.withdrawnReport', { count: $n(lastRun.withdrawn, 'default') }) }}
           </span>
@@ -211,6 +216,24 @@ and a number that looks like one would be believed.
               </div>
             </dl>
 
+            <dl v-else-if="flag.rule === 'near-duplicate'" class="finding-evidence finding-similarity">
+              <div>
+                <dt>{{ $t('evidenceLabel.identicalAnswers') }}</dt>
+                <dd>{{ $t('evidenceLabel.identicalOf', { identical: $n(flag.evidence.identical, 'default'), compared: $n(flag.evidence.compared, 'default') }) }}</dd>
+              </div>
+              <div v-if="flag.evidence.differingCount > 0">
+                <dt>{{ $t('evidenceLabel.differing') }}</dt>
+                <dd>{{ flag.evidence.differing.join(', ') }}<template v-if="flag.evidence.differingCount > flag.evidence.differing.length"> …</template></dd>
+              </div>
+              <div>
+                <dt>{{ $t('evidenceLabel.sameCollector') }}</dt>
+                <dd>{{ $t(flag.evidence.sameCollector ? 'evidenceLabel.yes' : 'evidenceLabel.no') }}</dd>
+              </div>
+              <div v-if="flag.evidence.alsoSimilarTo > 0">
+                <dt>{{ $t('evidenceLabel.alsoSimilar') }}</dt>
+                <dd>{{ $n(flag.evidence.alsoSimilarTo, 'default') }}</dd>
+              </div>
+            </dl>
             <dl v-else-if="isContradiction(flag) && flag.evidence.conditions != null" class="finding-evidence finding-answers">
               <div v-for="(c, i) of flag.evidence.conditions" :key="i">
                 <dt>{{ describeCondition(c) }}</dt>
@@ -266,7 +289,7 @@ and a number that looks like one would be believed.
               </router-link>
               <router-link v-if="flag.relatedInstanceId != null"
                 :to="submissionPath(flag.relatedInstanceId, relatedForm(flag))">
-                {{ $t(flag.rule === 'repeated-location' ? 'findings.openEarliest'
+                {{ $t(flag.rule === 'near-duplicate' ? 'findings.openSimilar' : flag.rule === 'repeated-location' ? 'findings.openEarliest'
                   : isIdentity(flag) ? 'findings.openEarliestKey' : 'findings.openPrevious') }}
               </router-link>
             </p>
@@ -481,9 +504,16 @@ const coverageText = (counts, kind) => COVERAGE_ORDER[kind]
       "openSubmission": "Open this Submission",
       "openPrevious": "Open the previous one",
       "openEarliest": "Open the earliest with this location",
+      "openSimilar": "Open the earlier, similar Submission",
       // {name} is a rule name such as "Location accuracy".
       "locationRule": "{name} v{version}: {concerns} to look at.",
       "locationRuleSkipped": "{name}: not run.",
+      // {concerns} is a count of findings; {questions} of questions compared.
+      "nearDuplicateRule": "Near-duplicate answers v{version}: {concerns} to look at ({questions} questions compared).",
+      "nearDuplicateSkipped": {
+        "encrypted-form": "Near-duplicate answers: not checked, the Form is encrypted.",
+        "too-many-submissions": "Near-duplicate answers: not checked, the Form has more Submissions than can be compared."
+      },
       // {title} is a contradiction rule's title.
       "contradictionRule": "Contradiction \"{title}\" v{version}: {matched} found, {unknown} could not be checked.",
       "contradictionRuleSkipped": "Contradiction \"{title}\": not run, the Form no longer has what it checks.",
@@ -508,6 +538,7 @@ const coverageText = (counts, kind) => COVERAGE_ORDER[kind]
       "location-accuracy": "Location accuracy",
       "outside-project-area": "Outside the project area",
       "repeated-location": "Repeated location",
+      "near-duplicate": "Near-duplicate answers",
       // {title} is the title a project manager gave the rule.
       "contradiction": "Contradiction: {title}",
       // {title} is the title a project manager gave the identity key.
@@ -594,6 +625,11 @@ const coverageText = (counts, kind) => COVERAGE_ORDER[kind]
       },
       "coordinates": "Coordinates",
       "sameCollector": "Same collector",
+      "identicalAnswers": "Identical answers",
+      // {identical} of {compared} compared answers are identical.
+      "identicalOf": "{identical} of {compared} compared",
+      "differing": "Questions that differ",
+      "alsoSimilar": "Other earlier Submissions as similar",
       "sameDevice": "Same device",
       "yes": "Yes",
       "no": "No"

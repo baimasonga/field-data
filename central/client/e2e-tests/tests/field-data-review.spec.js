@@ -57,7 +57,7 @@ const setup = async (page, { comparisonUnavailable = false, failComparison = fal
       const rows = path.startsWith('/v1/projects/7/') ? state.findings : [];
       const open = rows.filter((f) => f.status !== 'resolved' && f.outcome !== 'withdrawn');
       if (path.endsWith('/summary')) {
-        const byFamily = { travel: 0, location: 0, contradiction: 0, identity: 0 };
+        const byFamily = { travel: 0, location: 0, contradiction: 0, identity: 0, similarity: 0 };
         const byForm = new Map();
         for (const f of open) {
           byFamily[f.family] += 1;

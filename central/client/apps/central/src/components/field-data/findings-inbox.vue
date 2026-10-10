@@ -19,7 +19,7 @@ Contract: docs/field-intelligence/F3-findings-inbox.md -->
       <p class="counts">
         <b>{{ summary.open }}</b> open ·
         <template v-for="(name, i) of FAMILIES" :key="name">
-          {{ summary.byFamily[name] }} {{ FAMILY_NAMES[name].toLowerCase() }}<template v-if="i < FAMILIES.length - 1"> · </template>
+          {{ summary.byFamily[name] ?? 0 }} {{ FAMILY_NAMES[name].toLowerCase() }}<template v-if="i < FAMILIES.length - 1"> · </template>
         </template>
       </p>
       <details v-if="summary.byForm.length">
@@ -89,13 +89,14 @@ const props = defineProps({ projectId: { type: String, required: true } });
 const { request } = useRequest();
 const root = `/v1/projects/${encodeURIComponent(props.projectId)}/findings`;
 
-const FAMILIES = ['travel', 'location', 'contradiction', 'identity'];
-const FAMILY_NAMES = { travel: 'Travel', location: 'Location', contradiction: 'Contradictions', identity: 'Identity' };
+const FAMILIES = ['travel', 'location', 'contradiction', 'identity', 'similarity'];
+const FAMILY_NAMES = { travel: 'Travel', location: 'Location', contradiction: 'Contradictions', identity: 'Identity', similarity: 'Similar answers' };
 const RULE_NAMES = {
   'implausible-travel': 'Travel between submissions',
   'location-accuracy': 'Location accuracy',
   'outside-project-area': 'Outside the project area',
-  'repeated-location': 'Repeated location'
+  'repeated-location': 'Repeated location',
+  'near-duplicate': 'Near-duplicate answers'
 };
 const OUTCOMES = { concern: 'Worth a look', inconclusive: 'Could not tell', withdrawn: 'No longer found' };
 const STATUSES = { open: 'Not yet reviewed', investigating: 'Being looked into', resolved: 'Reviewed' };
