@@ -22,6 +22,7 @@ const { formList, formManifest } = require('../formats/openrosa');
 const { noargs, isPresent, isBlank, attachmentToDatasetName } = require('../util/util');
 const { streamEntityCsvAttachment } = require('../data/entity');
 const { examine, FormTooLarge } = require('../util/survey-doctor');
+const { simulate, LIMITS: SIMULATION, SEED_PATTERN } = require('../util/survey-simulator');
 
 // excel-related util funcs/data used below:
 const isExcel = (contentType) => (contentType === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet') || (contentType === 'application/vnd.ms-excel');
@@ -300,6 +301,27 @@ module.exports = (service, endpoint, anonymousEndpoint) => {
           response.set('Cache-Control', 'private, no-store');
           return { ...report, formVersion: form.def.version, hash: form.def.hash, draft: form.def.publishedAt == null };
         })));
+
+    // Interview simulation (S2): this version's logic over seeded, simulated
+    // interviews. Computed on request; nothing is stored.
+    service.get(`${base}/simulation`, endpoint(({ Forms }, { params, auth, query }, _, response) => {
+      const runs = query.runs == null ? SIMULATION.defaultRuns : Number(query.runs);
+      if (!/^\d+$/.test(query.runs ?? '1') || !Number.isInteger(runs) || runs < 1 || runs > SIMULATION.runs)
+        throw Problem.user.simulationInvalid({ field: 'runs', reason: `must be a whole number from 1 to ${SIMULATION.runs}` });
+      if (query.seed != null && (typeof query.seed !== 'string' || !SEED_PATTERN.test(query.seed)))
+        throw Problem.user.simulationInvalid({ field: 'seed', reason: 'must be 1 to 64 letters, digits, - or _' });
+      return getInstance(Forms, params, true)
+        .then((form) => canReadForm(auth, form))
+        .then((form) => {
+          let report;
+          try { report = simulate(form.xml, { runs, ...(query.seed == null ? {} : { seed: query.seed }) }); } catch (error) {
+            if (error instanceof FormTooLarge) throw Problem.user.formTooLargeToCheck();
+            throw error;
+          }
+          response.set('Cache-Control', 'private, no-store');
+          return { ...report, formVersion: form.def.version, hash: form.def.hash, draft: form.def.publishedAt == null };
+        });
+    }));
 
     service.get(`${base}.xls`, getXls('xls'));
     service.get(`${base}.xlsx`, getXls('xlsx'));

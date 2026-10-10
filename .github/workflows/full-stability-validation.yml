@@ -215,6 +215,7 @@ jobs:
               test/integration/api/field-data-identity-keys.js \
               test/integration/api/field-data-identity-keys-cross.js \
               test/integration/api/field-data-survey-doctor.js \
+              test/integration/api/field-data-survey-simulation.js \
               test/integration/api/field-data-findings.js \
               test/integration/api/field-data-imagery.js \
               test/integration/api/field-data-backcheck-samples.js \
