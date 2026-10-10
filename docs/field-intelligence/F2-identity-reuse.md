@@ -27,7 +27,7 @@ questions whose answer identifies a household, respondent or other unit.
 | Part | Purpose |
 | --- | --- |
 | `title` | Shown to reviewers, e.g. "Household code". |
-| `fields` | 1–3 top-level questions whose answers together form the key (e.g. district + household number). Text, number or single-select questions; not repeats, groups, media or locations. |
+| `fields` | 1–3 top-level questions whose answers together form the key (e.g. district + household number). Text, number, barcode or single-select questions; not inside repeats, not media, locations or the form's `meta` block (its instance ID is unique by construction). |
 | `match` | Per field: `exact` (trimmed, case-insensitive, internal spaces collapsed) or `digits` (digits only, for phone numbers and IDs typed with dashes or spaces). |
 | `maxUses` | How many submissions may share a key. Default 1. A panel with three rounds in one form would use 3. |
 | `windowDays` | Optional. Only submissions within this many days of each other count as sharing a key (for repeated rounds in one form: e.g. 30 means "not twice in the same month"). Measured on the time the submission was received. |
@@ -69,8 +69,10 @@ submission has been deleted its answers are no longer shown; the finding is
 withdrawn on the next run.
 
 Both are stored in `field_data_integrity_flags` with `rule` =
-`identity:<keyId>` and the evidence's `kind` = `reused` or `inconsistent`, so
-they are resolved, withdrawn and audited exactly like F1 findings:
+`identity-reused:<keyId>` or `identity-inconsistent:<keyId>` (two rules, since
+one later submission can be both reused and inconsistent against the same
+earlier one) and the evidence's `kind` = `reused` or `inconsistent`, so they
+are resolved, withdrawn and audited exactly like F1 findings:
 
 - Withdrawn when a later run no longer finds them (the duplicate was deleted,
   the ID corrected), keeping the reviewer's status and note; and when the key's
@@ -97,8 +99,13 @@ a device. Key changes are audited.
 ## API
 
 `/v1/projects/:projectId/forms/:xmlFormId/identity-keys`: `GET`, `POST`,
-`PUT /:keyId` with `If-Match: "key-N"`, `DELETE /:keyId` (deactivates). Same
-problem codes and limits pattern as F1 contradiction rules. The run report
+`PUT /:keyId` with `If-Match: "key-N"`, `DELETE /:keyId` (deactivates).
+Problems: 400.56 invalid key, 409.38 limit of 20 active keys, 412.5 stale
+revision, 428.5 missing `If-Match`. Audit actions
+`field_data.identity_key.create`, `.update`, `.deactivate`. `GET .../integrity`
+adds `answers` to each identity finding: for each submission involved, the
+key questions (and for an inconsistency, the differing questions), read from
+its current version, or `null` once it is deleted. The run report
 gains a per-key summary: examined, no usable key, distinct keys, reused,
 inconsistent, unusable.
 
@@ -157,3 +164,39 @@ code, phone number and district:
 3. Findings store submission IDs and field paths, not answers. Answers are read
    live when a finding is shown, so a deleted submission's phone number does not
    remain in the findings table.
+
+## Validation evidence
+
+Locally, against real PostgreSQL 16:
+
+- Unit: 14 tests (`test/unit/util/identity-keys.js`): validation of every
+  setting and refused question kind (repeat, location, media, select-multiple,
+  metadata, unsafe paths), versioning only on matching changes, unusable keys,
+  exact and digit normalising, placeholders and repeated characters, combined
+  keys, reuse with `maxUses` and `windowDays`, inconsistency ignoring blanks
+  and choice order, and no answers in findings.
+- Integration: 5 tests (`test/integration/api/field-data-identity-keys.js`)
+  through the real routes: a reused household code and changed district found
+  and shown with live answers while the stored evidence holds none (checked in
+  the database); reason codes on the review case; placeholders, digit matching,
+  a panel's allowed visits and the window; a shared phone resolved as explained
+  stays resolved; deleting the duplicate withdraws the finding, keeps the note
+  and stops showing its answers; a dropped question makes the key unusable,
+  not run and not withdrawn; validation (400.56), revisions (412.5, 428.5),
+  the limit on create and reactivation (409.38), deactivation; managers write,
+  viewers see findings but not keys, App Users and other projects refused.
+- Browser: 3 tests (`e2e-tests/tests/field-data-identity-keys.spec.js`):
+  writing a phone key and checking the exact request; only suitable questions
+  offered; an unusable key explained; a stale save explained and the stored
+  key sent back unchanged; a reviewer sees reused and changed identities with
+  the answers, a deleted submission's row says so, run report, narrow width.
+- Deliberate breakages: 8 in the matching logic, 9 in the server wiring and 5
+  in the client; each made at least one test fail (two client breakages
+  survived the first browser tests, which were then strengthened).
+- Also fixed: the integrity run shared advisory lock key 74135 with queued
+  exports (introduced in G1); it now uses 74138.
+- Gates: CI integration set 64, feature set 22, server unit 1,709 (1 existing
+  pending), server and client lint, production build, full browser suite 93
+  passed.
+
+Not run here: CI on this branch, the client Karma suite, real field data.

@@ -2,6 +2,8 @@ const should = require('should');
 const { normalizeKey, usability, keyOf, findIdentityIssues, DEFAULT_IGNORE } = require('../../../lib/util/identity-keys');
 
 const fields = [
+  { path: '/meta', type: 'structure' },
+  { path: '/meta/instanceID', name: 'instanceID', type: 'string' },
   { path: '/survey', type: 'structure' },
   { path: '/survey/hh_code', name: 'hh_code', type: 'string' },
   { path: '/survey/hh_number', name: 'hh_number', type: 'int' },
@@ -60,6 +62,7 @@ describe('(util) identity keys', () => {
         [{ fields: [{ field: '/survey/location' }] }, 'fields[0].field'],
         [{ fields: [{ field: '/survey/photo' }] }, 'fields[0].field'],
         [{ fields: [{ field: '/survey/assets' }] }, 'fields[0].field'],
+        [{ fields: [{ field: '/meta/instanceID' }] }, 'fields[0].field'],
         [{ fields: [{ field: '/survey/hh_code', match: 'fuzzy' }] }, 'fields[0].match'],
         [{ fields: [{ field: "/survey/x');drop table forms;--" }] }, 'fields[0].field'],
         [{ sameFields: ['/survey/hh_code'] }, 'sameFields'],

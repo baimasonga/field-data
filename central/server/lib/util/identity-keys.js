@@ -52,12 +52,14 @@ const repeatedCharacter = (value) => value.length > 1 && /^(.)\1+$/su.test(value
 ////////////////////////////////////////////////////////////////////////////////
 // VALIDATION
 
-// Questions a key may use: top level (not in a repeat or group repeat), not
-// media or locations.
+// Questions a key may use: top level (not in a repeat), not media or
+// locations, and not the form's own metadata, whose instance ID is unique by
+// construction.
 const topLevel = (fields) => {
   const repeats = fields.filter((f) => f.type === 'repeat').map((f) => f.path);
   return new Map(fields
-    .filter((f) => f.binary !== true && PATH.test(f.path) && !repeats.some((r) => f.path.startsWith(`${r}/`)))
+    .filter((f) => f.binary !== true && PATH.test(f.path) && !f.path.startsWith('/meta/')
+      && !repeats.some((r) => f.path.startsWith(`${r}/`)))
     .map((f) => [f.path, f]));
 };
 
