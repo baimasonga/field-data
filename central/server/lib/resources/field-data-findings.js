@@ -11,6 +11,7 @@ const { sql } = require('slonik');
 const { Form } = require('../model/frames');
 const Problem = require('../util/problem');
 const { getOrNotFound } = require('../util/promise');
+const { LIMITS: COLLUSION, buildGroups } = require('../util/collusion');
 
 const FAMILIES = ['travel', 'location', 'contradiction', 'identity', 'similarity'];
 const STATUSES = ['open', 'investigating', 'resolved'];
@@ -118,6 +119,55 @@ module.exports = (service, endpoint) => {
       nextCursor: rows.length > PAGE
         ? Buffer.from(JSON.stringify({ rank: last.rank, at: last.at, id: last.id })).toString('base64url') : null
     };
+  }));
+
+  // Groups of collectors whose submissions keep matching (F5), from pair
+  // findings the caller may see on both sides. Computed on request.
+  service.get(`${root}/collectors`, endpoint(async (container, { auth, params, query }, request, response) => {
+    await scope(container, auth, params);
+    const projectId = Number(params.projectId);
+    const minLinks = query.minLinks == null ? COLLUSION.defaultMinLinks : Number(query.minLinks);
+    if ((query.minLinks != null && (typeof query.minLinks !== 'string' || !/^\d{1,2}$/.test(query.minLinks)))
+      || minLinks < COLLUSION.minLinks || minLinks > COLLUSION.maxMinLinks) throw invalid('minLinks', query.minLinks);
+    response.set('Cache-Control', 'private, no-store');
+    const formIds = await readableForms(container, auth, projectId);
+    if (formIds.length === 0) return { minLinks, links: 0, groups: [] };
+    const rows = await container.db.any(sql`
+      WITH pairs AS (
+        SELECT i.id, i.rule, i."formId", f."xmlFormId", COALESCE(fd.name, f."xmlFormId") AS "formName",
+          i."instanceId", i."relatedInstanceId",
+          COALESCE((SELECT o->>'xmlFormId' FROM jsonb_array_elements(CASE WHEN jsonb_typeof(i.evidence->'others') = 'array'
+            THEN i.evidence->'others' ELSE '[]'::jsonb END) o WHERE o->>'instanceId' = i."relatedInstanceId" LIMIT 1), f."xmlFormId") AS "relatedXmlFormId"
+        FROM field_data_integrity_flags i
+        JOIN forms f ON f.id = i."formId"
+        LEFT JOIN form_defs fd ON fd.id = COALESCE(f."currentDefId", f."draftDefId")
+        WHERE i."formId" = ANY(${sql.array(formIds, 'int4')})
+          AND (i.rule IN ('near-duplicate', 'repeated-location') OR i.rule LIKE 'identity-reused:%')
+          AND i.outcome = 'concern' AND i."relatedInstanceId" IS NOT NULL
+          AND NOT (i.status = 'resolved' AND i.decision = 'explained')
+      )
+      SELECT p.*, rf.id AS "relatedFormId", COALESCE(rfd.name, rf."xmlFormId") AS "relatedFormName",
+        s1."submitterId" AS a, s2."submitterId" AS b
+      FROM pairs p
+      JOIN forms rf ON rf."projectId" = ${projectId} AND rf."xmlFormId" = p."relatedXmlFormId" AND rf."deletedAt" IS NULL
+      LEFT JOIN form_defs rfd ON rfd.id = COALESCE(rf."currentDefId", rf."draftDefId")
+      JOIN submissions s1 ON s1."formId" = p."formId" AND s1."instanceId" = p."instanceId" AND s1."deletedAt" IS NULL
+      JOIN submissions s2 ON s2."formId" = rf.id AND s2."instanceId" = p."relatedInstanceId" AND s2."deletedAt" IS NULL`);
+    // A link to another form counts only when the caller may read that form too.
+    const readable = new Set(formIds);
+    for (const xmlFormId of new Set(rows.filter((r) => !readable.has(r.relatedFormId)).map((r) => r.relatedXmlFormId))) {
+      const form = await container.Forms.getByProjectAndXmlFormId(projectId, xmlFormId, Form.WithoutDef, Form.WithoutXml); // eslint-disable-line no-await-in-loop
+      // eslint-disable-next-line no-await-in-loop
+      if (form.isDefined() && await auth.can('submission.list', form.get()) && await auth.can('submission.read', form.get())) readable.add(form.get().id);
+    }
+    const links = rows.filter((r) => readable.has(r.relatedFormId)).map((r) => ({
+      findingId: r.id, a: r.a, b: r.b, rule: r.rule, xmlFormId: r.xmlFormId, formName: r.formName,
+      instanceId: r.instanceId, relatedInstanceId: r.relatedInstanceId, relatedXmlFormId: r.relatedXmlFormId, relatedFormName: r.relatedFormName
+    }));
+    const actorIds = [...new Set(links.flatMap((l) => [l.a, l.b]).filter((id) => id != null))];
+    const names = new Map((await container.db.any(sql`SELECT id, "displayName" FROM actors
+      WHERE id = ANY(${sql.array(actorIds, 'int4')})`)).map((a) => [a.id, a.displayName]));
+    return { minLinks, ...buildGroups(links, minLinks, names) };
   }));
 
   // Open findings by family and by form: a current count, not a measure of anyone.

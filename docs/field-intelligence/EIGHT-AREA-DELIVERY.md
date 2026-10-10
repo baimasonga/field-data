@@ -47,8 +47,11 @@ also exist. Those features must not be re-labelled as full completion of this pr
   read live rather than stored: merged in PR #63. Near-duplicate submissions
   (F4, first similarity signal): a later submission whose informative answers
   match an earlier one's at least 90%, routed to review with benign
-  explanations and no answers stored: implemented and locally validated.
-  Collusion graphs and triage remain pending.
+  explanations and no answers stored: merged in PR #70. Groups of collectors
+  whose submissions keep matching (F5, first collusion-subgraph slice):
+  collectors connected by repeated pair findings across forms, on the Review
+  page, with no score: implemented and locally validated. Triage remains
+  pending.
 - Static survey doctor (S1, first adaptive-surveys slice): checks of a form
   definition for unknown references, cycles, never-shown questions, impossible
   constraints and choice-list problems, on the Draft page and in the publish

@@ -15,7 +15,7 @@ const setup = async (page, { comparisonUnavailable = false, failComparison = fal
   const metricsWait = delayMetrics ? new Promise(resolve => { releaseMetrics = resolve; }) : null;
   const state = { assets: [], assetHistory: [], assetTasks: [], assetWrites: [], assetFailures: 0, assetConflict: false, mappingRevision: 0, mappingHistory: [], mappingRequests: [], mappingFailures: 0, mappingConflict: false, comparisonFailures: failComparison ? 1 : 0, comparisonRequests: 0, staleWrites: 0, conflictFailures: staleAssignment ? 1 : 0, status: 'open', assignedTo: null, revision: 1, backchecks: [], decisions: [], mutations: [], queueRequests: [], queueFailures: failQueue ? 1 : 0, assignmentFailures: failAssignment ? 1 : 0, metricsFailures: failMetrics ? 2 : 0 };
   Object.assign(state, { queueCalls: [], queueFailures_: 0, queueGate: null, queuePaged: false, queueTasks: [] });
-  Object.assign(state, { findings: [], findingsCalls: [], findingsFailures: 0, findingsPaged: false });
+  Object.assign(state, { findings: [], findingsCalls: [], findingsFailures: 0, findingsPaged: false, collectorGroups: [], collectorCalls: [] });
   await page.addInitScript(() => globalThis.localStorage.setItem('sessionExpires', String(Date.now() + 3600000)));
   await page.route('**/client-config.json', route => route.fulfill({ json: {} }));
   await page.route('**/version.txt', route => route.fulfill({ body: 'test' }));
@@ -50,6 +50,13 @@ const setup = async (page, { comparisonUnavailable = false, failComparison = fal
       activeReasons: selected ? [{ reasonCode: 'provenance-degraded', count: 1 }] : [] });
     }
     if (path === '/v1/projects/7/app-users') return respond([{ id: 42, displayName: 'Collector' }]);
+    // F5 collector groups: those whose strongest connection meets the minimum.
+    if (/^\/v1\/projects\/\d+\/findings\/collectors$/.test(path)) {
+      const minLinks = Number(url.searchParams.get('minLinks') ?? 3);
+      state.collectorCalls.push(minLinks);
+      const groups = path.startsWith('/v1/projects/7/') ? state.collectorGroups.filter((g) => g.connections.some((c) => c.links >= minLinks)) : [];
+      return respond({ minLinks, links: state.collectorGroups.reduce((n, g) => n + g.findingsTotal, 0), groups });
+    }
     // F3 findings inbox: filtered by the query, as the server does.
     if (/^\/v1\/projects\/\d+\/findings(\/summary)?$/.test(path)) {
       state.findingsCalls.push(Object.fromEntries([...url.searchParams.keys()].map((k) => [k, url.searchParams.getAll(k)])));
@@ -1102,6 +1109,43 @@ test('findings inbox pages, recovers from a failure, and fits a narrow screen', 
   await inbox.getByRole('button', { name: 'Load more' }).click();
   await expect(inbox.locator('.findings-items li')).toHaveCount(3);
   await expect(inbox.getByRole('button', { name: 'Load more' })).toHaveCount(0);
+  await page.setViewportSize({ width: 360, height: 800 });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= 360)).toBe(true);
+  expect(errors).toEqual([]);
+});
+
+test('collector groups show who keeps matching whom, with links to the findings', async ({ page }) => {
+  const { state, errors } = await setup(page);
+  state.collectorGroups.push({
+    members: [{ actorId: 42, displayName: 'Bockarie', links: 6 }, { actorId: 41, displayName: 'Aminata', links: 3 }, { actorId: 43, displayName: 'Christiana', links: 3 }],
+    connections: [
+      { a: 41, b: 42, links: 3, byRule: { 'near-duplicate': 2, identity: 1 } },
+      { a: 42, b: 43, links: 3, byRule: { 'repeated-location': 3 } }
+    ],
+    forms: [{ xmlFormId: 'health', formName: 'Health survey' }],
+    findings: [{ id: 1, xmlFormId: 'health', rule: 'identity-reused:k1', instanceId: 'uuid:copy', relatedInstanceId: 'uuid:orig', relatedXmlFormId: 'nutrition' }],
+    findingsShown: 1, findingsTotal: 6
+  });
+  const section = page.locator('.collector-groups');
+  await expect(section).toContainText('not a finding against anyone');
+  await expect(section.locator('.collector-groups-empty')).toContainText('No collectors are linked by 3 or more findings');
+  await section.getByRole('button', { name: 'Refresh' }).click();
+  const group = section.locator('.collector-group');
+  await expect(group).toHaveCount(1);
+  await expect(group.locator('.collector-group-head')).toContainText('Bockarie, Aminata, Christiana · 6 linking findings · Health survey');
+  await expect(group.locator('.collector-group-connections li').nth(0)).toContainText('Aminata and Bockarie: 3 (2 near-duplicate answers, 1 shared identity key)');
+  await expect(group.locator('.collector-group-connections li').nth(1)).toContainText('Bockarie and Christiana: 3 (3 identical location)');
+  await group.getByText('Findings (1 of 6)').click();
+  const item = group.locator('.collector-group-findings li');
+  await expect(item).toContainText('Shared identity key');
+  await expect(item.getByRole('link', { name: 'uuid:copy' })).toHaveAttribute('href', '/projects/7/forms/health/submissions/uuid%3Acopy');
+  await expect(item.getByRole('link', { name: 'uuid:orig' })).toHaveAttribute('href', '/projects/7/forms/nutrition/submissions/uuid%3Aorig');
+  await expect(item.getByRole('link', { name: 'Verification' })).toHaveAttribute('href', '/projects/7/forms/health/verification');
+
+  // A higher minimum leaves no group, and says so.
+  await section.getByLabel('Connect collectors linked by at least').selectOption('4');
+  await expect(section.locator('.collector-groups-empty')).toContainText('No collectors are linked by 4 or more findings');
+  expect(state.collectorCalls.at(-1)).toBe(4);
   await page.setViewportSize({ width: 360, height: 800 });
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= 360)).toBe(true);
   expect(errors).toEqual([]);
