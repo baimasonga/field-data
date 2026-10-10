@@ -38,8 +38,13 @@ also exist. Those features must not be re-labelled as full completion of this pr
 - Location evidence and deterministic spatial checks (G1, first geospatial slice):
   accuracy, outside-project-area and repeated-location rules in the existing integrity
   framework, location components, project-area designation, withdrawal of findings no
-  longer observed: implemented and locally validated; CI/merge pending. Imagery
-  availability (G1b), imagery analysis and change detection remain pending.
+  longer observed: merged in PR #60. Imagery availability (G1b), imagery analysis
+  and change detection remain pending.
+- Deterministic answer contradictions (F1, first fraud-intelligence slice): per-form
+  rules written by project managers, evaluated in the integrity framework with the
+  answers shown, benign explanations required, versioned, withdrawn when no longer
+  observed: implemented and locally validated; CI/merge pending. Identity-reuse and
+  cross-submission checks (F2), similarity, collusion and triage remain pending.
 - Remaining deliverables in all eight rows: pending.
 - Version-scoped evidence graph and recorded survey timeline: implemented and
   locally and CI validated, merged in PR #53 (E1). Capture sessions, sensor/challenge
