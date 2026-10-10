@@ -21,12 +21,17 @@ except according to the terms contained in the LICENSE file.
         <form-edit-doctor v-if="form.dataExists && form.publishedAt != null"
           :project-id="projectId" :xml-form-id="xmlFormId" target="published"
           :definition-key="form.hash"/>
+        <form-edit-simulation v-if="form.dataExists && form.publishedAt != null"
+          :project-id="projectId" :xml-form-id="xmlFormId" target="published"
+          :definition-key="form.hash"/>
       </template>
       <template v-else>
         <form-edit-def @after-upload="afterUpload"/>
         <form-edit-doctor :project-id="projectId" :xml-form-id="xmlFormId"
           target="draft" :definition-key="formDraft.get().hash"
           @report="(r) => { doctorErrors = r?.summary.errors ?? 0; }"/>
+        <form-edit-simulation :project-id="projectId" :xml-form-id="xmlFormId"
+          target="draft" :definition-key="formDraft.get().hash"/>
         <form-edit-attachments/>
         <form-edit-entities/>
         <form-draft-testing/>
@@ -55,6 +60,7 @@ import FormEditEntities from './edit/entities.vue';
 import FormEditCreateDraft from './edit/create-draft.vue';
 import FormEditDef from './edit/def.vue';
 import FormEditDoctor from './edit/doctor.vue';
+import FormEditSimulation from './edit/simulation.vue';
 import FormEditDraftControls from './edit/draft-controls.vue';
 import FormEditPublishedVersion from './edit/published-version.vue';
 import FormEditWebForm from './edit/web-form.vue';

@@ -49,8 +49,11 @@ also exist. Those features must not be re-labelled as full completion of this pr
 - Static survey doctor (S1, first adaptive-surveys slice): checks of a form
   definition for unknown references, cycles, never-shown questions, impossible
   constraints and choice-list problems, on the Draft page and in the publish
-  dialog: merged in PR #64 (including a sweep of 150 real forms). Simulation (S2),
-  approved policies and evolution remain pending.
+  dialog: merged in PR #64 (including a sweep of 150 real forms). Reproducible
+  interview simulation (S2): seeded simulated interviews of a form version
+  reporting never-shown questions, constraints not met, interview length and
+  what was not simulated, on the Draft page: implemented and locally validated
+  (swept over 158 forms). Approved policies and evolution remain pending.
 - Project findings inbox (F3): integrity findings from every readable form of a
   project in one list on the Review page, with filters and open counts, linking
   to each form's Verification page: merged in PR #65.
@@ -65,7 +68,7 @@ also exist. Those features must not be re-labelled as full completion of this pr
 - Random backcheck sample (O3): a seeded, reproducible share of every
   collector's submissions of a form, routed into review with the reason
   `backcheck-sample` for a backcheck by another App User, with coverage by
-  collector: implemented and locally validated. Scheduled samples, other
+  collector: merged in PR #68. Scheduled samples, other
   strata, backchecker workload balancing and estimates from backcheck results
   remain pending.
 - Remaining deliverables in all eight rows: pending.

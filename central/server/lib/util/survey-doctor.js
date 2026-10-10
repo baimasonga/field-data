@@ -638,4 +638,4 @@ const examine = (xml) => {
   };
 };
 
-module.exports = { DOCTOR_VERSION, LIMITS, FormTooLarge, examine, readForm, referencesOf };
+module.exports = { DOCTOR_VERSION, LIMITS, FormTooLarge, examine, readForm, referencesOf, allowed };

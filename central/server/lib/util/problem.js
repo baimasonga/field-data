@@ -180,6 +180,9 @@ const problems = {
       `The backcheck sample settings are invalid: ${field} ${reason}.`),
     backcheckSampleTooLarge: problem(400.59, ({ what, count, max }) =>
       `This sample would take ${count} ${what}, more than the ${max} allowed. Use a lower rate or minimum, or a shorter date range.`),
+    // 400.60 would equal 400.6 as a number.
+    simulationInvalid: problem(400.61, ({ field, reason }) =>
+      `The simulation settings are invalid: ${field} ${reason}.`),
 
     // no detail information for security reasons.
     authenticationFailed: problem(401.2, () => 'Could not authenticate with the provided credentials.'),
