@@ -211,6 +211,7 @@ jobs:
               test/integration/api/field-data-assets.js \
               test/integration/api/field-data-reverification-tasks.js \
               test/integration/api/field-data-location-evidence.js \
+              test/integration/api/field-data-contradictions.js \
               test/integration/api/field-data-app-user-backchecks.js
 
   server-integration-report:

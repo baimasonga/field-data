@@ -15,6 +15,7 @@ const captureRoutingMigration = require('../../../lib/model/migrations/20260924-
 const assetMigration = require('../../../lib/model/migrations/20261009-04-add-asset-freshness');
 const dispatchMigration = require('../../../lib/model/migrations/20261009-05-add-reverification-dispatch');
 const locationRoutingMigration = require('../../../lib/model/migrations/20261010-01-route-location-findings');
+const contradictionMigration = require('../../../lib/model/migrations/20261010-02-add-contradiction-rules');
 const mappingMigration = require('../../../lib/model/migrations/20261009-03-add-backcheck-field-mappings');
 const backcheckMigration = require('../../../lib/model/migrations/20260924-07-add-backcheck-requests');
 const { testService, testServiceFullTrx } = require('../setup');
@@ -132,6 +133,7 @@ describe('api: P0.2 claim versioning', () => {
       const db = knexConnect(config.get('test.database'));
       try {
         await db.transaction(async (trx) => {
+          await contradictionMigration.down(trx);
           await locationRoutingMigration.down(trx);
           await dispatchMigration.down(trx);
           await assetMigration.down(trx);
@@ -162,6 +164,7 @@ describe('api: P0.2 claim versioning', () => {
           await assetMigration.up(trx);
           await dispatchMigration.up(trx);
           await locationRoutingMigration.up(trx);
+          await contradictionMigration.up(trx);
         });
       } finally {
         await db.destroy();

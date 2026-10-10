@@ -1,6 +1,6 @@
 # F1: deterministic answer contradictions
 
-Status: contract for review. No code yet.
+Status: contract agreed 2026-10-10. Open contradictions hold up review acceptance like other findings; project managers write rules; cross-submission checks are F2.
 
 First slice of the fraud-intelligence area (row 6 of the delivery ledger:
 "deterministic contradictions"). A project manager writes, per form, rules
@@ -47,8 +47,11 @@ Operators: `=`, `<>`, `>`, `<`, `>=`, `<=`, `selected` and `notSelected` (for
 select-multiple answers), `empty`, `notEmpty`.
 
 - Fields are resolved against the form definition, by path. Comparisons are
-  numeric for `int` and `decimal` fields, and text otherwise. `selected` is only
-  allowed on select-multiple fields.
+  numeric for `int` and `decimal` fields, and text otherwise. `>`, `<`, `>=`
+  and `<=` are only allowed on number questions, and `selected` and
+  `notSelected` only on select-multiple questions. A question compared with
+  another must be the same kind (number or text) and in the same place (top
+  level, or the same repeat).
 - **Repeat groups** (such as a household roster) cannot be compared member by
   member in F1. They can be counted:
 
@@ -88,7 +91,10 @@ alongside the travel and location rules:
 - **Withdrawn** applies as for location findings: when a later run no longer
   matches (for example after the submission was corrected), the finding is
   withdrawn, keeping the reviewer's status and note, and stops holding up
-  review.
+  review. When a rule's conditions change, the next run withdraws findings of
+  the earlier version ("the rule changed; it is now version N"); they stay
+  readable with the conditions they were found under. The same now applies to
+  the location rules if their version ever changes.
 - An open contradiction adds reason code `answer-contradiction` to the
   submission's review case.
 
@@ -100,9 +106,10 @@ alongside the travel and location rules:
   existing checks use.
 - **Findings** are readable, as all integrity findings are today, by anyone who
   can list and read the form's submissions (viewers included). A finding shows
-  the answers it rests on, which those readers can already see, and the rule's
-  explanation. The rule's full condition list is visible only with
-  `submission.update`.
+  the conditions it matched beside the answers behind them, because a finding
+  cannot be understood without them. The rule list itself (all rules, including
+  ones that matched nothing, and their drafts) needs `submission.update`.
+  Collectors and App Users cannot read findings or rules.
 - **Collectors and App Users** cannot see rules or findings. The rule logic is
   never sent to a collection device. This follows the guidance that detection
   logic must not reach the people being checked.
@@ -175,3 +182,37 @@ Through the real API and a browser flow:
 - A reviewer can order a back-check from the submission's review case (which
   carries the `answer-contradiction` reason) through the existing back-check
   flow, and resolving the finding does not change the submission.
+
+## Validation evidence
+
+Locally, against real PostgreSQL 16:
+
+- Unit: 11 tests (`test/unit/util/contradiction-rules.js`): validation of every
+  operator against the kind of question, repeat scoping, unsafe paths, required
+  benign explanations, three-valued evaluation, numeric versus text, roster
+  counts with and without filters, unusable rules after a form change.
+- Integration: 5 tests (`test/integration/api/field-data-contradictions.js`)
+  through the real routes: a known-bad roster found with its answers; a blank
+  optional answer counted as "could not evaluate"; reason code on the review
+  case; audits; version only on condition changes and withdrawal of the old
+  version's findings; withdrawal after a corrected submission keeping the
+  reviewer's note; a republished form without the question makes the rule
+  unusable, not run and not withdrawn; validation errors (400.55), If-Match
+  (428.4, 412.4), the 50-rule limit on create and reactivation (409.37),
+  deactivation instead of deletion; managers write, viewers see findings but
+  not rules, App Users and other projects refused.
+- Browser: 3 tests (`e2e-tests/tests/field-data-contradictions.spec.js`):
+  writing a roster rule in the editor and checking the exact request; tests
+  offered only where they fit the question; a rule whose question was dropped
+  cannot be saved until replaced; a stale save explained; a reviewer sees the
+  finding with the answers behind it and cannot edit rules; run report; narrow
+  width.
+- Deliberate breakages: 6 in the rule engine, 6 in the server wiring and 4 in
+  the client; each made at least one test fail. Two real defects were found
+  this way and fixed: the number counted overwrote the rule's count definition
+  in stored evidence, and a stale-save message was erased by the reload.
+- Gates: CI integration set 59, feature set 22, server unit 1,686 (1 existing
+  pending), hardening 62, server and client lint, production build, full
+  browser suite 87 passed.
+
+Not run here: CI on this branch, the client Karma suite, real field data.

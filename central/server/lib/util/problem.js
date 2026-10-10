@@ -170,6 +170,8 @@ const problems = {
       antimeridian: 'A project area crossing the antimeridian is not supported.',
       'self-intersecting': 'A project area boundary crosses itself. Correct the polygon and upload it again.'
     })[reason] ?? 'This layer cannot be used as the project area.'),
+    contradictionRuleInvalid: problem(400.55, ({ field, reason }) =>
+      `The contradiction rule is invalid: ${field} ${reason}.`),
 
     // no detail information for security reasons.
     authenticationFailed: problem(401.2, () => 'Could not authenticate with the provided credentials.'),
@@ -292,9 +294,11 @@ const problems = {
     reverificationTaskState: problem(409.35, () => 'This re-verification task is not in a state that allows that change.'),
     reverificationProofRejected: problem(409.36, ({ reason }) =>
       `The linked observation is not acceptable field evidence for this task: ${reason}.`),
+    contradictionRuleLimit: problem(409.37, () => 'This form already has the maximum of 50 active contradiction rules.'),
     reviewRevisionStale: problem(412.1, () => 'The review case has changed. Refresh and retry.'),
     assetRevisionStale: problem(412.2, () => 'The asset has changed. Reload its history before saving.'),
     reverificationRevisionStale: problem(412.3, () => 'The re-verification task has changed. Reload it before saving.'),
+    contradictionRuleRevisionStale: problem(412.4, () => 'The contradiction rule has changed. Reload it before saving.'),
     evidenceScopeInvalid: problem(422.1, () =>
       'The evidence link must refer to this claim version and a valid predecessor.'),
     reviewAcceptanceBlocked: problem(422.2, () =>
@@ -302,6 +306,7 @@ const problems = {
     reviewRevisionRequired: problem(428.1, () => 'If-Match is required for review assignments.'),
     assetRevisionRequired: problem(428.2, () => 'If-Match is required for asset observations.'),
     reverificationRevisionRequired: problem(428.3, () => 'If-Match is required for re-verification task changes.'),
+    contradictionRuleRevisionRequired: problem(428.4, () => 'If-Match is required for contradiction rule changes.'),
   },
   internal: {
     // no detail information, as this is only called when we don't know what happened.

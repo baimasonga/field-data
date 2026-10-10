@@ -22,6 +22,7 @@ const { parseGeopoint, checkImplausibleTravel, IMPLAUSIBLE_TRAVEL } = require('.
 const { LOCATION_ACCURACY, OUTSIDE_PROJECT_AREA, REPEATED_LOCATION } = require('../util/location-evidence');
 const { checkLocationAccuracy, checkOutsideProjectArea, checkRepeatedLocation, locationComponents } = require('../util/location-evidence');
 const { projectAreaFor } = require('../util/map-layer-store');
+const { RULE_PREFIX, usability, parseInstance, evaluateRule } = require('../util/contradiction-rules');
 const { normalizeDefinition, resolveStoredDefinition, compileFilter, extractObject, projectObject } = require('../util/filtered-datasets');
 const { normalizeWidget, capRows, tooManyDistinct, MAX_BARS } = require('../util/widgets');
 const { chartableFields } = require('../util/summary-fields');
@@ -2059,6 +2060,56 @@ module.exports = (service, endpoint) => {
     };
   };
 
+  // F1 answer contradictions: the form's active rules over the current version
+  // of each submission. A rule the current form can no longer support is
+  // reported and not run, never run with a condition missing.
+  const contradictionChecks = async (container, form, encrypted) => {
+    const rules = await container.db.any(sql`select * from field_data_contradiction_rules
+      where "formId" = ${form.id} and active order by "createdAt", id`);
+    if (rules.length === 0) return { rules: [], ran: [], findings: [] };
+    const fields = await container.Forms.getFields(form.def.id);
+    const summaries = rules.map((rule) => ({ rule, status: encrypted ? { usable: false, reason: 'encrypted-form' } : usability(rule.conditions, fields) }));
+    const runnable = summaries.filter((r) => r.status.usable);
+    const findings = [];
+    const counts = new Map(runnable.map(({ rule }) => [rule.id, { examined: 0, matched: 0, notEvaluated: 0 }]));
+    if (runnable.length > 0) {
+      const submissions = await container.db.any(sql`
+        select s."instanceId", sd.xml from submissions s
+        join submission_defs sd on sd."submissionId" = s.id and sd.current = true
+        where s."formId" = ${form.id} and s."deletedAt" is null and s.draft = false
+        order by s.id`);
+      for (const submission of submissions) {
+        let instance;
+        try { instance = parseInstance(submission.xml); } catch { instance = null; }
+        for (const { rule } of runnable) {
+          const count = counts.get(rule.id);
+          count.examined += 1;
+          const result = instance == null ? { outcome: 'not-evaluated' } : evaluateRule(rule.conditions, instance, fields);
+          if (result.outcome === 'not-evaluated') count.notEvaluated += 1;
+          if (result.outcome === 'match') {
+            count.matched += 1;
+            findings.push({
+              rule: `${RULE_PREFIX}${rule.id}`, ruleVersion: rule.version, instanceId: submission.instanceId,
+              relatedInstanceId: null, outcome: 'concern',
+              evidence: {
+                ruleId: rule.id, title: rule.title, explanation: rule.explanation, conditions: result.conditions,
+                // Written by the rule's author, shown beside the finding.
+                alternatives: rule.benignExplanations, nextStep: rule.nextStep
+              }
+            });
+          }
+        }
+      }
+    }
+    return {
+      rules: summaries.map(({ rule, status }) => ({
+        id: rule.id, title: rule.title, version: rule.version, status, ...(counts.get(rule.id) ?? {})
+      })),
+      ran: runnable.map(({ rule }) => ({ rule: `${RULE_PREFIX}${rule.id}`, version: rule.version })),
+      findings
+    };
+  };
+
   service.get('/projects/:projectId/forms/:xmlFormId/evidence', endpoint(async (container, { params, auth }) => {
     const form = await container.Forms
       .getByProjectAndXmlFormId(params.projectId, params.xmlFormId, Form.PublishedVersion)
@@ -2143,10 +2194,11 @@ module.exports = (service, endpoint) => {
       findings.push(...checkImplausibleTravel(rows));
 
     const location = await locationChecks(container.db, form, evidence);
+    const contradictions = await contradictionChecks(container, form, location.encrypted);
 
     // Only what a person should see is stored. A plausible pair is the normal
     // case and recording every one of them would bury the rest.
-    const worthKeeping = [...findings.filter((f) => f.outcome !== 'plausible'), ...location.findings];
+    const worthKeeping = [...findings.filter((f) => f.outcome !== 'plausible'), ...location.findings, ...contradictions.findings];
 
     for (const finding of worthKeeping) {
       // eslint-disable-next-line no-await-in-loop
@@ -2161,27 +2213,34 @@ module.exports = (service, endpoint) => {
         do update set evidence = excluded.evidence, outcome = excluded.outcome`);
     }
 
-    // A location finding that this run no longer observes is withdrawn rather
-    // than left open or deleted: a person's status, decision and note are kept,
-    // and review treats it as settled. Only rules that ran can withdraw.
-    const observed = new Set(location.findings.map((f) => `${f.rule}|${f.instanceId}|${f.relatedInstanceId ?? ''}`));
+    // A location or contradiction finding that this run no longer observes is
+    // withdrawn rather than left open or deleted: a person's status, decision
+    // and note are kept, and review treats it as settled. Only rules that ran
+    // can withdraw. Findings from an earlier version of a rule that ran are
+    // withdrawn too: that version no longer exists to be checked, and its
+    // finding stays readable with the conditions it was found under.
+    const key = (f) => `${f.rule}|${f.ruleVersion}|${f.instanceId}|${f.relatedInstanceId ?? ''}`;
+    const observed = new Set([...location.findings, ...contradictions.findings].map(key));
     let withdrawn = 0;
-    for (const spec of location.ran) {
+    for (const spec of [...location.ran, ...contradictions.ran]) {
       // eslint-disable-next-line no-await-in-loop
       const existing = await container.db.any(sql`
-        select id, rule, "instanceId", "relatedInstanceId" from field_data_integrity_flags
-        where "formId" = ${form.id} and rule = ${spec.rule} and "ruleVersion" = ${spec.version}
-          and outcome <> 'withdrawn'`);
-      const gone = existing.filter((f) => !observed.has(`${f.rule}|${f.instanceId}|${f.relatedInstanceId ?? ''}`)).map((f) => f.id);
-      if (gone.length > 0) {
-        // eslint-disable-next-line no-await-in-loop
-        await container.db.query(sql`
-          update field_data_integrity_flags
-          set outcome = 'withdrawn',
-              evidence = evidence || jsonb_build_object('withdrawnAt', clock_timestamp(),
-                'withdrawnReason', 'A later run no longer found this.')
-          where id = any(${sql.array(gone, 'int4')})`);
-        withdrawn += gone.length;
+        select id, rule, "ruleVersion", "instanceId", "relatedInstanceId" from field_data_integrity_flags
+        where "formId" = ${form.id} and rule = ${spec.rule} and outcome <> 'withdrawn'`);
+      const gone = existing.filter((f) => !observed.has(key(f)));
+      for (const [reason, rows] of [
+        ['A later run no longer found this.', gone.filter((f) => f.ruleVersion === spec.version)],
+        [`The rule changed; it is now version ${spec.version}.`, gone.filter((f) => f.ruleVersion !== spec.version)]
+      ]) {
+        if (rows.length > 0) {
+          // eslint-disable-next-line no-await-in-loop
+          await container.db.query(sql`
+            update field_data_integrity_flags
+            set outcome = 'withdrawn',
+                evidence = evidence || jsonb_build_object('withdrawnAt', clock_timestamp(), 'withdrawnReason', ${reason}::text)
+            where id = any(${sql.array(rows.map((f) => f.id), 'int4')})`);
+          withdrawn += rows.length;
+        }
       }
     }
 
@@ -2190,6 +2249,7 @@ module.exports = (service, endpoint) => {
     });
 
     return {
+      contradictionRules: contradictions.rules,
       locationRules: [
         summary(LOCATION_ACCURACY, location.encrypted ? null : location.results.accuracy, { maxAccuracyM: LOCATION_ACCURACY.maxAccuracyM }),
         summary(OUTSIDE_PROJECT_AREA, location.results.outside, { defaultToleranceM: OUTSIDE_PROJECT_AREA.defaultToleranceM }),

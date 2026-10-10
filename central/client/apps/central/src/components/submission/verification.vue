@@ -78,6 +78,9 @@ and a number that looks like one would be believed.
         </details>
       </section>
 
+      <contradiction-rules v-if="canReview" :project-id="projectId" :xml-form-id="xmlFormId"
+        :can-manage="canManage"/>
+
       <section class="verification-findings">
         <div class="findings-head">
           <h2>{{ $t('findings.title') }}</h2>
@@ -104,6 +107,11 @@ and a number that looks like one would be believed.
               ? $t('findings.locationRule', { name: $t(`ruleName.${rule.rule}`), version: rule.ruleVersion, concerns: $n(rule.concern ?? 0, 'default') })
               : $t('findings.locationRuleSkipped', { name: $t(`ruleName.${rule.rule}`) }) }}
           </span>
+          <span v-for="rule of lastRun.contradictionRules ?? []" :key="rule.id" class="run-rule">
+            {{ rule.status.usable
+              ? $t('findings.contradictionRule', { title: rule.title, version: rule.version, matched: $n(rule.matched, 'default'), unknown: $n(rule.notEvaluated, 'default') })
+              : $t('findings.contradictionRuleSkipped', { title: rule.title }) }}
+          </span>
           <span v-if="lastRun.withdrawn > 0" class="run-rule">
             {{ $t('findings.withdrawnReport', { count: $n(lastRun.withdrawn, 'default') }) }}
           </span>
@@ -122,7 +130,7 @@ and a number that looks like one would be believed.
                 {{ $t(`outcome.${flag.outcome}`) }}
               </span>
               <span class="finding-status">
-                {{ $t(`ruleName.${flag.rule}`, flag.rule) }} · {{ $t(`status.${flag.status}`) }}
+                {{ ruleLabel(flag) }} · {{ $t(`status.${flag.status}`) }}
               </span>
             </div>
 
@@ -183,6 +191,13 @@ and a number that looks like one would be believed.
               </div>
             </dl>
 
+            <dl v-else-if="isContradiction(flag) && flag.evidence.conditions != null" class="finding-evidence finding-answers">
+              <div v-for="(c, i) of flag.evidence.conditions" :key="i">
+                <dt>{{ describeCondition(c) }}</dt>
+                <dd>{{ answerText(c) }}</dd>
+              </div>
+            </dl>
+
             <p v-if="flag.outcome === 'withdrawn'" class="finding-next">{{ $t('findings.withdrawnNote') }}</p>
 
             <template v-if="flag.evidence.alternatives != null">
@@ -240,6 +255,8 @@ import { useI18n } from 'vue-i18n';
 import Loading from '../loading.vue';
 import Spinner from '../spinner.vue';
 import SubmissionReviewQueue from './review-queue.vue';
+import ContradictionRules from './contradiction-rules.vue';
+import { describeCondition } from '../../util/contradiction-rules';
 
 import useRequest from '../../composables/request';
 import { apiPaths } from '../../util/request';
@@ -268,6 +285,8 @@ const review = reactive({});
 // that reads it.
 const canReview = computed(() =>
   project.dataExists && project.permits('submission.update'));
+// Writing contradiction rules is project management.
+const canManage = computed(() => project.dataExists && project.permits('project.update'));
 
 const load = () => Promise.all([
   request({ method: 'GET', url: apiPaths.formEvidence(props.projectId, props.xmlFormId) })
@@ -335,6 +354,20 @@ const describe = (flag) => {
     : t(`describe.${flag.evidence.reason}`, t('describe.inconclusive'));
 };
 
+const isContradiction = (flag) => flag.rule.startsWith('contradiction:');
+const ruleLabel = (flag) => (isContradiction(flag)
+  ? t('ruleName.contradiction', { title: flag.evidence.title ?? '' })
+  : t(`ruleName.${flag.rule}`, flag.rule));
+// What the Submission actually answered, beside each condition of the rule.
+const answerText = (c) => {
+  if (c.counted != null) {
+    const compared = c.compareAnswer != null ? t('answers.compared', { answer: c.compareAnswer }) : '';
+    return `${t('answers.counted', { count: c.counted })}${compared}`;
+  }
+  const answer = c.answer == null ? t('answers.blank') : c.answer;
+  return c.compareAnswer != null ? `${answer}${t('answers.compared', { answer: c.compareAnswer })}` : answer;
+};
+
 // "3 inside · 1 outside · 2 not checked", in a fixed order, omitting zeros.
 const COVERAGE_ORDER = {
   withinArea: ['inside', 'near-edge', 'outside', 'no-area-set', 'not-checked'],
@@ -373,6 +406,9 @@ const coverageText = (counts, kind) => COVERAGE_ORDER[kind]
       // {name} is a rule name such as "Location accuracy".
       "locationRule": "{name} v{version}: {concerns} to look at.",
       "locationRuleSkipped": "{name}: not run.",
+      // {title} is a contradiction rule's title.
+      "contradictionRule": "Contradiction \"{title}\" v{version}: {matched} found, {unknown} could not be checked.",
+      "contradictionRuleSkipped": "Contradiction \"{title}\": not run, the Form no longer has what it checks.",
       "withdrawnReport": "{count} earlier location findings are no longer found and were withdrawn.",
       "withdrawnNote": "A later run no longer found this. It no longer holds up a review, and any decision recorded here is kept."
     },
@@ -385,7 +421,16 @@ const coverageText = (counts, kind) => COVERAGE_ORDER[kind]
       "implausible-travel": "Travel between Submissions",
       "location-accuracy": "Location accuracy",
       "outside-project-area": "Outside the project area",
-      "repeated-location": "Repeated location"
+      "repeated-location": "Repeated location",
+      // {title} is the title a project manager gave the rule.
+      "contradiction": "Contradiction: {title}"
+    },
+    "answers": {
+      "blank": "(blank)",
+      // {count} is a number of repeat entries.
+      "counted": "counted {count}",
+      // {answer} is the other question's answer.
+      "compared": " (compared with {answer})"
     },
     "location": {
       "area": "Project area",
