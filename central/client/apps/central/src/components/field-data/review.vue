@@ -37,7 +37,10 @@
           :project-id="projectId" :xml-form-id="xmlFormId" :can-review="canReview"
           @asset-source="sourceClaimVersionId = $event"/>
         <field-data-findings-inbox v-if="projectId" :key="`findings:${projectId}`" :project-id="projectId"/>
-        <field-data-collector-groups v-if="projectId" :key="`collectors:${projectId}`" :project-id="projectId"/>
+        <field-data-collector-groups v-if="projectId" :key="`collectors:${projectId}`" :project-id="projectId"
+          :can-investigate="canManageProject" @investigate="investigationPrefill = $event"/>
+        <field-data-investigations v-if="projectId && canManageProject" :key="`investigations:${projectId}`"
+          :project-id="projectId" :prefill="investigationPrefill"/>
         <field-data-project-search v-if="projectId" :key="`search:${projectId}`" :project-id="projectId" @open="openFromQueue"/>
         <field-data-asset-status v-if="projectId" :key="`status:${projectId}`" :project-id="projectId" @open="openFromQueue"/>
         <field-data-reverification-queue v-if="projectId" :key="`queue:${projectId}`"
@@ -63,6 +66,7 @@ import FieldDataAssets from './assets.vue';
 import FieldDataReverificationQueue from './reverification-queue.vue';
 import FieldDataFindingsInbox from './findings-inbox.vue';
 import FieldDataCollectorGroups from './collector-groups.vue';
+import FieldDataInvestigations from './investigations.vue';
 import FieldDataProjectSearch from './project-search.vue';
 import FieldDataAssetStatus from './asset-status.vue';
 import { useRequestData } from '../../request-data';
@@ -95,6 +99,10 @@ const availableProjects = computed(() => (projects.dataExists
 const selectedProject = computed(() => availableProjects.value.find(project => String(project.id) === projectId.value));
 const forms = computed(() => selectedProject.value?.formList || []);
 const canReview = computed(() => selectedProject.value?.verbs?.includes('submission.update') === true);
+// Investigations (F6) are for those who may manage the project.
+const canManageProject = computed(() => selectedProject.value?.verbs?.includes('project.update') === true);
+const investigationPrefill = ref(null);
+watch(projectId, () => { investigationPrefill.value = null; });
 const reload = () => {
   loadFailed.value = false;
   return projects.request({ url: '/v1/projects?forms=true', extended: true, resend: true })

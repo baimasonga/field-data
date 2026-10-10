@@ -6,7 +6,7 @@ const versionId = '22222222-2222-4222-8222-222222222222';
 const backcheckId = '33333333-3333-4333-8333-333333333333';
 const etag = revision => `"review-case-${revision}"`;
 
-const setup = async (page, { comparisonUnavailable = false, failComparison = false, staleAssignment = false, canOverride = false, readOnly = false, noProjects = false, failQueue = false, failAssignment = false, manageQuality = false, delayOpen = false, failMetrics = false, delayMetrics = false } = {}) => {
+const setup = async (page, { comparisonUnavailable = false, failComparison = false, staleAssignment = false, canOverride = false, readOnly = false, noProjects = false, failQueue = false, failAssignment = false, manageQuality = false, delayOpen = false, failMetrics = false, delayMetrics = false, manageProject = false } = {}) => {
   const errors = [];
   page.on('pageerror', error => errors.push(error.message));
   let releaseOpen;
@@ -15,7 +15,7 @@ const setup = async (page, { comparisonUnavailable = false, failComparison = fal
   const metricsWait = delayMetrics ? new Promise(resolve => { releaseMetrics = resolve; }) : null;
   const state = { assets: [], assetHistory: [], assetTasks: [], assetWrites: [], assetFailures: 0, assetConflict: false, mappingRevision: 0, mappingHistory: [], mappingRequests: [], mappingFailures: 0, mappingConflict: false, comparisonFailures: failComparison ? 1 : 0, comparisonRequests: 0, staleWrites: 0, conflictFailures: staleAssignment ? 1 : 0, status: 'open', assignedTo: null, revision: 1, backchecks: [], decisions: [], mutations: [], queueRequests: [], queueFailures: failQueue ? 1 : 0, assignmentFailures: failAssignment ? 1 : 0, metricsFailures: failMetrics ? 2 : 0 };
   Object.assign(state, { queueCalls: [], queueFailures_: 0, queueGate: null, queuePaged: false, queueTasks: [] });
-  Object.assign(state, { findings: [], findingsCalls: [], findingsFailures: 0, findingsPaged: false, collectorGroups: [], collectorCalls: [], workload: false, search: null, searchCalls: [], searchFailures: 0, projection: null, projectionCalls: [], projectionFailures: 0 });
+  Object.assign(state, { findings: [], findingsCalls: [], findingsFailures: 0, findingsPaged: false, collectorGroups: [], collectorCalls: [], workload: false, search: null, searchCalls: [], searchFailures: 0, projection: null, projectionCalls: [], projectionFailures: 0, investigations: [], investigationWrites: [], investigationFailures: 0, investigationStale: false });
   await page.addInitScript(() => globalThis.localStorage.setItem('sessionExpires', String(Date.now() + 3600000)));
   await page.route('**/client-config.json', route => route.fulfill({ json: {} }));
   await page.route('**/version.txt', route => route.fulfill({ body: 'test' }));
@@ -27,7 +27,7 @@ const setup = async (page, { comparisonUnavailable = false, failComparison = fal
     if (path === '/v1/sessions/restore') return respond({ expiresAt: '2099-01-01T00:00:00Z', csrf: 'test' });
     if (path === '/v1/users/current') return respond({ id: 1, displayName: 'Test reviewer', email: 'reviewer@example.test', verbs: manageQuality ? ['project.create'] : [], preferences: { site: {}, projects: {} } });
     if (path === '/v1/projects') return respond(noProjects ? [] : [
-      { id: 7, name: 'Health project', verbs: readOnly ? ['submission.read'] : ['submission.read', 'submission.update'], formList: [{ xmlFormId: 'health', name: 'Health survey' }, { xmlFormId: 'nutrition', name: 'Nutrition survey' }] },
+      { id: 7, name: 'Health project', verbs: readOnly ? ['submission.read'] : ['submission.read', 'submission.update', ...(manageProject ? ['project.update'] : [])], formList: [{ xmlFormId: 'health', name: 'Health survey' }, { xmlFormId: 'nutrition', name: 'Nutrition survey' }] },
       { id: 8, name: 'Water project', verbs: ['submission.read'], formList: [{ xmlFormId: 'water', name: 'Water survey' }] }
     ]);
     if (path === '/v1/field-data/review') {
@@ -150,6 +150,35 @@ const setup = async (page, { comparisonUnavailable = false, failComparison = fal
         return reply();
       }
       return route.fulfill({ status: 404, json: {} });
+    }
+    // F6 investigations, with revisions as the server keeps them.
+    const investigationPath = /^\/v1\/projects\/7\/investigations(?:\/([^/]+)(?:\/(notes|close|reopen))?)?$/.exec(path);
+    if (investigationPath != null) {
+      const [, id, action] = investigationPath;
+      const summary = (v) => ({ id: v.id, title: v.title, status: v.status, disposition: v.disposition, revision: v.revision, findings: v.findings.length });
+      if (req.method() === 'GET' && id == null) return respond(state.investigations.map(summary));
+      const data = req.method() === 'POST' ? req.postDataJSON() : null;
+      if (data != null) state.investigationWrites.push({ path, data, ifMatch: req.headers()['if-match'] ?? null });
+      if (data != null && state.investigationFailures-- > 0) return route.fulfill({ status: 500, json: { message: 'Failed' } });
+      const event = (kind, extra = {}) => ({ id: Date.now() + Math.random(), kind, actorName: 'Test reviewer', createdAt: '2026-10-10T12:00:00.000Z', note: null, disposition: null, findingIds: null, ...extra });
+      if (id == null) {
+        const v = { id: `inv-${state.investigations.length + 1}`, title: data.title, status: 'open', disposition: null, revision: 1, openedByName: 'Test reviewer',
+          findings: data.findingIds.map((f) => ({ id: f, rule: 'near-duplicate', title: `Finding ${f}`, outcome: 'inconclusive', xmlFormId: 'health', instanceId: `uuid:${f}`, relatedInstanceId: null })),
+          hiddenFindings: 0, events: [event('opened', { findingIds: data.findingIds })] };
+        state.investigations.unshift(v);
+        return route.fulfill({ status: 201, json: v });
+      }
+      const v = state.investigations.find((x) => x.id === id);
+      if (action == null) return respond(v);
+      if (action !== 'notes') {
+        if (state.investigationStale) { state.investigationStale = false; v.revision += 1; return route.fulfill({ status: 412, json: { message: 'Stale' } }); }
+        expect(req.headers()['if-match']).toBe(`"investigation-${v.revision}"`);
+        v.revision += 1;
+      }
+      if (action === 'notes') v.events.push(event('note', { note: data.note }));
+      if (action === 'close') { v.status = 'closed'; v.disposition = data.disposition; v.events.push(event('closed', { note: data.conclusion, disposition: data.disposition })); }
+      if (action === 'reopen') { v.status = 'open'; v.disposition = null; v.events.push(event('reopened', { note: data.reason })); }
+      return route.fulfill({ status: action === 'notes' ? 201 : 200, json: v });
     }
     // K3 asset status: the predicate list, then one predicate's projection.
     if (/^\/v1\/field-data\/projects\/\d+\/assets\/projection$/.test(path)) {
@@ -1323,5 +1352,73 @@ test('asset status says when no asset has a recorded fact', async ({ page }) => 
   await expect(section.locator('.asset-status-empty')).toHaveText('No asset in this project has a recorded fact yet.');
   await expect(section.locator('form')).toHaveCount(0);
   expect(state.projectionCalls).toEqual(['']);
+  expect(errors).toEqual([]);
+});
+
+test('a manager opens an investigation from a collector group, notes, closes and reopens it', async ({ page }) => {
+  const { state, errors } = await setup(page, { manageProject: true });
+  const section = page.getByRole('region', { name: 'Investigations' });
+  await expect(section.locator('.investigations-empty')).toContainText('No investigation has been opened');
+  state.collectorGroups.push({
+    members: [{ actorId: 42, displayName: 'Bockarie', links: 3 }, { actorId: 41, displayName: 'Aminata', links: 3 }],
+    connections: [{ a: 41, b: 42, links: 3, byRule: { 'near-duplicate': 3 } }],
+    forms: [{ xmlFormId: 'health', formName: 'Health survey' }],
+    findings: [{ id: 11, xmlFormId: 'health', rule: 'near-duplicate', instanceId: 'uuid:a', relatedInstanceId: 'uuid:b', relatedXmlFormId: 'health' },
+      { id: 12, xmlFormId: 'health', rule: 'near-duplicate', instanceId: 'uuid:c', relatedInstanceId: 'uuid:d', relatedXmlFormId: 'health' }],
+    findingsShown: 2, findingsTotal: 3
+  });
+  const groups = page.locator('.collector-groups');
+  await groups.getByRole('button', { name: 'Refresh' }).click();
+  await groups.getByRole('button', { name: 'Open an investigation' }).click();
+
+  // Prefilled from the group; a failed attempt is retried with the same request ID.
+  await expect(section.getByLabel('Title')).toHaveValue('Collectors Bockarie, Aminata');
+  await expect(section.locator('.investigations-new')).toContainText('2 findings to include.');
+  state.investigationFailures = 1;
+  await section.getByRole('button', { name: 'Open investigation' }).click();
+  await expect(section.getByRole('alert')).toHaveText('The investigation could not be saved. Try again.');
+  await section.getByRole('button', { name: 'Open investigation' }).click();
+  await expect(section.locator('.investigations-new')).toHaveCount(0);
+  const [first, second] = state.investigationWrites;
+  expect(second.data).toEqual({ requestId: first.data.requestId, title: 'Collectors Bockarie, Aminata', findingIds: [11, 12] });
+  const record = section.getByRole('article', { name: 'Collectors Bockarie, Aminata' });
+  await expect(record.locator('.investigation-status')).toHaveText('Open · opened by Test reviewer');
+  await expect(record.getByRole('link', { name: 'uuid:11' })).toHaveAttribute('href', '/projects/7/forms/health/submissions/uuid%3A11');
+  await expect(section.locator('.investigations-list li')).toContainText('Open · 2 findings');
+
+  await record.getByLabel('Note').fill('Both work the same villages.');
+  await record.getByRole('button', { name: 'Add note' }).click();
+  await expect(record.locator('.investigation-history li')).toHaveCount(2);
+  expect(state.investigationWrites.at(-1).ifMatch).toBe(null);
+
+  // A stale revision reloads the record; the retry then closes it.
+  await record.getByLabel('Disposition').selectOption('benign-pattern');
+  await record.getByLabel('Conclusion').fill('A shared household listing.');
+  state.investigationStale = true;
+  await record.getByRole('button', { name: 'Close investigation' }).click();
+  await expect(section.getByRole('alert')).toHaveText('The investigation was changed by someone else; it has been reloaded.');
+  await record.getByRole('button', { name: 'Close investigation' }).click();
+  await expect(record.locator('.investigation-status')).toContainText('Closed: Benign pattern');
+  expect(state.investigationWrites.at(-1)).toMatchObject({ data: { disposition: 'benign-pattern', conclusion: 'A shared household listing.' }, ifMatch: '"investigation-2"' });
+  await expect(record.locator('.investigation-history li').last()).toContainText('Closed: Benign pattern');
+
+  await record.getByLabel('Reason to reopen').fill('New backcheck results.');
+  await record.getByRole('button', { name: 'Reopen' }).click();
+  await expect(record.locator('.investigation-status')).toContainText('Open');
+  await expect(record.locator('.investigation-history li').last()).toContainText('New backcheck results.');
+  await page.setViewportSize({ width: 360, height: 800 });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= 360)).toBe(true);
+  expect(errors).toEqual([]);
+});
+
+test('investigations are not offered to those who may not manage the project', async ({ page }) => {
+  const { state, errors } = await setup(page);
+  state.collectorGroups.push({ members: [{ actorId: 42, displayName: 'Bockarie', links: 3 }], connections: [{ a: 41, b: 42, links: 3, byRule: { 'near-duplicate': 3 } }],
+    forms: [{ xmlFormId: 'health', formName: 'Health survey' }], findings: [], findingsShown: 0, findingsTotal: 3 });
+  await page.locator('.collector-groups').getByRole('button', { name: 'Refresh' }).click();
+  await expect(page.locator('.collector-group')).toHaveCount(1);
+  await expect(page.getByRole('button', { name: 'Open an investigation' })).toHaveCount(0);
+  await expect(page.getByRole('region', { name: 'Investigations' })).toHaveCount(0);
+  expect(state.investigationWrites).toEqual([]);
   expect(errors).toEqual([]);
 });
