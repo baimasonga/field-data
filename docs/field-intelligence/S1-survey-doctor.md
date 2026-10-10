@@ -39,9 +39,9 @@ the other questions involved.
 | --- | --- |
 | `unknown-reference` | An expression names a question the form does not have (often a renamed question). |
 | `cycle` | Calculations, relevance, `required` or `readonly` that depend on themselves, directly or through others. The form cannot settle a value. |
-| `never-shown` | Relevance that can never be true: a constant false, or a choice question compared with a value that is not one of its choices (`/data/district = 'bo'` when the choices are `Bo`, `Kenema`; `selected(/data/assets, 'tv')` with no `tv`). A group never shown is reported once, not for each question inside. |
+| `never-shown` | Relevance that can never be true because a choice question is compared with a value that is not one of its choices (`/data/district = 'bo'` when the choices are `Bo`, `Kenema`; `selected(/data/assets, 'tv')` with no `tv`). A group never shown is reported once, not for each question inside. Relevance written as a constant (`false()`, `0`) hides on purpose and is a **note**. |
 | `impossible-constraint` | A number constraint no answer can meet (`. > 18 and . < 16`), or a choice constraint naming a choice that does not exist. |
-| `unanswerable-required` | A question that is required and read-only with no calculation or default: when shown, the form cannot be finished. |
+| `unanswerable-required` | A question that is always shown, required and read-only with no calculation or default: the form can never be finished. Shown only under a condition, it is a deliberate stop (a common way to block a form when answers conflict) and is not reported. |
 | `duplicate-choice` | The same choice name twice in one list: answers cannot be told apart. |
 
 **Warnings**: probably a mistake; sometimes intended.
@@ -49,7 +49,7 @@ the other questions involved.
 | Code | Finds |
 | --- | --- |
 | `forward-reference` | Relevance, a constraint or `required` of a question that depends on a question asked **later**. When the question is reached, that answer does not exist yet. |
-| `missing-translation` | A form with several languages where a question or choice has a label in some languages and not others. |
+| `missing-translation` | A form with several languages where a question or choice has a label in some languages and not others (pyxform's `-` placeholder counts as missing). A language missing from most of the form is one finding for the form, not one per question. |
 | `duplicate-choice-label` | Two choices in one list with the same label in the same language: the collector cannot tell them apart. |
 | `empty-choice-list` | A choice question with no choices and no external or filtered list. |
 
@@ -109,8 +109,12 @@ clear problem rather than checked partially.
 ## Where it shows
 
 On the form's **Draft** page, a "Form check" section listing findings by
-severity, each with the question path and what to change. On the published
-form's page when there is no draft. See decision 1 for publishing.
+severity, each with the question path and what to change; notes and what was
+not checked are collapsed. The draft is checked when the page opens and after
+each upload. When there is no draft, the same section checks the published
+version **when asked** ("Check form"), not automatically: that is the state
+the page is in right after publishing, when nothing about the published
+version needs attention. See decision 1 for publishing.
 
 ## Acceptance
 
@@ -140,3 +144,44 @@ form's page when there is no draft. See decision 1 for publishing.
    default.
 3. The check appears on the form's Draft page (and on the published form when
    there is no draft). The builder is not changed in this slice.
+
+## Validation evidence
+
+Locally:
+
+- Unit: 23 tests (`test/unit/util/survey-doctor.js`), including a pyxform form
+  with one planted instance of each problem (all found) and the same form
+  corrected (no findings), and the benign lookalikes in the acceptance list.
+- Real forms: 150 XForms swept without a crash: ODK Web Forms and JavaRosa
+  fixtures, the server's end-to-end forms, and three real XLSForms compiled
+  with pyxform (WHO verbal autopsy, a socio-economic survey, an all-question-
+  types form). Every finding was examined by hand. Five changes to the checker
+  came from this: choice entries are read by the itemset's own path (not only
+  `<item>`, and inside `randomize()`); constant relevance is a note; a
+  conditional required read-only question is a deliberate stop; `null` is an
+  empty value; a language missing from most of a form is one finding (the WHO
+  form declares French with almost no French text: 516 findings became one).
+  The remaining findings are real: deliberately broken JavaRosa test forms,
+  self-referencing calculations (which ODK Collect refuses as cycles), and
+  genuine translation gaps.
+- Integration: 3 tests (`test/integration/api/field-data-survey-doctor.js`):
+  published, draft and earlier versions; the report follows publishing;
+  permissions (viewer and collector read the published check, only managers
+  the draft, anonymous 401, other projects 404); the size limit (400.57).
+- Browser: 3 tests (`e2e-tests/tests/field-data-survey-doctor.spec.js`):
+  findings by severity with notes collapsed; the publish dialog shows the
+  error count and still allows publishing; a clean draft; checking again; a
+  failed check explained without breaking the page; narrow width.
+- ODK client suite: the Draft page's request list now includes the check; two
+  request-order tests and the shared request map were updated. The form-edit
+  and draft specs pass (99); the full suite has 60 failures, all pre-existing
+  and under the CI baseline of 61.
+- Deliberate breakages: 22 in the checker, 3 in the route and 6 in the client;
+  each made at least one test fail (three survived the first tests, which were
+  then strengthened).
+- Gates: CI integration set 67, feature set 22, server unit 1,734 (1 existing
+  pending), server and client lint, production build, full browser suite 96.
+  ODK's form API tests show the same 4 pre-existing failures (Enketo draft
+  tokens) with and without this change.
+
+Not run here: CI on this branch, real users' forms.

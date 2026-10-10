@@ -213,6 +213,7 @@ jobs:
               test/integration/api/field-data-location-evidence.js \
               test/integration/api/field-data-contradictions.js \
               test/integration/api/field-data-identity-keys.js \
+              test/integration/api/field-data-survey-doctor.js \
               test/integration/api/field-data-app-user-backchecks.js
 
   server-integration-report:

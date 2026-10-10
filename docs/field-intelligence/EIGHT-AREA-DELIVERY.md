@@ -48,8 +48,9 @@ also exist. Those features must not be re-labelled as full completion of this pr
   read live rather than stored: merged in PR #63.
 - Static survey doctor (S1, first adaptive-surveys slice): checks of a form
   definition for unknown references, cycles, never-shown questions, impossible
-  constraints and choice-list problems: contract drafted in `S1-survey-doctor.md`,
-  awaiting decisions. Simulation (S2), approved policies and evolution remain pending. Cross-form matching
+  constraints and choice-list problems, on the Draft page and in the publish
+  dialog: implemented and locally validated (including a sweep of 150 real forms);
+  CI/merge pending. Simulation (S2), approved policies and evolution remain pending. Cross-form matching
   (F2b), similarity, collusion and triage remain pending.
 - Remaining deliverables in all eight rows: pending.
 - Version-scoped evidence graph and recorded survey timeline: implemented and

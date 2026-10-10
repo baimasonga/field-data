@@ -16,9 +16,17 @@ except according to the terms contained in the LICENSE file.
       <form-edit-web-form v-if="formDraft.isDefined() && form.publishedAt == null"/>
       <form-edit-published-version v-if="form.dataExists && form.publishedAt != null"/>
 
-      <form-edit-create-draft v-if="formDraft.isEmpty()" @success="fetchDraft(true)"/>
+      <template v-if="formDraft.isEmpty()">
+        <form-edit-create-draft @success="fetchDraft(true)"/>
+        <form-edit-doctor v-if="form.dataExists && form.publishedAt != null"
+          :project-id="projectId" :xml-form-id="xmlFormId" target="published"
+          :definition-key="form.hash"/>
+      </template>
       <template v-else>
         <form-edit-def @after-upload="afterUpload"/>
+        <form-edit-doctor :project-id="projectId" :xml-form-id="xmlFormId"
+          target="draft" :definition-key="formDraft.get().hash"
+          @report="(r) => { doctorErrors = r?.summary.errors ?? 0; }"/>
         <form-edit-attachments/>
         <form-edit-entities/>
         <form-draft-testing/>
@@ -28,7 +36,7 @@ except according to the terms contained in the LICENSE file.
     </template>
 
     <form-draft-publish v-if="formDraft.dataExists && formDraft.isDefined()"
-      v-bind="publishModal" @hide="publishModal.hide()"
+      v-bind="publishModal" :doctor-errors="doctorErrors" @hide="publishModal.hide()"
       @success="afterPublish"/>
     <form-draft-abandon v-bind="abandonModal" @hide="abandonModal.hide()"
       @success="afterAbandon"/>
@@ -36,7 +44,7 @@ except according to the terms contained in the LICENSE file.
 </template>
 
 <script setup>
-import { inject, provide, watchEffect } from 'vue';
+import { inject, provide, ref, watchEffect } from 'vue';
 import { useI18n } from 'vue-i18n';
 
 import FormDraftAbandon from '../form-draft/abandon.vue';
@@ -46,6 +54,7 @@ import FormEditAttachments from './edit/attachments.vue';
 import FormEditEntities from './edit/entities.vue';
 import FormEditCreateDraft from './edit/create-draft.vue';
 import FormEditDef from './edit/def.vue';
+import FormEditDoctor from './edit/doctor.vue';
 import FormEditDraftControls from './edit/draft-controls.vue';
 import FormEditPublishedVersion from './edit/published-version.vue';
 import FormEditWebForm from './edit/web-form.vue';
@@ -120,6 +129,9 @@ const afterUpload = () => {
 };
 
 const publishModal = modalData();
+// Errors the form check found in the draft; shown in the publish dialog, which
+// still lets the person publish (S1: the check can be wrong).
+const doctorErrors = ref(0);
 const afterPublish = () => {
   // Re-request the project in case its `datasets` property has changed.
   emit('fetch-project', true);
