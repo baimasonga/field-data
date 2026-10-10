@@ -36,6 +36,7 @@
         <submission-review-queue v-else :key="`${projectId}:${xmlFormId}`"
           :project-id="projectId" :xml-form-id="xmlFormId" :can-review="canReview"
           @asset-source="sourceClaimVersionId = $event"/>
+        <field-data-findings-inbox v-if="projectId" :key="`findings:${projectId}`" :project-id="projectId"/>
         <field-data-reverification-queue v-if="projectId" :key="`queue:${projectId}`"
           :project-id="projectId" @open="openFromQueue"/>
         <field-data-assets v-if="projectId && xmlFormId" :key="`assets:${projectId}:${xmlFormId}`"
@@ -57,6 +58,7 @@ import SubmissionReviewQueue from '../submission/review-queue.vue';
 import FieldDataSubmissionReview from './submission-review.vue';
 import FieldDataAssets from './assets.vue';
 import FieldDataReverificationQueue from './reverification-queue.vue';
+import FieldDataFindingsInbox from './findings-inbox.vue';
 import { useRequestData } from '../../request-data';
 
 defineOptions({ name: 'FieldDataReview' });

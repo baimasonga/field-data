@@ -15,6 +15,7 @@ const setup = async (page, { comparisonUnavailable = false, failComparison = fal
   const metricsWait = delayMetrics ? new Promise(resolve => { releaseMetrics = resolve; }) : null;
   const state = { assets: [], assetHistory: [], assetTasks: [], assetWrites: [], assetFailures: 0, assetConflict: false, mappingRevision: 0, mappingHistory: [], mappingRequests: [], mappingFailures: 0, mappingConflict: false, comparisonFailures: failComparison ? 1 : 0, comparisonRequests: 0, staleWrites: 0, conflictFailures: staleAssignment ? 1 : 0, status: 'open', assignedTo: null, revision: 1, backchecks: [], decisions: [], mutations: [], queueRequests: [], queueFailures: failQueue ? 1 : 0, assignmentFailures: failAssignment ? 1 : 0, metricsFailures: failMetrics ? 2 : 0 };
   Object.assign(state, { queueCalls: [], queueFailures_: 0, queueGate: null, queuePaged: false, queueTasks: [] });
+  Object.assign(state, { findings: [], findingsCalls: [], findingsFailures: 0, findingsPaged: false });
   await page.addInitScript(() => globalThis.localStorage.setItem('sessionExpires', String(Date.now() + 3600000)));
   await page.route('**/client-config.json', route => route.fulfill({ json: {} }));
   await page.route('**/version.txt', route => route.fulfill({ body: 'test' }));
@@ -49,6 +50,29 @@ const setup = async (page, { comparisonUnavailable = false, failComparison = fal
       activeReasons: selected ? [{ reasonCode: 'provenance-degraded', count: 1 }] : [] });
     }
     if (path === '/v1/projects/7/app-users') return respond([{ id: 42, displayName: 'Collector' }]);
+    // F3 findings inbox: filtered by the query, as the server does.
+    if (/^\/v1\/projects\/\d+\/findings(\/summary)?$/.test(path)) {
+      state.findingsCalls.push(Object.fromEntries([...url.searchParams.keys()].map((k) => [k, url.searchParams.getAll(k)])));
+      if (state.findingsFailures > 0) { state.findingsFailures -= 1; return route.fulfill({ status: 503, json: { message: 'Unavailable' } }); }
+      const rows = path.startsWith('/v1/projects/7/') ? state.findings : [];
+      const open = rows.filter((f) => f.status !== 'resolved' && f.outcome !== 'withdrawn');
+      if (path.endsWith('/summary')) {
+        const byFamily = { travel: 0, location: 0, contradiction: 0, identity: 0 };
+        const byForm = new Map();
+        for (const f of open) {
+          byFamily[f.family] += 1;
+          byForm.set(f.xmlFormId, { xmlFormId: f.xmlFormId, formName: f.formName, open: (byForm.get(f.xmlFormId)?.open ?? 0) + 1 });
+        }
+        return respond({ open: open.length, byFamily, byForm: [...byForm.values()] });
+      }
+      const statuses = url.searchParams.getAll('status'); const outcomes = url.searchParams.getAll('outcome');
+      const wanted = rows.filter((f) => statuses.includes(f.status) && outcomes.includes(f.outcome)
+        && (!url.searchParams.get('family') || f.family === url.searchParams.get('family'))
+        && (!url.searchParams.get('xmlFormId') || f.xmlFormId === url.searchParams.get('xmlFormId')));
+      const second = url.searchParams.get('cursor') === 'findings-2';
+      const page = state.findingsPaged ? (second ? wanted.slice(2) : wanted.slice(0, 2)) : wanted;
+      return respond({ items: page, nextCursor: state.findingsPaged && !second && wanted.length > 2 ? 'findings-2' : null });
+    }
     const queueRoot = path.replace(/\/summary$/, '');
     if (/^\/v1\/field-data\/projects\/\d+\/reverification-tasks$/.test(queueRoot)) {
       state.queueCalls.push({ path: path.slice(queueRoot.length) || '/', ...Object.fromEntries(url.searchParams) });
@@ -1024,5 +1048,61 @@ test('the collector filter offers collectors whose work is all closed or cancell
   await expect(queue.locator('.queue-items li')).toHaveCount(1);
   await expect(queue).toContainText('WP-05');
   expect(state.queueCalls.filter(call => call.path === '/').at(-1)).toMatchObject({ status: 'cancelled', assigneeId: '44' });
+  expect(errors).toEqual([]);
+});
+
+const finding = (id, extra) => ({ id, xmlFormId: 'health', formName: 'Health survey', rule: 'implausible-travel', family: 'travel',
+  ruleVersion: 1, instanceId: `uuid:${id}`, relatedInstanceId: null, outcome: 'concern', status: 'open', decision: null, note: null,
+  decidedAt: null, decidedByName: null, createdAt: '2026-10-09T10:00:00Z', title: null, kind: null, ...extra });
+
+test('findings inbox lists findings across forms, filters them and links to the Verification page', async ({ page }) => {
+  const { state, errors } = await setup(page);
+  state.findings.push(
+    finding(1, { rule: 'contradiction:abc', family: 'contradiction', title: 'No electricity but a fridge' }),
+    finding(2, { xmlFormId: 'nutrition', formName: 'Nutrition survey', rule: 'identity-reused:k1', family: 'identity', title: 'Household code', kind: 'reused', relatedInstanceId: 'uuid:first', status: 'investigating' }),
+    finding(3, { rule: 'outside-project-area', family: 'location', status: 'resolved', decision: 'explained', note: 'Border village' })
+  );
+  const inbox = page.locator('.findings-inbox');
+  await inbox.getByRole('button', { name: 'Refresh findings' }).click();
+  await expect(inbox.locator('.counts')).toContainText('2 open');
+  await expect(inbox.locator('.counts')).toContainText('1 contradictions · 1 identity');
+  const items = inbox.locator('.findings-items li');
+  await expect(items).toHaveCount(2);
+  await expect(items.nth(0)).toContainText('Contradiction: No electricity but a fridge');
+  await expect(items.nth(0)).toContainText('Worth a look · Not yet reviewed');
+  await expect(items.nth(1)).toContainText('Repeated identity: Household code');
+  await expect(items.nth(1)).toContainText('Nutrition survey');
+  await expect(items.nth(1).getByRole('link', { name: 'Open on the Verification page' })).toHaveAttribute('href', '/projects/7/forms/nutrition/verification');
+  await expect(items.nth(1).getByRole('link', { name: 'Related submission' })).toHaveAttribute('href', '/projects/7/forms/nutrition/submissions/uuid%3Afirst');
+
+  await inbox.getByLabel('Show').selectOption('resolved');
+  await expect(items).toHaveCount(1);
+  await expect(items.nth(0)).toContainText('Outside the project area');
+  await expect(items.nth(0)).toContainText('Reviewed · Explained — Border village');
+  expect(state.findingsCalls.at(-2)).toMatchObject({ status: ['resolved'], outcome: ['concern', 'inconclusive', 'withdrawn'] });
+
+  await inbox.getByLabel('Show').selectOption('open');
+  await inbox.getByLabel('Check').selectOption('identity');
+  await expect(items).toHaveCount(1);
+  await inbox.getByLabel('Form').selectOption('health');
+  await expect(inbox.getByText('No findings match these filters.')).toBeVisible();
+  expect(errors).toEqual([]);
+});
+
+test('findings inbox pages, recovers from a failure, and fits a narrow screen', async ({ page }) => {
+  const { state, errors } = await setup(page);
+  state.findingsPaged = true;
+  state.findings.push(finding(1), finding(2), finding(3));
+  state.findingsFailures = 1;
+  const inbox = page.locator('.findings-inbox');
+  await inbox.getByRole('button', { name: 'Refresh findings' }).click();
+  await expect(inbox.getByRole('alert')).toContainText('The findings could not be loaded');
+  await inbox.getByRole('button', { name: 'Retry' }).click();
+  await expect(inbox.locator('.findings-items li')).toHaveCount(2);
+  await inbox.getByRole('button', { name: 'Load more' }).click();
+  await expect(inbox.locator('.findings-items li')).toHaveCount(3);
+  await expect(inbox.getByRole('button', { name: 'Load more' })).toHaveCount(0);
+  await page.setViewportSize({ width: 360, height: 800 });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= 360)).toBe(true);
   expect(errors).toEqual([]);
 });
