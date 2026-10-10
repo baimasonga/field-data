@@ -88,6 +88,7 @@ and a number that looks like one would be believed.
         </details>
       </section>
 
+      <imagery-availability :project-id="projectId" :xml-form-id="xmlFormId" :can-check="canReview"/>
       <contradiction-rules v-if="canReview" :project-id="projectId" :xml-form-id="xmlFormId"
         :can-manage="canManage"/>
       <identity-keys v-if="canReview" :project-id="projectId" :xml-form-id="xmlFormId"
@@ -307,6 +308,7 @@ import Spinner from '../spinner.vue';
 import SubmissionReviewQueue from './review-queue.vue';
 import ContradictionRules from './contradiction-rules.vue';
 import IdentityKeys from './identity-keys.vue';
+import ImageryAvailability from './imagery-availability.vue';
 // The map and its library load only when a manager opens the project area panel.
 const AnalysisMap = defineAsyncComponent(() => import('../field-data/analysis-map.vue'));
 import { describeCondition } from '../../util/contradiction-rules';

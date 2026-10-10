@@ -38,8 +38,7 @@ also exist. Those features must not be re-labelled as full completion of this pr
 - Location evidence and deterministic spatial checks (G1, first geospatial slice):
   accuracy, outside-project-area and repeated-location rules in the existing integrity
   framework, location components, project-area designation, withdrawal of findings no
-  longer observed: merged in PR #60. Imagery availability (G1b), imagery analysis
-  and change detection remain pending.
+  longer observed: merged in PR #60.
 - Deterministic answer contradictions (F1, first fraud-intelligence slice): per-form
   rules written by project managers, evaluated in the integrity framework with the
   answers shown, benign explanations required, versioned, withdrawn when no longer
@@ -57,7 +56,12 @@ also exist. Those features must not be re-labelled as full completion of this pr
   to each form's Verification page: merged in PR #65.
 - Identity keys across forms (F2b): a key can also count uses in up to 5 other
   forms of the project through a question mapping, flagging only its own form:
-  implemented and locally validated.
+  merged in PR #66.
+- Imagery availability (G1b): Sentinel-2 scenes covering each located submission
+  within 30 days of its visit, from an open STAC catalogue, sending only a 0.05°
+  cell centre and whole days; off until an operator enables it: implemented and
+  locally validated with a recorded catalogue answer. A live run from the
+  deployed server, imagery analysis and change detection remain pending.
 - Remaining deliverables in all eight rows: pending.
 - Version-scoped evidence graph and recorded survey timeline: implemented and
   locally and CI validated, merged in PR #53 (E1). Capture sessions, sensor/challenge

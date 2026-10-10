@@ -21,6 +21,7 @@ const { encryptSecret } = require('../util/field-data-secret');
 const { parseGeopoint, checkImplausibleTravel, IMPLAUSIBLE_TRAVEL } = require('../util/fieldwork-integrity');
 const { LOCATION_ACCURACY, OUTSIDE_PROJECT_AREA, REPEATED_LOCATION } = require('../util/location-evidence');
 const { checkLocationAccuracy, checkOutsideProjectArea, checkRepeatedLocation, locationComponents } = require('../util/location-evidence');
+const imagery = require('../util/imagery');
 const { LIMITS: IDENTITY_LIMITS, REUSED, INCONSISTENT, usability: identityUsability, usabilityIn: identityUsabilityIn, findIdentityIssues } = require('../util/identity-keys');
 const { projectAreaFor } = require('../util/map-layer-store');
 const { RULE_PREFIX, usability, parseInstance, evaluateRule, answerAt } = require('../util/contradiction-rules');
@@ -2433,6 +2434,101 @@ module.exports = (service, endpoint) => {
         case f.status when 'open' then 0 when 'investigating' then 1 else 2 end,
         f."createdAt" desc`);
     return withIdentityAnswers(container, form, auth, findings);
+  }));
+
+  // Satellite imagery availability (G1b): which Sentinel-2 scenes cover each
+  // located submission around its visit. Evidence only; no finding. Lookups
+  // send a 0.05° cell centre and whole days, never a respondent's location.
+  const IMAGERY = { maxSubmissions: 500, concurrency: 4, freshDays: 7 };
+  const imageryConfig = () => ({
+    enabled: process.env.FIELD_DATA_IMAGERY_ENABLED === 'true',
+    catalogue: process.env.FIELD_DATA_STAC_URL || 'https://earth-search.aws.element84.com/v1'
+  });
+  // Per submission: the cell and visit day it is looked up by, and why not when it is not.
+  const imageryTargets = (evidence) => evidence.map((e) => {
+    if (e.location == null) return { instanceId: e.instanceId, skipped: 'no-location' };
+    const visit = new Date(e.capturedAt ?? e.receivedAt);
+    const cell = imagery.cellOf(e.location.latitude, e.location.longitude);
+    return { instanceId: e.instanceId, cell, visit, window: imagery.windowAround(visit), visitTime: e.capturedAt != null ? 'capture' : 'receipt' };
+  });
+
+  service.post('/projects/:projectId/forms/:xmlFormId/imagery/check', endpoint(async (container, { params, auth }) => {
+    const form = await container.Forms
+      .getByProjectAndXmlFormId(params.projectId, params.xmlFormId, Form.PublishedVersion)
+      .then(getOrNotFound);
+    await auth.canOrReject('submission.update', form);
+    const setup = imageryConfig();
+    if (!setup.enabled) throw Problem.internal.imageryNotConfigured();
+    if (form.def.keyId != null) return { encrypted: true, submissions: 0, looked: 0, cached: 0, unavailable: [] };
+
+    const targets = imageryTargets(await evidenceFor(container.db, form.id));
+    const located = targets.filter((t) => t.skipped == null);
+    const considered = located.slice(0, IMAGERY.maxSubmissions);
+    // One lookup per cell and visit day; fresh cached answers are reused.
+    const wanted = new Map();
+    for (const t of considered) wanted.set(`${t.cell.key}|${t.window.day}`, t);
+    const fresh = new Set((await container.db.any(sql`select "cellKey", to_char("visitDay", 'YYYY-MM-DD') as day
+      from field_data_imagery_lookups where catalogue = ${setup.catalogue} and collection = ${imagery.COLLECTION}
+        and "windowDays" = ${imagery.WINDOW_DAYS}
+        and "fetchedAt" > clock_timestamp() - make_interval(days => ${IMAGERY.freshDays})`))
+      .map((r) => `${r.cellKey}|${r.day}`));
+    const todo = [...wanted.entries()].filter(([k]) => !fresh.has(k)).map(([, t]) => t);
+    const unavailable = [];
+    let looked = 0;
+    for (let i = 0; i < todo.length; i += IMAGERY.concurrency) {
+      // eslint-disable-next-line no-await-in-loop
+      const answers = await Promise.all(todo.slice(i, i + IMAGERY.concurrency).map(async (t) => ({ t, result: await imagery.lookup(setup.catalogue, t.cell, t.window) })));
+      for (const { t, result } of answers) {
+        if (!result.ok) { unavailable.push({ cell: t.cell.key, day: t.window.day, reason: result.reason }); continue; } // eslint-disable-line no-continue
+        looked += 1;
+        // eslint-disable-next-line no-await-in-loop
+        await container.db.query(sql`insert into field_data_imagery_lookups
+          (catalogue, collection, "cellKey", "visitDay", "windowDays", scenes, matched)
+          values (${setup.catalogue}, ${imagery.COLLECTION}, ${t.cell.key}, ${t.window.day}, ${imagery.WINDOW_DAYS},
+            ${JSON.stringify(result.scenes.map((sc) => ({ id: sc.id, at: sc.at.toISOString(), cloud: sc.cloud })))}, ${result.matched})
+          on conflict (catalogue, collection, "cellKey", "visitDay", "windowDays")
+          do update set scenes = excluded.scenes, matched = excluded.matched, "fetchedAt" = clock_timestamp()`);
+      }
+    }
+    return {
+      encrypted: false, submissions: targets.length, located: located.length,
+      considered: considered.length, truncated: located.length > considered.length,
+      lookups: wanted.size, looked, cached: wanted.size - todo.length, unavailable
+    };
+  }));
+
+  service.get('/projects/:projectId/forms/:xmlFormId/imagery', endpoint(async (container, { params, auth }, _, response) => {
+    const form = await container.Forms
+      .getByProjectAndXmlFormId(params.projectId, params.xmlFormId, Form.PublishedVersion)
+      .then(getOrNotFound);
+    await auth.canOrReject('submission.list', form);
+    await auth.canOrReject('submission.read', form);
+    const setup = imageryConfig();
+    response.set('Cache-Control', 'private, no-store');
+    const base = { enabled: setup.enabled, catalogue: setup.catalogue, collection: imagery.COLLECTION, windowDays: imagery.WINDOW_DAYS, clearBelow: imagery.CLEAR, cellDegrees: imagery.CELL_DEGREES };
+    if (form.def.keyId != null) return { ...base, encrypted: true, submissions: [], coverage: null };
+    const targets = imageryTargets(await evidenceFor(container.db, form.id));
+    const lookups = await container.db.any(sql`select "cellKey", to_char("visitDay", 'YYYY-MM-DD') as day, scenes, "fetchedAt"
+      from field_data_imagery_lookups where catalogue = ${setup.catalogue} and collection = ${imagery.COLLECTION}
+        and "windowDays" = ${imagery.WINDOW_DAYS}
+        and "cellKey" = any(${sql.array([...new Set(targets.filter((t) => t.cell).map((t) => t.cell.key))], 'text')})`);
+    const byKey = new Map(lookups.map((l) => [`${l.cellKey}|${l.day}`, l]));
+    const submissions = targets.map((t) => {
+      if (t.skipped != null) return { instanceId: t.instanceId, status: t.skipped };
+      const found = byKey.get(`${t.cell.key}|${t.window.day}`);
+      if (found == null) return { instanceId: t.instanceId, status: 'not-checked', visitTime: t.visitTime };
+      const scenes = found.scenes.map((sc) => ({ ...sc, at: new Date(sc.at) }));
+      return { instanceId: t.instanceId, status: 'checked', visitTime: t.visitTime, checkedAt: found.fetchedAt, ...imagery.summarize(scenes, t.visit) };
+    });
+    const count = (f) => submissions.filter(f).length;
+    return {
+      ...base, encrypted: false, submissions,
+      coverage: {
+        total: submissions.length, noLocation: count((x) => x.status === 'no-location'),
+        notChecked: count((x) => x.status === 'not-checked'), checked: count((x) => x.status === 'checked'),
+        withScene: count((x) => x.scenes > 0), withClearScene: count((x) => x.clear > 0)
+      }
+    };
   }));
 
   // A reviewer's decision. The rule never writes here: a finding is closed by

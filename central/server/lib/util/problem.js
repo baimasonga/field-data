@@ -366,6 +366,7 @@ const problems = {
     analyticsNotConfigured: problem(501.9, () => 'This ODK Central has not been configured to report Analytics. Please contact your server administrator.'),
 
     unsupportedODataSelectExpand: problem(501.11, (() => 'This server doesn\'t support $select query parameter with $expand.')),
+    imageryNotConfigured: problem(501.12, () => 'Satellite imagery checks are not turned on for this server. An operator can turn them on (FIELD_DATA_IMAGERY_ENABLED).'),
 
     // used internally when a task fails to complete in a reasonable length of time.
     timeout: problem(502.1, () => 'The task took too long to run.'),
