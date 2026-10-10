@@ -232,7 +232,10 @@ and a number that looks like one would be believed.
                   </thead>
                   <tbody>
                     <tr v-for="row of identityRows(flag)" :key="row.instanceId">
-                      <td>{{ $t(row.instanceId === flag.instanceId ? 'identity.this' : 'identity.other') }}</td>
+                      <td>
+                        {{ $t(row.instanceId === flag.instanceId ? 'identity.this' : 'identity.other') }}
+                        <template v-if="row.xmlFormId"> ({{ row.xmlFormId }})</template>
+                      </td>
                       <td>{{ row.receivedAt == null ? '' : new Date(row.receivedAt).toLocaleString() }}</td>
                       <template v-if="flag.answers?.[row.instanceId] != null">
                         <td v-for="path of identityPaths(flag)" :key="path">{{ flag.answers[row.instanceId][path] ?? $t('answers.blank') }}</td>
@@ -259,7 +262,7 @@ and a number that looks like one would be believed.
                 {{ $t('findings.openSubmission') }}
               </router-link>
               <router-link v-if="flag.relatedInstanceId != null"
-                :to="submissionPath(flag.relatedInstanceId)">
+                :to="submissionPath(flag.relatedInstanceId, relatedForm(flag))">
                 {{ $t(flag.rule === 'repeated-location' ? 'findings.openEarliest'
                   : isIdentity(flag) ? 'findings.openEarliestKey' : 'findings.openPrevious') }}
               </router-link>
@@ -390,8 +393,10 @@ const decide = (flag) => {
     .catch(noop);
 };
 
-const submissionPath = (instanceId) =>
-  `/projects/${props.projectId}/forms/${encodeURIComponent(props.xmlFormId)}/submissions/${encodeURIComponent(instanceId)}`;
+const submissionPath = (instanceId, xmlFormId = props.xmlFormId) =>
+  `/projects/${props.projectId}/forms/${encodeURIComponent(xmlFormId)}/submissions/${encodeURIComponent(instanceId)}`;
+// An identity finding's related submission may be in another form (F2b).
+const relatedForm = (flag) => (flag.evidence.others ?? []).find((o) => o.instanceId === flag.relatedInstanceId)?.xmlFormId ?? props.xmlFormId;
 
 // A concern is not a status colour taken from the review palette by accident:
 // it is a state, and it arrives with an icon and a word, never colour alone.
@@ -510,7 +515,7 @@ const coverageText = (counts, kind) => COVERAGE_ORDER[kind]
       "received": "Received",
       "this": "This one",
       "other": "Other",
-      "gone": "Deleted; answers no longer shown"
+      "gone": "Deleted or not available to you; answers not shown"
     },
     "answers": {
       "blank": "(blank)",

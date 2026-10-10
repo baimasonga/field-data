@@ -13,7 +13,7 @@
 const crypto = require('node:crypto');
 const { invalid } = require('./contradiction-rules');
 
-const LIMITS = { keys: 20, fields: 3, sameFields: 10, ignoreValues: 50, benign: 10, maxUses: 1000, windowDays: 3650, listed: 20, submissions: 50000 };
+const LIMITS = { alsoIn: 5, keys: 20, fields: 3, sameFields: 10, ignoreValues: 50, benign: 10, maxUses: 1000, windowDays: 3650, listed: 20, submissions: 50000 };
 const KEY_TYPES = new Set(['string', 'int', 'barcode']);
 const SAME_TYPES = new Set(['string', 'int', 'decimal', 'date', 'barcode']);
 const MATCHES = new Set(['exact', 'digits']);
@@ -111,15 +111,56 @@ const matching = (body) => {
   };
 };
 
+// Other forms of the project this key also looks at (F2b), each with the
+// question that holds each key question's answer there. Every key question
+// must be mapped; questions that should stay the same may be left out.
+// `others` maps xmlFormId to that form's current fields; `missing`, when
+// given, collects what a stored mapping no longer finds instead of refusing.
+const mapOther = (input, i, keyFields, sameFields, ownXmlFormId, others, missing) => {
+  const at = `alsoIn[${i}]`;
+  if (input == null || typeof input !== 'object' || Array.isArray(input)) throw invalid(at, input, 'must be a form and its question mapping');
+  const xmlFormId = String(input.xmlFormId ?? '');
+  if (xmlFormId === ownXmlFormId) throw invalid(`${at}.xmlFormId`, xmlFormId, 'must be another form than the key\'s own');
+  const fields = others.get(xmlFormId);
+  if (fields == null) throw invalid(`${at}.xmlFormId`, xmlFormId, 'must be another form in this project');
+  const shape = topLevel(fields);
+  const read = (given, own, kind, required) => {
+    if (given == null || typeof given !== 'object' || Array.isArray(given)) throw invalid(`${at}.${kind}`, given, 'must map this key\'s questions to that form\'s');
+    const extra = Object.keys(given).filter((k) => !own.includes(k));
+    if (extra.length > 0) throw invalid(`${at}.${kind}`, extra[0], 'is not one of this key\'s questions');
+    const out = {};
+    for (const path of own) {
+      if (given[path] == null) {
+        if (required) throw invalid(`${at}.${kind}`, path, 'must be mapped to a question in that form');
+        continue; // eslint-disable-line no-continue
+      }
+      const found = lookup(shape, given[path], `${at}.${kind}["${path}"]`, missing, kind === 'fields' ? KEY_TYPES : SAME_TYPES, kind === 'fields' ? 'key' : 'same');
+      out[path] = found?.path ?? String(given[path]);
+    }
+    return out;
+  };
+  return { xmlFormId, fields: read(input.fields, keyFields.map((f) => f.field), 'fields', true), sameFields: read(input.sameFields ?? {}, sameFields, 'sameFields', false) };
+};
+const alsoInOf = (body, keyFields, sameFields, ownXmlFormId, others) => {
+  const list = body.alsoIn ?? [];
+  if (!Array.isArray(list) || list.length > LIMITS.alsoIn) throw invalid('alsoIn', list, `give at most ${LIMITS.alsoIn} other forms`);
+  const out = list.map((input, i) => mapOther(input, i, keyFields, sameFields, ownXmlFormId, others, null));
+  if (new Set(out.map((o) => o.xmlFormId)).size !== out.length) throw invalid('alsoIn', list, 'each form can be listed once');
+  return out;
+};
+
 const definitionHash = (definition) => crypto.createHash('sha256').update(JSON.stringify(definition)).digest('hex');
 
 // A key as written by a manager, checked against the form as it is now.
-const normalizeKey = (body, fields) => {
+// `context.others` holds the current fields of the forms named in `alsoIn`.
+const normalizeKey = (body, fields, context = {}) => {
   const { fields: keyFields, sameFields } = shapeOfKey(body, topLevel(fields), null);
+  const alsoIn = alsoInOf(body, keyFields, sameFields, context.xmlFormId ?? null, context.others ?? new Map());
   const benign = body.benignExplanations;
   if (!Array.isArray(benign) || benign.length === 0 || benign.length > LIMITS.benign)
     throw invalid('benignExplanations', benign, `give 1–${LIMITS.benign} ordinary reasons the same key could appear again`);
-  const definition = { fields: keyFields, sameFields, ...matching(body) };
+  // alsoIn is left out when empty, so keys written before F2b keep their fingerprint.
+  const definition = { fields: keyFields, sameFields, ...matching(body), ...(alsoIn.length > 0 ? { alsoIn } : {}) };
   return {
     title: text(body.title, 'title', 120),
     explanation: text(body.explanation, 'explanation', 2000),
@@ -137,6 +178,18 @@ const usability = (definition, fields) => {
   const missing = new Set();
   try {
     shapeOfKey(definition, topLevel(fields), missing);
+  } catch (error) {
+    return { usable: false, reason: 'changed', detail: error.reason ?? error.message, missing: [...missing] };
+  }
+  return missing.size > 0 ? { usable: false, reason: 'missing-fields', missing: [...missing] } : { usable: true };
+};
+
+// Whether a stored key's mapping to another form (F2b) still fits that form's
+// current version. A form it no longer fits is left out of the run, not guessed.
+const usabilityIn = (definition, entry, fields) => {
+  const missing = new Set();
+  try {
+    mapOther(entry, 0, definition.fields, definition.sameFields, null, new Map([[entry.xmlFormId, fields]]), missing);
   } catch (error) {
     return { usable: false, reason: 'changed', detail: error.reason ?? error.message, missing: [...missing] };
   }
@@ -174,7 +227,9 @@ const sameValue = (raw, multiple) => {
 //
 // `submissions`: [{ instanceId, receivedAt (Date), submitter, answer(path) }],
 // in the order received; `multiple`: paths of select-multiple questions.
-// Returns findings without answers in them, and counts.
+// Submissions from another form (F2b) carry its `xmlFormId` and answer by this
+// key's own paths; they count as uses and are evidence, but only this form's
+// own submissions are flagged. Returns findings without answers, and counts.
 
 const findIdentityIssues = (key, submissions, multiple = new Set()) => {
   const { definition } = key;
@@ -182,12 +237,13 @@ const findIdentityIssues = (key, submissions, multiple = new Set()) => {
   let noKey = 0;
   for (const submission of submissions) {
     const value = keyOf(definition, submission.answer);
-    if (value == null) noKey += 1;
+    if (value == null) noKey += submission.xmlFormId == null ? 1 : 0;
     else if (groups.has(value)) groups.get(value).push(submission);
     else groups.set(value, [submission]);
   }
 
-  const brief = (s) => ({ instanceId: s.instanceId, receivedAt: s.receivedAt.toISOString(), submitter: s.submitter ?? null });
+  const brief = (s) => ({ instanceId: s.instanceId, receivedAt: s.receivedAt.toISOString(), submitter: s.submitter ?? null,
+    ...(s.xmlFormId != null ? { xmlFormId: s.xmlFormId } : {}) });
   const common = { keyId: key.id, title: key.title, explanation: key.explanation, alternatives: key.benignExplanations, nextStep: key.nextStep, fields: definition.fields.map((f) => f.field) };
   const findings = [];
   let reused = 0; let inconsistent = 0;
@@ -195,6 +251,7 @@ const findIdentityIssues = (key, submissions, multiple = new Set()) => {
     if (group.length < 2) continue; // eslint-disable-line no-continue
     for (let i = 1; i < group.length; i += 1) {
       const submission = group[i];
+      if (submission.xmlFormId != null) continue; // eslint-disable-line no-continue
       const earlier = group.slice(0, i).filter((other) => definition.windowDays == null
         || submission.receivedAt - other.receivedAt <= definition.windowDays * DAY_MS);
       if (earlier.length >= definition.maxUses) {
@@ -225,13 +282,14 @@ const findIdentityIssues = (key, submissions, multiple = new Set()) => {
       }
     }
   }
+  const own = submissions.filter((s) => s.xmlFormId == null).length;
   return {
     findings,
-    counts: { examined: submissions.length, noKey, distinct: groups.size, reused, inconsistent }
+    counts: { examined: own, ...(own !== submissions.length ? { examinedElsewhere: submissions.length - own } : {}), noKey, distinct: groups.size, reused, inconsistent }
   };
 };
 
 module.exports = {
   LIMITS, DEFAULT_IGNORE, REUSED, INCONSISTENT,
-  normalizeKey, usability, definitionHash, keyOf, sameValue, findIdentityIssues
+  normalizeKey, usability, usabilityIn, definitionHash, keyOf, sameValue, findIdentityIssues
 };

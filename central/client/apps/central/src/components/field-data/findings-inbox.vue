@@ -72,7 +72,7 @@ Contract: docs/field-intelligence/F3-findings-inbox.md -->
         <p class="finding-links">
           <router-link :to="verificationPath(f)">Open on the Verification page</router-link>
           <router-link :to="submissionPath(f, f.instanceId)">Submission</router-link>
-          <router-link v-if="f.relatedInstanceId" :to="submissionPath(f, f.relatedInstanceId)">Related submission</router-link>
+          <router-link v-if="f.relatedInstanceId" :to="submissionPath({ ...f, xmlFormId: f.relatedXmlFormId ?? f.xmlFormId }, f.relatedInstanceId)">Related submission</router-link>
         </p>
       </li>
     </ul>

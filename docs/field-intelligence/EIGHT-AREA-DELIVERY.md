@@ -45,16 +45,19 @@ also exist. Those features must not be re-labelled as full completion of this pr
   answers shown, benign explanations required, versioned, withdrawn when no longer
   observed: merged in PR #61. Identity reuse across submissions of one form (F2):
   manager-declared identity keys, reuse and changed-detail findings with answers
-  read live rather than stored: merged in PR #63.
+  read live rather than stored: merged in PR #63. Similarity, collusion and triage
+  remain pending.
 - Static survey doctor (S1, first adaptive-surveys slice): checks of a form
   definition for unknown references, cycles, never-shown questions, impossible
   constraints and choice-list problems, on the Draft page and in the publish
-  dialog: implemented and locally validated (including a sweep of 150 real forms);
-  CI/merge pending.
+  dialog: merged in PR #64 (including a sweep of 150 real forms). Simulation (S2),
+  approved policies and evolution remain pending.
 - Project findings inbox (F3): integrity findings from every readable form of a
   project in one list on the Review page, with filters and open counts, linking
-  to each form's Verification page: implemented and locally validated. Simulation (S2), approved policies and evolution remain pending. Cross-form matching
-  (F2b), similarity, collusion and triage remain pending.
+  to each form's Verification page: merged in PR #65.
+- Identity keys across forms (F2b): a key can also count uses in up to 5 other
+  forms of the project through a question mapping, flagging only its own form:
+  implemented and locally validated.
 - Remaining deliverables in all eight rows: pending.
 - Version-scoped evidence graph and recorded survey timeline: implemented and
   locally and CI validated, merged in PR #53 (E1). Capture sessions, sensor/challenge

@@ -179,7 +179,7 @@ test('a reviewer sees reused and changed identities with the answers read from t
   await expect(first.locator('tbody tr').nth(0)).toContainText('wa0001');
   await expect(first.locator('tbody tr').nth(1)).toContainText('WA0001');
   // A deleted Submission's answers are not shown.
-  await expect(first.locator('tbody tr').nth(2)).toContainText('Deleted; answers no longer shown');
+  await expect(first.locator('tbody tr').nth(2)).toContainText('Deleted or not available to you; answers not shown');
   await expect(first).toContainText('A follow-up visit.');
   await expect(first.getByRole('link', { name: 'Open the earliest with this key' })).toHaveAttribute('href', /uuid%3Afirst/);
 
@@ -194,5 +194,61 @@ test('a reviewer sees reused and changed identities with the answers read from t
   await expect(report).toContainText('Identity "Phone": not run, the Form is encrypted.');
   await p.setViewportSize({ width: 360, height: 800 });
   expect(await p.evaluate(() => document.documentElement.scrollWidth <= 360)).toBe(true);
+  expect(errors).toEqual([]);
+});
+
+test('a manager maps a key to another form, and a cross-form finding shows and links to that form', async ({ page: p }) => {
+  let posted;
+  const roundFields = [
+    { path: '/household', name: 'household', type: 'structure', binary: null, selectMultiple: null },
+    { path: '/household/code', name: 'code', type: 'string', binary: null, selectMultiple: null },
+    { path: '/household/area', name: 'area', type: 'string', binary: null, selectMultiple: null },
+    { path: '/household/gps', name: 'gps', type: 'geopoint', binary: null, selectMultiple: null }
+  ];
+  const crossFinding = {
+    ...reused, id: 31,
+    evidence: { ...reused.evidence, sharedBy: 2, others: [{ instanceId: 'uuid:r1', receivedAt: '2026-09-01T10:00:00Z', submitter: 5, xmlFormId: 'round1' }] },
+    relatedInstanceId: 'uuid:r1',
+    answers: { 'uuid:again': { '/hh_code': 'wa0001' }, 'uuid:r1': { '/hh_code': 'WA0001' } }
+  };
+  const errors = await api(p, managerVerbs, async (route, path) => {
+    if (path === '/v1/projects/1/forms/household/identity-keys') {
+      if (route.request().method() === 'POST') {
+        posted = route.request().postDataJSON();
+        await route.fulfill({ status: 201, json: { ...posted, id: 'key-x', version: 1, revision: 1, status: { usable: true }, alsoInStatus: { round1: { usable: true } } } });
+        return true;
+      }
+      await route.fulfill({ json: [] }); return true;
+    }
+    if (path === '/v1/projects/1/forms') { await route.fulfill({ json: [{ xmlFormId: 'household', name: 'Household' }, { xmlFormId: 'round1', name: 'Round 1' }] }); return true; }
+    if (path === '/v1/projects/1/forms/round1/fields') { await route.fulfill({ json: roundFields }); return true; }
+    if (path === '/v1/projects/1/forms/household/contradiction-rules') { await route.fulfill({ json: [] }); return true; }
+    if (path === '/v1/projects/1/forms/household/integrity') { await route.fulfill({ json: [crossFinding] }); return true; }
+    return false;
+  });
+  await p.goto(`${appUrl}${page}`);
+  const section = p.locator('.identity-keys');
+  await section.getByRole('button', { name: 'New identity key' }).click();
+  await section.getByLabel('Title').fill('Household code');
+  await section.getByLabel('Key question 1', { exact: true }).selectOption('/hh_code');
+  await section.getByRole('checkbox', { name: '/district' }).check();
+  await section.getByRole('button', { name: 'Add another Form' }).click();
+  // The key's own form is not offered.
+  await expect(section.getByLabel('Other form 1', { exact: true }).locator('option')).toHaveText(['Choose a Form', 'Round 1']);
+  await section.getByLabel('Other form 1', { exact: true }).selectOption('round1');
+  // Only questions that can hold a key are offered for the key question.
+  await expect(section.getByLabel('Other form 1 question for /hh_code').locator('option')).toHaveText(['Choose a question', '/household/code', '/household/area']);
+  await section.getByLabel('Other form 1 question for /hh_code').selectOption('/household/code');
+  await section.getByLabel('Other form 1 question for /district').selectOption('/household/area');
+  await section.getByLabel('Why a repeated key matters').fill('Once per round.');
+  await section.getByLabel(/Ordinary reasons/).fill('A follow-up.');
+  await section.getByLabel('What a reviewer should do').fill('Ask.');
+  await section.getByRole('button', { name: 'Save key' }).click();
+  expect(posted.alsoIn).toEqual([{ xmlFormId: 'round1', fields: { '/hh_code': '/household/code' }, sameFields: { '/district': '/household/area' } }]);
+
+  const item = p.locator('.finding');
+  await expect(item.locator('tbody tr').nth(1)).toContainText('Other (round1)');
+  await expect(item.locator('tbody tr').nth(1)).toContainText('WA0001');
+  await expect(item.getByRole('link', { name: 'Open the earliest with this key' })).toHaveAttribute('href', '/projects/1/forms/round1/submissions/uuid%3Ar1');
   expect(errors).toEqual([]);
 });

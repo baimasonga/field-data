@@ -26,14 +26,15 @@ const lines = (text) => text.split('\n').map((line) => line.trim()).filter((line
 export const blankKey = () => ({
   id: null, title: '', explanation: '', benign: '', nextStep: '',
   fields: [{ field: '', match: 'exact' }], sameFields: [], maxUses: 1, windowDays: '',
-  ignore: DEFAULT_IGNORE.join('\n'), minLength: 3
+  ignore: DEFAULT_IGNORE.join('\n'), minLength: 3, alsoIn: []
 });
 
 export const toEditor = (key) => ({
   id: key.id, revision: key.revision, active: key.active, title: key.title, explanation: key.explanation,
   benign: key.benignExplanations.join('\n'), nextStep: key.nextStep,
   fields: key.fields.map((f) => ({ ...f })), sameFields: [...key.sameFields], maxUses: key.maxUses,
-  windowDays: key.windowDays ?? '', ignore: key.ignoreValues.join('\n'), minLength: key.minLength
+  windowDays: key.windowDays ?? '', ignore: key.ignoreValues.join('\n'), minLength: key.minLength,
+  alsoIn: (key.alsoIn ?? []).map((entry) => ({ xmlFormId: entry.xmlFormId, fields: { ...entry.fields }, sameFields: { ...entry.sameFields } }))
 });
 
 export const fromEditor = (e) => ({
@@ -44,7 +45,15 @@ export const fromEditor = (e) => ({
   maxUses: Number(e.maxUses),
   windowDays: e.windowDays === '' || e.windowDays == null ? null : Number(e.windowDays),
   ignoreValues: lines(e.ignore),
-  minLength: Number(e.minLength)
+  minLength: Number(e.minLength),
+  // Only mapped questions are sent; questions that should stay the same may be left unmapped.
+  ...(e.alsoIn.length > 0 ? {
+    alsoIn: e.alsoIn.map((entry) => ({
+      xmlFormId: entry.xmlFormId,
+      fields: Object.fromEntries(e.fields.map(({ field }) => [field, entry.fields[field] || null])),
+      sameFields: Object.fromEntries(e.sameFields.filter((p) => entry.sameFields[p]).map((p) => [p, entry.sameFields[p]]))
+    }))
+  } : {})
 });
 
 // "/hh_code (digits only) appears more than once within 30 days"
@@ -53,5 +62,6 @@ export const describeKey = (key) => {
   const uses = key.maxUses === 1 ? 'more than once' : `more than ${key.maxUses} times`;
   const window = key.windowDays == null ? '' : ` within ${key.windowDays} days`;
   const same = key.sameFields.length === 0 ? '' : `, or appears again with a different ${key.sameFields.join(', ')}`;
-  return `Flags when ${fields} appears ${uses}${window}${same}.`;
+  const elsewhere = (key.alsoIn ?? []).length === 0 ? '' : ` Also counts uses in ${key.alsoIn.map((a) => a.xmlFormId).join(', ')}.`;
+  return `Flags when ${fields} appears ${uses}${window}${same}.${elsewhere}`;
 };
