@@ -198,3 +198,5 @@ module.exports = (service, endpoint) => {
     };
   }));
 };
+
+module.exports.familyOf = familyOf;

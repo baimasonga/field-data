@@ -164,4 +164,103 @@ describe('api: investigation records (F6)', () => {
     assert.equal(detail.hiddenFindings, 1);
     await alice.get('/v1/projects/999/investigations').expect(404);
   }));
+  it('adds up how investigations ended (F7)', testService(async (service, container) => {
+    const { alice, f } = await seed(service, container);
+    const { one, run, all } = container;
+    const bob = await service.login('bob');
+    await bob.post('/v1/projects/1/forms/simple/submissions').send(testData.instances.simple.two)
+      .set('Content-Type', 'application/xml').expect(200);
+    const flag = (rule, instanceId, relatedInstanceId = null) => one(sql`INSERT INTO field_data_integrity_flags
+        ("formId", rule, "ruleVersion", "instanceId", "relatedInstanceId", outcome, evidence)
+      SELECT id, ${rule}, 1, ${instanceId}, ${relatedInstanceId}, 'concern', '{}'::jsonb
+      FROM forms WHERE "projectId" = 1 AND "xmlFormId" = 'simple' RETURNING id`)
+      .then((r) => r.id);
+    const pair = await flag('near-duplicate', 'one', 'two');
+    const contradiction = await flag('contradiction:abc', 'one');
+    const nobody = await flag('manual-unknown', 'three');
+    const outcomes = `${base}/outcomes`;
+
+    const empty = (await alice.get(outcomes).expect(200)).body;
+    assert.equal(empty.timeToClose, null);
+    assert.deepEqual([empty.status, empty.families, empty.collectors, empty.hiddenFindings], [{ open: 0, closed: 0, reopened: 0 }, [], [], 0]);
+    assert.equal(empty.months.length, 12);
+
+    const open = async (n, findingIds) => (await alice.post(base).send({ requestId: uuid(n), title: `Inquiry ${n}`, findingIds }).expect(201)).body;
+    const close = (v, disposition) => alice.post(`${base}/${v.id}/close`).set('If-Match', `"investigation-${v.revision}"`)
+      .send({ disposition, conclusion: 'Done.' })
+      .expect(200)
+      .then((r) => r.body);
+    const first = await close(await open(1, [pair, contradiction]), 'confirmed-issue');
+    await run(sql`UPDATE field_data_investigations SET "openedAt" = "openedAt" - interval '10 days' WHERE id = ${first.id}`);
+    await close(await open(2, [pair, nobody]), 'data-error');
+    await close(await open(3, [f.c]), 'benign-pattern');
+    await open(4, [contradiction]);
+    const fifth = await close(await open(5, [f.a]), 'policy-exception');
+    await alice.post(`${base}/${fifth.id}/reopen`).set('If-Match', `"investigation-${fifth.revision}"`).send({ reason: 'More to see.' }).expect(200);
+
+    const before = await all(sql`SELECT * FROM field_data_investigation_events ORDER BY id`);
+    const result = await alice.get(outcomes).expect(200);
+    assert.equal(result.headers['cache-control'], 'private, no-store');
+    const { body } = result;
+    assert.deepEqual(body.status, { open: 2, closed: 3, reopened: 1 });
+    assert.deepEqual(body.dispositions, { 'confirmed-issue': 1, 'data-error': 1, 'benign-pattern': 1,
+      'insufficient-evidence': 0, 'policy-exception': 0, duplicate: 0 });
+    assert.deepEqual(body.timeToClose, { median: 0, longest: 10 });
+    const month = new Date().toISOString().slice(0, 7);
+    assert.deepEqual(body.months.at(-1), { month, 'confirmed-issue': 1, 'data-error': 1, 'benign-pattern': 1,
+      'insufficient-evidence': 0, 'policy-exception': 0, duplicate: 0 });
+    // The pair finding is in two closed investigations: counted under the later one.
+    const counts = (rows, key) => rows.map((r) => [r[key], r.total, r['confirmed-issue'], r['data-error'], r['benign-pattern']]);
+    assert.deepEqual(counts(body.families, 'family'), [['contradiction', 1, 1, 0, 0], ['similarity', 1, 0, 1, 0], ['other', 2, 0, 1, 1]]);
+    // Both collectors of the pair; submissions no one is known to have sent
+    // (the withrepeat finding's submission was never sent).
+    assert.deepEqual(counts(body.collectors, 'displayName'), [['Alice', 2, 1, 1, 0], ['Bob', 2, 1, 1, 0], [null, 2, 0, 1, 1]]);
+    assert.equal(body.collectors[2].actorId, null);
+    assert.equal(body.hiddenFindings, 0);
+    assert.deepEqual(await all(sql`SELECT * FROM field_data_investigation_events ORDER BY id`), before);
+
+    // Findings of a form that cannot be read are counted, not shown.
+    await alice.delete('/v1/projects/1/forms/withrepeat').expect(200);
+    const hidden = (await alice.get(outcomes).expect(200)).body;
+    assert.equal(hidden.hiddenFindings, 1);
+    assert.deepEqual(counts(hidden.families, 'family'), [['contradiction', 1, 1, 0, 0], ['similarity', 1, 0, 1, 0], ['other', 1, 0, 1, 0]]);
+    assert.deepEqual(hidden.collectors.map((c) => [c.displayName, c.total]), [['Alice', 2], ['Bob', 2], [null, 1]]);
+    assert.deepEqual(hidden.dispositions, body.dispositions);
+
+    // Only for those who manage the project.
+    const chelsea = await service.login('chelsea');
+    const chelseaId = (await chelsea.get('/v1/users/current').expect(200)).body.id;
+    await alice.post(`/v1/projects/1/assignments/viewer/${chelseaId}`).expect(200);
+    await chelsea.get(outcomes).expect(403);
+    const appUser = (await alice.post('/v1/projects/1/app-users').send({ displayName: 'Collector' }).expect(200)).body;
+    await service.get(`/v1/key/${appUser.token}/projects/1/investigations/outcomes`).expect(403);
+    await alice.get('/v1/projects/999/investigations/outcomes').expect(404);
+  }));
+  it('finds the other collector of a pair across forms and counts only this project (F7)', testService(async (service, container) => {
+    const { alice, f } = await seed(service, container);
+    const bob = await service.login('bob');
+    await bob.post('/v1/projects/1/forms/withrepeat/submissions').send(testData.instances.withrepeat.two)
+      .set('Content-Type', 'application/xml').expect(200);
+    const { id: pair } = await container.one(sql`INSERT INTO field_data_integrity_flags
+        ("formId", rule, "ruleVersion", "instanceId", "relatedInstanceId", outcome, evidence)
+      SELECT id, 'near-duplicate', 1, 'one', 'rtwo', 'concern', '{}'::jsonb
+      FROM forms WHERE "projectId" = 1 AND "xmlFormId" = 'simple' RETURNING id`);
+    const closeOne = async (projectId, n, findingIds) => {
+      const v = (await alice.post(`/v1/projects/${projectId}/investigations`)
+        .send({ requestId: uuid(n), title: `Inquiry ${n}`, findingIds }).expect(201)).body;
+      await alice.post(`/v1/projects/${projectId}/investigations/${v.id}/close`).set('If-Match', '"investigation-1"')
+        .send({ disposition: 'insufficient-evidence', conclusion: 'Done.' })
+        .expect(200);
+    };
+    await closeOne(1, 1, [pair]);
+    const otherProject = await container.oneFirst(sql`SELECT "projectId" FROM forms f
+      JOIN field_data_integrity_flags i ON i."formId" = f.id WHERE i.id = ${f.foreign}`);
+    await closeOne(otherProject, 2, [f.foreign]);
+
+    const { body } = await alice.get(`${base}/outcomes`).expect(200);
+    assert.deepEqual(body.status, { open: 0, closed: 1, reopened: 0 });
+    assert.equal(body.hiddenFindings, 0);
+    assert.deepEqual(body.families.map((r) => [r.family, r.total]), [['similarity', 1]]);
+    assert.deepEqual(body.collectors.map((c) => [c.displayName, c['insufficient-evidence']]), [['Alice', 1], ['Bob', 1]]);
+  }));
 });

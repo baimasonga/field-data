@@ -76,8 +76,12 @@ also exist. Those features must not be re-labelled as full completion of this pr
   page, with no score: merged in PR #71. Investigation records (F6): findings
   looked into together, an append-only history, a disposition from a fixed
   list and reopening as the correction path, for project managers only and
-  changing nothing else: merged in PR #77. Triage, linking
-  review cases and metrics over dispositions remain pending.
+  changing nothing else: merged in PR #77. Investigation outcomes (F7,
+  first metrics-over-dispositions slice): counts of a project's
+  investigations by status and disposition, days to close, closures by month,
+  findings by kind of check and collectors by disposition, counts only, with
+  the note that investigated findings are chosen by people: implemented and
+  locally validated. Triage and linking review cases remain pending.
 - Receipt and custody ledger (R1, first offline-resilience custody slice):
   an append-only, hash-chained receipt per submission version received,
   written by a database trigger; manager verification of chain and stored
@@ -106,7 +110,7 @@ also exist. Those features must not be re-labelled as full completion of this pr
   versions' codes to current ones or reading a moved question from its old
   path, applied by version in the analysis exports (direct and queued, frozen
   with the job) and listed in each export's manifest, with an option to
-  export answers as stored: implemented and locally validated. Recodes in
+  export answers as stored: merged in PR #82. Recodes in
   Central's own exports and the on-screen analysis, approved policies and
   evolution remain pending.
 - Project findings inbox (F3): integrity findings from every readable form of a
