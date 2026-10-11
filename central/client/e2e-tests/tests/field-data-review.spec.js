@@ -204,7 +204,10 @@ const setup = async (page, { comparisonUnavailable = false, failComparison = fal
       state.projectionCalls.push(url.search);
       if (state.projectionFailures-- > 0) return route.fulfill({ status: 500, json: { message: 'Failed' } });
       const p = state.projection ?? { predicates: [], assets: [], summary: { byValue: [], byStatus: {} }, excluded: { notReadable: 0, sourceDeleted: 0 }, truncated: false };
-      return respond({ ...p, predicate, at: '2026-10-10T00:00:00.000Z', knownAt: '2026-10-10T00:00:00.000Z',
+      const areaPredicate = url.searchParams.get('areaPredicate');
+      const { byArea, ...plain } = p;
+      return respond({ ...plain, predicate, areaPredicate, at: '2026-10-10T00:00:00.000Z', knownAt: '2026-10-10T00:00:00.000Z',
+        ...(areaPredicate == null ? {} : { byArea }),
         assets: predicate == null ? [] : p.assets.filter((a) => !url.searchParams.get('assetType') || a.assetType === url.searchParams.get('assetType')) });
     }
     // K5 suggested duplicates.
@@ -1411,6 +1414,48 @@ test('asset status shows one fact for every asset, counting only current values'
   await rows.nth(0).getByRole('button', { name: 'Open asset' }).click();
   const assets = page.getByRole('region', { name: 'Asset passports and re-verification' });
   await expect(assets.getByRole('button', { name: 'Manage' })).toBeVisible();
+  await page.setViewportSize({ width: 360, height: 800 });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= 360)).toBe(true);
+  expect(errors).toEqual([]);
+});
+
+test('asset status groups by area, an area being another recorded fact (K6)', async ({ page }) => {
+  const { state, errors } = await setup(page);
+  const status = (value) => ({ fresh: 0, 'review-due': 0, expired: 0, unknown: 0, 'source-unverified': 0, 'not-yet-valid': 0, none: 0, ...value });
+  state.projection = {
+    predicates: ['condition', 'district'],
+    assets: [{ id: 'a1', name: 'Kissy water point', externalId: 'WP-01', assetType: 'water-point', xmlFormId: 'health',
+      fact: { value: 'broken', state: 'known', validFrom: '2026-09-01T00:00:00.000Z', freshness: { status: 'fresh' } } }],
+    summary: { byValue: [{ value: 'broken', count: 1 }], byStatus: status({ fresh: 1 }) },
+    byArea: [
+      { area: 'Bo', assets: 3, areaNotCurrent: 1, byValue: [{ value: 'broken', count: 1 }, { value: 'operating', count: 1 }], byStatus: status({ fresh: 2, expired: 1 }) },
+      { area: 'Kenema', assets: 1, areaNotCurrent: 0, byValue: [], byStatus: status({ none: 1 }) },
+      { area: null, assets: 1, areaNotCurrent: 0, byValue: [{ value: 'operating', count: 1 }], byStatus: status({ fresh: 1 }) }
+    ],
+    excluded: { notReadable: 0, sourceDeleted: 0 },
+    truncated: false
+  };
+  state.projectionCalls = [];
+  await page.reload();
+  const section = page.getByRole('region', { name: 'Asset status across the project' });
+  await expect(section.locator('.asset-status-summary')).toContainText('Current: 1 broken.');
+  await expect(section.locator('.asset-status-areas')).toHaveCount(0);
+  // The fact being shown is not offered as its own area.
+  await expect(section.getByLabel('By area (optional)').locator('option')).toHaveText(['No grouping', 'district']);
+  await section.getByLabel('By area (optional)').selectOption('district');
+  await section.getByRole('button', { name: 'Show' }).click();
+  expect(state.projectionCalls.at(-1)).toBe('?predicate=condition&areaPredicate=district');
+  const areas = section.getByRole('table', { name: 'By district' });
+  await expect(areas.locator('tbody tr')).toHaveText([
+    /Bo\s*3\s*1 broken, 1 operating\s*1/, /Kenema\s*1\s*—\s*1/, /No district recorded\s*1\s*1 operating\s*0/
+  ]);
+  await expect(section.locator('.asset-status-area-note')).toContainText('1 asset is placed by such a fact.');
+  await expect(section.locator('.asset-status-table tbody tr')).toHaveCount(1);
+  // Back to no grouping.
+  await section.getByLabel('By area (optional)').selectOption('');
+  await section.getByRole('button', { name: 'Show' }).click();
+  await expect(section.locator('.asset-status-areas')).toHaveCount(0);
+  expect(state.projectionCalls.at(-1)).toBe('?predicate=condition');
   await page.setViewportSize({ width: 360, height: 800 });
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= 360)).toBe(true);
   expect(errors).toEqual([]);

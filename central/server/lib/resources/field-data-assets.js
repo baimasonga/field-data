@@ -6,7 +6,7 @@ const { UUID_PATTERN } = require('../util/claim-versioning');
 const { getOrNotFound } = require('../util/promise');
 const Problem = require('../util/problem');
 const { timestamp, freshness, selectFacts } = require('../util/asset-freshness');
-const { MAX_ASSETS, summarize } = require('../util/asset-projection');
+const { MAX_ASSETS, summarize, summarizeByArea } = require('../util/asset-projection');
 const { generateReverification } = require('../worker/field-data-reverification');
 const invalid = () => Problem.user.assetInvalid();
 const hash = value => createHash('sha256').update(JSON.stringify(value)).digest('hex');
@@ -124,7 +124,10 @@ module.exports = (service, endpoint) => {
   service.get(`${root}/projection`, endpoint(async (container, { auth, params, query }, request, response) => {
     const project = await scope(container, auth, params);
     for (const key of ['at', 'knownAt']) if (query[key] != null && !timestamp(query[key])) throw invalid();
-    for (const key of ['predicate', 'assetType']) if (query[key] != null && !text(query[key], 100)) throw invalid();
+    for (const key of ['predicate', 'assetType', 'areaPredicate']) if (query[key] != null && !text(query[key], 100)) throw invalid();
+    // K6: an area is the value of another predicate.
+    const areaPredicate = query.areaPredicate?.trim() ?? null;
+    if (areaPredicate != null && (query.predicate == null || areaPredicate === query.predicate.trim())) throw invalid();
     const now = new Date();
     const at = query.at == null ? now : new Date(query.at);
     const knownAt = query.knownAt == null ? now : new Date(query.knownAt);
@@ -143,7 +146,7 @@ module.exports = (service, endpoint) => {
       JOIN field_data_assets a ON a.id = owner."assetId" AND a."projectId" = ${project.id} AND a."formId" = ANY(${readableIds})
         AND a.status = 'active'
       ORDER BY o.predicate LIMIT 200`)).map(row => row.predicate);
-    const result = { predicate: query.predicate?.trim() ?? null, at: at.toISOString(), knownAt: knownAt.toISOString(), predicates };
+    const result = { predicate: query.predicate?.trim() ?? null, areaPredicate, at: at.toISOString(), knownAt: knownAt.toISOString(), predicates };
     if (result.predicate == null) return { ...result, assets: [], summary: summarize([]), excluded: { notReadable: 0, sourceDeleted: 0 }, truncated: false };
 
     // As with a passport, an asset whose facts rest on a deleted submission or
@@ -173,18 +176,23 @@ module.exports = (service, endpoint) => {
       JOIN submission_defs sd ON sd.id = cv."submissionDefId"
       LEFT JOIN field_data_submission_provenance p ON p."submissionDefId" = sd.id
       JOIN field_data_observation_owners owner ON owner."observationId" = o.id
-      WHERE owner."assetId" = ANY(${sql.array(shown.map(row => row.id), 'uuid')}) AND o.predicate = ${result.predicate}`);
+      WHERE owner."assetId" = ANY(${sql.array(shown.map(row => row.id), 'uuid')})
+        AND o.predicate = ANY(${sql.array([result.predicate, ...(areaPredicate == null ? [] : [areaPredicate])], 'text')})`);
     const byAsset = new Map();
     for (const { requestId, requestHash, verified, ownerId, ...row } of observations) {
       if (!byAsset.has(ownerId)) byAsset.set(ownerId, []);
       byAsset.get(ownerId).push({ ...row, integrityStatus: verified === true ? 'verified' : 'unverified' });
     }
+    const shape = (fact) => (fact == null ? null : { value: fact.value, state: fact.state, validFrom: fact.validFrom,
+      recordedAt: fact.recordedAt, claimVersionId: fact.claimVersionId, integrityStatus: fact.integrityStatus, freshness: fact.freshness });
     const assets = shown.map(({ total, sourceDeleted, notReadable, ...asset }) => {
-      const [fact] = selectFacts(byAsset.get(asset.id) ?? [], at, knownAt);
-      return { ...asset, fact: fact == null ? null : { value: fact.value, state: fact.state, validFrom: fact.validFrom,
-        recordedAt: fact.recordedAt, claimVersionId: fact.claimVersionId, integrityStatus: fact.integrityStatus, freshness: fact.freshness } };
+      const facts = selectFacts(byAsset.get(asset.id) ?? [], at, knownAt);
+      const fact = facts.find(f => f.predicate === result.predicate);
+      const shaped = { ...asset, fact: shape(fact) };
+      if (areaPredicate != null) shaped.area = shape(facts.find(f => f.predicate === areaPredicate));
+      return shaped;
     });
-    return { ...result, assets, summary: summarize(assets),
+    return { ...result, assets, summary: summarize(assets), ...(areaPredicate == null ? {} : { byArea: summarizeByArea(assets) }),
       excluded: { notReadable: rows.filter(row => row.notReadable).length, sourceDeleted: rows.filter(row => row.sourceDeleted && !row.notReadable).length },
       truncated: rows.length > 0 && Number(rows[0].total) > rows.length };
   }));

@@ -32,8 +32,10 @@ also exist. Those features must not be re-labelled as full completion of this pr
   one predicate's current fact for every asset, chosen as the passport chooses
   it, with a count by value of facts still fresh or due for review and the
   rest counted by freshness status, on the Review page: merged in PR #76.
-  Several predicates, maps and aggregation by area remain
-  pending.
+  Asset status by area (K6): the same table grouped by another recorded
+  fact chosen as the area (for example `district`), with the assets placed by
+  an area fact no longer current counted: implemented and locally validated.
+  Several predicates, maps and areas from locations remain pending.
 - Reversible asset merges and splits (K4, first correction/merge/split
   history slice): a duplicate asset merged into another, or chosen
   observations split into a new asset, without changing any observation; an
@@ -80,8 +82,8 @@ also exist. Those features must not be re-labelled as full completion of this pr
   first metrics-over-dispositions slice): counts of a project's
   investigations by status and disposition, days to close, closures by month,
   findings by kind of check and collectors by disposition, counts only, with
-  the note that investigated findings are chosen by people: implemented and
-  locally validated. Triage and linking review cases remain pending.
+  the note that investigated findings are chosen by people: merged in PR #84.
+  Triage and linking review cases remain pending.
 - Receipt and custody ledger (R1, first offline-resilience custody slice):
   an append-only, hash-chained receipt per submission version received,
   written by a database trigger; manager verification of chain and stored

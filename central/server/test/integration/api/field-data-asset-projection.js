@@ -127,4 +127,47 @@ describe('api: asset status across a project (K3)', () => {
     // The passport route still treats other names as asset IDs.
     await alice.get(`${root}/not-an-asset`).expect(404);
   }));
+  it('summarises the status by area, an area being another predicate (K6)', testService(async (service) => {
+    const { alice, submit, claimOf, register, observe } = await setup(service);
+    await submit('simple', testData.instances.simple.one);
+    const claim = await claimOf('simple', 'one');
+    const [a, b, c, d, e] = [await register('A'), await register('B'), await register('C'), await register('D'), await register('E')];
+    await observe(a, claim, 'condition', 'operating', '2026-02-01T00:00:00Z');
+    await observe(a, claim, 'district', 'Kenema', '2026-02-01T00:00:00Z');
+    await observe(b, claim, 'condition', 'broken', '2026-02-01T00:00:00Z');
+    await observe(b, claim, 'district', 'Bo', '2026-02-01T00:00:00Z');
+    await observe(c, claim, 'condition', 'broken', '2025-06-01T00:00:00Z', 30, 10);
+    // An old district fact still places the asset, and is counted as not current.
+    await observe(c, claim, 'district', 'Bo', '2025-06-01T00:00:00Z', 30, 10);
+    await observe(d, claim, 'condition', 'operating', '2026-02-01T00:00:00Z');
+    await observe(e, claim, 'district', 'Kenema', '2026-02-01T00:00:00Z');
+    // A later district fact moves A, as the passport would choose it.
+    await observe(a, claim, 'district', 'Bo', '2026-02-20T00:00:00Z');
+
+    const { body } = await alice.get(projection).query({ predicate: 'condition', areaPredicate: 'district', at: AT }).expect(200);
+    assert.equal(body.areaPredicate, 'district');
+    assert.equal(byName(body).A.area.value, 'Bo');
+    assert.equal(byName(body).D.area, null);
+    assert.deepEqual(body.byArea.map((g) => [g.area, g.assets, g.areaNotCurrent, g.byValue]), [
+      ['Bo', 3, 1, [{ value: 'broken', count: 1 }, { value: 'operating', count: 1 }]],
+      ['Kenema', 1, 0, []],
+      [null, 1, 0, [{ value: 'operating', count: 1 }]]
+    ]);
+    assert.equal(body.byArea[0].byStatus.expired, 1);
+    assert.equal(body.byArea[1].byStatus.none, 1);
+    assert.deepEqual(body.summary.byValue, [{ value: 'operating', count: 2 }, { value: 'broken', count: 1 }]);
+    // Earlier, A was in Kenema.
+    const before = (await alice.get(projection).query({ predicate: 'condition', areaPredicate: 'district', at: '2026-02-10T00:00:00Z' }).expect(200)).body;
+    assert.deepEqual(before.byArea.map((g) => [g.area, g.assets]), [['Bo', 2], ['Kenema', 2], [null, 1]]);
+    // Without an area predicate the response has no areas.
+    const plain = (await alice.get(projection).query({ predicate: 'condition', at: AT }).expect(200)).body;
+    assert.equal(plain.byArea, undefined);
+    assert.equal(plain.areaPredicate, null);
+    assert.equal(byName(plain).A.area, undefined);
+    // An area predicate needs a predicate, and a different one.
+    await alice.get(projection).query({ areaPredicate: 'district' }).expect(400);
+    await alice.get(projection).query({ predicate: 'district', areaPredicate: 'district' }).expect(400);
+    await alice.get(projection).query({ predicate: 'condition', areaPredicate: ' ' }).expect(400);
+    await alice.get(projection).query({ predicate: 'condition', areaPredicate: 'x'.repeat(101) }).expect(400);
+  }));
 });

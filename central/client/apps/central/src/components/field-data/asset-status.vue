@@ -1,8 +1,10 @@
 <!-- Copyright 2026 Field Data Developers. Licensed under the Apache License, Version 2.0.
 
 Asset status across a project (K3): one fact for every asset, chosen as its
-passport chooses it, with a count by value of knowledge still current.
-Contract: docs/field-intelligence/K3-asset-status-projection.md -->
+passport chooses it, with a count by value of knowledge still current; K6
+groups it by area, an area being another recorded fact.
+Contracts: docs/field-intelligence/K3-asset-status-projection.md,
+docs/field-intelligence/K6-asset-status-by-area.md -->
 <template>
   <section class="asset-status" aria-labelledby="asset-status-title">
     <h2 id="asset-status-title">Asset status across the project</h2>
@@ -16,6 +18,12 @@ Contract: docs/field-intelligence/K3-asset-status-projection.md -->
       <label>Fact
         <select v-model="predicate" class="form-control" required>
           <option v-for="p of predicates" :key="p" :value="p">{{ p }}</option>
+        </select>
+      </label>
+      <label>By area (optional)
+        <select v-model="areaPredicate" class="form-control">
+          <option value="">No grouping</option>
+          <option v-for="p of predicates.filter((x) => x !== predicate)" :key="p" :value="p">{{ p }}</option>
         </select>
       </label>
       <label>Asset type (optional)
@@ -37,6 +45,27 @@ Contract: docs/field-intelligence/K3-asset-status-projection.md -->
         {{ statusLine }}
       </p>
       <p v-if="excludedLine" class="asset-status-excluded">{{ excludedLine }}</p>
+      <template v-if="result.byArea != null">
+        <table class="table asset-status-areas">
+          <caption>By {{ result.areaPredicate }}</caption>
+          <thead>
+            <tr><th>{{ result.areaPredicate }}</th><th>Assets</th><th>Current {{ result.predicate }}</th><th>Not current</th></tr>
+          </thead>
+          <tbody>
+            <tr v-for="g of result.byArea" :key="g.area ?? ''">
+              <td>{{ g.area ?? `No ${result.areaPredicate} recorded` }}</td>
+              <td>{{ g.assets }}</td>
+              <td>{{ g.byValue.length === 0 ? '—' : g.byValue.map((v) => `${v.count} ${v.value}`).join(', ') }}</td>
+              <td>{{ notCurrent(g) }}</td>
+            </tr>
+          </tbody>
+        </table>
+        <p class="asset-status-area-note">
+          An asset's {{ result.areaPredicate }} is its current recorded fact, used even when that fact is no longer fresh;
+          <template v-if="areaNotCurrent > 0">{{ areaNotCurrent }} {{ areaNotCurrent === 1 ? 'asset is' : 'assets are' }} placed by such a fact.</template>
+          <template v-else>no asset here is placed by such a fact.</template>
+        </p>
+      </template>
       <p v-if="result.assets.length === 0" class="asset-status-empty">No asset matches.</p>
       <table v-else class="table asset-status-table">
         <thead><tr><th>Asset</th><th>{{ result.predicate }}</th><th>Status</th><th>Valid from</th><th><span class="sr-only">Open</span></th></tr></thead>
@@ -70,7 +99,7 @@ const STATUS = {
   fresh: 'Fresh', 'review-due': 'Review due', expired: 'Expired', unknown: 'Unknown',
   'source-unverified': 'Source unverified', 'not-yet-valid': 'Not yet valid', none: 'No fact'
 };
-const predicates = ref(null); const predicate = ref(''); const assetType = ref(''); const asOf = ref('');
+const predicates = ref(null); const predicate = ref(''); const areaPredicate = ref(''); const assetType = ref(''); const asOf = ref('');
 const result = ref(null); const error = ref('');
 const url = (params) => `/v1/field-data/projects/${props.projectId}/assets/projection${params.toString() === '' ? '' : `?${params}`}`;
 
@@ -85,6 +114,7 @@ const get = (params) => request({ method: 'GET', url: url(params), alert: false 
 const load = () => {
   error.value = '';
   const params = new URLSearchParams({ predicate: predicate.value });
+  if (areaPredicate.value !== '' && areaPredicate.value !== predicate.value) params.set('areaPredicate', areaPredicate.value);
   if (assetType.value.trim() !== '') params.set('assetType', assetType.value.trim());
   // The end of the chosen day.
   if (asOf.value !== '') params.set('at', `${asOf.value}T23:59:59Z`);
@@ -102,6 +132,9 @@ const statusLine = computed(() => {
     .filter(([key]) => s[key] > 0).map(([key, label]) => `${s[key]} ${label}`);
   return parts.length === 0 ? '' : `Also: ${parts.join(', ')}.`;
 });
+// K6: per area, the assets not counted by value (no current fact).
+const notCurrent = (g) => g.assets - g.byValue.reduce((n, v) => n + v.count, 0);
+const areaNotCurrent = computed(() => result.value.byArea.reduce((n, g) => n + g.areaNotCurrent, 0));
 const excludedLine = computed(() => {
   const { notReadable, sourceDeleted } = result.value.excluded;
   const parts = [];
@@ -119,7 +152,8 @@ const excludedLine = computed(() => {
   overflow-wrap: anywhere;
   .asset-status-form { align-items: flex-end; display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px;
     label { display: flex; flex-direction: column; font-weight: normal; max-width: 240px; } }
-  .asset-status-empty, .asset-status-id, .asset-status-excluded, .asset-status-more { color: $color-text-secondary; }
+  .asset-status-empty, .asset-status-id, .asset-status-excluded, .asset-status-more, .asset-status-area-note { color: $color-text-secondary; }
+  caption { color: $color-text; font-weight: bold; }
   .asset-status-error { color: $color-danger; }
   table { display: block; max-width: 100%; overflow-x: auto; }
   .btn-link { padding: 0; }
