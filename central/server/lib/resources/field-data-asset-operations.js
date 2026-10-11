@@ -1,6 +1,7 @@
 // Copyright 2026 Field Data Developers. Licensed under the Apache License, Version 2.0.
 //
 // Reversible asset merges and splits (K4): docs/field-intelligence/K4-asset-merge-split.md
+// Suggested duplicate assets (K5): docs/field-intelligence/K5-duplicate-assets.md
 //
 // Observations are never changed. An operation records which asset each
 // affected observation now belongs to (field_data_observation_owners resolves
@@ -14,6 +15,7 @@ const { UUID_PATTERN } = require('../util/claim-versioning');
 const { getOrNotFound } = require('../util/promise');
 const Problem = require('../util/problem');
 const { generateReverification } = require('../worker/field-data-reverification');
+const { MAX_ASSETS, findPairs, keyOf } = require('../util/asset-duplicates');
 
 const MAX_SPLIT = 500;
 const invalid = () => Problem.user.assetInvalid();
@@ -57,6 +59,17 @@ const checkSources = async (container, auth, projectId, observationIds) => {
     JOIN forms f ON f.id = s."formId"
     WHERE o.id = ANY(${sql.array(observationIds, 'uuid')})`);
   await Promise.all(forms.map(({ xmlFormId }) => readForm(container, auth, projectId, xmlFormId)));
+};
+// The project's forms whose submissions the caller may read.
+const readableFormIds = async (container, auth, projectId) => {
+  const forms = await container.db.any(sql`SELECT "xmlFormId" FROM forms WHERE "projectId" = ${projectId} AND "deletedAt" IS NULL`);
+  const ids = await Promise.all(forms.map(async ({ xmlFormId }) => {
+    try { return (await readForm(container, auth, projectId, xmlFormId)).id; } catch (error) {
+      if (error?.problemCode === Problem.user.notFound.code) return null;
+      throw error;
+    }
+  }));
+  return ids.filter((id) => id != null);
 };
 const ownedBy = async (db, assetId) => (await db.any(sql`SELECT "observationId" FROM field_data_observation_owners
   WHERE "assetId" = ${assetId}`)).map((row) => row.observationId);
@@ -241,5 +254,79 @@ module.exports = (service, endpoint) => {
     });
     response.set('Cache-Control', 'private, no-store');
     return present(result);
+  }));
+
+  // K5: pairs of active assets that may be the same thing, with their reasons.
+  service.get(`${root}/duplicates`, endpoint(async (container, { auth, params }, _, response) => {
+    const project = await scope(container, auth, params);
+    const readable = sql.array(await readableFormIds(container, auth, project.id), 'int4');
+    const rows = await container.db.any(sql`SELECT a.id, a.name, a."assetType", a."externalId", f."xmlFormId"
+      FROM field_data_assets a JOIN forms f ON f.id = a."formId" AND f."deletedAt" IS NULL
+      WHERE a."projectId" = ${project.id} AND a.status = 'active' AND a."formId" = ANY(${readable})
+      ORDER BY a.name, a.id LIMIT ${MAX_ASSETS + 1}`);
+    const assets = rows.slice(0, MAX_ASSETS);
+    const ids = sql.array(assets.map((a) => a.id), 'uuid');
+    // Assets with an observation citing the same submission version, counting
+    // only sources the caller may read.
+    const cited = assets.length < 2 ? [] : await container.db.any(sql`WITH cites AS (
+        SELECT DISTINCT owner."assetId", o."claimVersionId" FROM field_data_asset_observations o
+        JOIN field_data_observation_owners owner ON owner."observationId" = o.id
+        JOIN field_data_claim_versions cv ON cv.id = o."claimVersionId"
+        JOIN submission_defs sd ON sd.id = cv."submissionDefId"
+        JOIN submissions s ON s.id = sd."submissionId" AND s."deletedAt" IS NULL AND s."formId" = ANY(${readable})
+        WHERE owner."assetId" = ANY(${ids}))
+      SELECT DISTINCT x."assetId" AS a, y."assetId" AS b FROM cites x
+      JOIN cites y ON y."claimVersionId" = x."claimVersionId" AND x."assetId" < y."assetId"`);
+    const dismissals = await container.db.any(sql`SELECT d.*, actor."displayName" AS "actorName"
+      FROM field_data_asset_duplicate_dismissals d LEFT JOIN actors actor ON actor.id = d."actorId"
+      WHERE d."projectId" = ${project.id} AND d."withdrawnAt" IS NULL ORDER BY d."createdAt" DESC`);
+    const byId = new Map(assets.map((a) => [a.id, a]));
+    const visible = dismissals.filter((d) => byId.has(d.assetId) && byId.has(d.otherAssetId));
+    const { pairs, total } = findPairs(assets, cited.map((row) => [row.a, row.b]),
+      new Set(dismissals.map((d) => keyOf(d.assetId, d.otherAssetId))));
+    response.set('Cache-Control', 'private, no-store');
+    return {
+      pairs, total, truncated: rows.length > MAX_ASSETS,
+      dismissed: visible.map((d) => ({ id: d.id, a: byId.get(d.assetId), b: byId.get(d.otherAssetId),
+        reason: d.reason, actorName: d.actorName, createdAt: d.createdAt }))
+    };
+  }));
+
+  // A person's decision that two suggested assets are not the same.
+  service.post(`${root}/duplicates/dismissals`, endpoint(async (container, { auth, params, body }, _, response) => {
+    const project = await scope(container, auth, params, true);
+    if (body == null || Object.keys(body).some((k) => !['assetIds', 'reason'].includes(k)) || !Array.isArray(body.assetIds)
+      || body.assetIds.length !== 2 || !text(body.reason, 2000)) throw invalid();
+    const [first, second] = await Promise.all(body.assetIds.map((id) => assetOf(container, auth, project.id, id)));
+    if (first.id === second.id) throw invalid();
+    const [assetId, otherAssetId] = [first.id, second.id].sort();
+    const actorId = auth.actor.map((actor) => actor.id).orNull();
+    const created = await container.transacting(async ({ db }) => {
+      const [active] = await db.any(sql`SELECT id FROM field_data_asset_duplicate_dismissals
+        WHERE "assetId" = ${assetId} AND "otherAssetId" = ${otherAssetId} AND "withdrawnAt" IS NULL FOR UPDATE`);
+      if (active != null) throw state('this pair was already marked as not the same');
+      return db.one(sql`INSERT INTO field_data_asset_duplicate_dismissals ("projectId", "assetId", "otherAssetId", reason, "actorId")
+        VALUES (${project.id}, ${assetId}, ${otherAssetId}, ${body.reason.trim()}, ${actorId}) RETURNING id, "createdAt"`);
+    });
+    response.set('Cache-Control', 'private, no-store');
+    response.status(201);
+    return { id: created.id, assetIds: [assetId, otherAssetId], reason: body.reason.trim(), createdAt: created.createdAt };
+  }));
+
+  service.post(`${root}/duplicates/dismissals/:dismissalId/withdraw`, endpoint(async (container, { auth, params }, _, response) => {
+    const project = await scope(container, auth, params, true);
+    if (!UUID_PATTERN.test(params.dismissalId)) throw Problem.user.notFound();
+    const [found] = await container.db.any(sql`SELECT * FROM field_data_asset_duplicate_dismissals
+      WHERE id = ${params.dismissalId} AND "projectId" = ${project.id}`);
+    if (found == null) throw Problem.user.notFound();
+    await assetOf(container, auth, project.id, found.assetId);
+    await assetOf(container, auth, project.id, found.otherAssetId);
+    const actorId = auth.actor.map((actor) => actor.id).orNull();
+    const updated = await container.db.any(sql`UPDATE field_data_asset_duplicate_dismissals
+      SET "withdrawnAt" = clock_timestamp(), "withdrawnBy" = ${actorId}
+      WHERE id = ${found.id} AND "withdrawnAt" IS NULL RETURNING id`);
+    if (updated.length === 0) throw state('it was already withdrawn');
+    response.set('Cache-Control', 'private, no-store');
+    return { id: found.id, withdrawn: true };
   }));
 };

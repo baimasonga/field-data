@@ -43,6 +43,8 @@
           :project-id="projectId" :prefill="investigationPrefill"/>
         <field-data-project-search v-if="projectId" :key="`search:${projectId}`" :project-id="projectId" @open="openFromQueue"/>
         <field-data-asset-status v-if="projectId" :key="`status:${projectId}`" :project-id="projectId" @open="openFromQueue"/>
+        <field-data-duplicate-assets v-if="projectId" :key="`duplicates:${projectId}`" :project-id="projectId"
+          :can-manage="canManageProject" @open="openFromQueue"/>
         <field-data-reverification-queue v-if="projectId" :key="`queue:${projectId}`"
           :project-id="projectId" @open="openFromQueue"/>
         <field-data-assets v-if="projectId && xmlFormId" :key="`assets:${projectId}:${xmlFormId}`"
@@ -69,6 +71,7 @@ import FieldDataCollectorGroups from './collector-groups.vue';
 import FieldDataInvestigations from './investigations.vue';
 import FieldDataProjectSearch from './project-search.vue';
 import FieldDataAssetStatus from './asset-status.vue';
+import FieldDataDuplicateAssets from './duplicate-assets.vue';
 import { useRequestData } from '../../request-data';
 
 defineOptions({ name: 'FieldDataReview' });

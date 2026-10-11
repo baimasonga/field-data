@@ -40,8 +40,12 @@ also exist. Those features must not be re-labelled as full completion of this pr
   ownership view used by the passport, status table, search and
   re-verification (superseding and, after an undo, restoring tasks); undo of
   the latest operation restoring the previous facts exactly; approved by the
-  project owner: implemented and locally validated. Suggested duplicates
-  (entity resolution) remain pending.
+  project owner: merged in PR #78. Suggested duplicates (K5, first entity
+  resolution slice): pairs of assets that may be the same thing, with reasons
+  in words (matching external IDs, the same source submission, the same or a
+  similar name of the same type with the same numbers), never merged
+  automatically, dismissible with a reason: implemented and locally
+  validated. Location and photo comparison remain pending.
 - Cited search (K2, first cited-retrieval slice): one search across a
   project's assets, asset facts, integrity findings and review decisions on
   the Review page, each result citing the submission it rests on, limited to
