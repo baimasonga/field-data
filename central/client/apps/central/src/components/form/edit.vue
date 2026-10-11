@@ -30,6 +30,10 @@ except according to the terms contained in the LICENSE file.
         <form-edit-doctor :project-id="projectId" :xml-form-id="xmlFormId"
           target="draft" :definition-key="formDraft.get().hash"
           @report="(r) => { doctorErrors = r?.summary.errors ?? 0; }"/>
+        <form-edit-changes v-if="form.dataExists && form.publishedAt != null"
+          :project-id="projectId" :xml-form-id="xmlFormId"
+          :definition-key="formDraft.get().hash"
+          @report="(r) => { meaningChanges = r?.summary?.meaning ?? 0; }"/>
         <form-edit-simulation :project-id="projectId" :xml-form-id="xmlFormId"
           target="draft" :definition-key="formDraft.get().hash"/>
         <form-edit-attachments/>
@@ -41,7 +45,8 @@ except according to the terms contained in the LICENSE file.
     </template>
 
     <form-draft-publish v-if="formDraft.dataExists && formDraft.isDefined()"
-      v-bind="publishModal" :doctor-errors="doctorErrors" @hide="publishModal.hide()"
+      v-bind="publishModal" :doctor-errors="doctorErrors"
+      :meaning-changes="meaningChanges" @hide="publishModal.hide()"
       @success="afterPublish"/>
     <form-draft-abandon v-bind="abandonModal" @hide="abandonModal.hide()"
       @success="afterAbandon"/>
@@ -59,6 +64,7 @@ import FormEditAttachments from './edit/attachments.vue';
 import FormEditEntities from './edit/entities.vue';
 import FormEditCreateDraft from './edit/create-draft.vue';
 import FormEditDef from './edit/def.vue';
+import FormEditChanges from './edit/changes.vue';
 import FormEditDoctor from './edit/doctor.vue';
 import FormEditSimulation from './edit/simulation.vue';
 import FormEditDraftControls from './edit/draft-controls.vue';
@@ -138,6 +144,8 @@ const publishModal = modalData();
 // Errors the form check found in the draft; shown in the publish dialog, which
 // still lets the person publish (S1: the check can be wrong).
 const doctorErrors = ref(0);
+// Changes to meaning from the published version (S3); also only shown.
+const meaningChanges = ref(0);
 const afterPublish = () => {
   // Re-request the project in case its `datasets` property has changed.
   emit('fetch-project', true);

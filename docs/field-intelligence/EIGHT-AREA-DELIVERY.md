@@ -44,8 +44,8 @@ also exist. Those features must not be re-labelled as full completion of this pr
   resolution slice): pairs of assets that may be the same thing, with reasons
   in words (matching external IDs, the same source submission, the same or a
   similar name of the same type with the same numbers), never merged
-  automatically, dismissible with a reason: implemented and locally
-  validated. Location and photo comparison remain pending.
+  automatically, dismissible with a reason: merged in PR #79. Location and
+  photo comparison remain pending.
 - Cited search (K2, first cited-retrieval slice): one search across a
   project's assets, asset facts, integrity findings and review decisions on
   the Review page, each result citing the submission it rests on, limited to
@@ -96,7 +96,14 @@ also exist. Those features must not be re-labelled as full completion of this pr
   interview simulation (S2): seeded simulated interviews of a form version
   reporting never-shown questions, constraints not met, interview length and
   what was not simulated, on the Draft page: merged in PR #69 (swept over 158
-  forms). Approved policies and evolution remain pending.
+  forms). Version changes (S3, first schema/version-preservation slice):
+  every change between two versions of a form to what is collected, each
+  with its effect on the data in words (meaning, continuity, who is asked or
+  what is accepted, wording), on the Draft page and counted in the publish
+  dialog, never blocking: implemented and locally validated (swept over 304
+  forms compared with themselves and 303 pairs of different forms). Compatibility
+  mappings applied to exports, approved policies and evolution remain
+  pending.
 - Project findings inbox (F3): integrity findings from every readable form of a
   project in one list on the Review page, with filters and open counts, linking
   to each form's Verification page: merged in PR #65.

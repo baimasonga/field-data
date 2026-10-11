@@ -225,6 +225,14 @@ const responsesByComponent = {
         doctorVersion: 1, formVersion: '1', hash: 'h', draft: true, findings: [], notChecked: [],
         summary: { questions: 1, groups: 0, repeats: 0, calculations: 0, choiceLists: 0, languages: [], expressions: 0, errors: 0, warnings: 0, notes: 0 }
       })
+    ],
+    // Field Data version changes (S3), on the Draft page of a published form.
+    formChanges: [
+      ({ url }) => /^\/v1\/projects\/\d+\/forms\/[^/]+\/draft\/changes$/.test(url),
+      () => ({
+        changesVersion: 1, summary: { meaning: 0, continuity: 0, population: 0, wording: 0, unchanged: 1 },
+        changes: [], truncated: false, from: { version: '1', hash: 'h' }, to: { version: '2', hash: 'h2', draft: true }
+      })
     ]
   }),
   FormSettings: [],

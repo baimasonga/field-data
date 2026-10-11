@@ -185,6 +185,8 @@ const problems = {
       `The simulation settings are invalid: ${field} ${reason}.`),
     investigationInvalid: problem(400.62, ({ field, reason }) =>
       `The investigation's ${field} is not valid: ${reason}.`),
+    formChangesInvalid: problem(400.63, ({ field, reason }) =>
+      `The version comparison is invalid: ${field} ${reason}.`),
 
     // no detail information for security reasons.
     authenticationFailed: problem(401.2, () => 'Could not authenticate with the provided credentials.'),
