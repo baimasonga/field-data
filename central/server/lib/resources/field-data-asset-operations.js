@@ -107,7 +107,6 @@ module.exports = (service, endpoint) => {
       || !UUID_PATTERN.test(body.requestId ?? '') || !text(body.reason, 2000)) throw invalid();
     const merged = await assetOf(container, auth, project.id, body.mergedAssetId);
     if (merged.id === kept.id) throw state('an asset cannot be merged into itself');
-    await checkSources(container, auth, project.id, await ownedBy(container.db, merged.id));
     const reason = body.reason.trim();
     const requestHash = hash({ kind: 'merge', assetId: kept.id, otherAssetId: merged.id, reason });
     const actorId = auth.actor.map((actor) => actor.id).orNull();
@@ -118,6 +117,8 @@ module.exports = (service, endpoint) => {
       if (locked.get(kept.id).revision !== revision) throw Problem.user.assetRevisionStale();
       if (locked.get(kept.id).status !== 'active') throw state('the asset kept was itself merged into another');
       if (locked.get(merged.id).status !== 'active') throw state('the other asset was already merged');
+      // Checked under the lock, so an observation recorded meanwhile is checked too.
+      await checkSources(container, auth, project.id, await ownedBy(db, merged.id));
       const op = await db.one(sql`INSERT INTO field_data_asset_operations
           ("projectId", "requestId", "requestHash", kind, "assetId", "otherAssetId", reason, "actorId")
         VALUES (${project.id}, ${body.requestId}, ${requestHash}, 'merge', ${kept.id}, ${merged.id}, ${reason}, ${actorId}) RETURNING *`);
@@ -218,6 +219,9 @@ module.exports = (service, endpoint) => {
       const locked = await lockAssets(db, ids);
       const op = await db.one(sql`SELECT * FROM field_data_asset_operations WHERE id = ${found.id} FOR UPDATE`);
       if (op.undoneAt != null) throw state('it was already undone');
+      // The caller must be able to read every source of the observations the undo moves back.
+      await checkSources(container, auth, project.id, (await db.any(sql`SELECT "observationId" FROM field_data_asset_reassignments
+        WHERE "operationId" = ${op.id}`)).map((row) => row.observationId));
       if ((await latestActive(db, ids))?.id !== op.id) throw state('a later change involving these assets must be undone first');
       if (op.kind === 'split') {
         const recorded = await db.oneFirst(sql`SELECT count(*)::integer FROM field_data_asset_observations WHERE "assetId" = ${op.otherAssetId}`);

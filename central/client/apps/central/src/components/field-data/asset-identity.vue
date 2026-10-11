@@ -92,10 +92,9 @@ const splitForm = reactive({ observationIds: [], name: '', assetType: '', extern
 const undoReasons = reactive({});
 const others = computed(() => props.items.filter((item) => item.id !== props.asset.id));
 
-// A retried request keeps its request ID, so it cannot apply twice.
+// A retried request keeps its request ID, so it cannot apply twice; a finished one gives it up.
 const requestIds = new Map();
-const requestIdFor = (data) => {
-  const key = JSON.stringify(data);
+const requestIdFor = (key) => {
   if (!requestIds.has(key)) requestIds.set(key, crypto.randomUUID());
   return requestIds.get(key);
 };
@@ -112,10 +111,13 @@ watch(() => [props.asset.id, props.asset.revision], load, { immediate: true });
 
 const change = (path, data, etag) => {
   error.value = '';
+  const key = JSON.stringify({ path, data });
   return request({
-    method: 'POST', url: `${root()}/${path}`, data: { ...data, requestId: requestIdFor({ path, data }) },
+    method: 'POST', url: `${root()}/${path}`, data: { ...data, requestId: requestIdFor(key) },
     headers: { 'If-Match': etag }, alert: false
-  });
+  })
+    // Done: the same change asked for again later (after an undo) is a new request.
+    .then((response) => { requestIds.delete(key); return response; });
 };
 const merge = () => change(`${props.asset.id}/merge`, { mergedAssetId: mergeForm.assetId, reason: mergeForm.reason }, `"asset-${props.asset.revision}"`)
   .then(() => { mergeForm.assetId = ''; mergeForm.reason = ''; emit('changed'); })

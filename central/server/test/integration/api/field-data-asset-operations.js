@@ -194,3 +194,40 @@ describe('api: reversible asset merges and splits (K4)', () => {
     await alice.post(`${root}/operations/00000000-0000-4000-8000-000000000999/undo`).send({ reason: 'x' }).expect(404);
   }));
 });
+
+describe('api: asset merges and splits respect form access (K4)', () => {
+  it('names the asset merged into only to those who may read its form, and checks sources on merge and undo', testService(async (service) => {
+    const { alice, uuid, register, passport, observe, merge, undo } = await setup(service);
+    // The kept asset belongs to another form.
+    const kept = (await alice.post(root).send({ requestId: uuid(), name: 'Kept elsewhere', assetType: 'water-point', externalId: 'K-1', xmlFormId: 'withrepeat' })
+      .expect(201)).body.id;
+    const duplicate = await register('Duplicate', 'D-1');
+    await observe(duplicate, 'condition', 'broken', '2026-02-01T00:00:00Z');
+    const op = (await merge(kept, duplicate, 201)).body;
+    const chelsea = await service.login('chelsea');
+    const chelseaId = (await chelsea.get('/v1/users/current').expect(200)).body.id;
+    await alice.post(`/v1/projects/1/assignments/formfill/${chelseaId}`).expect(200);
+    await alice.post(`/v1/projects/1/forms/simple/assignments/viewer/${chelseaId}`).expect(200);
+    const seen = (await chelsea.get(`${root}/${duplicate}`).expect(200)).body.asset;
+    assert.equal(seen.status, 'merged');
+    assert.equal(seen.mergedIntoAsset, null, 'the kept asset is on a form Chelsea may not read');
+    assert.equal((await passport(duplicate)).body.asset.mergedIntoAsset.id, kept);
+
+    // A source on a form nobody may read any more blocks moving the observation, either way.
+    await alice.post('/v1/projects/1/forms?publish=true').send(testData.forms.simple2).set('Content-Type', 'application/xml').expect(200);
+    await alice.post('/v1/projects/1/forms/simple2/submissions').send(testData.instances.simple2.one).set('Content-Type', 'application/xml').expect(200);
+    const otherClaim = (await alice.get('/v1/projects/1/forms/simple2/submissions/s2one/claim').expect(200)).body.currentVersionId;
+    const third = await register('Third', 'T-1');
+    const { headers } = await passport(third);
+    await alice.post(`${root}/${third}/observations`).set('If-Match', headers.etag)
+      .send({ requestId: uuid(), claimVersionId: otherClaim, predicate: 'condition', state: 'known', value: 'operating',
+        validFrom: '2026-03-01T00:00:00Z', validityDays: 100, graceDays: 0, note: 'From another form.' }).expect(201);
+    const third2 = await register('Third copy', 'T-2');
+    const opThird = (await merge(third2, third, 201)).body;
+    const fourth = await register('Fourth', 'F-1');
+    await alice.delete('/v1/projects/1/forms/simple2').expect(200);
+    await merge(fourth, third2, 404);
+    await undo(opThird.id).expect(404);
+    await undo(op.id).expect(200);
+  }));
+});

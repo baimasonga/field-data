@@ -203,10 +203,19 @@ module.exports = (service, endpoint) => {
     response.set('Cache-Control', 'private, no-store');
     response.set('ETag', `"asset-${asset.revision}"`);
     const { requestId, requestHash, ...metadata } = asset;
-    // A merged asset's passport says which asset it went into (K4).
+    // A merged asset's passport says which asset it went into (K4), when the
+    // caller may read that asset's form.
     if (asset.mergedInto != null) {
-      const [into] = await container.db.any(sql`SELECT id, name, "externalId", status FROM field_data_assets WHERE id = ${asset.mergedInto}`);
-      metadata.mergedIntoAsset = into ?? null;
+      const [into] = await container.db.any(sql`SELECT a.id, a.name, a."externalId", a.status, f."xmlFormId" FROM field_data_assets a
+        JOIN forms f ON f.id = a."formId" AND f."deletedAt" IS NULL WHERE a.id = ${asset.mergedInto}`);
+      let readable = into != null;
+      if (readable) {
+        try { await formFor(container, auth, asset.projectId, into.xmlFormId); } catch (error) {
+          if (error?.problemCode !== Problem.user.notFound.code) throw error;
+          readable = false;
+        }
+      }
+      metadata.mergedIntoAsset = readable ? { id: into.id, name: into.name, externalId: into.externalId, status: into.status } : null;
     }
     return { asset: metadata, history: history.filter(row => new Date(row.recordedAt) <= knownAt).map(row => ({ ...row, freshness: freshness(row, at) })),
       facts: selectFacts(history, at, knownAt),

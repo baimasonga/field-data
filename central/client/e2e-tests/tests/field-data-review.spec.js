@@ -1487,6 +1487,14 @@ test('a manager merges a duplicate asset into another and undoes it', async ({ p
   await expect(history).toContainText('Undone by Test reviewer on 2026-10-11: Different wells after all.');
   await expect(history.getByRole('button', { name: 'Undo' })).toHaveCount(0);
   await expect(assets.getByLabel('Asset', { exact: true }).locator('option')).toHaveCount(3);
+  // The same merge asked for again after the undo is a new request, not a replay of the undone one.
+  await mergeForm.getByLabel('Asset to merge into this one').selectOption(duplicate);
+  await mergeForm.getByLabel('Reason').fill('Registered twice.');
+  await mergeForm.getByRole('button', { name: 'Merge' }).click();
+  await expect(history.locator('li')).toHaveCount(2);
+  const merges = state.identityWrites.filter((w) => w.path.endsWith('/merge'));
+  expect(merges).toHaveLength(2);
+  expect(merges[1].data.requestId).not.toBe(merges[0].data.requestId);
   await page.setViewportSize({ width: 360, height: 800 });
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= 360)).toBe(true);
   expect(errors).toEqual([]);
