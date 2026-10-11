@@ -130,6 +130,9 @@ def write_export(payload, fmt):
                 mark = ET.SubElement(doc, 'Placemark'); ET.SubElement(mark, 'name').text = row['record_id']
                 point = ET.SubElement(mark, 'Point'); ET.SubElement(point, 'coordinates').text = f'{lon},{lat},0'
         ET.SubElement(doc, 'description').text = f'WGS84 points. {skipped} rows without valid selected coordinates omitted. Answers are excluded.'
+        # The recode audit travels with the points it may have changed.
+        data = ET.SubElement(ET.SubElement(doc, 'ExtendedData'), 'Data', name='recodes')
+        ET.SubElement(data, 'value').text = json.dumps(recodes.manifest(), ensure_ascii=False)
         return ET.tostring(root, encoding='utf-8', xml_declaration=True), 'application/vnd.google-earth.kml+xml', 'kml'
     archive = io.BytesIO()
     workbook_buffer = io.BytesIO()

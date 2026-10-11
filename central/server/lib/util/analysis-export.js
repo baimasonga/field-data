@@ -37,6 +37,9 @@ const prepareExport = async (container, params, auth, body) => {
   const applied = body.recodes !== false;
   const formIds = source.kind === 'filtered' ? [source.dataset.formId] : source.forms.map(f => f.formId);
   const recodes = { applied, rules: applied ? await activeRules(container.db, formIds) : [] };
+  // The rules travel with every writer request beside the rows, so keep them
+  // small enough to leave the rows their budget.
+  if (Buffer.byteLength(JSON.stringify(recodes)) > 2 * 1024 * 1024) throw invalid('recodes', null, 'The recode rules for these forms exceed 2 MB. Export with recode rules off, or retire rules that are no longer needed.');
   return { source, definition, fields, payload: { format: params.format, source: body.source, definition, fields, repeatPaths: source.repeatPaths, geometry: definition.geometry, boundary, recodes } };
 };
 // Each row carries the form version of the submission's current definition,

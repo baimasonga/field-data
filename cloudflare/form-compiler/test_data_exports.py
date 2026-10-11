@@ -169,3 +169,16 @@ class Recoding(unittest.TestCase):
         p = fixture(); content, _, _ = write_export(p, 'csv')
         with zipfile.ZipFile(io.BytesIO(content)) as z:
             self.assertEqual(json.loads(z.read('manifest.json'))['recodes'], {'applied': True, 'rules': []})
+
+
+class RecodedKml(unittest.TestCase):
+    def test_kml_carries_the_recode_audit_for_moved_locations(self):
+        p = recode_fixture()
+        p['fields'].append({'path': '/gps', 'type': 'geopoint'}); p['geometry'] = '/gps'
+        p['rows'][0]['xml'] = p['rows'][0]['xml'].replace('</data>', '<old_gps>8.46 -11.79 0 5</old_gps></data>')
+        p['recodes']['rules'].append({'id': 'r5', 'xmlFormId': 'census', 'kind': 'path', 'path': '/gps', 'fromPath': '/old_gps', 'versions': ['1'], 'values': None})
+        content, _, _ = write_export(p, 'kml'); root = ET.fromstring(content); ns = {'k': 'http://www.opengis.net/kml/2.2'}
+        self.assertEqual(root.find('.//k:coordinates', ns).text, '-11.79,8.46,0')
+        audit = json.loads(root.find(".//k:ExtendedData/k:Data[@name='recodes']/k:value", ns).text)
+        self.assertTrue(audit['applied'])
+        self.assertEqual(next(r for r in audit['rules'] if r['id'] == 'r5')['changed'], 1)

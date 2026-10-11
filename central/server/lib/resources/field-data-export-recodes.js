@@ -11,7 +11,9 @@ const { getOrNotFound } = require('../util/promise');
 const { fieldsForForm } = require('../util/xls-report-data');
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const LIMITS = { rules: 200, values: 200, valueLength: 200, versions: 50 };
+// formBytes keeps a form's active rules well inside the export writer's
+// payload ceiling, which also carries the exported rows.
+const LIMITS = { rules: 200, values: 200, valueLength: 200, versions: 50, formBytes: 200 * 1024 };
 const invalid = (field, reason) => Problem.user.recodeInvalid({ field, reason });
 const text = (value, max) => typeof value === 'string' && value.trim() !== '' && value.trim().length <= max;
 const shapeOf = (row) => ({
@@ -121,6 +123,11 @@ module.exports = (service, endpoint) => {
       await db.query(sql`SELECT pg_advisory_xact_lock(74142, ${form.id})`);
       const count = await db.oneFirst(sql`SELECT count(*)::int FROM field_data_export_recodes WHERE "formId" = ${form.id} AND "retiredAt" IS NULL`);
       if (count >= LIMITS.rules) throw invalid('rules', `a form can have at most ${LIMITS.rules} active rules`);
+      const used = await db.oneFirst(sql`SELECT coalesce(sum(octet_length(path) + coalesce(octet_length("fromPath"), 0)
+          + coalesce(octet_length("values"::text), 0) + octet_length(array_to_string(versions, ','))), 0)::int
+        FROM field_data_export_recodes WHERE "formId" = ${form.id} AND "retiredAt" IS NULL`);
+      const adding = Buffer.byteLength(path + (stored.fromPath ?? '') + (stored.values == null ? '' : JSON.stringify(stored.values)) + versions.join(','));
+      if (used + adding > LIMITS.formBytes) throw invalid('values', `would take this form's active rules over ${LIMITS.formBytes / 1024} KB; retire rules it no longer needs`);
       const clash = await db.maybeOne(sql`SELECT id FROM field_data_export_recodes WHERE "formId" = ${form.id}
         AND "retiredAt" IS NULL AND kind = ${kind} AND path = ${path} AND versions && ${sql.array(versions, 'text')} LIMIT 1`);
       if (clash != null) throw Problem.user.recodeConflict({ reason: 'an active rule of the same kind already covers this question in one of these versions; retire it first' });

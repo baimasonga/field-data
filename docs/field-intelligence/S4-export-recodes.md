@@ -26,7 +26,11 @@ A rule belongs to one form and names the **published versions** it applies to
 
 A rule has a reason. Rules are append-only; a rule can be retired (with a
 reason), after which it is no longer applied. At most 200 active rules per
-form, 200 values per value rule; values up to 200 characters.
+form, 200 values per value rule; values up to 200 characters; and a form's
+active rules at most 200 KB in all, so that they fit beside the exported rows
+in the export writer's payload. An export whose forms' rules exceed 2 MB (only
+possible with rules not written through the API) is refused with a message
+suggesting an export with rules off.
 
 A rule is refused (400.64) when: the question is not in the current version
 (or is a group or repeat); a listed version is not a published version of the
@@ -40,7 +44,7 @@ and version (409.42).
 - **Analysis exports** (CSV, Excel, SPSS, Stata, KML), direct and queued:
   each row is matched to the version of the submission's current definition,
   and that version's active rules are applied, path rules first, then value
-  rules. The export's manifest lists every rule applied (ID, kind, question,
+  rules. The export's manifest (in KML, the document's `ExtendedData`) lists every rule applied (ID, kind, question,
   versions, mapping or old path) and how many answers each changed. A request
   can ask for `recodes: false` to export answers exactly as stored; the
   manifest then says so.

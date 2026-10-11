@@ -117,6 +117,29 @@ describe('api: S4 recode rules for exports', () => {
     await rule({ kind: 'value', path: '/water', versions: ['1'], values: { borehole: 'bh' } }, 201);
   }));
 
+  it('keeps a form\'s active rules within 200 KB, and an export\'s rules within 2 MB', testService(async (service, c) => {
+    const alice = await service.login('alice');
+    await twoVersions(alice);
+    // 200 values of 200 characters each: about 80 KB per rule.
+    const big = (prefix) => Object.fromEntries(Array.from({ length: 200 }, (_, i) => [`${prefix}${i}`.padEnd(200, 'x'), `${prefix}${i}`.padEnd(200, 'y')]));
+    const rule = (path, values) => alice.post(`${base}/recodes`).send({ kind: 'value', path, versions: ['1'], values, reason: 'Big' });
+    await rule('/water', big('a')).expect(201);
+    await rule('/lights', big('b')).expect(201);
+    const refused = (await rule('/kids/kid_water', big('c')).expect(400)).body;
+    refused.code.should.equal(400.64);
+    refused.message.should.match(/200 KB/);
+    await rule('/kids/kid_water', { borehole: 'bh' }).expect(201);
+
+    // Rules written another way are still bounded at export time.
+    const id = await formId(c);
+    const huge = JSON.stringify(Object.fromEntries(Array.from({ length: 12000 }, (_, i) => [`k${i}`.padEnd(100, 'x'), `v${i}`.padEnd(100, 'y')])));
+    await c.db.query(sql`INSERT INTO field_data_export_recodes ("projectId", "formId", kind, path, versions, "values", reason)
+      VALUES (1, ${id}, 'value', '/age', ARRAY['1'], ${huge}, 'Huge')`);
+    const tooBig = (await alice.post('/v1/projects/1/analysis/export/csv').send({ source: { kind: 'form', id }, columns: ['/water'] }).expect(400)).body;
+    tooBig.message.should.match(/exceed 2 MB/);
+    await binary(alice.post('/v1/projects/1/analysis/export/csv').send({ source: { kind: 'form', id }, columns: ['/water'], recodes: false })).expect(200);
+  }));
+
   it('keeps rules append-only in the database', testService(async (service, c) => {
     const alice = await service.login('alice');
     await twoVersions(alice);
