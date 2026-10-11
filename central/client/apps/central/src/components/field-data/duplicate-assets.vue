@@ -36,6 +36,10 @@ decides. Contract: docs/field-intelligence/K5-duplicate-assets.md -->
         Showing {{ result.pairs.length }} of {{ result.total }} pairs.
       </p>
       <p v-if="result.truncated" class="duplicate-assets-more">Only the first 2000 assets by name were compared.</p>
+      <p v-if="result.capped" class="duplicate-assets-more">
+        There are more possible duplicates than could be checked at once; these are the strongest found. Merge or mark
+        some of them and refresh to see more.
+      </p>
       <details v-if="result.dismissed.length > 0" class="duplicate-assets-dismissed">
         <summary>Marked as not the same ({{ result.dismissed.length }})</summary>
         <ul>

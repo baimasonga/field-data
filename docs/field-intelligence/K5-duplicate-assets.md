@@ -38,7 +38,11 @@ apart from being withdrawn once).
 ## Limits
 
 At most 2000 active assets are compared (the response says when there are
-more) and at most 200 pairs are returned.
+more) and at most 200 pairs are returned. The work is bounded too: reasons
+are looked for strongest first, and the search stops once 2000 candidate
+pairs are held or 500,000 name comparisons made (many assets sharing one
+name, for example); the response then says the list is capped, and what it
+lists are the strongest found. Numbers in names are compared in any script.
 
 ## API
 

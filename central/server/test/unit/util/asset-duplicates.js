@@ -1,5 +1,5 @@
 require('should');
-const { normalize, trigrams, similarity, keyOf, findPairs, MAX_PAIRS } = require('../../../lib/util/asset-duplicates');
+const { normalize, trigrams, similarity, keyOf, findPairs, MAX_PAIRS, MAX_CANDIDATES } = require('../../../lib/util/asset-duplicates');
 
 const asset = (id, name, assetType = 'water-point', externalId = id.toUpperCase()) => ({ id, name, assetType, externalId });
 
@@ -45,12 +45,31 @@ describe('(util) suggested duplicate assets', () => {
       .pairs.map((p) => [p.a.id, p.b.id]).should.eql([['p', 'r']]);
   });
 
+  it('compares numerals of any script', () => {
+    findPairs([asset('p', 'Water point ١'), asset('q', 'Water point ٢'), asset('r', 'Water points ١')])
+      .pairs.map((p) => [p.a.id, p.b.id]).should.eql([['p', 'r']]);
+  });
+
+  it('bounds the work when many assets share a name, keeping the strongest reasons', () => {
+    const many = Array.from({ length: 2000 }, (_, i) => asset(`m${String(i).padStart(4, '0')}`, 'Same name', 'pump', `X-${i}`));
+    many.push(asset('zz1', 'Other', 'pump', 'DUP'), asset('zz2', 'Another', 'pump', 'dup'));
+    const started = Date.now();
+    const { pairs, total, capped } = findPairs(many);
+    (Date.now() - started).should.be.below(2000);
+    capped.should.be.true();
+    total.should.equal(MAX_CANDIDATES);
+    pairs.length.should.equal(MAX_PAIRS);
+    // The external-ID pair, found first, is kept and listed first.
+    pairs[0].reasons.should.eql(['external-id']);
+  });
+
   it('lists every reason of a pair and caps the list', () => {
     const [pair] = findPairs([asset('x', 'Pump A', 'pump', 'P-9'), asset('y', 'pump-a', 'pump', 'p9')], [['x', 'y']]).pairs;
     pair.reasons.should.eql(['external-id', 'same-source', 'same-name']);
     const many = Array.from({ length: 30 }, (_, i) => asset(`m${String(i).padStart(2, '0')}`, 'Same name', 'pump'));
-    const { pairs, total } = findPairs(many);
+    const { pairs, total, capped } = findPairs(many);
     total.should.equal(435);
+    capped.should.be.false();
     pairs.length.should.equal(MAX_PAIRS);
   });
 });

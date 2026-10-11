@@ -192,7 +192,7 @@ const setup = async (page, { comparisonUnavailable = false, failComparison = fal
     // K5 suggested duplicates.
     const duplicates = /^\/v1\/field-data\/projects\/\d+\/assets\/duplicates(?:\/dismissals(?:\/([^/]+)\/withdraw)?)?$/.exec(path);
     if (duplicates != null) {
-      if (req.method() === 'GET') return respond({ pairs: state.duplicatePairs, total: state.duplicatePairs.length, truncated: false, dismissed: state.duplicateDismissed });
+      if (req.method() === 'GET') return respond({ pairs: state.duplicatePairs, total: state.duplicatePairs.length, truncated: false, capped: state.duplicateCapped === true, dismissed: state.duplicateDismissed });
       const withdrawId = duplicates[1];
       state.duplicateWrites.push({ path, data: withdrawId == null ? req.postDataJSON() : null });
       if (withdrawId != null) {
@@ -1591,9 +1591,11 @@ test('possible duplicates cannot be dismissed by those who may not manage the pr
   const a = { id: 'a1', name: 'Pump', externalId: 'P-1', assetType: 'pump', xmlFormId: 'health' };
   const b = { id: 'b1', name: 'pump', externalId: 'P-2', assetType: 'pump', xmlFormId: 'health' };
   state.duplicatePairs.push({ a, b, reasons: ['same-name'] });
+  state.duplicateCapped = true;
   await page.reload();
   const section = page.getByRole('region', { name: 'Possible duplicate assets' });
   await expect(section.locator('.duplicate-pair')).toContainText('Same name and type');
+  await expect(section).toContainText('There are more possible duplicates than could be checked at once');
   await expect(section.getByRole('button', { name: 'Not the same' })).toHaveCount(0);
   expect(errors).toEqual([]);
 });

@@ -282,11 +282,11 @@ module.exports = (service, endpoint) => {
       WHERE d."projectId" = ${project.id} AND d."withdrawnAt" IS NULL ORDER BY d."createdAt" DESC`);
     const byId = new Map(assets.map((a) => [a.id, a]));
     const visible = dismissals.filter((d) => byId.has(d.assetId) && byId.has(d.otherAssetId));
-    const { pairs, total } = findPairs(assets, cited.map((row) => [row.a, row.b]),
+    const { pairs, total, capped } = findPairs(assets, cited.map((row) => [row.a, row.b]),
       new Set(dismissals.map((d) => keyOf(d.assetId, d.otherAssetId))));
     response.set('Cache-Control', 'private, no-store');
     return {
-      pairs, total, truncated: rows.length > MAX_ASSETS,
+      pairs, total, capped, truncated: rows.length > MAX_ASSETS,
       dismissed: visible.map((d) => ({ id: d.id, a: byId.get(d.assetId), b: byId.get(d.otherAssetId),
         reason: d.reason, actorName: d.actorName, createdAt: d.createdAt }))
     };
