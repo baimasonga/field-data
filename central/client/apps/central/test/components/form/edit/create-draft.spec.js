@@ -49,6 +49,8 @@ describe('FormEditCreateDraft', () => {
         { url: '/v1/projects/1/forms/a%20b/versions', extended: true },
         // The form check (Field Data S1).
         { url: '/v1/projects/1/forms/a%20b/draft/doctor' },
+        // The changes from the published version (Field Data S3).
+        { url: '/v1/projects/1/forms/a%20b/draft/changes' },
         { url: '/v1/projects/1/forms/a%20b/draft/submissions/keys' },
         { url: '/v1/projects/1/forms/a%20b/draft/fields?odata=true' },
         {
