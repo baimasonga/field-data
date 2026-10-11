@@ -13,6 +13,8 @@ except according to the terms contained in the LICENSE file.
   <div>
     <form-version-table @view-xml="viewXml.show()"/>
     <loading :state="formVersions.initiallyLoading"/>
+    <form-version-recodes v-if="formVersions.dataExists" :project-id="projectId"
+      :xml-form-id="xmlFormId" :allowed="project.dataExists && project.permits('form.update')"/>
 
     <form-version-view-xml v-bind="viewXml" @hide="viewXml.hide()"/>
   </div>
@@ -21,6 +23,7 @@ except according to the terms contained in the LICENSE file.
 <script>
 import { defineAsyncComponent } from 'vue';
 
+import FormVersionRecodes from './recodes.vue';
 import FormVersionTable from './table.vue';
 import Loading from '../loading.vue';
 
@@ -33,6 +36,7 @@ import { useRequestData } from '../../request-data';
 export default {
   name: 'FormVersionList',
   components: {
+    FormVersionRecodes,
     FormVersionTable,
     FormVersionViewXml: defineAsyncComponent(loadAsync('FormVersionViewXml')),
     Loading
@@ -48,8 +52,8 @@ export default {
     }
   },
   setup() {
-    const { formVersions } = useRequestData();
-    return { formVersions };
+    const { project, formVersions } = useRequestData();
+    return { project, formVersions };
   },
   data() {
     return {

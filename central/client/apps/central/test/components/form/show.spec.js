@@ -22,7 +22,10 @@ describe('FormShow', () => {
         { url: '/v1/projects/1/forms/a%20b/versions', extended: true },
         { url: '/v1/projects/1/forms/a%20b/assignments/app-user' },
         { url: '/v1/projects/1/forms/a%20b/attachments' },
-        { url: '/v1/projects/1/forms/a%20b/dataset-diff' }
+        { url: '/v1/projects/1/forms/a%20b/dataset-diff' },
+        // The recode rules section on the Versions tab (Field Data S4).
+        { url: '/v1/projects/1/forms/a%20b/recodes' },
+        { url: '/v1/projects/1/forms/a%20b/fields?odata=false' }
       ]);
     });
 
@@ -35,7 +38,10 @@ describe('FormShow', () => {
         { url: '/v1/projects/1/forms/a%20b', extended: true },
         { url: '/v1/projects/1/forms/a%20b/versions', extended: true },
         { url: '/v1/projects/1/forms/a%20b/attachments' },
-        { url: '/v1/projects/1/forms/a%20b/dataset-diff' }
+        { url: '/v1/projects/1/forms/a%20b/dataset-diff' },
+        // The recode rules section on the Versions tab (Field Data S4).
+        { url: '/v1/projects/1/forms/a%20b/recodes' },
+        { url: '/v1/projects/1/forms/a%20b/fields?odata=false' }
       ]);
     });
 

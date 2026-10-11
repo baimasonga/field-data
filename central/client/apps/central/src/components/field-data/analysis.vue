@@ -21,6 +21,7 @@
         <button type="button" class="btn btn-default" :disabled="!selectedColumns.length || loading" @click="refresh">Apply column selection</button>
       </details>
       <label><input v-model="includeRepeats" type="checkbox"> Include all authorized repeat fields in separate export tables</label>
+      <label class="analysis-recodes"><input v-model="applyRecodes" type="checkbox"> Apply the form's recode rules to answers from earlier versions (see the form's Versions tab)</label>
       <fieldset class="analysis-controls">
 <legend>Filter selection</legend>
         <label>Field<select v-model="filterField" class="form-control"><option value="">No additional filter</option>
@@ -121,6 +122,8 @@ const { request } = useRequest();
 const projects = ref([]); const projectId = ref(''); const sources = ref([]); const sourceKey = ref('');
 const repeatPath = ref('');
 const selectedColumns = ref([]); const includeRepeats = ref(true);
+// Recode rules (S4): on by default; off exports answers exactly as stored.
+const applyRecodes = ref(true);
 const activeViewId = ref(''); const viewVisibility = ref('private');
 const downloading = ref(false);
 const queueDownload = ref(false); const jobs = ref([]);
@@ -198,14 +201,14 @@ const download = async format => {
   downloading.value = true; notice.value = 'Preparing the filtered download…';
   try {
     if (queueDownload.value) {
-      const payload = { ...definition(), format, includeRepeats: includeRepeats.value };
+      const payload = { ...definition(), format, includeRepeats: includeRepeats.value, recodes: applyRecodes.value };
       const fingerprint = JSON.stringify([projectId.value, payload]);
       if (queueFingerprint !== fingerprint) { queueFingerprint = fingerprint; queueId = crypto.randomUUID(); }
       queueId ||= crypto.randomUUID();
       await request({ method: 'POST', url: `${base()}/jobs`, data: { ...payload, id: queueId } }); queueId = null;
       notice.value = 'Export queued. You can leave this page and return to download it within 24 hours.'; await loadJobs(); return;
     }
-    const { data } = await request({ method: 'POST', url: `${base()}/export/${format}`, data: { ...definition(), includeRepeats: includeRepeats.value }, responseType: 'blob' });
+    const { data } = await request({ method: 'POST', url: `${base()}/export/${format}`, data: { ...definition(), includeRepeats: includeRepeats.value, recodes: applyRecodes.value }, responseType: 'blob' });
     const url = URL.createObjectURL(data); const a = document.createElement('a'); a.href = url; a.download = `analysis.${['csv', 'sav', 'dta'].includes(format) ? 'zip' : format}`; a.click(); URL.revokeObjectURL(url); notice.value = 'Download prepared.';
   } catch { notice.value = 'Download failed. Check the export limits and retry.'; } finally { downloading.value = false; }
 };

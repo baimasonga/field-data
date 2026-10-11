@@ -187,6 +187,8 @@ const problems = {
       `The investigation's ${field} is not valid: ${reason}.`),
     formChangesInvalid: problem(400.63, ({ field, reason }) =>
       `The version comparison is invalid: ${field} ${reason}.`),
+    recodeInvalid: problem(400.64, ({ field, reason }) =>
+      `The recode rule is invalid: ${field} ${reason}.`),
 
     // no detail information for security reasons.
     authenticationFailed: problem(401.2, () => 'Could not authenticate with the provided credentials.'),
@@ -313,6 +315,8 @@ const problems = {
     identityKeyLimit: problem(409.38, () => 'This form already has the maximum of 20 active identity keys.'),
     investigationState: problem(409.39, ({ status }) => `This investigation is ${status}; that change is not possible.`),
     assetIdentityState: problem(409.41, ({ reason }) => `This change to the asset's identity is not possible: ${reason}.`),
+    recodeConflict: problem(409.42, ({ reason }) =>
+      `This recode rule cannot be changed: ${reason}.`),
     reviewRevisionStale: problem(412.1, () => 'The review case has changed. Refresh and retry.'),
     assetRevisionStale: problem(412.2, () => 'The asset has changed. Reload its history before saving.'),
     reverificationRevisionStale: problem(412.3, () => 'The re-verification task has changed. Reload it before saving.'),
