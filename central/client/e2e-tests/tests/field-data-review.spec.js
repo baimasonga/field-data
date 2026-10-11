@@ -1451,7 +1451,18 @@ test('asset status groups by area, an area being another recorded fact (K6)', as
   ]);
   await expect(section.locator('.asset-status-area-note')).toContainText('1 asset is placed by such a fact.');
   await expect(section.locator('.asset-status-table tbody tr')).toHaveCount(1);
-  // Back to no grouping.
+  // Choosing the area's fact as the fact clears the grouping, and it stays cleared.
+  await section.getByLabel('Fact').selectOption('district');
+  await expect(section.getByLabel('By area (optional)')).toHaveValue('');
+  await section.getByLabel('Fact').selectOption('condition');
+  await expect(section.getByLabel('By area (optional)')).toHaveValue('');
+  await section.getByRole('button', { name: 'Show' }).click();
+  await expect(section.locator('.asset-status-areas')).toHaveCount(0);
+  expect(state.projectionCalls.at(-1)).toBe('?predicate=condition');
+  // Grouping again, then back to no grouping.
+  await section.getByLabel('By area (optional)').selectOption('district');
+  await section.getByRole('button', { name: 'Show' }).click();
+  await expect(section.locator('.asset-status-areas')).toHaveCount(1);
   await section.getByLabel('By area (optional)').selectOption('');
   await section.getByRole('button', { name: 'Show' }).click();
   await expect(section.locator('.asset-status-areas')).toHaveCount(0);

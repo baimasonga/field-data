@@ -85,7 +85,7 @@ docs/field-intelligence/K6-asset-status-by-area.md -->
 </template>
 
 <script setup>
-import { computed, ref } from 'vue';
+import { computed, ref, watch } from 'vue';
 
 import Spinner from '../spinner.vue';
 import useRequest from '../../composables/request';
@@ -100,6 +100,8 @@ const STATUS = {
   'source-unverified': 'Source unverified', 'not-yet-valid': 'Not yet valid', none: 'No fact'
 };
 const predicates = ref(null); const predicate = ref(''); const areaPredicate = ref(''); const assetType = ref(''); const asOf = ref('');
+// The fact shown cannot be its own area: choosing it clears the grouping.
+watch(predicate, (value) => { if (value === areaPredicate.value) areaPredicate.value = ''; });
 const result = ref(null); const error = ref('');
 const url = (params) => `/v1/field-data/projects/${props.projectId}/assets/projection${params.toString() === '' ? '' : `?${params}`}`;
 
