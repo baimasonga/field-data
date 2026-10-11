@@ -84,7 +84,7 @@ agriculture = {
         'Introduce yourself and explain that the interview takes about 20 minutes.') + [
         q('begin_group', 'main', '', relevant="${consent} = 'yes'"),
         q('text', 'enumerator', 'Enumerator name', required='yes'),
-        *location('farm_id', 'Farm ID', 'FARM-[0-9]{4}$',
+        *location('farm_id', 'Farm ID', '^FARM-[0-9]{4}$',
                   'Use the format FARM-0001.', 'Format FARM-0001, from the farm register.'),
         q('begin_group', 'farmer', 'Farmer'),
         q('text', 'farmer_name', 'Full name of the farmer', required='yes'),
@@ -182,7 +182,7 @@ census = {
         'or another adult member who knows everyone in the household.') + [
         q('begin_group', 'main', '', relevant="${consent} = 'yes'"),
         q('text', 'enumerator', 'Enumerator name', required='yes'),
-        *location('household_id', 'Household ID', 'HH-[0-9]{6}$',
+        *location('household_id', 'Household ID', '^HH-[0-9]{6}$',
                   'Use the format HH-000001.', 'Format HH-000001, from the listing sheet.'),
         q('text', 'ea_code', 'Enumeration area code', required='yes',
           constraint="regex(., '^[0-9]{4}$')", constraint_message='4 digits.'),
@@ -286,7 +286,7 @@ census_backcheck = {
         'Takes about 5 minutes.') + [
         q('begin_group', 'main', '', relevant="${consent} = 'yes'"),
         q('text', 'enumerator', 'Back-checker name', required='yes'),
-        *location('household_id', 'Household ID', 'HH-[0-9]{6}$',
+        *location('household_id', 'Household ID', '^HH-[0-9]{6}$',
                   'Use the format HH-000001.', 'The ID on the original census form.'),
         q('integer', 'hh_size', 'How many people usually live and eat in this household?',
           required='yes', constraint='. >= 1 and . <= 30', constraint_message='Between 1 and 30.'),
@@ -319,7 +319,7 @@ health = {
         'Takes about 25 minutes.') + [
         q('begin_group', 'main', '', relevant="${consent} = 'yes'"),
         q('text', 'enumerator', 'Assessor name', required='yes'),
-        *location('facility_id', 'Facility ID', 'HF-[0-9]{4}$',
+        *location('facility_id', 'Facility ID', '^HF-[0-9]{4}$',
                   'Use the format HF-0001.', 'Format HF-0001, from the facility list.'),
 
         q('begin_group', 'facility', 'Facility'),

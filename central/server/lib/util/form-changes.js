@@ -88,6 +88,23 @@ const repeatsAbove = (form, path) => {
   }
   return names;
 };
+// Relevance and read-only apply to everything inside a group or repeat. A
+// question that kept its path keeps its groups, whose own changes are
+// reported on them; one that moved is compared with every condition above it.
+const INHERITED = new Set(['relevant', 'readonly']);
+const conditionsOf = (form, node, name, withAncestors) => {
+  const conditions = [];
+  if (withAncestors) {
+    for (let at = node.path.slice(0, node.path.lastIndexOf('/')); at.length > form.root.length; at = at.slice(0, at.lastIndexOf('/'))) {
+      const above = form.nodes.get(at);
+      const value = above == null ? '' : bindValue(above, name);
+      if (value !== '') conditions.unshift(value);
+    }
+  }
+  const own = bindValue(node, name);
+  if (own !== '') conditions.push(own);
+  return conditions.join(' and ');
+};
 const typeOf = (node) => (node.kind === 'repeat' ? 'repeat' : node.binds.type ?? 'string');
 const KIND_WORDS = { question: 'a question', calculate: 'a calculation', hidden: 'a hidden value', repeat: 'a repeat', group: 'a group' };
 const SELECT_TYPES = new Set(['select1', 'select']);
@@ -137,9 +154,11 @@ const compareNodes = (from, to, fromNode, toNode, add) => {
     add('repeat-changed', { from: oldRepeats.length === 0 ? null : oldRepeats.join(' / '), to: newRepeats.length === 0 ? null : newRepeats.join(' / ') });
   const oldCalc = bindValue(fromNode, 'calculate'); const newCalc = bindValue(toNode, 'calculate');
   if (oldCalc !== newCalc) add('calculation-changed', { from: oldCalc, to: newCalc });
+  const moved = fromNode.path !== toNode.path;
   for (const name of ['relevant', 'constraint', 'required', 'readonly']) {
-    const old = bindValue(fromNode, name); const now = bindValue(toNode, name);
-    if (old !== now) add(`${name}-changed`, { from: old, to: now });
+    const withAncestors = moved && INHERITED.has(name);
+    const old = conditionsOf(from, fromNode, name, withAncestors); const now = conditionsOf(to, toNode, name, withAncestors);
+    if (old !== now) add(`${name}-changed`, withAncestors ? { from: old, to: now, inherited: true } : { from: old, to: now });
   }
   compareChoices(from, to, fromNode, toNode, add);
   for (const [language, old, now] of labelPairs(labelsOf(from, fromNode.label), labelsOf(to, toNode.label)))

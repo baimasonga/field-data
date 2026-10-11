@@ -29,6 +29,10 @@ out. For each matched pair the comparison looks at:
   item by item);
 - `relevant`, `constraint`, `required`, `calculate` and `readonly`
   expressions, compared after removing whitespace differences.
+  Relevance and read-only also apply to everything inside a group: a group
+  whose condition changed is reported on the group, and a question that
+  moved is compared with every condition above it as well as its own
+  (`inherited: true` in the detail).
 
 ## Effects
 

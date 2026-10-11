@@ -118,7 +118,7 @@ const describe = (c) => {
     case 'choices-added': case 'choices-removed': return d.values.join(', ');
     case 'choice-relabelled': return `Value “${d.value}”${inLanguage(d.language)}: “${d.from}” → “${d.to}”. The stored value is the same; what people saw is not.`;
     case 'label-changed': return `${d.language === '' ? 'Label' : d.language}: “${d.from}” → “${d.to}”`;
-    default: return `${shown(d.from)} → ${shown(d.to)}`;
+    default: return `${shown(d.from)} → ${shown(d.to)}${d.inherited ? ' (including the groups it is in)' : ''}`;
   }
 };
 </script>

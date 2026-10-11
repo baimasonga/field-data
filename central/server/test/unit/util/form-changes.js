@@ -54,6 +54,17 @@ describe('(util) form changes', () => {
     codes(report).should.eql([['continuity', 'moved', '/data/who/name']]);
     report.changes[0].fromPath.should.equal('/data/name');
 
+    // Moved under a group asked only sometimes: who is asked changed too.
+    const conditional = grouped.replace('<bind nodeset="/data/who/name"', '<bind nodeset="/data/who" relevant="/data/age &gt; 17"/><bind nodeset="/data/who/name"');
+    const moved = compare(base, conditional);
+    codes(moved).should.eql([['continuity', 'moved', '/data/who/name'], ['population', 'relevant-changed', '/data/who/name']]);
+    moved.changes[1].detail.should.eql({ from: '', to: '/data/age>17', inherited: true });
+    // And back out of it to the top level: only its own condition remains.
+    compare(conditional, base).changes.map((c) => [c.code, c.detail]).should.eql([
+      ['moved', { from: '/data/who/name', to: '/data/name' }],
+      ['relevant-changed', { from: '/data/age>17', to: '', inherited: true }]
+    ]);
+
     // Two questions called "name": no guessing which one moved.
     const twice = xform({
       instance: '<a><name/></a><b><name/></b><age/>',
