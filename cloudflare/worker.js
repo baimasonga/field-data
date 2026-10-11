@@ -119,6 +119,12 @@ export class FieldDataContainer extends Container {
     // Satellite imagery availability (G1b): off unless an operator sets it.
     FIELD_DATA_IMAGERY_ENABLED: env.FIELD_DATA_IMAGERY_ENABLED || 'false',
     FIELD_DATA_STAC_URL: env.FIELD_DATA_STAC_URL,
+    // Browser push to App Users (P0.6): off unless an operator sets the switch
+    // and a matching key pair; the server checks the pair and stays off if not.
+    FIELD_DATA_PUSH_ENABLED: env.FIELD_DATA_PUSH_ENABLED || 'false',
+    FIELD_DATA_PUSH_SUBJECT: env.FIELD_DATA_PUSH_SUBJECT || '',
+    FIELD_DATA_PUSH_PUBLIC_KEY: env.FIELD_DATA_PUSH_PUBLIC_KEY || '',
+    FIELD_DATA_PUSH_PRIVATE_KEY: env.FIELD_DATA_PUSH_PRIVATE_KEY || '',
     FIELD_DATA_ALERT_WEBHOOK_URL: env.FIELD_DATA_ALERT_WEBHOOK_URL,
     FIELD_DATA_ALERT_WEBHOOK_SECRET: env.FIELD_DATA_ALERT_WEBHOOK_SECRET,
     FIELD_DATA_WEBHOOK_ENCRYPTION_KEY: env.FIELD_DATA_WEBHOOK_ENCRYPTION_KEY,
@@ -131,8 +137,10 @@ export class FieldDataContainer extends Container {
   // A deploy only repoints the container application at the new image: an
   // instance that is already running keeps the old one. Nothing retires it on
   // its own either, because the five minute cron ping means it never stays
-  // idle long enough to hit sleepAfter. Retire it explicitly when the build it
-  // was started from is no longer the deployed one.
+  // idle long enough to hit sleepAfter. Retire it explicitly when the deploy it
+  // was started from is no longer the current one. The ID changes on every
+  // deploy run, including one that only changes settings, since a running
+  // container keeps the environment it started with.
   async #retireStaleContainer() {
     const deployed = env.CONTAINER_BUILD_ID || '';
     if (deployed === '') return;

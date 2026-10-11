@@ -244,6 +244,12 @@ jobs:
           FIELD_DATA_ADMIN_PASSWORD: ${{ secrets.FIELD_DATA_ADMIN_PASSWORD }}
           EMAIL_USER: ${{ secrets.EMAIL_USER }}
           EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
+          # Browser push (docs/field-intelligence/P0.6-app-user-notifications.md).
+          # The private key is a repository secret; the rest are repository
+          # variables. The switches below are repository variables too.
+          FIELD_DATA_PUSH_SUBJECT: ${{ vars.FIELD_DATA_PUSH_SUBJECT }}
+          FIELD_DATA_PUSH_PUBLIC_KEY: ${{ vars.FIELD_DATA_PUSH_PUBLIC_KEY }}
+          FIELD_DATA_PUSH_PRIVATE_KEY: ${{ secrets.FIELD_DATA_PUSH_PRIVATE_KEY }}
         run: |
           umask 077
           secret_file="$RUNNER_TEMP/field-data-secrets.json"
@@ -259,12 +265,21 @@ jobs:
             FIELD_DATA_ALERT_WEBHOOK_SECRET: env.FIELD_DATA_ALERT_WEBHOOK_SECRET,
             FIELD_DATA_WEBHOOK_ENCRYPTION_KEY: env.FIELD_DATA_WEBHOOK_ENCRYPTION_KEY,
             FIELD_DATA_ADMIN_PASSWORD: env.FIELD_DATA_ADMIN_PASSWORD,
-            EMAIL_USER: env.EMAIL_USER, EMAIL_PASSWORD: env.EMAIL_PASSWORD
+            EMAIL_USER: env.EMAIL_USER, EMAIL_PASSWORD: env.EMAIL_PASSWORD,
+            FIELD_DATA_PUSH_SUBJECT: env.FIELD_DATA_PUSH_SUBJECT,
+            FIELD_DATA_PUSH_PUBLIC_KEY: env.FIELD_DATA_PUSH_PUBLIC_KEY,
+            FIELD_DATA_PUSH_PRIVATE_KEY: env.FIELD_DATA_PUSH_PRIVATE_KEY
           } | with_entries(select(.value != null and .value != ""))' > "$secret_file"
           deploy_log="$RUNNER_TEMP/field-data-deploy.log"
           set +e
+          # CONTAINER_BUILD_ID is unique to this deploy run, not just the commit:
+          # a run started by hand to apply changed repository settings must
+          # still replace the running container, which keeps the environment
+          # it was started with.
           npx --no-install wrangler deploy \
-            --var "CONTAINER_BUILD_ID:${{ github.sha }}" \
+            --var "CONTAINER_BUILD_ID:${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}" \
+            --var "FIELD_DATA_PUSH_ENABLED:${{ vars.FIELD_DATA_PUSH_ENABLED == 'true' && 'true' || 'false' }}" \
+            --var "FIELD_DATA_IMAGERY_ENABLED:${{ vars.FIELD_DATA_IMAGERY_ENABLED == 'true' && 'true' || 'false' }}" \
             --secrets-file "$secret_file" 2>&1 | tee "$deploy_log"
           deploy_status=${PIPESTATUS[0]}
           set -e

@@ -43,9 +43,11 @@ is sent.
 - Off unless `FIELD_DATA_IMAGERY_ENABLED=true`. The catalogue URL is
   configurable (`FIELD_DATA_STAC_URL`, default Earth Search
   `https://earth-search.aws.element84.com/v1`). On Cloudflare, both are Worker
-  variables passed to the container (`cloudflare/worker.js`); setting
-  `FIELD_DATA_IMAGERY_ENABLED` to `true` there and redeploying turns it on, and
-  removing it turns it off. The cache table stays either way.
+  variables passed to the container (`cloudflare/worker.js`). The deploy
+  workflow sets `FIELD_DATA_IMAGERY_ENABLED` from the GitHub repository
+  variable of the same name (`true` turns it on; anything else, or no
+  variable, leaves it off) on every deploy. Step-by-step instructions:
+  `docs/operator/Field-Data-operator-guide.docx`. The cache table stays either way.
 - Results are cached by (cell, day window, collection, catalogue) in
   `field_data_imagery_lookups`, so repeated checks and nearby submissions cost
   one request. A cached answer older than 7 days is refreshed when asked.
