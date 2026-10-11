@@ -236,15 +236,27 @@ describe('api: investigation records (F6)', () => {
     await service.get(`/v1/key/${appUser.token}/projects/1/investigations/outcomes`).expect(403);
     await alice.get('/v1/projects/999/investigations/outcomes').expect(404);
   }));
-  it('finds the other collector of a pair across forms and counts only this project (F7)', testService(async (service, container) => {
+  it('finds the other collector of a pair in the form its evidence names and counts only this project (F7)', testService(async (service, container) => {
     const { alice, f } = await seed(service, container);
     const bob = await service.login('bob');
     await bob.post('/v1/projects/1/forms/withrepeat/submissions').send(testData.instances.withrepeat.two)
       .set('Content-Type', 'application/xml').expect(200);
-    const { id: pair } = await container.one(sql`INSERT INTO field_data_integrity_flags
+    // The same instance ID in another form, sent by someone else, is not the pair's.
+    const chelsea = await service.login('chelsea');
+    const chelseaId = (await chelsea.get('/v1/users/current').expect(200)).body.id;
+    await alice.post(`/v1/projects/1/assignments/manager/${chelseaId}`).expect(200);
+    await chelsea.post('/v1/projects/1/forms/simple/submissions')
+      .send(testData.instances.simple.one.replace('<instanceID>one</instanceID>', '<instanceID>rtwo</instanceID>'))
+      .set('Content-Type', 'application/xml')
+      .expect(200);
+    const evidence = JSON.stringify({ others: [{ xmlFormId: 'withrepeat', instanceId: 'rtwo' }] });
+    const flag = (instanceId, relatedInstanceId, json) => container.one(sql`INSERT INTO field_data_integrity_flags
         ("formId", rule, "ruleVersion", "instanceId", "relatedInstanceId", outcome, evidence)
-      SELECT id, 'near-duplicate', 1, 'one', 'rtwo', 'concern', '{}'::jsonb
+      SELECT id, 'near-duplicate', 1, ${instanceId}, ${relatedInstanceId}, 'concern', ${json}::jsonb
       FROM forms WHERE "projectId" = 1 AND "xmlFormId" = 'simple' RETURNING id`);
+    const { id: pair } = await flag('one', 'rtwo', evidence);
+    // A finding whose own submission is missing is not given another form's.
+    const { id: missing } = await flag('rone', null, '{}');
     const closeOne = async (projectId, n, findingIds) => {
       const v = (await alice.post(`/v1/projects/${projectId}/investigations`)
         .send({ requestId: uuid(n), title: `Inquiry ${n}`, findingIds }).expect(201)).body;
@@ -252,7 +264,7 @@ describe('api: investigation records (F6)', () => {
         .send({ disposition: 'insufficient-evidence', conclusion: 'Done.' })
         .expect(200);
     };
-    await closeOne(1, 1, [pair]);
+    await closeOne(1, 1, [pair, missing]);
     const otherProject = await container.oneFirst(sql`SELECT "projectId" FROM forms f
       JOIN field_data_integrity_flags i ON i."formId" = f.id WHERE i.id = ${f.foreign}`);
     await closeOne(otherProject, 2, [f.foreign]);
@@ -260,7 +272,7 @@ describe('api: investigation records (F6)', () => {
     const { body } = await alice.get(`${base}/outcomes`).expect(200);
     assert.deepEqual(body.status, { open: 0, closed: 1, reopened: 0 });
     assert.equal(body.hiddenFindings, 0);
-    assert.deepEqual(body.families.map((r) => [r.family, r.total]), [['similarity', 1]]);
-    assert.deepEqual(body.collectors.map((c) => [c.displayName, c['insufficient-evidence']]), [['Alice', 1], ['Bob', 1]]);
+    assert.deepEqual(body.families.map((r) => [r.family, r.total]), [['similarity', 2]]);
+    assert.deepEqual(body.collectors.map((c) => [c.displayName, c['insufficient-evidence']]), [['Alice', 1], ['Bob', 1], [null, 1]]);
   }));
 });

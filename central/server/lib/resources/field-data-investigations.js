@@ -162,27 +162,37 @@ module.exports = (service, endpoint) => {
         (SELECT max(e."createdAt") FROM field_data_investigation_events e WHERE e."investigationId" = v.id AND e.kind = 'closed') AS "closedAt",
         EXISTS (SELECT 1 FROM field_data_investigation_events e WHERE e."investigationId" = v.id AND e.kind = 'reopened') AS reopened
       FROM field_data_investigations v WHERE v."projectId" = ${project.id}`);
+    // A pair's other submission is in the form its evidence names (a
+    // cross-form finding), or else in the finding's own form.
     const rows = await container.db.any(sql`SELECT x."findingId", x."investigationId", ${familyOf} AS family,
-        i."formId", i."instanceId", i."relatedInstanceId"
+        i."formId", i."instanceId", i."relatedInstanceId",
+        COALESCE((SELECT o->>'xmlFormId' FROM jsonb_array_elements(CASE WHEN jsonb_typeof(i.evidence->'others') = 'array'
+          THEN i.evidence->'others' ELSE '[]'::jsonb END) o WHERE o->>'instanceId' = i."relatedInstanceId" LIMIT 1), f."xmlFormId") AS "relatedXmlFormId"
       FROM field_data_investigation_findings x
       JOIN field_data_investigations v ON v.id = x."investigationId" AND v."projectId" = ${project.id} AND v.status = 'closed'
-      JOIN field_data_integrity_flags i ON i.id = x."findingId"`);
-    // Submitters of each finding's submission and, for a pair, its other
-    // submission: in the same form, or else in another readable form.
-    const shown = rows.filter((r) => readable.has(r.formId));
-    const instanceIds = [...new Set(shown.flatMap((r) => [r.instanceId, r.relatedInstanceId]).filter((id) => id != null))];
-    const submissions = instanceIds.length === 0 ? [] : await container.db.any(sql`SELECT "formId", "instanceId", "submitterId"
-      FROM submissions WHERE "deletedAt" IS NULL AND draft = false
-        AND "formId" = ANY(${sql.array([...readable], 'int4')}) AND "instanceId" = ANY(${sql.array(instanceIds, 'text')})`);
+      JOIN field_data_integrity_flags i ON i.id = x."findingId"
+      JOIN forms f ON f.id = i."formId"`);
+    const formIds = new Map((await container.db.any(sql`SELECT id, "xmlFormId" FROM forms
+      WHERE "projectId" = ${project.id} AND "deletedAt" IS NULL`)).map((row) => [row.xmlFormId, row.id]));
+    // Each side is looked up only in its own form, and only when that form is readable.
+    const sides = rows.filter((r) => readable.has(r.formId)).flatMap((r) => {
+      const related = r.relatedInstanceId == null ? [] : [{ formId: formIds.get(r.relatedXmlFormId), instanceId: r.relatedInstanceId }];
+      return [{ formId: r.formId, instanceId: r.instanceId }, ...related];
+    }).filter((side) => side.formId != null && readable.has(side.formId));
+    const submissions = sides.length === 0 ? [] : await container.db.any(sql`SELECT s."formId", s."instanceId", s."submitterId"
+      FROM submissions s
+      JOIN unnest(${sql.array(sides.map((x) => x.formId), 'int4')}, ${sql.array(sides.map((x) => x.instanceId), 'text')}) AS k("formId", "instanceId")
+        ON k."formId" = s."formId" AND k."instanceId" = s."instanceId"
+      WHERE s."deletedAt" IS NULL AND s.draft = false`);
     const submitter = (formId, instanceId) => {
-      const same = submissions.find((s) => s.formId === formId && s.instanceId === instanceId);
-      const found = same ?? submissions.find((s) => s.instanceId === instanceId);
+      const found = submissions.find((s) => s.formId === formId && s.instanceId === instanceId);
       return found == null ? null : found.submitterId;
     };
     const findings = rows.map((r) => ({
       findingId: r.findingId, investigationId: r.investigationId, family: r.family, readable: readable.has(r.formId),
       collectors: readable.has(r.formId)
-        ? [submitter(r.formId, r.instanceId), ...(r.relatedInstanceId == null ? [] : [submitter(r.formId, r.relatedInstanceId)])]
+        ? [submitter(r.formId, r.instanceId),
+          ...(r.relatedInstanceId == null ? [] : [submitter(formIds.get(r.relatedXmlFormId), r.relatedInstanceId)])]
         : []
     }));
     const actorIds = [...new Set(findings.flatMap((f) => f.collectors).filter((id) => id != null))];
