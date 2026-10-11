@@ -23,6 +23,44 @@ Contract: docs/field-intelligence/F6-investigations.md -->
       <button type="button" class="btn btn-link" @click="draft = null">Cancel</button>
     </form>
 
+    <details v-if="outcomes != null && outcomes.status.open + outcomes.status.closed > 0" class="investigation-outcomes">
+      <summary>How investigations ended</summary>
+      <p class="outcomes-lead">
+        Counts only. People choose which findings to investigate, so these numbers do not show how often a check is
+        right, and a collector listed here is not shown to have done anything wrong: a benign disposition counts like any other.
+      </p>
+      <p class="outcomes-status">
+        {{ outcomes.status.open }} open · {{ outcomes.status.closed }} closed · {{ outcomes.status.reopened }} ever reopened
+        <template v-if="outcomes.timeToClose != null">
+          · days to close: median {{ outcomes.timeToClose.median }}, longest {{ outcomes.timeToClose.longest }}
+        </template>
+      </p>
+      <div v-if="outcomes.status.closed > 0" class="outcomes-tables">
+        <table class="table outcomes-dispositions">
+          <caption>Closed investigations by disposition</caption>
+          <thead><tr><th>Disposition</th><th>Closed</th></tr></thead>
+          <tbody>
+            <tr v-for="(label, key) of DISPOSITIONS" :key="key"><td>{{ label }}</td><td>{{ outcomes.dispositions[key] }}</td></tr>
+          </tbody>
+        </table>
+        <table v-for="t of outcomeTables" :key="t.key" class="table" :class="`outcomes-${t.key}`">
+          <caption>{{ t.caption }}</caption>
+          <thead>
+            <tr><th>{{ t.label }}</th><th v-for="(label, key) of DISPOSITIONS" :key="key">{{ label }}</th><th v-if="t.total">Total</th></tr>
+          </thead>
+          <tbody>
+            <tr v-for="row of t.rows" :key="t.rowKey(row)">
+              <td>{{ t.name(row) }}</td>
+              <td v-for="(label, key) of DISPOSITIONS" :key="key">{{ row[key] }}</td>
+              <td v-if="t.total">{{ row.total }}</td>
+            </tr>
+          </tbody>
+        </table>
+        <p v-if="outcomes.collectorsOmitted > 0" class="outcomes-note">{{ outcomes.collectorsOmitted }} more collectors not listed.</p>
+        <p v-if="outcomes.hiddenFindings > 0" class="outcomes-note">{{ outcomes.hiddenFindings }} findings on Forms you may not read are left out of the tables by kind and by collector.</p>
+      </div>
+    </details>
+
     <p v-if="list != null && list.length === 0" class="investigations-empty">
       No investigation has been opened in this project. Open one from a group of collectors above.
     </p>
@@ -90,7 +128,7 @@ Contract: docs/field-intelligence/F6-investigations.md -->
 </template>
 
 <script setup>
-import { ref, watch } from 'vue';
+import { computed, ref, watch } from 'vue';
 
 import Spinner from '../spinner.vue';
 import useRequest from '../../composables/request';
@@ -108,6 +146,8 @@ const DISPOSITIONS = {
   'insufficient-evidence': 'Insufficient evidence', 'policy-exception': 'Policy exception', duplicate: 'Duplicate of another investigation'
 };
 const EVENTS = { opened: 'Opened', 'findings-added': 'Findings added', note: 'Note', closed: 'Closed', reopened: 'Reopened' };
+const FAMILIES = { travel: 'Travel', location: 'Location', contradiction: 'Contradiction', identity: 'Identity', similarity: 'Similar answers', other: 'Other' };
+const outcomes = ref(null);
 const list = ref(null); const current = ref(null); const draft = ref(null); const error = ref('');
 const note = ref(''); const disposition = ref('benign-pattern'); const conclusion = ref(''); const reason = ref('');
 const base = () => `/v1/projects/${props.projectId}/investigations`;
@@ -118,9 +158,27 @@ const failed = (what) => (e) => {
   if (current.value != null && [409, 412].includes(e?.response?.status)) open(current.value.id); // eslint-disable-line no-use-before-define
 };
 
-const load = () => request({ method: 'GET', url: base(), alert: false })
-  .then(({ data }) => { if (!Array.isArray(data)) throw new Error('Unexpected response'); list.value = data; })
-  .catch(() => { error.value = 'Investigations could not be loaded. Try again.'; });
+// F7: how investigations ended; loaded with the list and after each change.
+const loadOutcomes = () => request({ method: 'GET', url: `${base()}/outcomes`, alert: false })
+  .then(({ data }) => { outcomes.value = data; })
+  .catch(() => { error.value = 'How investigations ended could not be loaded. Try again.'; });
+const load = () => Promise.all([
+  request({ method: 'GET', url: base(), alert: false })
+    .then(({ data }) => { if (!Array.isArray(data)) throw new Error('Unexpected response'); list.value = data; })
+    .catch(() => { error.value = 'Investigations could not be loaded. Try again.'; }),
+  loadOutcomes()
+]);
+const outcomeTables = computed(() => [
+  { key: 'months', caption: 'Closed by month of closing (UTC)', label: 'Month', rows: outcomes.value.months, rowKey: (r) => r.month, name: (r) => r.month, total: false },
+  {
+    key: 'families', caption: 'Findings in closed investigations, by kind of check (each finding once)', label: 'Kind', rows: outcomes.value.families,
+    rowKey: (r) => r.family, name: (r) => FAMILIES[r.family] ?? r.family, total: true
+  },
+  {
+    key: 'collectors', caption: 'Closed investigations involving each collector\'s Submissions', label: 'Collector', rows: outcomes.value.collectors,
+    rowKey: (r) => r.actorId ?? 'unknown', name: (r) => (r.actorId == null ? 'Unknown' : r.displayName ?? `#${r.actorId}`), total: true
+  }
+]);
 const open = (id) => request({ method: 'GET', url: `${base()}/${id}`, alert: false })
   .then(({ data }) => { current.value = data; })
   .catch(() => { error.value = 'The investigation could not be loaded. Try again.'; });
@@ -168,5 +226,12 @@ const submissionPath = (xmlFormId, instanceId) => `${formPath(xmlFormId)}/submis
     label { display: flex; flex-direction: column; font-weight: normal; } }
   .investigation-history { padding-left: 18px; }
   .investigation-note { display: block; white-space: pre-wrap; }
+  .investigation-outcomes { margin: 12px 0;
+    summary { cursor: pointer; font-weight: bold; }
+    .outcomes-lead, .outcomes-note { color: $color-text-secondary; }
+    .outcomes-tables { overflow-x: auto; }
+    .table { margin-bottom: 12px; width: auto; }
+    caption { color: $color-text; font-weight: bold; }
+    td + td, th + th { text-align: right; } }
 }
 </style>

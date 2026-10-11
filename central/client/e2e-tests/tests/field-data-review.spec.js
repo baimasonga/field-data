@@ -6,7 +6,7 @@ const versionId = '22222222-2222-4222-8222-222222222222';
 const backcheckId = '33333333-3333-4333-8333-333333333333';
 const etag = revision => `"review-case-${revision}"`;
 
-const setup = async (page, { comparisonUnavailable = false, failComparison = false, staleAssignment = false, canOverride = false, readOnly = false, noProjects = false, failQueue = false, failAssignment = false, manageQuality = false, delayOpen = false, failMetrics = false, delayMetrics = false, manageProject = false } = {}) => {
+const setup = async (page, { comparisonUnavailable = false, failComparison = false, staleAssignment = false, canOverride = false, readOnly = false, noProjects = false, failQueue = false, failAssignment = false, manageQuality = false, delayOpen = false, failMetrics = false, delayMetrics = false, manageProject = false, failOutcomes = false } = {}) => {
   const errors = [];
   page.on('pageerror', error => errors.push(error.message));
   let releaseOpen;
@@ -15,7 +15,7 @@ const setup = async (page, { comparisonUnavailable = false, failComparison = fal
   const metricsWait = delayMetrics ? new Promise(resolve => { releaseMetrics = resolve; }) : null;
   const state = { assets: [], assetHistory: [], assetTasks: [], assetWrites: [], assetFailures: 0, assetConflict: false, mappingRevision: 0, mappingHistory: [], mappingRequests: [], mappingFailures: 0, mappingConflict: false, comparisonFailures: failComparison ? 1 : 0, comparisonRequests: 0, staleWrites: 0, conflictFailures: staleAssignment ? 1 : 0, status: 'open', assignedTo: null, revision: 1, backchecks: [], decisions: [], mutations: [], queueRequests: [], queueFailures: failQueue ? 1 : 0, assignmentFailures: failAssignment ? 1 : 0, metricsFailures: failMetrics ? 2 : 0 };
   Object.assign(state, { queueCalls: [], queueFailures_: 0, queueGate: null, queuePaged: false, queueTasks: [] });
-  Object.assign(state, { findings: [], findingsCalls: [], findingsFailures: 0, findingsPaged: false, collectorGroups: [], collectorCalls: [], workload: false, search: null, searchCalls: [], searchFailures: 0, projection: null, projectionCalls: [], projectionFailures: 0, investigations: [], investigationWrites: [], investigationFailures: 0, investigationStale: false, assetOperations: [], identityWrites: [], listMerged: false, duplicatePairs: [], duplicateDismissed: [], duplicateWrites: [] });
+  Object.assign(state, { findings: [], findingsCalls: [], findingsFailures: 0, findingsPaged: false, collectorGroups: [], collectorCalls: [], workload: false, search: null, searchCalls: [], searchFailures: 0, projection: null, projectionCalls: [], projectionFailures: 0, investigations: [], investigationWrites: [], investigationFailures: 0, outcomesCalls: 0, outcomesFailures: failOutcomes ? 1 : 0, investigationStale: false, assetOperations: [], identityWrites: [], listMerged: false, duplicatePairs: [], duplicateDismissed: [], duplicateWrites: [] });
   await page.addInitScript(() => globalThis.localStorage.setItem('sessionExpires', String(Date.now() + 3600000)));
   await page.route('**/client-config.json', route => route.fulfill({ json: {} }));
   await page.route('**/version.txt', route => route.fulfill({ body: 'test' }));
@@ -150,6 +150,24 @@ const setup = async (page, { comparisonUnavailable = false, failComparison = fal
         return reply();
       }
       return route.fulfill({ status: 404, json: {} });
+    }
+    // F7 outcomes, worked out from the investigations held here.
+    if (path === '/v1/projects/7/investigations/outcomes') {
+      state.outcomesCalls += 1;
+      if (state.outcomesFailures-- > 0) return route.fulfill({ status: 500, json: { message: 'Failed' } });
+      const keys = ['confirmed-issue', 'data-error', 'benign-pattern', 'insufficient-evidence', 'policy-exception', 'duplicate'];
+      const zero = () => Object.fromEntries(keys.map((k) => [k, 0]));
+      const closed = state.investigations.filter((v) => v.status === 'closed');
+      const dispositions = zero();
+      for (const v of closed) dispositions[v.disposition] += 1;
+      const families = closed.length === 0 ? [] : [{ family: 'similarity', ...dispositions, total: closed.length }];
+      const collectors = closed.length === 0 ? [] : [{ ...dispositions, actorId: 41, displayName: 'Aminata', total: closed.length },
+        { ...dispositions, actorId: null, displayName: null, total: closed.length }];
+      return respond({ status: { open: state.investigations.length - closed.length, closed: closed.length,
+        reopened: state.investigations.filter((v) => v.events.some((e) => e.kind === 'reopened')).length },
+      dispositions, timeToClose: closed.length === 0 ? null : { median: 2, longest: 5 },
+      months: [{ month: '2026-09', ...zero() }, { month: '2026-10', ...dispositions }], families, collectors,
+      collectorsOmitted: 0, hiddenFindings: closed.length === 0 ? 0 : 1, generatedAt: '2026-10-11T00:00:00.000Z' });
     }
     // F6 investigations, with revisions as the server keeps them.
     const investigationPath = /^\/v1\/projects\/7\/investigations(?:\/([^/]+)(?:\/(notes|close|reopen))?)?$/.exec(path);
@@ -1411,6 +1429,8 @@ test('a manager opens an investigation from a collector group, notes, closes and
   const { state, errors } = await setup(page, { manageProject: true });
   const section = page.getByRole('region', { name: 'Investigations' });
   await expect(section.locator('.investigations-empty')).toContainText('No investigation has been opened');
+  await expect(section.locator('.investigation-outcomes')).toHaveCount(0);
+  expect(state.outcomesCalls).toBe(1);
   state.collectorGroups.push({
     members: [{ actorId: 42, displayName: 'Bockarie', links: 3 }, { actorId: 41, displayName: 'Aminata', links: 3 }],
     connections: [{ a: 41, b: 42, links: 3, byRule: { 'near-duplicate': 3 } }],
@@ -1454,12 +1474,35 @@ test('a manager opens an investigation from a collector group, notes, closes and
   expect(state.investigationWrites.at(-1)).toMatchObject({ data: { disposition: 'benign-pattern', conclusion: 'A shared household listing.' }, ifMatch: '"investigation-2"' });
   await expect(record.locator('.investigation-history li').last()).toContainText('Closed: Benign pattern');
 
+  // F7: how investigations ended, reloaded after the closure.
+  const ended = section.locator('.investigation-outcomes');
+  await ended.locator('summary').click();
+  await expect(ended.locator('.outcomes-status')).toHaveText(/0 open · 1 closed · 0 ever reopened\s+· days to close: median 2, longest 5/);
+  await expect(ended.locator('.outcomes-dispositions tr', { hasText: 'Benign pattern' })).toContainText('1');
+  await expect(ended.getByRole('table', { name: /by kind of check/ }).locator('tbody tr')).toHaveText([/Similar answers\s*0\s*0\s*1\s*0\s*0\s*0\s*1/]);
+  await expect(ended.getByRole('table', { name: /each collector/ }).locator('tbody td:first-child')).toHaveText(['Aminata', 'Unknown']);
+  await expect(ended.getByRole('table', { name: /month of closing/ }).locator('tbody tr')).toHaveCount(2);
+  await expect(ended.locator('.outcomes-note')).toHaveText('1 findings on Forms you may not read are left out of the tables by kind and by collector.');
+  await expect(ended.locator('.outcomes-lead')).toContainText('not shown to have done anything wrong');
+
   await record.getByLabel('Reason to reopen').fill('New backcheck results.');
   await record.getByRole('button', { name: 'Reopen' }).click();
   await expect(record.locator('.investigation-status')).toContainText('Open');
   await expect(record.locator('.investigation-history li').last()).toContainText('New backcheck results.');
+  await expect(ended.locator('.outcomes-status')).toHaveText('1 open · 0 closed · 1 ever reopened');
+  await expect(ended.locator('.outcomes-tables')).toHaveCount(0);
   await page.setViewportSize({ width: 360, height: 800 });
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= 360)).toBe(true);
+  expect(errors).toEqual([]);
+});
+
+test('a failure to load how investigations ended is reported and the list still shows', async ({ page }) => {
+  const { state, errors } = await setup(page, { manageProject: true, failOutcomes: true });
+  const section = page.getByRole('region', { name: 'Investigations' });
+  await expect(section.getByRole('alert')).toHaveText('How investigations ended could not be loaded. Try again.');
+  await expect(section.locator('.investigations-empty')).toContainText('No investigation has been opened');
+  await expect(section.locator('.investigation-outcomes')).toHaveCount(0);
+  expect(state.outcomesCalls).toBe(1);
   expect(errors).toEqual([]);
 });
 
@@ -1472,6 +1515,7 @@ test('investigations are not offered to those who may not manage the project', a
   await expect(page.getByRole('button', { name: 'Open an investigation' })).toHaveCount(0);
   await expect(page.getByRole('region', { name: 'Investigations' })).toHaveCount(0);
   expect(state.investigationWrites).toEqual([]);
+  expect(state.outcomesCalls).toBe(0);
   expect(errors).toEqual([]);
 });
 

@@ -12,6 +12,8 @@ const { Form } = require('../model/frames');
 const Problem = require('../util/problem');
 const { getOrNotFound } = require('../util/promise');
 const { UUID_PATTERN } = require('../util/claim-versioning');
+const { outcomes } = require('../util/investigation-outcomes');
+const { familyOf } = require('./field-data-findings');
 
 const MAX_FINDINGS = 500;
 const DISPOSITIONS = ['confirmed-issue', 'data-error', 'benign-pattern', 'insufficient-evidence', 'policy-exception', 'duplicate'];
@@ -150,6 +152,54 @@ module.exports = (service, endpoint) => {
     response.set('Idempotency-Status', result.replayed ? 'replayed' : 'created');
     response.status(201);
     return detail(container, auth, project, result.id);
+  }));
+
+  // F7: how the project's investigations ended. Registered before `/:id`.
+  service.get(`${base}/outcomes`, endpoint(async (container, { auth, params }, _, response) => {
+    const project = await projectFor(container, auth, params);
+    const readable = await readableForms(container, auth, project.id);
+    const investigations = await container.db.any(sql`SELECT v.id, v.status, v.disposition, v."openedAt",
+        (SELECT max(e."createdAt") FROM field_data_investigation_events e WHERE e."investigationId" = v.id AND e.kind = 'closed') AS "closedAt",
+        EXISTS (SELECT 1 FROM field_data_investigation_events e WHERE e."investigationId" = v.id AND e.kind = 'reopened') AS reopened
+      FROM field_data_investigations v WHERE v."projectId" = ${project.id}`);
+    // A pair's other submission is in the form its evidence names (a
+    // cross-form finding), or else in the finding's own form.
+    const rows = await container.db.any(sql`SELECT x."findingId", x."investigationId", ${familyOf} AS family,
+        i."formId", i."instanceId", i."relatedInstanceId",
+        COALESCE((SELECT o->>'xmlFormId' FROM jsonb_array_elements(CASE WHEN jsonb_typeof(i.evidence->'others') = 'array'
+          THEN i.evidence->'others' ELSE '[]'::jsonb END) o WHERE o->>'instanceId' = i."relatedInstanceId" LIMIT 1), f."xmlFormId") AS "relatedXmlFormId"
+      FROM field_data_investigation_findings x
+      JOIN field_data_investigations v ON v.id = x."investigationId" AND v."projectId" = ${project.id} AND v.status = 'closed'
+      JOIN field_data_integrity_flags i ON i.id = x."findingId"
+      JOIN forms f ON f.id = i."formId"`);
+    const formIds = new Map((await container.db.any(sql`SELECT id, "xmlFormId" FROM forms
+      WHERE "projectId" = ${project.id} AND "deletedAt" IS NULL`)).map((row) => [row.xmlFormId, row.id]));
+    // Each side is looked up only in its own form, and only when that form is readable.
+    const sides = rows.filter((r) => readable.has(r.formId)).flatMap((r) => {
+      const related = r.relatedInstanceId == null ? [] : [{ formId: formIds.get(r.relatedXmlFormId), instanceId: r.relatedInstanceId }];
+      return [{ formId: r.formId, instanceId: r.instanceId }, ...related];
+    }).filter((side) => side.formId != null && readable.has(side.formId));
+    const submissions = sides.length === 0 ? [] : await container.db.any(sql`SELECT s."formId", s."instanceId", s."submitterId"
+      FROM submissions s
+      JOIN unnest(${sql.array(sides.map((x) => x.formId), 'int4')}, ${sql.array(sides.map((x) => x.instanceId), 'text')}) AS k("formId", "instanceId")
+        ON k."formId" = s."formId" AND k."instanceId" = s."instanceId"
+      WHERE s."deletedAt" IS NULL AND s.draft = false`);
+    const submitter = (formId, instanceId) => {
+      const found = submissions.find((s) => s.formId === formId && s.instanceId === instanceId);
+      return found == null ? null : found.submitterId;
+    };
+    const findings = rows.map((r) => ({
+      findingId: r.findingId, investigationId: r.investigationId, family: r.family, readable: readable.has(r.formId),
+      collectors: readable.has(r.formId)
+        ? [submitter(r.formId, r.instanceId),
+          ...(r.relatedInstanceId == null ? [] : [submitter(formIds.get(r.relatedXmlFormId), r.relatedInstanceId)])]
+        : []
+    }));
+    const actorIds = [...new Set(findings.flatMap((f) => f.collectors).filter((id) => id != null))];
+    const names = new Map(actorIds.length === 0 ? [] : (await container.db.any(sql`SELECT id, "displayName" FROM actors
+      WHERE id = ANY(${sql.array(actorIds, 'int4')})`)).map((a) => [a.id, a.displayName]));
+    response.set('Cache-Control', 'private, no-store');
+    return outcomes({ investigations, findings, names });
   }));
 
   service.get(`${base}/:id`, endpoint(async (container, { auth, params }, _, response) => {
