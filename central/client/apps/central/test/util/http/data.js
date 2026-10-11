@@ -187,7 +187,18 @@ const responsesByComponent = {
     actorProperties: true,
     publicLinks: () => testData.extendedPublicLinks.sorted()
   }),
-  FormVersionList: componentResponses({ formVersions: true }),
+  FormVersionList: componentResponses({
+    formVersions: true,
+    // Field Data recode rules for exports (S4), and the questions they name.
+    formRecodes: [
+      ({ url }) => /^\/v1\/projects\/\d+\/forms\/[^/]+\/recodes$/.test(url),
+      () => ({ active: [], retired: [], versions: [] })
+    ],
+    formRecodeFields: [
+      ({ url }) => /^\/v1\/projects\/\d+\/forms\/[^/]+\/fields\?odata=false$/.test(url),
+      () => []
+    ]
+  }),
   FormEdit: componentResponses({
     formDraft: () => (testData.extendedFormVersions.last().publishedAt == null
       ? testData.extendedFormDrafts.last()

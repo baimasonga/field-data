@@ -100,10 +100,15 @@ also exist. Those features must not be re-labelled as full completion of this pr
   every change between two versions of a form to what is collected, each
   with its effect on the data in words (meaning, continuity, who is asked or
   what is accepted, wording), on the Draft page and counted in the publish
-  dialog, never blocking: implemented and locally validated (swept over 304
-  forms compared with themselves and 303 pairs of different forms). Compatibility
-  mappings applied to exports, approved policies and evolution remain
-  pending.
+  dialog, never blocking: merged in PR #80 (swept over 304 forms compared
+  with themselves and 303 pairs of different forms). Recode rules for exports
+  (S4): per-form rules, written by managers and kept, mapping earlier
+  versions' codes to current ones or reading a moved question from its old
+  path, applied by version in the analysis exports (direct and queued, frozen
+  with the job) and listed in each export's manifest, with an option to
+  export answers as stored: implemented and locally validated. Recodes in
+  Central's own exports and the on-screen analysis, approved policies and
+  evolution remain pending.
 - Project findings inbox (F3): integrity findings from every readable form of a
   project in one list on the Review page, with filters and open counts, linking
   to each form's Verification page: merged in PR #65.

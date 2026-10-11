@@ -111,7 +111,7 @@ jobs:
         env:
           REQUIRE_FORM_COMPILER: '1'
         run: npx mocha --timeout 60000 test/integration/api/field-data-xlsform-pipeline.js
-      - run: npx mocha --timeout 15000 test/integration/api/field-data-analysis.js test/integration/api/field-data-extensions.js test/integration/api/field-data-capabilities.js test/integration/api/field-data-completion.js test/unit/util/analysis-data.js test/unit/util/feature-capabilities.js test/unit/util/builder-diagnostics.js test/unit/util/xlsform-builder.js test/unit/util/builder-import.js test/unit/util/remote-map.js test/unit/util/web-forms-health.js test/unit/external/xlsform.js
+      - run: npx mocha --timeout 15000 test/integration/api/field-data-analysis.js test/integration/api/field-data-export-recodes.js test/integration/api/field-data-extensions.js test/integration/api/field-data-capabilities.js test/integration/api/field-data-completion.js test/unit/util/analysis-data.js test/unit/util/feature-capabilities.js test/unit/util/builder-diagnostics.js test/unit/util/xlsform-builder.js test/unit/util/builder-import.js test/unit/util/remote-map.js test/unit/util/web-forms-health.js test/unit/external/xlsform.js
       - run: node --test ../../tests/external-monitor.test.cjs ../../tests/deployment-error-report.test.cjs
       - name: Worker answers 'starting up' instead of crashing while the container is unavailable
         run: node --import ../../cloudflare/test/register.mjs --test ../../cloudflare/test/worker.test.mjs

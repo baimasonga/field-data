@@ -41,7 +41,7 @@ module.exports = (service, endpoint) => {
     const active = await c.db.oneFirst(sql`select count(*)::int from field_data_export_jobs where "createdBy"=${owner(auth)} and "expiresAt">clock_timestamp()`);
     if (active >= 10) throw invalid('jobs', null, 'Remove an export before creating more than ten retained jobs.');
     await c.db.query(sql`insert into field_data_export_jobs (id, "projectId", "createdBy", request, payload) values (${id}, ${Number(params.projectId)}, ${owner(auth)}, ${JSON.stringify(normalized)}, ${JSON.stringify(prepared.payload)})`);
-    await c.db.query(sql`insert into field_data_export_rows ("jobId", row) select ${id}::uuid, jsonb_build_object('instanceId', r."instanceId", 'sourceForm', r."sourceForm", 'submittedAt', r."submittedAt", 'xml', r.xml, 'data', r.data, 'repeatIndex', r."repeatIndex") from (${exportRowsSql(prepared.source, prepared.definition, 100001)}) r`);
+    await c.db.query(sql`insert into field_data_export_rows ("jobId", row) select ${id}::uuid, jsonb_build_object('instanceId', r."instanceId", 'sourceForm', r."sourceForm", 'submittedAt', r."submittedAt", 'xml', r.xml, 'data', r.data, 'repeatIndex', r."repeatIndex", 'formVersion', r."formVersion") from (${exportRowsSql(prepared.source, prepared.definition, 100001)}) r`);
     const size = await c.db.one(sql`select count(*)::int as total, coalesce(sum(octet_length(coalesce(row->>'xml', row->>'data'))),0)::bigint as bytes from field_data_export_rows where "jobId"=${id}`);
     if (size.total > 100000 || size.bytes > 200 * 1024 * 1024) throw invalid('export', null, 'Queued export supports 100,000 submissions and 200 MB source XML. Add filters.');
     await c.db.query(sql`update field_data_export_jobs set total=${size.total} where id=${id}`);

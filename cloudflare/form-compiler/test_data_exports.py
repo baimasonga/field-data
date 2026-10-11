@@ -101,3 +101,71 @@ class Exports(unittest.TestCase):
         with self.assertRaises(ValueError): write_export(p, 'csv')
         p = fixture(); p['rows'][0]['xml'] = p['rows'][0]['xml'].replace('<age>42</age>', '<age>invalid</age>')
         with self.assertRaises(ValueError): write_export(p, 'sav')
+
+
+def recode_fixture(applied=True):
+    """Two versions of one form: v1 kept water as 'borehole' and age at /old_age."""
+    p = {'source': {'kind': 'form', 'id': 1}, 'definition': {'version': 1}, 'repeatPaths': ['/children'], 'fields': [
+        {'path': '/water', 'type': 'string'}, {'path': '/lights', 'type': 'string', 'selectMultiple': True},
+        {'path': '/age', 'type': 'int'}, {'path': '/children/water', 'type': 'string'}],
+        'rows': [
+            {'instanceId': 'uuid:old', 'sourceForm': 'census', 'formVersion': '1', 'submittedAt': '2026-10-01T00:00:00Z',
+             'xml': '<data><water>borehole</water><lights>solar torch</lights><old_age>40</old_age><children><water>borehole</water></children></data>'},
+            {'instanceId': 'uuid:new', 'sourceForm': 'census', 'formVersion': '2', 'submittedAt': '2026-10-02T00:00:00Z',
+             'xml': '<data><water>borehole</water><lights>torch</lights><age>31</age><old_age>99</old_age></data>'},
+            {'instanceId': 'uuid:other', 'sourceForm': 'farm', 'formVersion': '1', 'submittedAt': '2026-10-03T00:00:00Z',
+             'xml': '<data><water>borehole</water></data>'}],
+        'recodes': {'applied': applied, 'rules': [
+            {'id': 'r1', 'xmlFormId': 'census', 'kind': 'value', 'path': '/water', 'fromPath': None, 'versions': ['1'], 'values': {'borehole': 'bh'}},
+            {'id': 'r2', 'xmlFormId': 'census', 'kind': 'value', 'path': '/lights', 'fromPath': None, 'versions': ['1'], 'values': {'torch': 'battery_torch'}},
+            {'id': 'r3', 'xmlFormId': 'census', 'kind': 'path', 'path': '/age', 'fromPath': '/old_age', 'versions': ['1'], 'values': None},
+            {'id': 'r4', 'xmlFormId': 'census', 'kind': 'value', 'path': '/children/water', 'fromPath': None, 'versions': ['1'], 'values': {'borehole': 'bh'}}]}}
+    return p
+
+
+class Recoding(unittest.TestCase):
+    def read(self, payload):
+        content, _, _ = write_export(payload, 'csv')
+        with zipfile.ZipFile(io.BytesIO(content)) as z:
+            main = pd.read_csv(io.BytesIO(z.read('submissions.csv')), dtype=str, keep_default_na=False).set_index('instance_id')
+            children = pd.read_csv(io.BytesIO(z.read('repeat_1.csv')), dtype=str, keep_default_na=False)
+            return main, children, json.loads(z.read('manifest.json'))
+
+    def test_rules_apply_only_to_their_form_and_versions(self):
+        main, children, manifest = self.read(recode_fixture())
+        old, new, other = main.loc['uuid:old'], main.loc['uuid:new'], main.loc['uuid:other']
+        self.assertEqual(old['/water'], 'bh'); self.assertEqual(new['/water'], 'borehole'); self.assertEqual(other['/water'], 'borehole')
+        # Each selected value is mapped on its own; values not in the map are kept.
+        self.assertEqual(old['/lights'], 'solar battery_torch'); self.assertEqual(new['/lights'], 'torch')
+        # The earlier path fills an empty answer only for the listed version.
+        self.assertEqual(old['/age'], '40'); self.assertEqual(new['/age'], '31')
+        self.assertEqual(list(children['/children/water']), ['bh'])
+        self.assertTrue(manifest['recodes']['applied'])
+        self.assertEqual({r['id']: r['changed'] for r in manifest['recodes']['rules']}, {'r1': 1, 'r2': 1, 'r3': 1, 'r4': 1})
+
+    def test_a_path_rule_never_replaces_an_answer_at_the_current_path(self):
+        p = recode_fixture(); p['rows'][0]['xml'] = p['rows'][0]['xml'].replace('<old_age>40</old_age>', '<old_age>40</old_age><age>41</age>')
+        main, _, manifest = self.read(p)
+        self.assertEqual(main.loc['uuid:old', '/age'], '41')
+        self.assertEqual(next(r for r in manifest['recodes']['rules'] if r['id'] == 'r3')['changed'], 0)
+
+    def test_exported_as_stored_when_asked(self):
+        main, children, manifest = self.read(recode_fixture(applied=False))
+        self.assertEqual(main.loc['uuid:old', '/water'], 'borehole'); self.assertEqual(main.loc['uuid:old', '/age'], '')
+        self.assertEqual(list(children['/children/water']), ['borehole'])
+        self.assertEqual(manifest['recodes'], {'applied': False, 'rules': []})
+
+    def test_repeat_scope_applies_value_rules(self):
+        p = recode_fixture(); p['definition'] = {'version': 1, 'repeatPath': '/children'}
+        p['fields'] = [{'path': '/children/water', 'type': 'string'}]
+        p['rows'] = [{'instanceId': 'uuid:old', 'sourceForm': 'census', 'formVersion': '1', 'submittedAt': '2026-10-01T00:00:00Z', 'repeatIndex': 1, 'data': {'/children/water': 'borehole'}},
+                     {'instanceId': 'uuid:new', 'sourceForm': 'census', 'formVersion': '2', 'submittedAt': '2026-10-02T00:00:00Z', 'repeatIndex': 1, 'data': {'/children/water': 'borehole'}}]
+        content, _, _ = write_export(p, 'csv')
+        with zipfile.ZipFile(io.BytesIO(content)) as z:
+            rows = pd.read_csv(io.BytesIO(z.read('submissions.csv') if 'submissions.csv' in z.namelist() else z.read(z.namelist()[0])), dtype=str, keep_default_na=False)
+        self.assertEqual(list(rows['/children/water']), ['bh', 'borehole'])
+
+    def test_payload_without_recodes_is_unchanged(self):
+        p = fixture(); content, _, _ = write_export(p, 'csv')
+        with zipfile.ZipFile(io.BytesIO(content)) as z:
+            self.assertEqual(json.loads(z.read('manifest.json'))['recodes'], {'applied': True, 'rules': []})
