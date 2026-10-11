@@ -23,4 +23,27 @@ const summarize = (assets) => {
   return { byValue, byStatus };
 };
 
-module.exports = { MAX_ASSETS, STATUSES, summarize };
+// K6: the same summary for each area, an area being the value of another
+// predicate (for example `district`). An asset's area is its current fact for
+// that predicate when the fact is known; it is used whatever its freshness, and
+// `areaNotCurrent` counts the assets whose area fact is no longer fresh or due
+// for review. Assets with no known area are grouped under area null, last.
+// assets: [{ fact, area: null | { value, state, freshness: { status } } }]
+const areaOf = ({ area }) => (area != null && area.state === 'known' && area.value != null && area.value !== '' ? area.value : null);
+const summarizeByArea = (assets) => {
+  const groups = new Map();
+  for (const asset of assets) {
+    const key = areaOf(asset);
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(asset);
+  }
+  return [...groups.entries()]
+    .sort(([a], [b]) => (a == null) - (b == null) || String(a ?? '').localeCompare(String(b ?? '')))
+    .map(([area, members]) => ({
+      area, assets: members.length,
+      areaNotCurrent: area == null ? 0 : members.filter((m) => !CURRENT.has(m.area.freshness.status)).length,
+      ...summarize(members)
+    }));
+};
+
+module.exports = { MAX_ASSETS, STATUSES, summarize, summarizeByArea, areaOf };
