@@ -131,8 +131,9 @@ module.exports = (container) => {
   require('../resources/field-data-catalog')(service, endpoint, anonymousEndpoint);
   require('../resources/field-data-operations')(service, endpoint);
   require('../resources/field-data-claims')(service, endpoint);
-  require('../resources/field-data-assets')(service, endpoint);
+  // Before the assets routes: /assets/duplicates is not an asset ID.
   require('../resources/field-data-asset-operations')(service, endpoint);
+  require('../resources/field-data-assets')(service, endpoint);
   require('../resources/field-data-reverification-tasks')(service, endpoint);
   require('../resources/field-data-contradiction-rules')(service, endpoint);
   require('../resources/field-data-identity-keys')(service, endpoint);

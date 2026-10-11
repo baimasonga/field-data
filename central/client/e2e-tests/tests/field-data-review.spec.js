@@ -15,7 +15,7 @@ const setup = async (page, { comparisonUnavailable = false, failComparison = fal
   const metricsWait = delayMetrics ? new Promise(resolve => { releaseMetrics = resolve; }) : null;
   const state = { assets: [], assetHistory: [], assetTasks: [], assetWrites: [], assetFailures: 0, assetConflict: false, mappingRevision: 0, mappingHistory: [], mappingRequests: [], mappingFailures: 0, mappingConflict: false, comparisonFailures: failComparison ? 1 : 0, comparisonRequests: 0, staleWrites: 0, conflictFailures: staleAssignment ? 1 : 0, status: 'open', assignedTo: null, revision: 1, backchecks: [], decisions: [], mutations: [], queueRequests: [], queueFailures: failQueue ? 1 : 0, assignmentFailures: failAssignment ? 1 : 0, metricsFailures: failMetrics ? 2 : 0 };
   Object.assign(state, { queueCalls: [], queueFailures_: 0, queueGate: null, queuePaged: false, queueTasks: [] });
-  Object.assign(state, { findings: [], findingsCalls: [], findingsFailures: 0, findingsPaged: false, collectorGroups: [], collectorCalls: [], workload: false, search: null, searchCalls: [], searchFailures: 0, projection: null, projectionCalls: [], projectionFailures: 0, investigations: [], investigationWrites: [], investigationFailures: 0, investigationStale: false, assetOperations: [], identityWrites: [], listMerged: false });
+  Object.assign(state, { findings: [], findingsCalls: [], findingsFailures: 0, findingsPaged: false, collectorGroups: [], collectorCalls: [], workload: false, search: null, searchCalls: [], searchFailures: 0, projection: null, projectionCalls: [], projectionFailures: 0, investigations: [], investigationWrites: [], investigationFailures: 0, investigationStale: false, assetOperations: [], identityWrites: [], listMerged: false, duplicatePairs: [], duplicateDismissed: [], duplicateWrites: [] });
   await page.addInitScript(() => globalThis.localStorage.setItem('sessionExpires', String(Date.now() + 3600000)));
   await page.route('**/client-config.json', route => route.fulfill({ json: {} }));
   await page.route('**/version.txt', route => route.fulfill({ body: 'test' }));
@@ -188,6 +188,24 @@ const setup = async (page, { comparisonUnavailable = false, failComparison = fal
       const p = state.projection ?? { predicates: [], assets: [], summary: { byValue: [], byStatus: {} }, excluded: { notReadable: 0, sourceDeleted: 0 }, truncated: false };
       return respond({ ...p, predicate, at: '2026-10-10T00:00:00.000Z', knownAt: '2026-10-10T00:00:00.000Z',
         assets: predicate == null ? [] : p.assets.filter((a) => !url.searchParams.get('assetType') || a.assetType === url.searchParams.get('assetType')) });
+    }
+    // K5 suggested duplicates.
+    const duplicates = /^\/v1\/field-data\/projects\/\d+\/assets\/duplicates(?:\/dismissals(?:\/([^/]+)\/withdraw)?)?$/.exec(path);
+    if (duplicates != null) {
+      if (req.method() === 'GET') return respond({ pairs: state.duplicatePairs, total: state.duplicatePairs.length, truncated: false, capped: state.duplicateCapped === true, dismissed: state.duplicateDismissed });
+      const withdrawId = duplicates[1];
+      state.duplicateWrites.push({ path, data: withdrawId == null ? req.postDataJSON() : null });
+      if (withdrawId != null) {
+        const d = state.duplicateDismissed.find((x) => x.id === withdrawId);
+        state.duplicateDismissed = state.duplicateDismissed.filter((x) => x !== d);
+        state.duplicatePairs.push({ a: d.a, b: d.b, reasons: ['same-name'] });
+        return respond({ id: withdrawId, withdrawn: true });
+      }
+      const data = req.postDataJSON();
+      const pair = state.duplicatePairs.find((p) => p.a.id === data.assetIds[0] && p.b.id === data.assetIds[1]);
+      state.duplicatePairs = state.duplicatePairs.filter((p) => p !== pair);
+      state.duplicateDismissed.push({ id: 'dis-1', a: pair.a, b: pair.b, reason: data.reason, actorName: 'Test reviewer', createdAt: '2026-10-11T12:00:00.000Z' });
+      return route.fulfill({ status: 201, json: { id: 'dis-1' } });
     }
     // K4 merges, splits and their undoing.
     const identity = /^\/v1\/field-data\/projects\/7\/assets\/(?:([^/]+)\/(operations|merge|split)|operations\/([^/]+)\/undo)$/.exec(path);
@@ -1535,5 +1553,49 @@ test('a manager splits observations into a new asset; a merged asset points to w
   await expect(assets.locator('.asset-identity-history')).toContainText('Split 1 observations into Second pump · PH-2');
   expect(state.identityWrites.at(-1)).toMatchObject({ ifMatch: '"asset-3"',
     data: { observationIds: ['o2'], name: 'Second pump', assetType: 'pump', externalId: 'PH-2', reason: 'Two pumps in one record.' } });
+  expect(errors).toEqual([]);
+});
+
+test('possible duplicate assets show their reasons; a manager opens one and marks a pair as not the same', async ({ page }) => {
+  const { state, errors } = await setup(page, { canOverride: true, manageProject: true });
+  const a = { id: '55555555-5555-4555-8555-555555555555', name: 'Kissy water point', externalId: 'WP-01', assetType: 'water-point', xmlFormId: 'health' };
+  const b = { id: '99999999-9999-4999-8999-999999999999', name: 'Kissy well', externalId: 'wp 01', assetType: 'water-point', xmlFormId: 'health' };
+  state.assets.push({ ...a, revision: 2, status: 'active' }, { ...b, revision: 1, status: 'active' });
+  state.duplicatePairs.push({ a, b, reasons: ['external-id', 'same-source'] });
+  await page.reload();
+  const section = page.getByRole('region', { name: 'Possible duplicate assets' });
+  await expect(section).toContainText('Nothing is merged automatically');
+  const pair = section.locator('.duplicate-pair');
+  await expect(pair.locator('.duplicate-pair-reasons li')).toHaveText(['External IDs match apart from case, spaces or punctuation', 'Facts recorded from the same submission']);
+
+  // Opening an asset shows its passport, where it can be merged.
+  await pair.getByRole('button', { name: 'Kissy well · wp 01' }).click();
+  const assets = page.getByRole('region', { name: 'Asset passports and re-verification' });
+  await expect(assets.getByRole('heading', { name: 'Kissy well · wp 01' })).toBeVisible();
+
+  await pair.getByLabel('Why they are not the same').fill('Two wells on one compound.');
+  await pair.getByRole('button', { name: 'Not the same' }).click();
+  await expect(section.locator('.duplicate-assets-empty')).toHaveText('No possible duplicates among the assets you can see.');
+  expect(state.duplicateWrites[0].data).toEqual({ assetIds: [a.id, b.id], reason: 'Two wells on one compound.' });
+  await section.getByText('Marked as not the same (1)').click();
+  await expect(section.locator('.duplicate-assets-dismissed li')).toContainText('Two wells on one compound. (Test reviewer)');
+  await section.getByRole('button', { name: 'Suggest again' }).click();
+  await expect(section.locator('.duplicate-pair')).toHaveCount(1);
+  await page.setViewportSize({ width: 360, height: 800 });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= 360)).toBe(true);
+  expect(errors).toEqual([]);
+});
+
+test('possible duplicates cannot be dismissed by those who may not manage the project', async ({ page }) => {
+  const { state, errors } = await setup(page);
+  const a = { id: 'a1', name: 'Pump', externalId: 'P-1', assetType: 'pump', xmlFormId: 'health' };
+  const b = { id: 'b1', name: 'pump', externalId: 'P-2', assetType: 'pump', xmlFormId: 'health' };
+  state.duplicatePairs.push({ a, b, reasons: ['same-name'] });
+  state.duplicateCapped = true;
+  await page.reload();
+  const section = page.getByRole('region', { name: 'Possible duplicate assets' });
+  await expect(section.locator('.duplicate-pair')).toContainText('Same name and type');
+  await expect(section).toContainText('There are more possible duplicates than could be checked at once');
+  await expect(section.getByRole('button', { name: 'Not the same' })).toHaveCount(0);
   expect(errors).toEqual([]);
 });
