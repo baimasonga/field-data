@@ -474,8 +474,9 @@ describe('FormDraftPublish', () => {
         .modify(respondToPublish)
         .complete()
         .route('/projects/1/forms/f/versions')
-        .respondWithData(() => testData.extendedFormVersions.sorted())
-        .afterResponse(app => {
+        // The versions, and the recode rules section (Field Data S4).
+        .respondForComponent('FormVersionList')
+        .afterResponses(app => {
           app.findAllComponents(FormVersionRow).length.should.equal(2);
         });
     });
