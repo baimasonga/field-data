@@ -34,7 +34,7 @@ also exist. Those features must not be re-labelled as full completion of this pr
   rest counted by freshness status, on the Review page: merged in PR #76.
   Asset status by area (K6): the same table grouped by another recorded
   fact chosen as the area (for example `district`), with the assets placed by
-  an area fact no longer current counted: implemented and locally validated.
+  an area fact no longer current counted: merged in PR #85.
   Several predicates, maps and areas from locations remain pending.
 - Reversible asset merges and splits (K4, first correction/merge/split
   history slice): a duplicate asset merged into another, or chosen
@@ -133,7 +133,10 @@ also exist. Those features must not be re-labelled as full completion of this pr
   merged in PR #73. Backcheck agreement (O5): the linked backchecks of a form
   compared as their comparison views do and added up by collector and by
   question, counting only asked questions or mapped pairs, with counts rather
-  than estimates: merged in PR #75. Scheduled samples, other
+  than estimates: merged in PR #75. Scheduled samples (O6): a daily or
+  weekly schedule per form, drawn by the operations runner with the O3 rules
+  when each UTC period ends, once per period, catching up after an outage,
+  with a run record for each: implemented and locally validated. Other
   strata and calibrated estimates from backcheck results remain pending.
 - Remaining deliverables in all eight rows: pending.
 - Version-scoped evidence graph and recorded survey timeline: implemented and

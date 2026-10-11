@@ -1,4 +1,4 @@
-require('should');
+const should = require('should');
 const { createHash } = require('crypto');
 const { LIMITS, SEED_PATTERN, newSeed, drawKey, validateSettings, takeFrom, draw } = require('../../../lib/util/backcheck-sample');
 
@@ -63,5 +63,45 @@ describe('(util) backcheck sample', () => {
     fieldOf({ rate: 10, receivedFrom: '2026-02-30' }).should.equal('receivedFrom');
     fieldOf({ rate: 10, receivedTo: '2026-9-1' }).should.equal('receivedTo');
     fieldOf({ rate: 10, receivedFrom: '2026-09-02', receivedTo: '2026-09-01' }).should.equal('receivedTo');
+  });
+
+  describe('O6 schedules', () => {
+    const { boundaryAtOrBefore, nextBoundaryAfter, dueRun, runRequestId, validateSchedule } = require('../../../lib/util/backcheck-sample');
+    const t = (s) => new Date(s);
+
+    it('finds UTC day and Monday week boundaries', () => {
+      boundaryAtOrBefore(t('2026-10-11T17:30:00Z'), 'daily').toISOString().should.equal('2026-10-11T00:00:00.000Z');
+      // 11 October 2026 is a Sunday; its week began on Monday the 5th.
+      boundaryAtOrBefore(t('2026-10-11T17:30:00Z'), 'weekly').toISOString().should.equal('2026-10-05T00:00:00.000Z');
+      boundaryAtOrBefore(t('2026-10-12T00:00:00Z'), 'weekly').toISOString().should.equal('2026-10-12T00:00:00.000Z');
+      nextBoundaryAfter(t('2026-10-12T00:00:00Z'), 'daily').toISOString().should.equal('2026-10-13T00:00:00.000Z');
+      nextBoundaryAfter(t('2026-12-31T23:59:59Z'), 'weekly').toISOString().should.equal('2027-01-04T00:00:00.000Z');
+    });
+
+    it('is due only once a period has ended, covering every period missed', () => {
+      should.not.exist(dueRun({ periodStart: '2026-10-11T10:00:00Z', frequency: 'daily' }, t('2026-10-11T23:59:59Z')));
+      const one = dueRun({ periodStart: '2026-10-11T10:00:00Z', frequency: 'daily' }, t('2026-10-12T00:05:00Z'));
+      [one.periodStart.toISOString(), one.periodEnd.toISOString(), one.periods].should.eql(['2026-10-11T10:00:00.000Z', '2026-10-12T00:00:00.000Z', 1]);
+      dueRun({ periodStart: '2026-10-08T10:00:00Z', frequency: 'daily' }, t('2026-10-11T00:05:00Z')).periods.should.equal(3);
+      const week = dueRun({ periodStart: '2026-10-07T09:00:00Z', frequency: 'weekly' }, t('2026-10-20T01:00:00Z'));
+      [week.periodEnd.toISOString(), week.periods].should.eql(['2026-10-19T00:00:00.000Z', 2]);
+    });
+
+    it('makes one request ID per schedule and period', () => {
+      const id = runRequestId('a', '2026-10-12T00:00:00Z');
+      id.should.match(/^[0-9a-f]{8}-[0-9a-f]{4}-5[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
+      runRequestId('a', new Date('2026-10-12T00:00:00Z')).should.equal(id);
+      runRequestId('a', '2026-10-13T00:00:00Z').should.not.equal(id);
+      runRequestId('b', '2026-10-12T00:00:00Z').should.not.equal(id);
+    });
+
+    it('checks schedule settings', () => {
+      validateSchedule({ rate: 10, frequency: 'weekly', enabled: false }).should.eql({ schedule: { rate: 10, minPerCollector: 1, frequency: 'weekly', enabled: false } });
+      validateSchedule({ rate: 10, minPerCollector: 0, frequency: 'daily', enabled: true }).schedule.minPerCollector.should.equal(0);
+      for (const [body, field] of [[null, 'body'], [[], 'body'], [{ rate: 10, frequency: 'daily', enabled: true, x: 1 }, 'x'],
+        [{ rate: 101, frequency: 'daily', enabled: true }, 'rate'], [{ rate: 10, minPerCollector: 1.5, frequency: 'daily', enabled: true }, 'minPerCollector'],
+        [{ rate: 10, frequency: 'monthly', enabled: true }, 'frequency'], [{ rate: 10, frequency: 'daily' }, 'enabled']])
+        validateSchedule(body).error.field.should.equal(field);
+    });
   });
 });
