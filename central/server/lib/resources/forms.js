@@ -21,8 +21,9 @@ const { success } = require('../util/http');
 const { formList, formManifest } = require('../formats/openrosa');
 const { noargs, isPresent, isBlank, attachmentToDatasetName } = require('../util/util');
 const { streamEntityCsvAttachment } = require('../data/entity');
-const { examine, FormTooLarge } = require('../util/survey-doctor');
+const { examine, readForm, FormTooLarge } = require('../util/survey-doctor');
 const { simulate, LIMITS: SIMULATION, SEED_PATTERN } = require('../util/survey-simulator');
+const { compareForms } = require('../util/form-changes');
 
 // excel-related util funcs/data used below:
 const isExcel = (contentType) => (contentType === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet') || (contentType === 'application/vnd.ms-excel');
@@ -321,6 +322,45 @@ module.exports = (service, endpoint, anonymousEndpoint) => {
           response.set('Cache-Control', 'private, no-store');
           return { ...report, formVersion: form.def.version, hash: form.def.hash, draft: form.def.publishedAt == null };
         });
+    }));
+
+    // Version changes (S3): what changed from a baseline version to this one,
+    // and what each change does to the data. Computed on request; nothing is
+    // stored. The baseline is ?from=<version>, else for a draft the published
+    // version and for a published version the one published before it.
+    service.get(`${base}/changes`, endpoint(async ({ Forms }, { params, auth, query }, _, response) => {
+      if (query.from != null && (typeof query.from !== 'string' || query.from === ''))
+        throw Problem.user.formChangesInvalid({ field: 'from', reason: 'must be one version string (___ names a version with no version string)' });
+      const form = await getInstance(Forms, params, true);
+      await canReadForm(auth, form);
+      // A version that does not exist still finds the form, with no definition.
+      const load = (version) => Forms.getByProjectAndXmlFormId(params.projectId, params.xmlFormId, version, Form.withXml(true))
+        .then((found) => found.filter((f) => f.def.id != null));
+      let baseline = null;
+      if (query.from != null) {
+        baseline = await load(query.from).then(getOrNotFound);
+      } else if (form.def.publishedAt == null) {
+        if (form.currentDefId != null) baseline = (await load(Form.PublishedVersion)).orNull();
+      } else {
+        const versions = await Forms.getVersions(form.id);
+        const previous = versions.find((v) => v.def.publishedAt < form.def.publishedAt);
+        if (previous != null) baseline = (await load(previous.def.version)).orNull();
+      }
+      let report;
+      try {
+        report = baseline == null
+          ? { summary: { meaning: 0, continuity: 0, population: 0, wording: 0, unchanged: 0 }, changes: [], truncated: false }
+          : compareForms(readForm(baseline.xml), readForm(form.xml));
+      } catch (error) {
+        if (error instanceof FormTooLarge) throw Problem.user.formTooLargeToCheck();
+        throw error;
+      }
+      response.set('Cache-Control', 'private, no-store');
+      return {
+        ...report,
+        from: baseline == null ? null : { version: baseline.def.version, hash: baseline.def.hash },
+        to: { version: form.def.version, hash: form.def.hash, draft: form.def.publishedAt == null }
+      };
     }));
 
     service.get(`${base}.xls`, getXls('xls'));
