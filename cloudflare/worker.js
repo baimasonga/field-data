@@ -119,6 +119,12 @@ export class FieldDataContainer extends Container {
     // Satellite imagery availability (G1b): off unless an operator sets it.
     FIELD_DATA_IMAGERY_ENABLED: env.FIELD_DATA_IMAGERY_ENABLED || 'false',
     FIELD_DATA_STAC_URL: env.FIELD_DATA_STAC_URL,
+    // Browser push to App Users (P0.6): off unless an operator sets the switch
+    // and a matching key pair; the server checks the pair and stays off if not.
+    FIELD_DATA_PUSH_ENABLED: env.FIELD_DATA_PUSH_ENABLED || 'false',
+    FIELD_DATA_PUSH_SUBJECT: env.FIELD_DATA_PUSH_SUBJECT || '',
+    FIELD_DATA_PUSH_PUBLIC_KEY: env.FIELD_DATA_PUSH_PUBLIC_KEY || '',
+    FIELD_DATA_PUSH_PRIVATE_KEY: env.FIELD_DATA_PUSH_PRIVATE_KEY || '',
     FIELD_DATA_ALERT_WEBHOOK_URL: env.FIELD_DATA_ALERT_WEBHOOK_URL,
     FIELD_DATA_ALERT_WEBHOOK_SECRET: env.FIELD_DATA_ALERT_WEBHOOK_SECRET,
     FIELD_DATA_WEBHOOK_ENCRYPTION_KEY: env.FIELD_DATA_WEBHOOK_ENCRYPTION_KEY,
