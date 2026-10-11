@@ -2141,7 +2141,7 @@ module.exports = (service, endpoint) => {
     const result = (counts, findings, reason = null) => ({
       summary: { rule: NEAR_DUPLICATE.rule, ruleVersion: NEAR_DUPLICATE.version, ran: reason == null, ...(reason == null ? {} : { reason }),
         thresholds: { similarity: NEAR_DUPLICATE.threshold, minShared: NEAR_DUPLICATE.minShared, maxCommonShare: NEAR_DUPLICATE.maxCommonShare }, ...counts },
-      ran: reason == null ? [{ rule: NEAR_DUPLICATE.rule, version: NEAR_DUPLICATE.version }] : [],
+      ran: reason == null && !counts.truncated ? [{ rule: NEAR_DUPLICATE.rule, version: NEAR_DUPLICATE.version }] : [],
       findings
     });
     if (encrypted) return result({}, [], 'encrypted-form');
@@ -2500,10 +2500,11 @@ module.exports = (service, endpoint) => {
     const located = targets.filter((t) => t.skipped == null);
     // Fresh cached answers are reused; of the rest, one lookup per cell and
     // visit day, for at most maxSubmissions submissions per check.
-    const fresh = new Set((await container.db.any(sql`select "cellKey", to_char("visitDay", 'YYYY-MM-DD') as day
+    const fresh = new Set((await container.db.any(sql`select "cellKey", to_char("visitDay", 'YYYY-MM-DD') as day, scenes, matched
       from field_data_imagery_lookups where catalogue = ${setup.catalogue} and collection = ${imagery.COLLECTION}
         and "windowDays" = ${imagery.WINDOW_DAYS}
         and "fetchedAt" > clock_timestamp() - make_interval(days => ${IMAGERY.freshDays})`))
+      .filter((r) => imagery.complete(r.scenes.length, r.matched))
       .map((r) => `${r.cellKey}|${r.day}`));
     const { todo, considered, truncated, cached } = imagery.plan(located, fresh, IMAGERY.maxSubmissions);
     const unavailable = [];
@@ -2540,7 +2541,7 @@ module.exports = (service, endpoint) => {
     const base = { enabled: setup.enabled, catalogue: setup.catalogue, collection: imagery.COLLECTION, windowDays: imagery.WINDOW_DAYS, clearBelow: imagery.CLEAR, cellDegrees: imagery.CELL_DEGREES };
     if (form.def.keyId != null) return { ...base, encrypted: true, submissions: [], coverage: null };
     const targets = imageryTargets(await evidenceFor(container.db, form.id));
-    const lookups = await container.db.any(sql`select "cellKey", to_char("visitDay", 'YYYY-MM-DD') as day, scenes, "fetchedAt"
+    const lookups = await container.db.any(sql`select "cellKey", to_char("visitDay", 'YYYY-MM-DD') as day, scenes, matched, "fetchedAt"
       from field_data_imagery_lookups where catalogue = ${setup.catalogue} and collection = ${imagery.COLLECTION}
         and "windowDays" = ${imagery.WINDOW_DAYS}
         and "cellKey" = any(${sql.array([...new Set(targets.filter((t) => t.cell).map((t) => t.cell.key))], 'text')})`);
@@ -2548,7 +2549,8 @@ module.exports = (service, endpoint) => {
     const submissions = targets.map((t) => {
       if (t.skipped != null) return { instanceId: t.instanceId, status: t.skipped };
       const found = byKey.get(`${t.cell.key}|${t.window.day}`);
-      if (found == null) return { instanceId: t.instanceId, status: 'not-checked', visitTime: t.visitTime };
+      if (found == null || !imagery.complete(found.scenes.length, found.matched))
+        return { instanceId: t.instanceId, status: 'not-checked', visitTime: t.visitTime };
       const scenes = found.scenes.map((sc) => ({ ...sc, at: new Date(sc.at) }));
       return { instanceId: t.instanceId, status: 'checked', visitTime: t.visitTime, checkedAt: found.fetchedAt, ...imagery.summarize(scenes, t.visit) };
     });
