@@ -128,3 +128,12 @@ rainy season, so no scene under 30%):
 Not run here: a live check from the deployed server, which needs an operator
 to set `FIELD_DATA_IMAGERY_ENABLED=true`. A single manual request from the
 development container to Earth Search succeeded (the recorded fixture).
+
+## Complete catalogue results
+
+Searches follow GET or POST next-page links on the configured catalogue origin,
+up to ten pages under one timeout. Repeated pages, incomplete totals, unsafe
+links and exhausted page limits are reported as unavailable and are not cached.
+Nearest and clearest scenes are selected only after the search completes.
+Known incomplete older cache entries (and full first pages with unknown totals)
+are shown as not checked and retried, even within the cache freshness window.

@@ -86,3 +86,11 @@ across forms, calibrated scores.
   large to compare; migration rollback.
 - Browser: the finding's evidence and links on the Verification page; the run
   report, including when the check could not run.
+
+## Partial runs and copy counts
+
+A run that reaches the comparison limit still records the concerns it finds,
+but does not withdraw existing concerns: an omitted pair has not been cleared.
+`alsoSimilarTo` counts earlier members of the submission's own exact-copy
+group and of each directly matching group, excluding the linked submission.
+Copies inherit their representative's direct matches; similarity is not transitive.

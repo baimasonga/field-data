@@ -1,5 +1,5 @@
 const should = require('should');
-const { cellOf, windowAround, searchBody, scenesOf, summarize, keyOf, plan, lookup } = require('../../../lib/util/imagery');
+const { cellOf, windowAround, searchBody, scenesOf, summarize, keyOf, plan, complete, lookup } = require('../../../lib/util/imagery');
 
 // A real Earth Search answer for the cell holding central Freetown, 2026-08-21
 // to 2026-10-20 (recorded 2026-10-10): 15 scenes, all cloudy (rainy season).
@@ -79,6 +79,58 @@ describe('(util) imagery availability', () => {
       result.ok.should.be.true();
       result.scenes.length.should.equal(15);
       result.matched.should.equal(15);
+    });
+
+    it('reads later pages before selecting the nearest and clearest scene', async () => {
+      const scene = (id, date, cloud) => ({ id, properties: { datetime: date, 'eo:cloud_cover': cloud } });
+      let calls = 0;
+      const result = await lookup('https://c.test', cell, window, { fetchImpl: async (url, init) => {
+        calls += 1;
+        if (calls === 1) return { ok: true, json: async () => ({ numberMatched: 2,
+          features: [scene('old', '2026-09-01', 80)],
+          links: [{ rel: 'next', href: '/search', method: 'POST', merge: true, body: { token: 'next' } }] }) };
+        url.should.equal('https://c.test/search');
+        JSON.parse(init.body).should.containEql({ token: 'next', collections: ['sentinel-2-l2a'] });
+        return { ok: true, json: async () => ({ features: [scene('near', '2026-09-20', 1)] }) };
+      } });
+      result.ok.should.be.true(); calls.should.equal(2);
+      const summary = summarize(result.scenes, new Date('2026-09-20'));
+      summary.nearest.id.should.equal('near'); summary.clearest.id.should.equal('near');
+    });
+
+    it('supports GET pages without a total and rejects an unfinished page limit', async () => {
+      const features = Array.from({ length: 100 }, (_, n) => ({ id: `s${n}`, properties: { datetime: '2026-09-01' } }));
+      let calls = 0;
+      const result = await lookup('https://c.test', cell, window, { fetchImpl: async (url, init) => {
+        calls += 1;
+        if (calls === 1) return { ok: true, json: async () => ({ features, links: [{ rel: 'next', href: '?page=2' }] }) };
+        init.method.should.equal('GET'); should.not.exist(init.body);
+        return { ok: true, json: async () => ({ features: [{ id: 'last', properties: { datetime: '2026-09-20' } }] }) };
+      } });
+      result.scenes.length.should.equal(101); result.matched.should.equal(101);
+      calls = 0;
+      const unfinished = await lookup('https://c.test', cell, window, { fetchImpl: async () => {
+        calls += 1;
+        return { ok: true, json: async () => ({ features: [], links: [{ rel: 'next', href: `?page=${calls}` }] }) };
+      } });
+      unfinished.ok.should.be.false(); calls.should.equal(10);
+    });
+
+    it('refuses incomplete results and unsafe or looping pagination', async () => {
+      for (const answer of [
+        { features: [], numberMatched: 101 },
+        { features: [], links: [{ rel: 'next', href: 'https://other.test/search' }] },
+        { features: [], links: [{ rel: 'next', href: '/search', method: 'POST', merge: true, body: {} }] }
+      ]) {
+        // eslint-disable-next-line no-await-in-loop
+        const result = await lookup('https://c.test', cell, window, {
+          fetchImpl: async () => ({ ok: true, json: async () => answer })
+        });
+        result.ok.should.be.false();
+      }
+      complete(100, null).should.be.false();
+      complete(100, 101).should.be.false();
+      complete(101, 101).should.be.true();
     });
 
     it('reports failures instead of throwing', async () => {

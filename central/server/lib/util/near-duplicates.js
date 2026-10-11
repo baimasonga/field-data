@@ -108,6 +108,7 @@ const findNearDuplicates = (submissions, fields) => {
   }
   const representatives = [...exactGroups.values()].map((group) => group[0]);
   const groupOf = new Map([...exactGroups.values()].map((group) => [group[0].index, group]));
+  const representativeOf = new Map([...exactGroups.values()].flatMap((group) => group.map((row) => [row.index, group[0].index])));
   const pairs = new Set();
   const candidates = [];
   for (const group of exactGroups.values())
@@ -144,7 +145,7 @@ const findNearDuplicates = (submissions, fields) => {
   // Exact comparison of each candidate: identical answers among the questions
   // either answered.
   const best = new Map(); // later index -> { earlier, similarity, ... }
-  const matches = new Map(); // later index -> earlier group representatives it matches
+  const neighbours = new Map();
   for (const [earlier, later] of candidates) {
     counts.compared += 1;
     const union = new Set([...earlier.values.keys(), ...later.values.keys()]);
@@ -157,8 +158,12 @@ const findNearDuplicates = (submissions, fields) => {
     // shares at least that many.
     const similarity = identical / union.size;
     if (similarity < spec.threshold) continue; // eslint-disable-line no-continue
-    if (!matches.has(later.index)) matches.set(later.index, new Set());
-    matches.get(later.index).add(earlier.index);
+    const aRep = representativeOf.get(earlier.index); const bRep = representativeOf.get(later.index);
+    if (aRep !== bRep) {
+      if (!neighbours.has(aRep)) neighbours.set(aRep, new Set());
+      if (!neighbours.has(bRep)) neighbours.set(bRep, new Set());
+      neighbours.get(aRep).add(bRep); neighbours.get(bRep).add(aRep);
+    }
     const current = best.get(later.index);
     if (current == null || similarity > current.similarity
       || (similarity === current.similarity && earlier.index < current.earlier.index))
@@ -169,8 +174,9 @@ const findNearDuplicates = (submissions, fields) => {
   // each exact-copy group it matches, apart from the one it is linked to. A
   // later copy in its own group matches through the group's first member.
   const alsoSimilar = (laterIndex) => {
+    const representative = representativeOf.get(laterIndex);
     let n = 0;
-    for (const repIndex of matches.get(laterIndex) ?? [])
+    for (const repIndex of new Set([representative, ...(neighbours.get(representative) ?? [])]))
       n += (groupOf.get(repIndex) ?? []).filter((m) => m.index < laterIndex).length;
     return Math.max(0, n - 1);
   };
