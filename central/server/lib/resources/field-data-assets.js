@@ -46,12 +46,13 @@ const historyFor = async (container, auth, asset) => {
       ELSE false END AS verified,
     s."deletedAt" AS "sourceDeletedAt", f."deletedAt" AS "formDeletedAt"
     FROM field_data_asset_observations o
+    JOIN field_data_observation_owners owner ON owner."observationId" = o.id
     JOIN field_data_claim_versions cv ON cv.id = o."claimVersionId"
     JOIN submission_defs sd ON sd.id = cv."submissionDefId"
     JOIN submissions s ON s.id = sd."submissionId"
     JOIN forms f ON f.id = s."formId"
     LEFT JOIN field_data_submission_provenance p ON p."submissionDefId" = sd.id
-    WHERE o."assetId" = ${asset.id} ORDER BY o.sequence DESC LIMIT 501`);
+    WHERE owner."assetId" = ${asset.id} ORDER BY o."recordedAt" DESC, o.sequence DESC LIMIT 501`);
   if (history.length > 500) throw invalid();
   if (history.some(row => row.sourceDeletedAt != null || row.formDeletedAt != null)) throw Problem.user.notFound();
   await Promise.all([...new Set(history.map(row => row.xmlFormId))]
@@ -72,7 +73,7 @@ module.exports = (service, endpoint) => {
     const rows = await container.db.any(sql`SELECT a.id, a.name, a."assetType", a."externalId", a.revision,
       a."createdAt", f."xmlFormId" FROM field_data_assets a
       JOIN forms f ON f.id = a."formId" AND f."deletedAt" IS NULL
-      WHERE a."projectId" = ${Number(params.projectId)}
+      WHERE a."projectId" = ${Number(params.projectId)} AND a.status = 'active'
         ${query.cursor == null ? sql`` : sql`AND a.id > ${query.cursor}::uuid`}
       ORDER BY a.id LIMIT 51`);
     const allowed = await Promise.all(rows.slice(0, 50).map(async row => {
@@ -138,7 +139,9 @@ module.exports = (service, endpoint) => {
     }))).filter(id => id != null);
     const readableIds = sql.array(readable, 'int4');
     const predicates = (await container.db.any(sql`SELECT DISTINCT o.predicate FROM field_data_asset_observations o
-      JOIN field_data_assets a ON a.id = o."assetId" AND a."projectId" = ${project.id} AND a."formId" = ANY(${readableIds})
+      JOIN field_data_observation_owners owner ON owner."observationId" = o.id
+      JOIN field_data_assets a ON a.id = owner."assetId" AND a."projectId" = ${project.id} AND a."formId" = ANY(${readableIds})
+        AND a.status = 'active'
       ORDER BY o.predicate LIMIT 200`)).map(row => row.predicate);
     const result = { predicate: query.predicate?.trim() ?? null, at: at.toISOString(), knownAt: knownAt.toISOString(), predicates };
     if (result.predicate == null) return { ...result, assets: [], summary: summarize([]), excluded: { notReadable: 0, sourceDeleted: 0 }, truncated: false };
@@ -148,18 +151,20 @@ module.exports = (service, endpoint) => {
     const rows = await container.db.any(sql`SELECT a.id, a.name, a."externalId", a."assetType", f."xmlFormId",
         count(*) OVER () AS total,
         EXISTS (SELECT 1 FROM field_data_asset_observations o JOIN field_data_claim_versions cv ON cv.id = o."claimVersionId"
+          JOIN field_data_observation_owners owner ON owner."observationId" = o.id
           JOIN submission_defs sd ON sd.id = cv."submissionDefId" JOIN submissions s ON s.id = sd."submissionId"
           JOIN forms sf ON sf.id = s."formId"
-          WHERE o."assetId" = a.id AND (s."deletedAt" IS NOT NULL OR sf."deletedAt" IS NOT NULL)) AS "sourceDeleted",
+          WHERE owner."assetId" = a.id AND (s."deletedAt" IS NOT NULL OR sf."deletedAt" IS NOT NULL)) AS "sourceDeleted",
         EXISTS (SELECT 1 FROM field_data_asset_observations o JOIN field_data_claim_versions cv ON cv.id = o."claimVersionId"
+          JOIN field_data_observation_owners owner ON owner."observationId" = o.id
           JOIN submission_defs sd ON sd.id = cv."submissionDefId" JOIN submissions s ON s.id = sd."submissionId"
-          WHERE o."assetId" = a.id AND NOT (s."formId" = ANY(${readableIds}))) AS "notReadable"
+          WHERE owner."assetId" = a.id AND NOT (s."formId" = ANY(${readableIds}))) AS "notReadable"
       FROM field_data_assets a JOIN forms f ON f.id = a."formId" AND f."deletedAt" IS NULL
-      WHERE a."projectId" = ${project.id} AND a."formId" = ANY(${readableIds})
+      WHERE a."projectId" = ${project.id} AND a."formId" = ANY(${readableIds}) AND a.status = 'active'
         ${query.assetType == null ? sql`` : sql`AND a."assetType" = ${query.assetType.trim()}`}
       ORDER BY a.name, a.id LIMIT ${MAX_ASSETS}`);
     const shown = rows.filter(row => !row.sourceDeleted && !row.notReadable);
-    const observations = shown.length === 0 ? [] : await container.db.any(sql`SELECT o.*,
+    const observations = shown.length === 0 ? [] : await container.db.any(sql`SELECT o.*, owner."assetId" AS "ownerId",
         CASE WHEN octet_length(sd.xml) <= 2097152 THEN
           p."integrityHash" = o."sourceHash" AND p."integrityHash" = encode(sha256(convert_to(sd.xml, 'UTF8')), 'hex')
           ELSE false END AS verified
@@ -167,11 +172,12 @@ module.exports = (service, endpoint) => {
       JOIN field_data_claim_versions cv ON cv.id = o."claimVersionId"
       JOIN submission_defs sd ON sd.id = cv."submissionDefId"
       LEFT JOIN field_data_submission_provenance p ON p."submissionDefId" = sd.id
-      WHERE o."assetId" = ANY(${sql.array(shown.map(row => row.id), 'uuid')}) AND o.predicate = ${result.predicate}`);
+      JOIN field_data_observation_owners owner ON owner."observationId" = o.id
+      WHERE owner."assetId" = ANY(${sql.array(shown.map(row => row.id), 'uuid')}) AND o.predicate = ${result.predicate}`);
     const byAsset = new Map();
-    for (const { requestId, requestHash, verified, ...row } of observations) {
-      if (!byAsset.has(row.assetId)) byAsset.set(row.assetId, []);
-      byAsset.get(row.assetId).push({ ...row, integrityStatus: verified === true ? 'verified' : 'unverified' });
+    for (const { requestId, requestHash, verified, ownerId, ...row } of observations) {
+      if (!byAsset.has(ownerId)) byAsset.set(ownerId, []);
+      byAsset.get(ownerId).push({ ...row, integrityStatus: verified === true ? 'verified' : 'unverified' });
     }
     const assets = shown.map(({ total, sourceDeleted, notReadable, ...asset }) => {
       const [fact] = selectFacts(byAsset.get(asset.id) ?? [], at, knownAt);
@@ -192,10 +198,25 @@ module.exports = (service, endpoint) => {
     const history = await historyFor(container, auth, asset);
     const tasks = await container.db.any(sql`SELECT t.*, o.predicate, o."claimVersionId" FROM field_data_reverification_tasks t
       JOIN field_data_asset_observations o ON o.id = t."observationId"
-      WHERE o."assetId" = ${asset.id} ORDER BY t."createdAt" DESC LIMIT 500`);
+      JOIN field_data_observation_owners owner ON owner."observationId" = o.id
+      WHERE owner."assetId" = ${asset.id} ORDER BY t."createdAt" DESC LIMIT 500`);
     response.set('Cache-Control', 'private, no-store');
     response.set('ETag', `"asset-${asset.revision}"`);
     const { requestId, requestHash, ...metadata } = asset;
+    // A merged asset's passport says which asset it went into (K4), when the
+    // caller may read that asset's form.
+    if (asset.mergedInto != null) {
+      const [into] = await container.db.any(sql`SELECT a.id, a.name, a."externalId", a.status, f."xmlFormId" FROM field_data_assets a
+        JOIN forms f ON f.id = a."formId" AND f."deletedAt" IS NULL WHERE a.id = ${asset.mergedInto}`);
+      let readable = into != null;
+      if (readable) {
+        try { await formFor(container, auth, asset.projectId, into.xmlFormId); } catch (error) {
+          if (error?.problemCode !== Problem.user.notFound.code) throw error;
+          readable = false;
+        }
+      }
+      metadata.mergedIntoAsset = readable ? { id: into.id, name: into.name, externalId: into.externalId, status: into.status } : null;
+    }
     return { asset: metadata, history: history.filter(row => new Date(row.recordedAt) <= knownAt).map(row => ({ ...row, freshness: freshness(row, at) })),
       facts: selectFacts(history, at, knownAt),
       tasks: tasks.filter(task => new Date(task.createdAt) <= knownAt).map(task => ({ ...task,
@@ -206,6 +227,7 @@ module.exports = (service, endpoint) => {
   service.post(`${root}/:assetId/observations`, endpoint(async (container, { auth, params, body, headers }, request, response) => {
     await scope(container, auth, params, true);
     const asset = await assetFor(container, auth, params);
+    if (asset.status === 'merged') throw Problem.user.assetIdentityState({ reason: 'it was merged into another asset; record observations there' });
     await historyFor(container, auth, asset);
     if (headers['if-match'] == null) throw Problem.user.assetRevisionRequired();
     const matched = /^"asset-([1-9]\d*)"$/.exec(headers['if-match']);

@@ -3,9 +3,9 @@ const { strict: assert } = require('assert');
 const { proofFailure } = require('../../../lib/resources/field-data-reverification-tasks');
 
 describe('re-verification closure proof', () => {
-  const task = { predicate: 'condition', observationSequence: 1, formId: 7, assigneeId: 42,
+  const task = { predicate: 'condition', observationRecordedAt: '2026-10-01T00:00:00.000Z', formId: 7, assigneeId: 42,
     dispatchedAt: '2026-10-09T10:00:00.000Z' };
-  const good = { predicate: 'condition', sequence: 2, state: 'known', subDeleted: null, sourceFormId: 7,
+  const good = { predicate: 'condition', recordedAt: '2026-10-09T10:00:00.002Z', state: 'known', subDeleted: null, sourceFormId: 7,
     verified: true, origin: 'collected', submitterId: 42, receivedAt: '2026-10-09T10:00:00.001Z' };
 
   it('accepts evidence that satisfies every condition', () => {
@@ -17,7 +17,8 @@ describe('re-verification closure proof', () => {
     const cases = [
       [null, 'observation-not-on-this-asset'],
       [{ ...good, predicate: 'other' }, 'different-fact'],
-      [{ ...good, sequence: 1 }, 'not-newer-than-the-expired-observation'],
+      [{ ...good, recordedAt: '2026-10-01T00:00:00.000Z' }, 'not-newer-than-the-expired-observation'],
+      [{ ...good, recordedAt: '2026-09-30T00:00:00.000Z' }, 'not-newer-than-the-expired-observation'],
       [{ ...good, state: 'unknown' }, 'state-is-not-visit-evidence'],
       [{ ...good, state: 'not-observed' }, 'state-is-not-visit-evidence'],
       [{ ...good, subDeleted: new Date() }, 'source-unavailable'],

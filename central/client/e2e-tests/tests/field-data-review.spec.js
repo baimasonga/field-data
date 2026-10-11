@@ -15,7 +15,7 @@ const setup = async (page, { comparisonUnavailable = false, failComparison = fal
   const metricsWait = delayMetrics ? new Promise(resolve => { releaseMetrics = resolve; }) : null;
   const state = { assets: [], assetHistory: [], assetTasks: [], assetWrites: [], assetFailures: 0, assetConflict: false, mappingRevision: 0, mappingHistory: [], mappingRequests: [], mappingFailures: 0, mappingConflict: false, comparisonFailures: failComparison ? 1 : 0, comparisonRequests: 0, staleWrites: 0, conflictFailures: staleAssignment ? 1 : 0, status: 'open', assignedTo: null, revision: 1, backchecks: [], decisions: [], mutations: [], queueRequests: [], queueFailures: failQueue ? 1 : 0, assignmentFailures: failAssignment ? 1 : 0, metricsFailures: failMetrics ? 2 : 0 };
   Object.assign(state, { queueCalls: [], queueFailures_: 0, queueGate: null, queuePaged: false, queueTasks: [] });
-  Object.assign(state, { findings: [], findingsCalls: [], findingsFailures: 0, findingsPaged: false, collectorGroups: [], collectorCalls: [], workload: false, search: null, searchCalls: [], searchFailures: 0, projection: null, projectionCalls: [], projectionFailures: 0, investigations: [], investigationWrites: [], investigationFailures: 0, investigationStale: false });
+  Object.assign(state, { findings: [], findingsCalls: [], findingsFailures: 0, findingsPaged: false, collectorGroups: [], collectorCalls: [], workload: false, search: null, searchCalls: [], searchFailures: 0, projection: null, projectionCalls: [], projectionFailures: 0, investigations: [], investigationWrites: [], investigationFailures: 0, investigationStale: false, assetOperations: [], identityWrites: [], listMerged: false });
   await page.addInitScript(() => globalThis.localStorage.setItem('sessionExpires', String(Date.now() + 3600000)));
   await page.route('**/client-config.json', route => route.fulfill({ json: {} }));
   await page.route('**/version.txt', route => route.fulfill({ body: 'test' }));
@@ -189,12 +189,46 @@ const setup = async (page, { comparisonUnavailable = false, failComparison = fal
       return respond({ ...p, predicate, at: '2026-10-10T00:00:00.000Z', knownAt: '2026-10-10T00:00:00.000Z',
         assets: predicate == null ? [] : p.assets.filter((a) => !url.searchParams.get('assetType') || a.assetType === url.searchParams.get('assetType')) });
     }
+    // K4 merges, splits and their undoing.
+    const identity = /^\/v1\/field-data\/projects\/7\/assets\/(?:([^/]+)\/(operations|merge|split)|operations\/([^/]+)\/undo)$/.exec(path);
+    if (identity != null) {
+      const [, assetId, action, undoId] = identity;
+      const byId = (id) => state.assets.find((a) => a.id === id);
+      const label = (a) => ({ id: a.id, name: a.name, externalId: a.externalId });
+      const view = (op) => ({ ...op, asset: label(byId(op.assetId)), otherAsset: label(byId(op.otherAssetId)),
+        undoable: op.undoneAt == null && state.assetOperations.filter((o) => o.undoneAt == null).at(-1) === op });
+      if (action === 'operations') return respond(state.assetOperations.filter((op) => [op.assetId, op.otherAssetId].includes(assetId)).map(view).reverse());
+      const data = req.postDataJSON();
+      state.identityWrites.push({ path, data, ifMatch: req.headers()['if-match'] ?? null });
+      if (undoId != null) {
+        const op = state.assetOperations.find((o) => o.id === undoId);
+        Object.assign(op, { undoneAt: '2026-10-11T12:00:00.000Z', undoReason: data.reason, undoneByName: 'Test reviewer' });
+        const other = byId(op.otherAssetId);
+        if (op.kind === 'merge') Object.assign(other, { status: 'active', mergedIntoAsset: null });
+        byId(op.assetId).revision += 1;
+        return respond(op);
+      }
+      const asset = byId(assetId);
+      if (req.headers()['if-match'] !== `"asset-${asset.revision}"`) return route.fulfill({ status: 412, json: { message: 'Stale' } });
+      asset.revision += 1;
+      let otherAssetId = data.mergedAssetId;
+      if (action === 'merge') Object.assign(byId(otherAssetId), { status: 'merged', mergedIntoAsset: label(asset) });
+      else {
+        otherAssetId = '66666666-6666-4666-8666-666666666666';
+        state.assets.push({ id: otherAssetId, name: data.name, externalId: data.externalId, assetType: data.assetType, revision: 1, status: 'active' });
+      }
+      const op = { id: `op-${state.assetOperations.length + 1}`, kind: action, assetId, otherAssetId, reason: data.reason,
+        createdAt: '2026-10-11T11:00:00.000Z', undoneAt: null, undoReason: null, actorName: 'Test reviewer', undoneByName: null,
+        observations: action === 'merge' ? 2 : data.observationIds.length };
+      state.assetOperations.push(op);
+      return route.fulfill({ status: 201, json: op, headers: { etag: `"asset-${asset.revision}"` } });
+    }
     const assetRoot = '/v1/field-data/projects/7/assets';
     if (path.startsWith(assetRoot)) {
       const asset = state.assets.find(item => path.endsWith(`/${item.id}`)) ?? state.assets[0];
       if (req.method() === 'GET' && path !== assetRoot && state.assetGate != null) { const hold = state.assetGate; state.assetGate = null; await hold; }
       if (req.method() === 'GET' && path === assetRoot)
-        return respond({ items: state.assets, allowed: canOverride, nextCursor: null });
+        return respond({ items: state.assets.filter((a) => state.listMerged || a.status !== 'merged'), allowed: canOverride, nextCursor: null });
       if (req.method() === 'GET') return respond({ asset, allowed: canOverride,
         history: state.assetHistory, facts: state.assetHistory.length ? [state.assetHistory[0]] : [],
         tasks: url.searchParams.get('knownAt') ? [] : state.assetTasks, at: '2026-10-09T09:00:00Z', knownAt: '2026-10-09T09:00:00Z' });
@@ -1420,5 +1454,86 @@ test('investigations are not offered to those who may not manage the project', a
   await expect(page.getByRole('button', { name: 'Open an investigation' })).toHaveCount(0);
   await expect(page.getByRole('region', { name: 'Investigations' })).toHaveCount(0);
   expect(state.investigationWrites).toEqual([]);
+  expect(errors).toEqual([]);
+});
+
+test('a manager merges a duplicate asset into another and undoes it', async ({ page }) => {
+  const { state, errors } = await setup(page, { canOverride: true });
+  const kept = '55555555-5555-4555-8555-555555555555';
+  const duplicate = '77777777-7777-4777-8777-777777777777';
+  state.assets.push({ id: kept, name: 'Kissy water point', externalId: 'WP-01', assetType: 'water-point', revision: 2, status: 'active' },
+    { id: duplicate, name: 'Kissy well', externalId: 'WP-02', assetType: 'water-point', revision: 1, status: 'active' });
+  const assets = page.getByRole('region', { name: 'Asset passports and re-verification' });
+  await assets.getByRole('button', { name: 'Load assets', exact: true }).click();
+  await assets.getByLabel('Asset', { exact: true }).selectOption(kept);
+  await expect(assets.getByRole('heading', { name: 'Kissy water point · WP-01' })).toBeVisible();
+  await expect(assets.locator('.asset-identity-history')).toHaveCount(0);
+
+  await assets.getByText('Merge another asset into this one').click();
+  const mergeForm = assets.locator('.asset-identity-merge');
+  await expect(mergeForm.locator('option')).toHaveText(['Choose an asset', 'Kissy well · WP-02']);
+  await mergeForm.getByLabel('Asset to merge into this one').selectOption(duplicate);
+  await mergeForm.getByLabel('Reason').fill('Registered twice.');
+  await mergeForm.getByRole('button', { name: 'Merge' }).click();
+  const history = assets.locator('.asset-identity-history');
+  await expect(history).toContainText('Merged Kissy well · WP-02 into this asset (2 observations)');
+  expect(state.identityWrites[0]).toMatchObject({ data: { mergedAssetId: duplicate, reason: 'Registered twice.' }, ifMatch: '"asset-2"' });
+  expect(state.identityWrites[0].data.requestId).toMatch(/^[0-9a-f-]{36}$/);
+  // The merged asset is no longer offered.
+  await expect(assets.getByLabel('Asset', { exact: true }).locator('option')).toHaveText(['Choose an asset', 'Kissy water point · WP-01']);
+
+  await history.getByLabel('Reason to undo').fill('Different wells after all.');
+  await history.getByRole('button', { name: 'Undo' }).click();
+  await expect(history).toContainText('Undone by Test reviewer on 2026-10-11: Different wells after all.');
+  await expect(history.getByRole('button', { name: 'Undo' })).toHaveCount(0);
+  await expect(assets.getByLabel('Asset', { exact: true }).locator('option')).toHaveCount(3);
+  // The same merge asked for again after the undo is a new request, not a replay of the undone one.
+  await mergeForm.getByLabel('Asset to merge into this one').selectOption(duplicate);
+  await mergeForm.getByLabel('Reason').fill('Registered twice.');
+  await mergeForm.getByRole('button', { name: 'Merge' }).click();
+  await expect(history.locator('li')).toHaveCount(2);
+  const merges = state.identityWrites.filter((w) => w.path.endsWith('/merge'));
+  expect(merges).toHaveLength(2);
+  expect(merges[1].data.requestId).not.toBe(merges[0].data.requestId);
+  await page.setViewportSize({ width: 360, height: 800 });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= 360)).toBe(true);
+  expect(errors).toEqual([]);
+});
+
+test('a manager splits observations into a new asset; a merged asset points to where it went', async ({ page }) => {
+  const { state, errors } = await setup(page, { canOverride: true });
+  const kept = '55555555-5555-4555-8555-555555555555';
+  const merged = '88888888-8888-4888-8888-888888888888';
+  state.assets.push({ id: kept, name: 'Pump house', externalId: 'PH-1', assetType: 'pump', revision: 3, status: 'active' },
+    { id: merged, name: 'Old record', externalId: 'PH-OLD', assetType: 'pump', revision: 2, status: 'merged',
+      mergedIntoAsset: { id: kept, name: 'Pump house', externalId: 'PH-1', status: 'active' } });
+  state.listMerged = true;
+  const record = (id, predicate, value) => ({ id, predicate, state: 'known', value, validFrom: '2026-01-01T00:00:00Z', recordedAt: '2026-01-02T00:00:00Z',
+    actorId: 1, note: 'From the visit.', integrityStatus: 'verified', sourceUrl: '/v1/x', freshness: { status: 'fresh' } });
+  state.assetHistory.push(record('o1', 'condition', 'operating'), record('o2', 'depth', '30'));
+  const assets = page.getByRole('region', { name: 'Asset passports and re-verification' });
+  await assets.getByRole('button', { name: 'Load assets', exact: true }).click();
+
+  await assets.getByLabel('Asset', { exact: true }).selectOption(merged);
+  await expect(assets.locator('.asset-identity-merged')).toContainText('This asset was merged into Pump house · PH-1.');
+  await expect(assets.getByText('Record asset observation')).toHaveCount(0);
+  await expect(assets.getByText('Merge another asset into this one')).toHaveCount(0);
+  await assets.locator('.asset-identity-merged').getByRole('button', { name: 'Pump house · PH-1' }).click();
+  await expect(assets.getByRole('heading', { name: 'Pump house · PH-1' })).toBeVisible();
+
+  await assets.getByText('Split observations into a new asset').click();
+  const split = assets.locator('.asset-identity-split');
+  await split.getByLabel('New asset name').fill('Second pump');
+  await split.getByLabel('New asset type').fill('pump');
+  await split.getByLabel('New external identifier').fill('PH-2');
+  await split.getByLabel('Reason').fill('Two pumps in one record.');
+  await split.getByRole('button', { name: 'Split' }).click();
+  await expect(assets.locator('.asset-identity-error')).toHaveText('Choose at least one observation to move.');
+  expect(state.identityWrites).toEqual([]);
+  await split.getByLabel('depth: 30').check();
+  await split.getByRole('button', { name: 'Split' }).click();
+  await expect(assets.locator('.asset-identity-history')).toContainText('Split 1 observations into Second pump · PH-2');
+  expect(state.identityWrites.at(-1)).toMatchObject({ ifMatch: '"asset-3"',
+    data: { observationIds: ['o2'], name: 'Second pump', assetType: 'pump', externalId: 'PH-2', reason: 'Two pumps in one record.' } });
   expect(errors).toEqual([]);
 });

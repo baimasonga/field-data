@@ -49,13 +49,16 @@ module.exports = (service, endpoint) => {
     const [assets, facts, findings, decisions] = await Promise.all([
       container.db.any(sql`SELECT a.id, count(*) OVER () AS total, a.name, a."externalId", a."assetType", a."createdAt", f."xmlFormId"
         FROM field_data_assets a JOIN forms f ON f.id = a."formId"
-        WHERE a."projectId" = ${project.id} AND a."formId" = ANY(${readable})
+        WHERE a."projectId" = ${project.id} AND a."formId" = ANY(${readable}) AND a.status = 'active'
           AND (${matches(sql`a.name`)} OR ${matches(sql`a."externalId"`)} OR ${matches(sql`a."assetType"`)})
         ORDER BY a."createdAt" DESC, a.id LIMIT ${PER_KIND}`),
-      container.db.any(sql`SELECT o.id, count(*) OVER () AS total, o."assetId", a.name AS "assetName", o.predicate, o.state, o.value,
+      container.db.any(sql`SELECT o.id, count(*) OVER () AS total, owner."assetId", a.name AS "assetName", o.predicate, o.state, o.value,
           o."validFrom", o."recordedAt", o."claimVersionId", sf."xmlFormId", sd."instanceId", af."xmlFormId" AS "assetXmlFormId"
         FROM field_data_asset_observations o
-        JOIN field_data_assets a ON a.id = o."assetId" AND a."projectId" = ${project.id} AND a."formId" = ANY(${readable})
+        -- The asset the fact belongs to now (K4 merges and splits).
+        JOIN field_data_observation_owners owner ON owner."observationId" = o.id
+        JOIN field_data_assets a ON a.id = owner."assetId" AND a."projectId" = ${project.id} AND a."formId" = ANY(${readable})
+          AND a.status = 'active'
         JOIN forms af ON af.id = a."formId"
         JOIN field_data_claim_versions cv ON cv.id = o."claimVersionId"
         JOIN submission_defs sd ON sd.id = cv."submissionDefId"

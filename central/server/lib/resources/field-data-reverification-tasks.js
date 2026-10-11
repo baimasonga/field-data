@@ -37,12 +37,14 @@ const formFor = async (container, auth, projectId, xmlFormId) => {
   return form;
 };
 
-const taskColumns = sql`t.*, o."assetId", o.predicate, o.sequence AS "observationSequence",
+const taskColumns = sql`t.*, owner."assetId", o.predicate, o.sequence AS "observationSequence", o."recordedAt" AS "observationRecordedAt",
   a.name AS "assetName", a."externalId", a."assetType", a."formId", a."projectId", f."xmlFormId",
   asg."displayName" AS "assigneeName"`;
 const taskJoins = sql`FROM field_data_reverification_tasks t
   JOIN field_data_asset_observations o ON o.id = t."observationId"
-  JOIN field_data_assets a ON a.id = o."assetId"
+  -- The asset the task's observation belongs to now (K4 merges and splits).
+  JOIN field_data_observation_owners owner ON owner."observationId" = o.id
+  JOIN field_data_assets a ON a.id = owner."assetId"
   JOIN forms f ON f.id = a."formId" AND f."deletedAt" IS NULL
   LEFT JOIN actors asg ON asg.id = t."assigneeId"`;
 
@@ -64,7 +66,8 @@ const readableFormIds = async (container, auth, projectId) => {
   const forms = await container.db.any(sql`SELECT DISTINCT a."formId", f."xmlFormId"
     FROM field_data_reverification_tasks t
     JOIN field_data_asset_observations o ON o.id = t."observationId"
-    JOIN field_data_assets a ON a.id = o."assetId"
+    JOIN field_data_observation_owners owner ON owner."observationId" = o.id
+    JOIN field_data_assets a ON a.id = owner."assetId"
     JOIN forms f ON f.id = a."formId" AND f."deletedAt" IS NULL
     WHERE a."projectId" = ${projectId}`);
   const checked = await Promise.all(forms.map(async ({ formId, xmlFormId }) => {
@@ -104,7 +107,9 @@ const ifMatch = (headers) => {
 const proofFailure = (task, evidence, taken) => {
   if (evidence == null) return 'observation-not-on-this-asset';
   if (evidence.predicate !== task.predicate) return 'different-fact';
-  if (evidence.sequence <= task.observationSequence) return 'not-newer-than-the-expired-observation';
+  // Recorded time, not sequence: after a merge (K4) the two observations may
+  // have been recorded against different assets, whose sequences are separate.
+  if (new Date(evidence.recordedAt) <= new Date(task.observationRecordedAt)) return 'not-newer-than-the-expired-observation';
   if (!['known', 'not-applicable'].includes(evidence.state)) return 'state-is-not-visit-evidence';
   if (evidence.subDeleted != null || evidence.sourceFormId !== task.formId) return 'source-unavailable';
   if (evidence.verified !== true) return 'integrity-unverified';
@@ -286,7 +291,7 @@ module.exports = (service, endpoint) => {
     return { observationId: body.observationId };
   }, async ({ tx, task, data }) => {
     if (task.status !== 'dispatched') throw Problem.user.reverificationTaskState();
-    const [evidence] = await tx.db.any(sql`SELECT o.id, o.predicate, o.sequence, o.state,
+    const [evidence] = await tx.db.any(sql`SELECT o.id, o.predicate, o.sequence, o."recordedAt", o.state,
       sd."submitterId", sd."createdAt" AS "receivedAt", s."deletedAt" AS "subDeleted", s."formId" AS "sourceFormId", p.origin,
       CASE WHEN octet_length(sd.xml) <= 2097152 THEN
         p."integrityHash" = o."sourceHash" AND p."integrityHash" = encode(sha256(convert_to(sd.xml, 'UTF8')), 'hex')
@@ -296,7 +301,8 @@ module.exports = (service, endpoint) => {
       JOIN submission_defs sd ON sd.id = cv."submissionDefId"
       JOIN submissions s ON s.id = sd."submissionId"
       LEFT JOIN field_data_submission_provenance p ON p."submissionDefId" = sd.id
-      WHERE o.id = ${data.observationId} AND o."assetId" = ${task.assetId}
+      JOIN field_data_observation_owners owner ON owner."observationId" = o.id
+      WHERE o.id = ${data.observationId} AND owner."assetId" = ${task.assetId}
       -- Hold the source submission for the rest of this transaction. A deletion
       -- that has not committed yet makes this wait and then see it; one that
       -- starts later waits for the closure. Locking only the task row would let
@@ -333,7 +339,8 @@ module.exports = (service, endpoint) => {
         AND e.action IN ('dispatch', 'reassign') ORDER BY e.sequence DESC LIMIT 1) AS instruction
       FROM field_data_reverification_tasks t
       JOIN field_data_asset_observations o ON o.id = t."observationId"
-      JOIN field_data_assets a ON a.id = o."assetId"
+      JOIN field_data_observation_owners owner ON owner."observationId" = o.id
+      JOIN field_data_assets a ON a.id = owner."assetId"
       JOIN forms f ON f.id = a."formId" AND f."projectId" = ${user.projectId} AND f."deletedAt" IS NULL
       JOIN form_defs fd ON fd.id = f."currentDefId"
       WHERE t.status = 'dispatched' AND t."assigneeId" = ${user.actorId}

@@ -18,14 +18,19 @@ const freshness = (observation, at = new Date()) => {
   return { status, dueAt: new Date(due).toISOString(), expiresAt: new Date(expiry).toISOString(),
     policyVersion: 'asset-age@1', limitations: 'Supervisor-defined age policy; no confidence or verification of field conditions.' };
 };
+// The current fact: latest valid-from, then latest recorded, then latest
+// sequence. Recorded time decides between observations of merged assets (K4),
+// whose sequences are counted separately; within one asset it agrees with the
+// sequence.
+const time = (value) => new Date(value).valueOf();
+const later = (row, prior) => (time(row.validFrom) - time(prior.validFrom)
+  || time(row.recordedAt) - time(prior.recordedAt) || row.sequence - prior.sequence) > 0;
 const selectFacts = (history, at, knownAt) => {
   const result = new Map();
   for (const row of history) {
     if (new Date(row.validFrom) > at || new Date(row.recordedAt) > knownAt) continue;
     const prior = result.get(row.predicate);
-    if (prior == null || new Date(row.validFrom) > new Date(prior.validFrom)
-      || (new Date(row.validFrom).valueOf() === new Date(prior.validFrom).valueOf()
-        && row.sequence > prior.sequence)) result.set(row.predicate, row);
+    if (prior == null || later(row, prior)) result.set(row.predicate, row);
   }
   return [...result.values()].map(row => ({ ...row, freshness: freshness(row, at) }));
 };

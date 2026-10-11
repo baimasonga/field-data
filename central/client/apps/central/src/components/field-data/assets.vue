@@ -30,6 +30,8 @@
     <template v-if="detail">
       <h3>{{ detail.asset.name }} · {{ detail.asset.externalId }}</h3>
       <p>Revision {{ detail.asset.revision }} · {{ detail.asset.assetType }}</p>
+      <field-data-asset-identity :project-id="projectId" :asset="detail.asset" :history="detail.history" :items="items"
+        :allowed="detail.allowed" @changed="identityChanged" @open="openAsset"/>
       <form @submit.prevent="loadAsset">
         <fieldset :disabled="busy">
           <label>Valid at (optional ISO date and time) <input v-model="at" class="form-control" placeholder="2026-10-01T00:00:00Z"></label>
@@ -57,7 +59,7 @@
         </li>
 </ol>
       </details>
-      <details v-if="detail.allowed">
+      <details v-if="detail.allowed && detail.asset.status !== 'merged'">
         <summary>Record asset observation</summary>
         <form @submit.prevent="observe">
           <fieldset :disabled="busy">
@@ -92,6 +94,7 @@
 import { onBeforeUnmount, reactive, ref, watch } from 'vue';
 import useRequest from '../../composables/request';
 import FieldDataReverificationTask from './reverification-task.vue';
+import FieldDataAssetIdentity from './asset-identity.vue';
 
 defineOptions({ name: 'FieldDataAssets' });
 const props = defineProps({
@@ -185,6 +188,25 @@ const reloadDetail = async () => {
   const current = generation;
   try { await readAsset(current); } catch { /* the task panel already reports its own outcome */ }
 };
+// After a merge, split or undo (K4): the list may have lost or gained an asset.
+const keepSelectable = () => {
+  if (detail.value != null && !items.value.some(item => item.id === detail.value.asset.id)) items.value = [...items.value, detail.value.asset];
+};
+const identityChanged = () => perform(async current => {
+  const { data } = await request({ method: 'GET', url: root, alert: false });
+  if (current !== generation) return;
+  items.value = data.items;
+  nextCursor.value = data.nextCursor;
+  await readAsset(current);
+  if (current === generation) keepSelectable();
+});
+const openAsset = (id) => perform(async current => {
+  assetId.value = id;
+  at.value = '';
+  knownAt.value = '';
+  await readAsset(current);
+  if (current === generation) keepSelectable();
+});
 const loadAsset = () => perform(async current => {
   detail.value = null;
   if (assetId.value) await readAsset(current);
