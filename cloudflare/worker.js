@@ -137,8 +137,10 @@ export class FieldDataContainer extends Container {
   // A deploy only repoints the container application at the new image: an
   // instance that is already running keeps the old one. Nothing retires it on
   // its own either, because the five minute cron ping means it never stays
-  // idle long enough to hit sleepAfter. Retire it explicitly when the build it
-  // was started from is no longer the deployed one.
+  // idle long enough to hit sleepAfter. Retire it explicitly when the deploy it
+  // was started from is no longer the current one. The ID changes on every
+  // deploy run, including one that only changes settings, since a running
+  // container keeps the environment it started with.
   async #retireStaleContainer() {
     const deployed = env.CONTAINER_BUILD_ID || '';
     if (deployed === '') return;

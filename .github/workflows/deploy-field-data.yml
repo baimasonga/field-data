@@ -272,8 +272,12 @@ jobs:
           } | with_entries(select(.value != null and .value != ""))' > "$secret_file"
           deploy_log="$RUNNER_TEMP/field-data-deploy.log"
           set +e
+          # CONTAINER_BUILD_ID is unique to this deploy run, not just the commit:
+          # a run started by hand to apply changed repository settings must
+          # still replace the running container, which keeps the environment
+          # it was started with.
           npx --no-install wrangler deploy \
-            --var "CONTAINER_BUILD_ID:${{ github.sha }}" \
+            --var "CONTAINER_BUILD_ID:${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}" \
             --var "FIELD_DATA_PUSH_ENABLED:${{ vars.FIELD_DATA_PUSH_ENABLED == 'true' && 'true' || 'false' }}" \
             --var "FIELD_DATA_IMAGERY_ENABLED:${{ vars.FIELD_DATA_IMAGERY_ENABLED == 'true' && 'true' || 'false' }}" \
             --secrets-file "$secret_file" 2>&1 | tee "$deploy_log"
