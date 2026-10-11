@@ -34,6 +34,14 @@ also exist. Those features must not be re-labelled as full completion of this pr
   rest counted by freshness status, on the Review page: merged in PR #76.
   Several predicates, maps and aggregation by area remain
   pending.
+- Reversible asset merges and splits (K4, first correction/merge/split
+  history slice): a duplicate asset merged into another, or chosen
+  observations split into a new asset, without changing any observation; an
+  ownership view used by the passport, status table, search and
+  re-verification (superseding and, after an undo, restoring tasks); undo of
+  the latest operation restoring the previous facts exactly; approved by the
+  project owner: implemented and locally validated. Suggested duplicates
+  (entity resolution) remain pending.
 - Cited search (K2, first cited-retrieval slice): one search across a
   project's assets, asset facts, integrity findings and review decisions on
   the Review page, each result citing the submission it rests on, limited to
@@ -64,7 +72,7 @@ also exist. Those features must not be re-labelled as full completion of this pr
   page, with no score: merged in PR #71. Investigation records (F6): findings
   looked into together, an append-only history, a disposition from a fixed
   list and reopening as the correction path, for project managers only and
-  changing nothing else: implemented and locally validated. Triage, linking
+  changing nothing else: merged in PR #77. Triage, linking
   review cases and metrics over dispositions remain pending.
 - Receipt and custody ledger (R1, first offline-resilience custody slice):
   an append-only, hash-chained receipt per submission version received,

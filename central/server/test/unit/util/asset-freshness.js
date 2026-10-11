@@ -26,6 +26,16 @@ describe('asset temporal knowledge', () => {
     assert.equal(selectFacts([...history, late], new Date('2026-02-02'), new Date('2026-03-02'))[0].id, 'future');
     assert.equal(selectFacts([...history, late], new Date('2026-01-03'), new Date('2026-03-02'))[0].id, 'late');
   });
+  it('breaks a tie of valid-from by recorded time, as between observations of merged assets', () => {
+    // Sequences of merged assets are counted separately: the later recorded observation wins, whatever its sequence.
+    const kept = { ...row, id: 'kept', sequence: 5, recordedAt: '2026-01-02T00:00:00Z' };
+    const fromMerged = { ...row, id: 'from-merged', sequence: 1, value: 'damaged', recordedAt: '2026-01-03T00:00:00Z' };
+    assert.equal(selectFacts([kept, fromMerged], new Date('2026-01-04'), new Date('2026-01-04'))[0].id, 'from-merged');
+    assert.equal(selectFacts([fromMerged, kept], new Date('2026-01-04'), new Date('2026-01-04'))[0].id, 'from-merged');
+    // Same recorded time: the sequence decides.
+    const same = { ...kept, id: 'same', sequence: 6 };
+    assert.equal(selectFacts([same, kept], new Date('2026-01-04'), new Date('2026-01-04'))[0].id, 'same');
+  });
   it('requires an explicit timezone and rejects normalized invalid calendar dates', () => {
     for (const value of ['2026-02-30T00:00:00Z', '2025-02-29T00:00:00Z', '2026-01-01', '2026-01-01T00:00:00', null])
       assert.equal(timestamp(value), false);
