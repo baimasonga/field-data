@@ -57,7 +57,26 @@ echo "logging server upgrade.."
 node ./lib/bin/log-upgrade
 
 echo "starting cron.."
+# Confirm the job environment exists before accepting the container as ready.
+# Never print its contents: the block holds database and storage credentials.
+if [[ ! -s "$envblock" || ! -r "$envblock" ]]; then
+  echo "cron environment block is missing or unreadable." >&2
+  exit 1
+fi
+if ! grep -Fq -- "$envblock" /etc/cron.d/odk; then
+  echo "cron configuration does not refer to the current environment block." >&2
+  exit 1
+fi
 cron -f &
+cron_pid=$!
+# cron may exit immediately on startup errors while the API continues to work.
+sleep 1
+if ! kill -0 "$cron_pid" 2>/dev/null; then
+  echo "cron terminated during startup; scheduled jobs are unavailable." >&2
+  wait "$cron_pid" || true
+  exit 1
+fi
+echo "cron process started; worker execution requires separate verification."
 
 is_cgroup2() {
   [ -f /sys/fs/cgroup/cgroup.controllers ]
