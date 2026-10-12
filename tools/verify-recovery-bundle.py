@@ -13,6 +13,17 @@ from uuid import uuid4
 import zipfile
 
 
+def validate_archive_members(members):
+    """Reject oversized or ambiguous archives before reading any ZIP member."""
+    if len(members) > 25002 or sum(i.file_size for i in members) > 8 * 1024 ** 3 + 10 * 1024 ** 2:
+        raise ValueError('Bundle exceeds recovery limits.')
+    names = [member.filename for member in members]
+    if len(names) != len(set(names)):
+        raise ValueError('Duplicate ZIP archive member.')
+    if any(member.is_dir() for member in members):
+        raise ValueError('Unexpected directory in recovery bundle.')
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--bundle', type=Path, required=True)
@@ -37,12 +48,7 @@ def main():
             root = Path(directory); archive = root / 'bundle.zip'; decrypt(args.bundle, archive)
             with zipfile.ZipFile(archive) as z:
                 members = z.infolist()
-                if len(members) > 25002 or sum(i.file_size for i in members) > 8 * 1024 ** 3 + 10 * 1024 ** 2: raise ValueError('Bundle exceeds recovery limits.')
-                # ZIP readers resolve duplicate names inconsistently. Reject ambiguous
-                # archives before reading the manifest or extracting any content.
-                names = [member.filename for member in members]
-                if len(names) != len(set(names)): raise ValueError('Duplicate ZIP archive member.')
-                if any(member.is_dir() for member in members): raise ValueError('Unexpected directory in recovery bundle.')
+                validate_archive_members(members)
                 manifest = json.loads(z.read('manifest.json'))
                 if manifest.get('version') != 1: raise ValueError('Unsupported bundle version.')
                 schema = manifest['configuration']['schema']
