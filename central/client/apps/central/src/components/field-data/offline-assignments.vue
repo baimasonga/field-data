@@ -38,6 +38,7 @@
           <h3>{{ item.formName || item.xmlFormId }} ({{ item.xmlFormId }})</h3>
           <p>{{ item.question }}</p>
           <p>Snapshot status: {{ item.status }} · Due: {{ item.dueAt || 'Not set' }}</p>
+          <p v-if="item.plannedVisitDate">Planned visit: {{ item.plannedVisitDate }} (UTC date)</p>
           <p v-if="!item.actionable">This request was unavailable for collection at the time of the snapshot.</p>
           <p>Request ID: {{ item.id }}</p>
         </li>

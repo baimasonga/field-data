@@ -151,7 +151,7 @@ module.exports = (service, endpoint) => {
     response.set('Cache-Control', 'private, no-store');
     const backchecks = await container.db.any(sql`SELECT b.id, b."caseId", b."claimVersionId",
       rf."xmlFormId" AS "responseXmlFormId", rf.id AS "responseFormId",
-      b.question, b."dueAt", b."seenAt", b.status, b."assignedTo", a."displayName" AS "assigneeName",
+      b.question, b."dueAt", to_char(b."plannedVisitDate", 'YYYY-MM-DD') AS "plannedVisitDate", b."seenAt", b.status, b."assignedTo", a."displayName" AS "assigneeName",
       b."responseInstanceId", b."createdAt", b."linkedAt",
       b."cancelledAt", b."cancelledBy", b."cancellationReason",
       p."capturedAt" AS "responseCapturedAt", p.degraded AS "responseDegraded",

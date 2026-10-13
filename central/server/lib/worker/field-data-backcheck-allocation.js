@@ -6,6 +6,7 @@ const { Form } = require('../model/frames');
 const { assigneesFor } = require('../resources/field-data-backchecks');
 const { requestBackcheck, ALLOCATION_LOCK } = require('../util/backcheck-request');
 const { choose } = require('../util/automatic-backchecks');
+const { chooseDated } = require('../util/backcheck-calendar');
 const { hashReviewAssignment } = require('../util/idempotency');
 const { runRequestId } = require('../util/backcheck-sample');
 const runPolicy = (db, formId, projectId, now) => db.transaction(async trx => {
@@ -28,7 +29,14 @@ const runPolicy = (db, formId, projectId, now) => db.transaction(async trx => {
       failure: 'The manager, source or response form is unavailable or no longer authorized. Automatic allocation paused.' })} WHERE "formId" = ${formId}`);
     return;
   }
-  const report = { at: now.toISOString(), examined: 0, assigned: 0, noIndependentCollector: 0, atCapacity: 0, failure: null };
+  const report = { at: now.toISOString(), examined: 0, assigned: 0, noIndependentCollector: 0, atCapacity: 0, noCalendarSlot: 0, failure: null };
+  const calendars = new Map((await trx.any(sql`SELECT "actorId", settings FROM field_data_backcheck_calendars
+    WHERE "projectId" = ${projectId}`)).map(row => [row.actorId, row.settings]));
+  const used = new Map((await trx.any(sql`SELECT b."assignedTo", to_char(b."plannedVisitDate", 'YYYY-MM-DD') AS date, count(*)::integer AS used
+    FROM field_data_backchecks b JOIN field_keys fk ON fk."actorId" = b."assignedTo" AND fk."projectId" = ${projectId}
+    WHERE b.status IN ('requested', 'linked') AND b."plannedVisitDate" IS NOT NULL GROUP BY b."assignedTo", b."plannedVisitDate"`))
+    .map(row => [`${row.assignedTo}|${row.date}`, row.used]));
+  const dueAt = new Date(now.getTime() + policy.settings.dueDays * 86400000);
   const queue = async cursor => trx.any(sql`SELECT c.id FROM field_data_backcheck_sample_items i
     JOIN field_data_review_cases c ON c.id = i."caseId"
     JOIN field_data_claim_versions v ON v.id = c."claimVersionId"
@@ -52,9 +60,13 @@ const runPolicy = (db, formId, projectId, now) => db.transaction(async trx => {
     report.examined += 1;
     // eslint-disable-next-line no-await-in-loop
     const candidates = await assigneesFor(trx, projectId, target.acteeId, c.claimVersionId);
-    const checker = choose(candidates, policy.settings);
+    const pendingChoice = choose(candidates, policy.settings);
+    const checker = policy.settings.respectCalendar
+      ? chooseDated(candidates, policy.settings, calendars, used, now, dueAt) : pendingChoice;
     if (checker == null) {
-      if (candidates.every(a => a.original)) report.noIndependentCollector += 1; else report.atCapacity += 1;
+      if (candidates.every(a => a.original)) report.noIndependentCollector += 1;
+      else if (pendingChoice == null) report.atCapacity += 1;
+      else report.noCalendarSlot += 1;
       continue; // eslint-disable-line no-continue
     }
     let { revision } = c;
@@ -65,15 +77,18 @@ const runPolicy = (db, formId, projectId, now) => db.transaction(async trx => {
         requestHash: hashReviewAssignment({ caseId: id, revision, assignedTo: actor.id }) });
       revision = assigned.revision;
     }
-    const dueAt = new Date(now.getTime() + policy.settings.dueDays * 86400000).toISOString();
     const question = `${policy.settings.question}\nSource submission: ${c.instanceId}`;
     const requestHash = createHash('sha256').update(JSON.stringify({ assignedTo: checker.id, question,
-      dueAt, responseXmlFormId: target.xmlFormId })).digest('hex');
+      dueAt: dueAt.toISOString(), responseXmlFormId: target.xmlFormId })).digest('hex');
     // Stable UUID from case ID and a fixed epoch; one automatic request per case.
     // eslint-disable-next-line no-await-in-loop
     await requestBackcheck(trx, { caseId: id, claimVersionId: c.claimVersionId, projectId, formActeeId: source.acteeId,
       responseForm: target, reviewerId: actor.id, revision, requestId: runRequestId(id, '1970-01-01'), requestHash,
-      assignedTo: checker.id, question, dueAt });
+      assignedTo: checker.id, question, dueAt: dueAt.toISOString(), plannedVisitDate: checker.plannedVisitDate ?? null });
+    if (checker.plannedVisitDate != null) {
+      const key = `${checker.id}|${checker.plannedVisitDate}`;
+      used.set(key, (used.get(key) ?? 0) + 1);
+    }
     report.assigned += 1;
   }
   await trx.query(sql`UPDATE field_data_backcheck_allocation SET report = ${JSON.stringify(report)},

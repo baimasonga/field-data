@@ -33,6 +33,7 @@ Turn off browser notifications
           <h2>{{ item.formName || item.xmlFormId }} ({{ item.xmlFormId }})</h2>
           <p class="question">{{ item.question }}</p>
           <p>Status: {{ item.status }} · Due: {{ item.dueAt || 'Not set' }}</p>
+          <p v-if="item.plannedVisitDate">Planned visit: {{ item.plannedVisitDate }} (UTC date)</p>
           <p>Request ID: {{ item.id }}</p>
           <p v-if="!item.actionable">This task is no longer available for collection. Check with your reviewer before continuing.</p>
           <p v-if="item.seenAt">Acknowledged: {{ item.seenAt }}</p>

@@ -1,6 +1,7 @@
 /* global localStorage, document, window */
 // O3 random backcheck sample in the browser: docs/field-intelligence/O3-backcheck-sample.md
 import { expect, test } from '@playwright/test';
+import { readFile } from 'node:fs/promises';
 
 const appUrl = process.env.ODK_URL || 'http://127.0.0.1:8989';
 const managerVerbs = ['project.read', 'project.update', 'form.read', 'form.list', 'submission.list', 'submission.read', 'submission.update'];
@@ -229,7 +230,7 @@ test('a manager configures independent automatic allocation, collector capacity 
   await expect(section.getByRole('alert')).toContainText('Save failed');
   await section.getByRole('button', { name: 'Save allocation policy' }).click();
   expect(puts[1]).toEqual({ enabled: true, responseXmlFormId: 'responses', question: 'Verify the visit with the respondent.', dueDays: 7,
-    maxPending: 3, collectorLimits: [{ actorId: 5, maxPending: 0 }] });
+    maxPending: 3, respectCalendar: false, collectorLimits: [{ actorId: 5, maxPending: 0 }] });
   expect(puts[0]).toEqual(puts[1]);
   await expect(section).toContainText('2 assigned of 5 considered');
   await expect(section).toContainText('1 waiting for an independent collector');
@@ -237,6 +238,9 @@ test('a manager configures independent automatic allocation, collector capacity 
   await section.getByLabel('Enable automatic assignment').uncheck();
   await section.getByRole('button', { name: 'Save allocation policy' }).click();
   await expect(section).toContainText('Paused');
+  await section.getByLabel('Respect calendar availability').check();
+  await section.getByRole('button', { name: 'Save allocation policy' }).click();
+  expect(puts.at(-1).respectCalendar).toBe(true);
   await p.setViewportSize({ width: 390, height: 844 });
   await expect(section.getByRole('button', { name: 'Save allocation policy' })).toBeVisible();
   expect(await p.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
@@ -256,4 +260,70 @@ test('a viewer reads automatic allocation failure without configuration controls
   const section = p.locator('.backcheck-allocation');
   await expect(section).toContainText('access was revoked');
   await expect(section.getByRole('button', { name: 'Save allocation policy' })).toHaveCount(0);
+});
+
+test('a manager saves calendar exceptions and exports an itinerary with capacity and exclusion warnings', async ({ page: p }) => {
+  let settings = null; const saves = []; const routes = [];
+  const plan = { actor: { id: 5, name: 'Checker' }, date: '2026-10-14', capacity: 1, used: 2, unplanned: 1, uncertainLocations: 1,
+    truncated: true, needsReview: true, excluded: { permission: 0, inactive: 0, collectorUnavailable: 0, encryptedSource: 0, sourceUnverified: 1, missingLocation: 1 },
+    route: { distanceKm: 2.2, returnKm: 1.1, stops: [{ id: 'task', instanceId: '=unsafe', order: 1, legKm: 1.1,
+      location: { latitude: 8.49, longitude: -13.23, accuracy: null }, uncertain: true }] } };
+  const errors = await api(p, managerVerbs, async (route, path) => {
+    if (path.endsWith('/backcheck-allocation')) { await route.fulfill({ json: { policy: null, forms: [], collectors: [] } }); return true; }
+    if (path === '/v1/projects/1/backcheck-calendars') { await route.fulfill({ json: [{ id: 5, name: 'Checker', settings }] }); return true; }
+    if (path === '/v1/projects/1/backcheck-calendars/5') {
+      saves.push(route.request().postDataJSON());
+      if (saves.length === 1) { await route.fulfill({ status: 500, json: { message: 'Save failed; retry.' } }); return true; }
+      settings = saves.at(-1); await route.fulfill({ json: { id: 5, settings } }); return true;
+    }
+    if (path.endsWith('/backcheck-route')) { routes.push(new URL(route.request().url()).searchParams); await route.fulfill({ json: plan }); return true; }
+    if (path === samplesPath) { await route.fulfill({ json: [] }); return true; }
+    return false;
+  });
+  await p.goto(`${appUrl}${page}`);
+  const section = p.locator('.backcheck-planning');
+  await section.getByLabel('Planning collector').selectOption('5');
+  await expect(section).toContainText('No calendar configured.');
+  await section.getByLabel('Wednesday visits', { exact: true }).fill('2');
+  await section.getByRole('button', { name: 'Add dated exception' }).click();
+  await section.getByLabel('Exception date', { exact: true }).fill('2026-10-14');
+  await section.getByLabel('Exception visits', { exact: true }).fill('0');
+  await section.getByRole('button', { name: 'Save calendar', exact: true }).click();
+  await expect(section.getByRole('alert')).toContainText('Save failed');
+  await section.getByRole('button', { name: 'Save calendar', exact: true }).click();
+  expect(saves[1]).toEqual({ weeklyCapacity: [0, 0, 0, 2, 0, 0, 0], exceptions: [{ date: '2026-10-14', maxVisits: 0 }] });
+  expect(saves[0]).toEqual(saves[1]);
+  await expect(section).toContainText('Calendar saved.');
+  await section.getByLabel('Route date').fill('2026-10-14');
+  await section.getByLabel('Start latitude').fill('8.48');
+  await section.getByLabel('Start longitude').fill('-13.23');
+  await section.getByRole('button', { name: 'Preview itinerary' }).click();
+  await expect(section).toContainText('1 located stops · 2.2 km straight-line total');
+  await expect(section).toContainText('This day is over capacity');
+  await expect(section).toContainText('the task list was truncated');
+  expect(Object.fromEntries(routes[0])).toEqual({ actorId: '5', date: '2026-10-14', startLat: '8.48', startLon: '-13.23' });
+  const downloaded = p.waitForEvent('download');
+  await section.getByRole('button', { name: 'Download itinerary CSV' }).click();
+  const download = await downloaded;
+  const csv = await readFile(await download.path(), 'utf8');
+  expect(csv).toContain("'=" + 'unsafe'); expect(csv).toContain('Review required'); expect(csv).toContain('Truncated'); expect(csv).toContain('"-13.23"');
+  await p.setViewportSize({ width: 390, height: 844 });
+  await expect(section.getByRole('button', { name: 'Preview itinerary' })).toBeVisible();
+  expect(await p.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  expect(errors).toEqual([]);
+});
+
+test('a viewer reads availability without calendar edits or route coordinates', async ({ page: p }) => {
+  await api(p, viewerVerbs, async (route, path) => {
+    if (path.endsWith('/backcheck-allocation')) { await route.fulfill({ json: { policy: null, forms: [], collectors: [] } }); return true; }
+    if (path.endsWith('/backcheck-calendars')) { await route.fulfill({ json: [{ id: 5, name: 'Checker', settings: { weeklyCapacity: [0, 2, 2, 2, 2, 2, 0], exceptions: [] } }] }); return true; }
+    if (path === samplesPath) { await route.fulfill({ json: [] }); return true; }
+    return false;
+  });
+  await p.goto(`${appUrl}${page}`);
+  const section = p.locator('.backcheck-planning');
+  await section.getByLabel('Planning collector').selectOption('5');
+  await expect(section).toContainText('Weekly visits, Sunday to Saturday: 0, 2, 2, 2, 2, 2, 0');
+  await expect(section.getByRole('button', { name: 'Save calendar' })).toHaveCount(0);
+  await expect(section.getByRole('button', { name: 'Preview itinerary' })).toHaveCount(0);
 });

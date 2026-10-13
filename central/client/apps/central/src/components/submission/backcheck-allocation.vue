@@ -40,6 +40,7 @@ Assign sampled Submissions to the least-loaded eligible App User, never the orig
         </table>
         <p v-else>No eligible collectors for this response Form.</p>
       </div>
+      <label><input v-model="settings.respectCalendar" type="checkbox"> Respect calendar availability and daily visit quotas</label>
       <label><input v-model="settings.enabled" type="checkbox"> Enable automatic assignment</label>
       <button type="submit" class="btn btn-default" :disabled="busy">Save allocation policy <spinner :state="busy"/></button>
     </form>
@@ -50,9 +51,10 @@ Assign sampled Submissions to the least-loaded eligible App User, never the orig
       <p v-else>
 Last run {{ data.policy.report.at }}: {{ data.policy.report.assigned }} assigned of {{ data.policy.report.examined }} considered;
         {{ data.policy.report.noIndependentCollector }} waiting for an independent collector;
-        {{ data.policy.report.atCapacity }} waiting for capacity.
+        {{ data.policy.report.atCapacity }} waiting for capacity; {{ data.policy.report.noCalendarSlot || 0 }} waiting for a calendar slot.
 </p>
     </div>
+    <backcheck-planning :project-id="projectId" :can-manage="canConfigure"/>
     <p>
 Runs every five minutes. Enabling assigns open sampled cases to the configuring manager for review.
       Cases already owned by another reviewer and cases with any earlier backcheck are left alone.
@@ -64,6 +66,7 @@ Runs every five minutes. Enabling assigns open sampled cases to the configuring 
 <script setup>
 import { reactive, ref } from 'vue';
 import Spinner from '../spinner.vue';
+import BackcheckPlanning from './backcheck-planning.vue';
 import useRequest from '../../composables/request';
 
 defineOptions({ name: 'BackcheckAllocation' });
@@ -71,7 +74,7 @@ const props = defineProps({ projectId: { type: String, required: true }, xmlForm
 const { request, awaitingResponse: busy } = useRequest();
 const base = () => `/v1/projects/${props.projectId}/forms/${encodeURIComponent(props.xmlFormId)}/backcheck-allocation`;
 const data = ref(null); const error = ref(''); const saved = ref(false);
-const settings = reactive({ enabled: false, responseXmlFormId: '', question: '', dueDays: 14, maxPending: 5 });
+const settings = reactive({ enabled: false, responseXmlFormId: '', question: '', dueDays: 14, maxPending: 5, respectCalendar: false });
 const overrides = reactive({});
 const loadCollectors = () => request({ method: 'GET', url: `${base()}?responseXmlFormId=${encodeURIComponent(settings.responseXmlFormId)}`, alert: false })
   .then(({ data: answer }) => { data.value.collectors = answer.collectors; })
@@ -92,7 +95,7 @@ const save = () => {
   return request({
     method: 'PUT', url: base(), alert: false, data: {
       enabled: settings.enabled, responseXmlFormId: settings.responseXmlFormId, question: settings.question,
-      dueDays: settings.dueDays, maxPending: settings.maxPending,
+      dueDays: settings.dueDays, maxPending: settings.maxPending, respectCalendar: settings.respectCalendar,
       collectorLimits: Object.entries(overrides).filter(([, value]) => value !== '').map(([actorId, value]) => ({ actorId: Number(actorId), maxPending: Number(value) }))
     }
   }).then(({ data: answer }) => { apply(answer); saved.value = true; })

@@ -157,3 +157,24 @@ Revoked manager permission or unavailable source/response scope pauses the polic
 Correct the settings and re-enable it to resume. Unexpected write failures retry
 without partial case claims or requests. Route and calendar capacity planning
 remain future work; verify real inbox/push and field response delivery in the pilot.
+
+## Calendar availability and itinerary previews
+
+In Verification → Automatic independent assignment → Availability and route
+planning, select a project App User and save weekly UTC backcheck quotas and
+dated exceptions. Zero means unavailable. Then enable Respect calendar
+availability in the allocation policy. Missing calendars or full dates leave
+cases waiting; requested and linked visits consume the daily quota, and
+cancelled requests free it. Pending-work capacity limits still apply. Existing
+visits keep their dates after calendar edits; overbooking is flagged.
+
+The online and signed offline fieldwork inbox show the planned UTC visit date.
+For a manager itinerary preview, choose collector/date and starting coordinates.
+Only readable, current and integrity-verified pinned source locations are used.
+The first geopoint outside repeats is selected; missing/oversized/unverified
+sources and unavailable tasks are counted as exclusions. The preview is limited
+to 100 tasks; truncation and unknown or poor GPS accuracy require review.
+Download CSV to retain the proposed ordering and its warnings. Distances are
+straight-line great-circle distances with a return to start: review roads,
+travel time, access and safety separately. Preview/export do not dispatch or
+change visits. Road navigation and automatic route dispatch remain pending.
