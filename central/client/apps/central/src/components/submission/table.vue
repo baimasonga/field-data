@@ -103,6 +103,17 @@ defineExpose({ afterReview, afterDelete });
 </script>
 
 <style lang="scss">
+@media (max-width: 767px) {
+  #submission-table {
+    display: flex;
+    align-items: flex-start;
+    max-width: 100%;
+    overflow-x: auto;
+
+    .table-freeze-frozen { float: none; flex: 0 0 auto; }
+    .table-freeze-scrolling-container { flex: 0 0 auto; overflow: visible; }
+  }
+}
 @import '../../assets/scss/mixins';
 
 #submission-table {

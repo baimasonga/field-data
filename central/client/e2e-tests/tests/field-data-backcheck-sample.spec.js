@@ -27,7 +27,9 @@ const detail = { ...summary,
 const api = async (page, verbs, custom) => {
   const errors = [];
   page.on('pageerror', (error) => errors.push(error.message));
-  await page.addInitScript(() => localStorage.setItem('sessionExpires', String(Date.now() + 3600000)));
+  await page.addInitScript(() => {
+    if (window === window.top) localStorage.setItem('sessionExpires', String(Date.now() + 3600000));
+  });
   await page.route('**/client-config.json', (r) => r.fulfill({ json: {} }));
   await page.route('**/version.txt', (r) => r.fulfill({ body: 'fixture' }));
   await page.route('**/v1/**', async (route) => {
@@ -337,4 +339,37 @@ test('a viewer reads availability without calendar edits or route coordinates', 
   await expect(section).toContainText('Weekly visits, Sunday to Saturday: 0, 2, 2, 2, 2, 2, 0');
   await expect(section.getByRole('button', { name: 'Save calendar' })).toHaveCount(0);
   await expect(section.getByRole('button', { name: 'Preview itinerary' })).toHaveCount(0);
+});
+
+test('form navigation and submission pagination are readable at desktop and mobile widths', async ({ page: p }) => {
+  const errors = await api(p, managerVerbs, async (route, path) => {
+    if (path.endsWith('.svc/Submissions')) {
+      await route.fulfill({ json: { '@odata.count': 1, value: [{ __id: 'uuid:one', __system: {
+        submissionDate: '2026-10-13T12:00:00Z', submitterId: 1, submitterName: 'Fixture',
+        reviewState: null, edits: 0, attachmentsPresent: 0, attachmentsExpected: 0
+      } }] } }); return true;
+    }
+    return false;
+  });
+  await p.goto(`${appUrl}/projects/1/forms/household/submissions`);
+  const nav = p.locator('#form-subtabs');
+  await expect(nav).toHaveText('Submissions Summary Charts Photos Verification');
+  await expect(nav.getByRole('link', { name: 'Submissions', exact: true })).toHaveAttribute('aria-current', 'page');
+  const pagination = p.locator('.pagination');
+  await expect(pagination).toContainText('Row 1 of 1');
+  const select = pagination.locator('select');
+  await expect(select).toHaveValue('250');
+  for (const width of [1440, 390]) {
+    await p.setViewportSize({ width, height: 900 });
+    const links = await nav.locator('a').all();
+    for (const link of links) expect((await link.boundingBox()).height).toBeGreaterThanOrEqual(44);
+    expect((await select.boundingBox()).width).toBeGreaterThanOrEqual(70);
+    const label = await pagination.locator('label span').boundingBox();
+    const field = await select.boundingBox();
+    expect(field.x + field.width).toBeLessThanOrEqual(label.x);
+    expect(await p.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  }
+  await nav.getByRole('link', { name: 'Verification', exact: true }).click();
+  await expect(p).toHaveURL(/\/verification$/);
+  expect(errors).toEqual([]);
 });

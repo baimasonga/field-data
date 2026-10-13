@@ -21,6 +21,12 @@
   },
   "formHead": {
     "tab": {
+      "summary": "Summary",
+      "charts": "Charts",
+      "photos": "Photos",
+      "verification": "Verification",
+      "importCsv": "Import CSV",
+      "filteredData": "Filtered Data",
       "publicAccess": "Public Access",
       "versions": "Versions",
       "editForm": "Edit Form"
