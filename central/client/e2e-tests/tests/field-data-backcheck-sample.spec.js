@@ -528,3 +528,49 @@ test('projects can be searched without hiding verification entry points or break
   await expect(p.locator('#page-head-tabs').getByRole('link', { name: 'Verification & planning', exact: true })).toBeVisible();
   expect(errors).toEqual([]);
 });
+
+test('a manager saves UTC shift windows and previews using persistent visit-time assumptions', async ({ page: p }) => {
+  const weekly = Array.from({ length: 7 }, () => ({ start: '08:00', end: '09:30' }));
+  let settings = { weeklyCapacity: [2, 2, 2, 2, 2, 2, 2], weeklyShifts: weekly, visitMinutes: 45, exceptions: [] };
+  const saves = []; const queries = [];
+  const errors = await api(p, managerVerbs, async (route, path) => {
+    if (path.endsWith('/backcheck-calendars')) { await route.fulfill({ json: [{ id: 5, name: 'Checker', settings }] }); return true; }
+    if (path.endsWith('/backcheck-calendars/5')) {
+      settings = route.request().postDataJSON(); saves.push(settings);
+      await route.fulfill({ json: { id: 5, settings } }); return true;
+    }
+    if (path.endsWith('/backcheck-route')) {
+      queries.push(Object.fromEntries(new URL(route.request().url()).searchParams));
+      await route.fulfill({ json: { actor: { id: 5, name: 'Checker' }, date: '2026-10-15', capacity: 2, used: 1, unplanned: 0,
+        excluded: {}, uncertainLocations: 0, truncated: false, needsReview: false, start: { latitude: 8.48, longitude: -13.23 },
+        route: { stops: [], distanceKm: 0, returnKm: 0 }, road: { status: 'ok', distanceKm: 0, travelMinutes: 0, legs: [], maxSnapMeters: 0 },
+        timing: { visitMinutes: 45, dayMinutes: 90, totalMinutes: 0, shift: { start: '08:00', end: '09:30' }, overBudget: false } } }); return true;
+    }
+    return false;
+  });
+  await p.goto(`${appUrl}${page}`);
+  const section = p.locator('.backcheck-planning');
+  await section.getByLabel('Planning collector').selectOption('5');
+  await expect(section.getByLabel('Use saved UTC shift windows', { exact: true })).toBeChecked();
+  await expect(section.getByLabel('Expected minutes per visit')).toHaveValue('45');
+  await section.getByLabel('Wednesday shift end', { exact: true }).fill('07:00');
+  await section.getByRole('button', { name: 'Save calendar', exact: true }).click();
+  await expect(section.getByRole('alert')).toContainText('must end after it starts');
+  expect(saves).toHaveLength(0);
+  await section.getByLabel('Wednesday shift end', { exact: true }).fill('09:30');
+  await section.getByRole('button', { name: 'Add dated exception' }).click();
+  await section.getByLabel('Exception date', { exact: true }).fill('2026-10-16');
+  await section.getByLabel('Exception shift', { exact: true }).selectOption('closed');
+  await section.getByRole('button', { name: 'Save calendar', exact: true }).click();
+  await expect(section).toContainText('Calendar saved.');
+  expect(saves[0]).toEqual({ weeklyCapacity: [2, 2, 2, 2, 2, 2, 2], weeklyShifts: weekly, visitMinutes: 45,
+    exceptions: [{ date: '2026-10-16', maxVisits: 0, shift: null }] });
+  await section.getByLabel('Route date').fill('2026-10-15');
+  await section.getByLabel('Start latitude').fill('8.48'); await section.getByLabel('Start longitude').fill('-13.23');
+  await section.getByRole('button', { name: 'Preview itinerary' }).click();
+  await expect(section).toContainText('Saved UTC shift: 08:00–09:30');
+  expect(queries[0]).toEqual({ actorId: '5', date: '2026-10-15', startLat: '8.48', startLon: '-13.23' });
+  await p.setViewportSize({ width: 390, height: 900 });
+  expect(await p.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  expect(errors).toEqual([]);
+});

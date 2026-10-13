@@ -1,5 +1,5 @@
 require('should');
-const { validDate, validateCalendar, quotaOn, slotFor, chooseDated } = require('../../../lib/util/backcheck-calendar');
+const { validDate, validateCalendar, quotaOn, slotFor, chooseDated, shiftOn } = require('../../../lib/util/backcheck-calendar');
 const { distanceKm, itinerary } = require('../../../lib/util/backcheck-route');
 describe('(util) calendar and route planning', () => {
   it('validates weekly quotas, real dates and unique bounded exceptions', () => {
@@ -41,4 +41,26 @@ describe('(util) calendar and route planning', () => {
     distanceKm(start, start).should.equal(0);
     itinerary(start, [{ id: 'b', location: start }, { id: 'a', location: start }]).stops.map(s => s.id).should.eql(['a', 'b']);
   });
+  it('validates optional UTC shifts, visit duration and dated window overrides', () => {
+    const body = { weeklyCapacity: [2, 2, 2, 2, 2, 2, 2], weeklyShifts: Array(7).fill({ start: '08:00', end: '17:00' }), visitMinutes: 45,
+      exceptions: [{ date: '2026-10-14', maxVisits: 2, shift: { start: '10:00', end: '11:30' } }] };
+    const calendar = validateCalendar(body);
+    shiftOn(calendar, '2026-10-14').should.eql({ start: '10:00', end: '11:30', startAt: '2026-10-14T10:00:00.000Z', endAt: '2026-10-14T11:30:00.000Z', minutes: 90 });
+    for (const bad of [{ ...body, visitMinutes: 0 }, { ...body, visitMinutes: 481 }, { ...body, weeklyShifts: [] },
+      { ...body, weeklyShifts: Array(7).fill({ start: '22:00', end: '06:00' }) }, { ...body, weeklyShifts: Array(7).fill({ start: '25:00', end: '26:00' }) },
+      { ...body, weeklyShifts: undefined }, { ...body, exceptions: [{ date: '2026-10-14', maxVisits: 2, shift: { start: '08:00', end: '08:00' } }] }])
+      (validateCalendar(bad) == null).should.be.true();
+    (shiftOn({ weeklyCapacity: body.weeklyCapacity, exceptions: [] }, '2026-10-14') === undefined).should.be.true();
+  });
+  it('skips ended and closed shifts and bounds minimum visit time by the actual due instant', () => {
+    const calendar = { weeklyCapacity: [10, 10, 10, 10, 10, 10, 10], weeklyShifts: Array(7).fill({ start: '08:00', end: '10:00' }), visitMinutes: 30, exceptions: [] };
+    const now = new Date('2026-10-14T09:15:00Z');
+    slotFor(1, calendar, new Map(), now, new Date('2026-10-14T10:00:00Z')).should.equal('2026-10-14');
+    (slotFor(1, calendar, new Map([['1|2026-10-14', 1]]), now, new Date('2026-10-14T10:00:00Z')) == null).should.be.true();
+    slotFor(1, calendar, new Map(), new Date('2026-10-14T12:00:00Z'), new Date('2026-10-16T12:00:00Z')).should.equal('2026-10-15');
+    calendar.exceptions = [{ date: '2026-10-15', maxVisits: 10, shift: null }];
+    slotFor(1, calendar, new Map(), new Date('2026-10-14T12:00:00Z'), new Date('2026-10-16T12:00:00Z')).should.equal('2026-10-16');
+    (slotFor(1, calendar, new Map(), new Date('2026-10-14T12:00:00Z'), new Date('2026-10-16T08:20:00Z')) == null).should.be.true();
+  });
+
 });

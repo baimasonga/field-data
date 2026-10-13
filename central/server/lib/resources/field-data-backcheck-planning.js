@@ -2,7 +2,7 @@
 const { sql } = require('slonik');
 const { getOrNotFound } = require('../util/promise');
 const Problem = require('../util/problem');
-const { validDate, validateCalendar, quotaOn } = require('../util/backcheck-calendar');
+const { validDate, validateCalendar, quotaOn, shiftOn } = require('../util/backcheck-calendar');
 const { itinerary } = require('../util/backcheck-route');
 const { roadEstimate } = require('../util/backcheck-road');
 const { parseGeopoint } = require('../util/fieldwork-integrity');
@@ -58,10 +58,10 @@ module.exports = (service, endpoint) => {
     if (!validDate(query.date) || typeof query.startLat !== 'string' || !query.startLat.trim()
       || typeof query.startLon !== 'string' || !query.startLon.trim()) throw invalid();
     const start = { latitude: Number(query.startLat), longitude: Number(query.startLon) };
-    const visitMinutes = query.visitMinutes == null ? 30 : Number(query.visitMinutes);
-    const dayMinutes = query.dayMinutes == null ? 480 : Number(query.dayMinutes);
-    if (!Number.isInteger(visitMinutes) || visitMinutes < 1 || visitMinutes > 480
-      || !Number.isInteger(dayMinutes) || dayMinutes < 1 || dayMinutes > 1440) throw invalid();
+    const visitOverride = query.visitMinutes == null ? null : Number(query.visitMinutes);
+    const dayOverride = query.dayMinutes == null ? null : Number(query.dayMinutes);
+    if ((visitOverride != null && (!Number.isInteger(visitOverride) || visitOverride < 1 || visitOverride > 480))
+      || (dayOverride != null && (!Number.isInteger(dayOverride) || dayOverride < 1 || dayOverride > 1440))) throw invalid();
     if (!Number.isFinite(start.latitude) || Math.abs(start.latitude) > 90 || !Number.isFinite(start.longitude) || Math.abs(start.longitude) > 180) throw invalid();
     response.set('Cache-Control', 'private, no-store');
     const rows = await container.db.any(sql`SELECT b.id, b."caseId", b.question, s."instanceId", sf."xmlFormId", sf."acteeId" AS "sourceActee",
@@ -109,13 +109,21 @@ module.exports = (service, endpoint) => {
     const capacity = quotaOn(calendar?.settings, query.date);
     const truncated = rows.length > 0 && Number(rows[0].total) > rows.length;
     const omitted = Object.values(excluded).reduce((sum, n) => sum + n, 0);
+    const shift = shiftOn(calendar?.settings, query.date);
+    const visitMinutes = visitOverride ?? calendar?.settings?.visitMinutes ?? 30;
+    const at = Date.now();
+    const shiftBudgetMinutes = shift === undefined ? null : shift === null ? 0
+      : Math.max(0, Math.floor((Date.parse(shift.endAt) - Math.max(Date.parse(shift.startAt), at)) / 60000));
+    const dayMinutes = shiftBudgetMinutes == null ? dayOverride ?? 480 : Math.min(dayOverride ?? shiftBudgetMinutes, shiftBudgetMinutes);
+    const expiredShift = shift != null && Date.parse(shift.endAt) <= at;
     const route = itinerary(start, visits);
     const road = await roadEstimate(start, route.stops);
     const totalMinutes = road.status === 'ok' ? Math.ceil(road.travelMinutes + visits.length * visitMinutes) : null;
-    const timing = { visitMinutes, dayMinutes, totalMinutes, overBudget: totalMinutes == null ? null : totalMinutes > dayMinutes };
+    const timing = { visitMinutes, dayMinutes, shiftBudgetMinutes, totalMinutes, shift: shift ?? null, shiftUnavailable: shift === null, expiredShift,
+      previewOverrides: visitOverride != null || dayOverride != null, overBudget: totalMinutes == null ? null : totalMinutes > dayMinutes };
     return { actor, date: query.date, start, capacity, used, unplanned, excluded, uncertainLocations, truncated,
       needsReview: project.archived === true || unplanned > 0 || omitted > 0 || truncated || capacity == null || used > capacity || uncertainLocations > 0
-        || road.status !== 'ok' || road.maxSnapMeters > 100 || timing.overBudget === true,
+        || shift === null || expiredShift || road.status !== 'ok' || road.maxSnapMeters > 100 || timing.overBudget === true,
       method: 'nearest-next-stop, great-circle distance, return to start', route, road, timing };
   }));
 };
