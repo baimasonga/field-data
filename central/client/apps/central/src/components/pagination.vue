@@ -169,6 +169,8 @@ const sizeModel = computed({
     width: 100%;
     align-items: center;
     display: flex;
+    flex-wrap: wrap;
+    row-gap: 8px;
     border-radius: 5px;
     margin-bottom: 0;
     padding: 6px 10px;
@@ -177,7 +179,8 @@ const sizeModel = computed({
   .form-control {
     height: auto;
     padding: 2px;
-    padding-right: 0;
+    min-width: 70px;
+    padding-right: 22px;
     vertical-align: baseline;
   }
   .form-group .form-control { background-color: #fff; }
@@ -190,6 +193,13 @@ const sizeModel = computed({
     margin-left: 21px;
 
     .form-control { margin-right: 5px; }
+  }
+
+  label.form-group {
+    display: inline-flex;
+    align-items: center;
+    margin-bottom: 0;
+    white-space: nowrap;
   }
 
   .spinner { margin-left: 7px; }

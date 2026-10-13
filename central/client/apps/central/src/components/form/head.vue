@@ -58,6 +58,7 @@ except according to the terms contained in the LICENSE file.
       :aria-label="$t('subnav.label')">
       <router-link v-for="view in subtabs" :key="view.path" :to="tabPath(view.path)"
         :class="{ active: $route.path === tabPath(view.path), disabled: view.disabled }"
+        :aria-current="$route.path === tabPath(view.path) ? 'page' : null"
         v-tooltip.aria-describedby="view.disabled ? formTabDescription : null">
         {{ view.label }}
         <span v-if="view.path === 'draft'" class="icon-pencil" aria-hidden="true"></span>
@@ -227,6 +228,32 @@ export default {
 };
 </script>
 
+<style lang="scss">
+@import '../../assets/scss/variables';
+
+#form-subtabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 12px 15px;
+  border-bottom: 1px solid #e6edee;
+
+  a {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+    padding: 8px 14px;
+    border-radius: 6px;
+    color: $color-text;
+    text-decoration: none;
+
+    &:hover { background: #eaf3f5; }
+    &:focus-visible { outline: 2px solid $color-accent-primary; outline-offset: 2px; }
+    &.active { background: #d9edf1; color: $color-accent-primary; font-weight: 700; }
+    &.disabled { color: #707d82; }
+  }
+}
+</style>
 
 
 <i18n lang="json5">

@@ -39,6 +39,30 @@
   },
   "formHead": {
     "tab": {
+      "summary": {
+        "string": "Summary",
+        "developer_comment": "This is the text of a navigation tab, which may also be shown as the page title (browser tab)."
+      },
+      "charts": {
+        "string": "Charts",
+        "developer_comment": "This is the text of a navigation tab, which may also be shown as the page title (browser tab)."
+      },
+      "photos": {
+        "string": "Photos",
+        "developer_comment": "This is the text of a navigation tab, which may also be shown as the page title (browser tab)."
+      },
+      "verification": {
+        "string": "Verification",
+        "developer_comment": "This is the text of a navigation tab, which may also be shown as the page title (browser tab)."
+      },
+      "importCsv": {
+        "string": "Import CSV",
+        "developer_comment": "This is the text of a navigation tab, which may also be shown as the page title (browser tab)."
+      },
+      "filteredData": {
+        "string": "Filtered Data",
+        "developer_comment": "This is the text of a navigation tab, which may also be shown as the page title (browser tab)."
+      },
       "publicAccess": {
         "string": "Public Access",
         "developer_comment": "This is the text of a navigation tab, which may also be shown as the page title (browser tab)."
