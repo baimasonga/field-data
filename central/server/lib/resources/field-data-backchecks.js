@@ -10,6 +10,7 @@ const Problem = require('../util/problem');
 const { answers, compareAnswers, compareMappedAnswers, validatePairs, MAX_BYTES } = require('../util/backcheck-comparison');
 const { trackReviewWrite, observeReviewConflicts } = require('../util/review-conflicts');
 const { suggest } = require('../util/backcheck-allocation');
+const { requestBackcheck } = require('../util/backcheck-request');
 
 const scopeFor = async (container, auth, caseId, edit = false) => {
   if (!UUID_PATTERN.test(caseId)) throw Problem.user.notFound();
@@ -304,57 +305,11 @@ module.exports = (service, endpoint) => {
     const requestHash = hash({ assignedTo: body.assignedTo, question, dueAt,
       ...(body.responseXmlFormId == null ? {} : { responseXmlFormId: body.responseXmlFormId }) });
     const result = await trackReviewWrite({ caseId: params.caseId, actorId: reviewerId,
-      formActeeId: form.acteeId }, 'backcheck-request', () => container.transacting(async (tx) => {
-      const [locked] = await tx.db.any(sql`SELECT c.revision, c.status, c."assignedTo",
-        sd.current, s."submitterId" AS "originalSubmitterId"
-        FROM field_data_review_cases c
-        JOIN field_data_claim_versions v ON v.id = c."claimVersionId"
-        JOIN submission_defs sd ON sd.id = v."submissionDefId"
-        JOIN submissions s ON s.id = sd."submissionId"
-        WHERE c.id = ${params.caseId} FOR UPDATE OF c`);
-      if (locked == null) throw Problem.user.notFound();
-      const [existing] = await tx.db.any(sql`SELECT id, status, "requestHash" FROM field_data_backchecks
-        WHERE "caseId" = ${params.caseId} AND "requestId" = ${body.requestId}`);
-      if (existing != null) {
-        if (existing.requestHash !== requestHash) throw Problem.user.reviewAssignmentInvalid();
-        return { id: existing.id, status: existing.status, revision: locked.revision, replayed: true };
-      }
-      if (locked.revision !== revision) throw Problem.user.reviewRevisionStale();
-      if (locked.status !== 'in-review' || locked.assignedTo !== reviewerId || !locked.current)
-        throw Problem.user.reviewCaseClosed();
-      if (body.assignedTo === locked.originalSubmitterId)
-        throw Problem.user.reviewAssignmentInvalid();
-      const eligibleForm = await tx.db.any(sql`SELECT id FROM forms
-        WHERE id = ${responseForm.id} AND "deletedAt" IS NULL
-          AND "currentDefId" IS NOT NULL AND state = 'open'`);
-      if (eligibleForm.length === 0) throw Problem.user.reviewAssignmentInvalid();
-      const assignee = await tx.db.any(sql`SELECT 1 FROM field_keys fk
-        JOIN actors a ON a.id = fk."actorId" AND a."deletedAt" IS NULL
-        JOIN assignments ass ON ass."actorId" = a.id AND ass."acteeId" = ${responseForm.acteeId}
-        JOIN roles r ON r.id = ass."roleId" AND r.verbs ? 'submission.create'
-        WHERE fk."projectId" = ${claim.scope.projectId}
-          AND fk."actorId" = ${body.assignedTo} LIMIT 1`);
-      if (assignee.length === 0) throw Problem.user.reviewAssignmentInvalid();
-      const pending = await tx.db.any(sql`SELECT id FROM field_data_backchecks
-        WHERE "caseId" = ${params.caseId} AND status = 'requested' LIMIT 1`);
-      if (pending.length > 0) throw Problem.user.reviewCaseClosed();
-      const inserted = await tx.db.one(sql`INSERT INTO field_data_backchecks
-        ("caseId", "claimVersionId", "requestId", "requestHash", "requestedBy",
-          "assignedTo", question, "dueAt", "responseFormId")
-        VALUES (${params.caseId}, ${reviewCase.claimVersionId}, ${body.requestId},
-          ${requestHash}, ${reviewerId}, ${body.assignedTo}, ${question}, ${dueAt}, ${responseForm.id})
-        RETURNING id`);
-      await tx.db.query(sql`UPDATE field_data_review_cases
-        SET revision = revision + 1, "updatedAt" = clock_timestamp()
-        WHERE id = ${params.caseId}`);
-      await tx.db.query(sql`INSERT INTO audits ("actorId", action, "acteeId", details,
-        "loggedAt", processed, failures)
-        VALUES (${reviewerId}, 'field_data.backcheck.request', ${form.acteeId},
-          ${JSON.stringify({ caseId: params.caseId, backcheckId: inserted.id,
-    claimVersionId: reviewCase.claimVersionId, assignedTo: body.assignedTo, responseFormId: responseForm.id })},
-          clock_timestamp(), NULL, 0)`);
-      return { id: inserted.id, status: 'requested', revision: locked.revision + 1, replayed: false };
-    }));
+      formActeeId: form.acteeId }, 'backcheck-request', () => container.transacting(async (tx) => requestBackcheck(tx.db, {
+      caseId: params.caseId, claimVersionId: reviewCase.claimVersionId, projectId: claim.scope.projectId,
+      formActeeId: form.acteeId, responseForm, reviewerId, revision, requestId: body.requestId,
+      requestHash, assignedTo: body.assignedTo, question, dueAt
+    })));
     response.set('ETag', `"review-case-${result.revision}"`);
     response.set('Cache-Control', 'private, no-store');
     response.set('Idempotency-Status', result.replayed ? 'replayed' : 'created');
@@ -473,3 +428,5 @@ module.exports = (service, endpoint) => {
     return { id: params.backcheckId, status: 'linked', revision: result.revision };
   })));
 };
+
+module.exports.assigneesFor = assigneesFor;

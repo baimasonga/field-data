@@ -93,8 +93,12 @@ also exist. Those features must not be re-labelled as full completion of this pr
 - Backcheck workload (O4, first workload-balancing slice): the backcheck
   request form shows each eligible App User's open and overdue backchecks,
   marks the original collector unavailable and preselects the least loaded:
-  merged in PR #73. Distance, capacity and automatic
-  assignment remain pending.
+  merged in PR #73. Automatic independent allocation and pending-work
+  capacity limits (O7): opt-in per source form, with response-form choice,
+  instructions, due interval, collector overrides, permission rechecks,
+  atomic retry, manual-request capacity counts and a rotating queue:
+  implemented and locally validated. Distance, route and calendar capacity
+  planning remain pending.
 - Static survey doctor (S1, first adaptive-surveys slice): checks of a form
   definition for unknown references, cycles, never-shown questions, impossible
   constraints and choice-list problems, on the Draft page and in the publish
