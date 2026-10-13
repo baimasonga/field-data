@@ -1,5 +1,5 @@
 require('should');
-const { roadEstimate } = require('../../../lib/util/backcheck-road');
+const { roadEstimate, roadOrder } = require('../../../lib/util/backcheck-road');
 describe('(util) operator-controlled road estimates', () => {
   const start = { latitude: 8, longitude: -13 };
   const stops = [{ location: { latitude: 9, longitude: -12 } }];
@@ -32,7 +32,7 @@ describe('(util) operator-controlled road estimates', () => {
   });
   it('handles empty itineraries without a request and bounds stops', async () => {
     (await roadEstimate(start, [], options(null))).travelMinutes.should.equal(0);
-    (await roadEstimate(start, Array(101).fill(stops[0]), options(null))).status.should.equal('tooManyStops');
+    (await roadEstimate(start, Array(99).fill(stops[0]), options(null))).status.should.equal('tooManyStops');
   });
   it('aborts a stalled provider after the deadline', async function () {
     this.timeout(7000);
@@ -41,6 +41,23 @@ describe('(util) operator-controlled road estimates', () => {
         signal.addEventListener('abort', () => reject(new Error('aborted')), { once: true });
       }) });
     result.should.eql({ status: 'timeout' });
+  });
+
+  it('validates a fixed-depot road trip permutation and maps legs to the returned order', async () => {
+    const visits = [stops[0], { location: { latitude: 10, longitude: -11 } }];
+    const trip = { code: 'Ok', trips: [{ distance: 4000, duration: 900, legs: Array(3).fill({ distance: 1000, duration: 300 }) }],
+      waypoints: [{ distance: 0, trips_index: 0, waypoint_index: 0 }, { distance: 12, trips_index: 0, waypoint_index: 2 }, { distance: 15, trips_index: 0, waypoint_index: 1 }] };
+    const result = await roadOrder(start, visits, { baseUrl: 'https://routing.example/osrm', fetcher: async (url, opts) => {
+      url.pathname.should.equal('/osrm/trip/v1/driving/-13,8;-12,9;-11,10');
+      url.searchParams.get('source').should.equal('first'); url.searchParams.get('roundtrip').should.equal('true'); opts.redirect.should.equal('error');
+      return new Response(JSON.stringify(trip));
+    } });
+    result.order.should.eql([1, 0]); result.legs.length.should.equal(3); result.travelMinutes.should.equal(15);
+    for (const waypoints of [trip.waypoints.map(w => ({ ...w, waypoint_index: 0 })), trip.waypoints.map(w => ({ ...w, trips_index: 1 })),
+      trip.waypoints.map((w, i) => ({ ...w, waypoint_index: i === 0 ? 1 : i === 2 ? 0 : 2 }))])
+      (await roadOrder(start, visits, options({ ...trip, waypoints }))).status.should.equal('invalidResponse'); // eslint-disable-line no-await-in-loop
+    (await roadOrder(start, visits, options({ code: 'NoTrips' }))).status.should.equal('unreachable');
+    (await roadOrder(start, [], options(null))).order.should.eql([]);
   });
 
 });

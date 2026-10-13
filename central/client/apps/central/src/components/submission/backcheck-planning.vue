@@ -63,6 +63,7 @@
       <form v-if="canManage" class="route-form" @submit.prevent="preview">
         <h4>Visit itinerary preview</h4>
         <p>Suggested stop order and straight-line distance, returning to the start. Review roads, travel time, access and safety separately.</p>
+        <label>Stop order <select v-model="stopOrder" aria-label="Stop order" class="form-control"><option value="straight">Straight-line suggestion</option><option value="road">Road-aware suggestion</option></select></label>
         <label>Route date (UTC) <input v-model="date" type="date" required class="form-control"></label>
         <label>Start latitude <input v-model.number="startLat" type="number" min="-90" max="90" step="any" required class="form-control"></label>
         <label>Start longitude <input v-model.number="startLon" type="number" min="-180" max="180" step="any" required class="form-control"></label>
@@ -84,6 +85,8 @@
 Review required: {{ plan.truncated ? 'the task list was truncated; ' : '' }}{{ omitted }} excluded tasks;
           {{ plan.uncertainLocations }} uncertain locations. Check capacity, missing locations and access before fieldwork.
 </p>
+        <p v-if="plan.ordering?.applied === 'road'">Road-aware order suggested by the approved routing service. This is a heuristic, not guaranteed optimal; review access and safety.</p>
+        <p v-else-if="plan.ordering?.requested === 'road'" role="status">Road-aware ordering unavailable ({{ plan.ordering.status }}). Showing the straight-line suggestion; driving time remains unknown.</p>
         <p v-if="plan.capacity != null && plan.used > plan.capacity">This day is over capacity. Calendar edits do not reschedule existing visits.</p>
         <p v-if="plan.timing?.shift">Saved UTC shift: {{ plan.timing.shift.start }}–{{ plan.timing.shift.end }} · {{ plan.timing.dayMinutes }} minutes budget.</p>
         <p v-if="plan.timing?.shiftUnavailable" role="status">This date has no available shift. Reschedule before fieldwork.</p>
@@ -134,6 +137,7 @@ const configured = ref(false); const saved = ref(false); const error = ref(''); 
 const date = ref(new Date().toISOString().slice(0, 10)); const startLat = ref(''); const startLon = ref('');
 const useShifts = ref(false); const weeklyShifts = ref(Array.from({ length: 7 }, () => ({ start: '08:00', end: '17:00' })));
 const shiftAvailable = ref(Array(7).fill(true)); const expectedVisitMinutes = ref(30); const useSavedTiming = ref(false);
+const stopOrder = ref('straight');
 const visitMinutes = ref(30); const dayMinutes = ref(480);
 const weekdays = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 const reasons = {
@@ -185,7 +189,7 @@ const preview = () => {
   error.value = ''; plan.value = null;
   return request({
     method: 'GET', url: `${base()}/backcheck-route?${new URLSearchParams({
-      actorId: actorId.value,
+      actorId: actorId.value, ...(stopOrder.value === 'road' ? { order: 'road' } : {}),
       date: date.value, startLat: String(startLat.value), startLon: String(startLon.value),
       ...(useSavedTiming.value ? {} : { visitMinutes: String(visitMinutes.value), dayMinutes: String(dayMinutes.value) })
     })}`, alert: false
@@ -203,7 +207,8 @@ const download = () => {
       plan.value.road?.legs?.[s.order - 1]?.distanceKm, plan.value.road?.legs?.[s.order - 1]?.travelMinutes]),
     ['Starting latitude', plan.value.start?.latitude ?? startLat.value], ['Starting longitude', plan.value.start?.longitude ?? startLon.value],
     ['Return to start (km)', plan.value.route.returnKm], ['Total straight-line km', plan.value.route.distanceKm],
-    ['Road estimate status', plan.value.road?.status ?? 'unknown'], ['Road distance km', plan.value.road?.distanceKm],
+    ['Stop-order method', plan.value.method], ['Requested stop order', plan.value.ordering?.requested ?? 'straight'],
+    ['Applied stop order', plan.value.ordering?.applied ?? 'straight'], ['Road estimate status', plan.value.road?.status ?? 'unknown'], ['Road distance km', plan.value.road?.distanceKm],
     ['Driving minutes including return', plan.value.road?.travelMinutes], ['Maximum road snap distance metres', plan.value.road?.maxSnapMeters],
     ['UTC shift start', plan.value.timing?.shift?.start], ['UTC shift end', plan.value.timing?.shift?.end],
     ['Shift unavailable', plan.value.timing?.shiftUnavailable], ['Shift ended', plan.value.timing?.expiredShift], ['Preview time overrides', plan.value.timing?.previewOverrides],

@@ -191,4 +191,33 @@ describe('api: calendar availability and route planning', () => {
     assert.equal(expired.timing.shiftBudgetMinutes, 0); assert.equal(expired.needsReview, true);
   }));
 
+  it('uses validated road stop ordering and explicitly falls back when the provider fails', testService(async (service, c) => {
+    const { alice, users } = await setup(service, true, 2);
+    await calendar(alice, users[1], [2, 2, 2, 2, 2, 2, 2]); await runAllocations(c.db, now);
+    const originalFetch = global.fetch; const originalUrl = process.env.FIELD_DATA_OSRM_URL;
+    process.env.FIELD_DATA_OSRM_URL = 'https://routing.example';
+    let calls = 0;
+    global.fetch = async (url) => {
+      calls += 1; assert.ok(url.pathname.startsWith('/trip/v1/driving/')); assert.equal(url.pathname.includes('visit'), false);
+      return new Response(JSON.stringify({ code: 'Ok', trips: [{ distance: 2000, duration: 1800, legs: Array(3).fill({ distance: 500, duration: 600 }) }],
+        waypoints: [{ distance: 0, trips_index: 0, waypoint_index: 0 }, { distance: 0, trips_index: 0, waypoint_index: 2 }, { distance: 0, trips_index: 0, waypoint_index: 1 }] }));
+    };
+    const url = `${root}/backcheck-route?actorId=${users[1].id}&date=2026-10-14&startLat=8.48&startLon=-13.23&order=road`;
+    try {
+      const result = (await alice.get(url).expect(200)).body;
+      assert.equal(result.ordering.applied, 'road'); assert.deepEqual(result.route.stops.map(s => s.instanceId), ['visit1', 'visit0']);
+      assert.deepEqual(result.route.stops.map(s => s.order), [1, 2]); assert.equal(result.road.legs.length, 3);
+      assert.equal(result.timing.totalMinutes, 90);
+      await alice.get(url.replace('order=road', 'order=invalid')).expect(400); assert.equal(calls, 1);
+      global.fetch = async () => { throw new Error('private upstream failure'); };
+      const fallback = (await alice.get(url).expect(200)).body;
+      assert.equal(fallback.ordering.applied, 'straight'); assert.equal(fallback.ordering.status, 'unavailable');
+      assert.deepEqual(fallback.route.stops.map(s => s.instanceId), ['visit0', 'visit1']);
+      assert.equal(fallback.timing.totalMinutes, null); assert.equal(fallback.needsReview, true);
+    } finally {
+      global.fetch = originalFetch;
+      if (originalUrl == null) delete process.env.FIELD_DATA_OSRM_URL; else process.env.FIELD_DATA_OSRM_URL = originalUrl;
+    }
+  }));
+
 });

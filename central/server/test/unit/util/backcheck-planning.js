@@ -1,6 +1,6 @@
 require('should');
 const { validDate, validateCalendar, quotaOn, slotFor, chooseDated, shiftOn } = require('../../../lib/util/backcheck-calendar');
-const { distanceKm, itinerary } = require('../../../lib/util/backcheck-route');
+const { distanceKm, itinerary, orderedItinerary } = require('../../../lib/util/backcheck-route');
 describe('(util) calendar and route planning', () => {
   it('validates weekly quotas, real dates and unique bounded exceptions', () => {
     validDate('2028-02-29').should.be.true(); validDate('2026-02-29').should.be.false();
@@ -36,6 +36,10 @@ describe('(util) calendar and route planning', () => {
     plan.stops.map(s => s.id).should.eql(['a', 'b']);
     plan.distanceKm.should.be.approximately(438, 2);
     itinerary(start, [...visits].reverse()).should.eql(plan);
+    const ordered = orderedItinerary(start, visits);
+    ordered.stops.map(s => s.id).should.eql(['b', 'a']);
+    ordered.stops.map(s => s.order).should.eql([1, 2]);
+    ordered.distanceKm.should.be.approximately(438, 2);
     itinerary(start, []).should.eql({ stops: [], distanceKm: 0, returnKm: 0 });
     distanceKm({ latitude: 0, longitude: 179 }, { latitude: 0, longitude: -179 }).should.be.approximately(222.4, 0.1);
     distanceKm(start, start).should.equal(0);

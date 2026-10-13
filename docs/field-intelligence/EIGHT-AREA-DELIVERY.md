@@ -107,8 +107,8 @@ also exist. Those features must not be re-labelled as full completion of this pr
   budget warnings; live provider acceptance remains pending. Persisted UTC
   shift windows and visit-time planning (O10) add weekday/date overrides,
   closed/expired-window handling, conservative allocation time limits and
-  saved preview assumptions: implemented and locally validated. Road
-  navigation, overnight shifts, travel-time optimization,
+  saved preview assumptions: implemented and merged in PR #96. Road
+  navigation, overnight shifts, reviewed route dispatch,
   automatic route dispatch and planning for other task types remain pending.
 - Static survey doctor (S1, first adaptive-surveys slice): checks of a form
   definition for unknown references, cycles, never-shown questions, impossible
@@ -189,3 +189,9 @@ limits, failure recovery and CI results. Retain separate states for implemented,
 locally tested, CI tested, externally accepted and pending. Each deliverable must
 have a concrete contract before code. No pillar is done until its acceptance
 column has supporting evidence.
+
+### O11 road-aware ordering
+
+Optional fixed-depot road trip suggestions are implemented locally, with complete
+permutation validation, explicit fallback, unknown-time preservation, CSV method
+metadata and focused server/API/browser tests. See [O11-road-stop-order.md](O11-road-stop-order.md). Live provider acceptance, persisted dispatch and navigation remain pending.
