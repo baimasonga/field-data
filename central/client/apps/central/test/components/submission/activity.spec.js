@@ -51,7 +51,9 @@ describe('SubmissionActivity', () => {
       { url: '/v1/projects/1/forms/a%20b/fields' },
       { url: "/v1/projects/1/forms/a%20b/submissions/'c%20d'/audits", extended: true },
       { url: "/v1/projects/1/forms/a%20b/submissions/'c%20d'/comments", extended: true },
-      { url: "/v1/projects/1/forms/a%20b/submissions/'c%20d'/diffs" }
+      { url: "/v1/projects/1/forms/a%20b/submissions/'c%20d'/diffs" },
+      { url: "/v1/projects/1/forms/a%20b/submissions/'c%20d'/claim" },
+      { url: ({ pathname }) => pathname.should.match(/claim-versions.*evidence/) }
     ]);
   });
 

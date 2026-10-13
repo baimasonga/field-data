@@ -16,10 +16,6 @@ except according to the terms contained in the LICENSE file.
       <loading :state="initiallyLoading"/>
       <dl v-if="dataExists">
         <div>
-          <dt>{{ $t('header.instanceId') }}</dt>
-          <dd><span v-tooltip.text>{{ submission.__id }}</span></dd>
-        </div>
-        <div>
           <dt>{{ $t('header.submitterName') }}</dt>
           <dd>
             <span v-tooltip.text>{{ submission.__system.submitterName }}</span>
@@ -27,7 +23,7 @@ except according to the terms contained in the LICENSE file.
         </div>
         <div>
           <dt>{{ $t('header.submissionDate') }}</dt>
-          <dd><date-time :iso="submission.__system.submissionDate"/></dd>
+          <dd><record-date-time :iso="submission.__system.submissionDate"/></dd>
         </div>
         <div>
           <dt>{{ $t('common.reviewState') }}</dt>
@@ -41,6 +37,24 @@ except according to the terms contained in the LICENSE file.
             <form-version-string :version="submission.__system.formVersion"/>
           </dd>
         </div>
+        <div v-if="submission.__system.attachmentsExpected !== 0">
+          <dt>{{ $t('attachments') }}</dt>
+          <dd>
+            <span>{{ attachments }}</span>
+            <template v-if="missingAttachment">
+              <span class="icon-exclamation-triangle"></span>
+              <span>{{ $t('submission.missingAttachment') }}</span>
+            </template>
+          </dd>
+        </div>
+      </dl>
+      <details v-if="dataExists" class="record-technical">
+        <summary>Technical details</summary>
+        <dl>
+<div>
+          <dt>{{ $t('header.instanceId') }}</dt>
+          <dd><span v-tooltip.text>{{ submission.__id }}</span></dd>
+        </div>
         <div v-if="submission.__system.deviceId != null">
           <dt>{{ $t('deviceId') }}</dt>
           <dd>
@@ -53,23 +67,14 @@ except according to the terms contained in the LICENSE file.
             {{ submissionVersion.userAgent }}
           </dd>
         </div>
-        <div v-if="submission.__system.attachmentsExpected !== 0">
-          <dt>{{ $t('attachments') }}</dt>
-          <dd>
-            <span>{{ attachments }}</span>
-            <template v-if="missingAttachment">
-              <span class="icon-exclamation-triangle"></span>
-              <span>{{ $t('submission.missingAttachment') }}</span>
-            </template>
-          </dd>
-        </div>
-      </dl>
+</dl>
+      </details>
     </template>
   </page-section>
 </template>
 
 <script>
-import DateTime from '../date-time.vue';
+import RecordDateTime from '../record-date-time.vue';
 import FormVersionString from '../form-version/string.vue';
 import Loading from '../loading.vue';
 import PageSection from '../page/section.vue';
@@ -80,7 +85,7 @@ import { useRequestData } from '../../request-data';
 export default {
   name: 'SubmissionBasicDetails',
   components: {
-    DateTime,
+    RecordDateTime,
     FormVersionString,
     Loading,
     PageSection,
@@ -121,7 +126,8 @@ export default {
 
   margin-bottom: 35px;
 
-  dd { @include text-overflow-ellipsis; }
+  dd { white-space: normal; overflow-wrap: anywhere; }
+  summary { cursor: pointer; padding: 14px 0; font-weight: 600; }
   #submission-basic-details-user-agent { white-space: normal; }
 
   .icon-exclamation-triangle {

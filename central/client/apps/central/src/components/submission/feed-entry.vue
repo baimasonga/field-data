@@ -10,7 +10,7 @@ including this file, may be copied, modified, propagated, or distributed
 except according to the terms contained in the LICENSE file.
 -->
 <template>
-  <feed-entry :iso="entry.loggedAt ?? entry.createdAt"
+  <feed-entry :iso="entry.loggedAt ?? entry.createdAt" precise
     :wrap-title="entry.action === 'entity.create' || entry.action === 'entity.update.version' || entry.action?.startsWith('submission.backlog')"
     class="submission-feed-entry">
     <template #title>

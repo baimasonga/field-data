@@ -14,23 +14,25 @@
           class="text-warning">
           Some provenance details were inferred or are unavailable.
         </p>
-        <p v-if="current.provenance?.receivedAt != null">
-          Received: {{ current.provenance.receivedAt }}
-        </p>
-        <p v-if="current.provenance?.integrityHash != null">
-          Integrity hash: <code>{{ current.provenance.integrityHash }}</code>
-        </p>
         <h3>Original evidence</h3>
         <p v-if="items.length === 0">No evidence records are linked to this version.</p>
         <ul v-else class="list-unstyled">
           <li v-for="item of items" :key="item.id">
-            <strong>{{ item.name || item.sourceKind }}</strong>
-            — {{ item.integrityStatus }}
+            <strong>{{ item.sourceKind === 'submission-xml' && (!item.name || item.name === 'submission-xml') ? 'Original submission XML' : item.name || item.sourceKind }}</strong>
+            <span class="evidence-integrity">Stored bytes: {{ item.integrityStatus }}</span>
             <a v-if="item.integrityStatus === 'verified'" :href="item.downloadUrl"
               target="_blank" rel="noopener noreferrer">Download original</a>
             <span v-else> · Original unavailable or unverified</span>
           </li>
         </ul>
+        <details class="evidence-technical">
+<summary>Integrity details</summary>        <p v-if="current.provenance?.receivedAt != null">
+          Received: <record-date-time :iso="current.provenance.receivedAt"/>
+        </p>
+        <p v-if="current.provenance?.integrityHash != null">
+          Integrity hash: <code>{{ current.provenance.integrityHash }}</code>
+        </p>
+</details>
         <p class="text-muted">Integrity status describes stored bytes; it does not verify the field claim.</p>
       </template>
     </div>
@@ -39,6 +41,7 @@
 
 <script setup>
 import { computed, ref, watch } from 'vue';
+import RecordDateTime from '../record-date-time.vue';
 import useRequest from '../../composables/request';
 import { apiPaths } from '../../util/request';
 
@@ -84,3 +87,18 @@ watch(() => [props.projectId, props.xmlFormId, props.instanceId], async () => {
   }
 }, { immediate: true });
 </script>
+
+<style lang="scss">
+.claim-evidence {
+  margin-top: 0;
+  .panel-body { padding: 20px; font-size: 14px; }
+  h3 { font-size: 16px; font-weight: 700; }
+  .text-warning { background: #fff7e6; border: 1px solid #f1dfb9; border-radius: 6px; padding: 10px 12px; color: #805619; }
+  li { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 12px 0; border-bottom: 1px solid #e8eef0; }
+  li a { margin-left: auto; font-weight: 600; }
+  .evidence-integrity { font-size: 12px; color: #5a6b71; }
+  summary { padding: 14px 0; cursor: pointer; font-weight: 600; }
+  code { overflow-wrap: anywhere; white-space: normal; }
+  .text-muted { margin-top: 10px; font-size: 12px; }
+}
+</style>

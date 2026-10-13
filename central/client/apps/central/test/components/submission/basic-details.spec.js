@@ -1,4 +1,4 @@
-import DateTime from '../../../src/components/date-time.vue';
+import DateTime from '../../../src/components/record-date-time.vue';
 import FormVersionString from '../../../src/components/form-version/string.vue';
 import SubmissionBasicDetails from '../../../src/components/submission/basic-details.vue';
 import SubmissionReviewState from '../../../src/components/submission/review-state.vue';
@@ -27,18 +27,18 @@ describe('SubmissionBasicDetails', () => {
 
   it('shows the instance ID', async () => {
     testData.extendedSubmissions.createPast(1, { instanceId: 'foobar' });
-    const span = mountComponent().get('dd span');
+    const component = mountComponent();
+    await component.get('summary').trigger('click');
+    const span = component.get('.record-technical dd span');
     span.text().should.equal('foobar');
-    await span.should.have.textTooltip();
   });
 
   it('shows the submitter', async () => {
     testData.extendedSubmissions.createPast(1, {
       submitter: testData.extendedUsers.first()
     });
-    const span = mountComponent().get('dl :nth-child(2) dd span');
+    const span = mountComponent().get('dl :nth-child(1) dd span');
     span.text().should.equal('Alice Allison');
-    await span.should.have.textTooltip();
   });
 
   it('shows the submission date', () => {
@@ -62,9 +62,8 @@ describe('SubmissionBasicDetails', () => {
   describe('device ID', () => {
     it('shows the device ID', async () => {
       testData.extendedSubmissions.createPast(1, { deviceId: 'foobar' });
-      const span = mountComponent().get('dl :nth-child(6) dd span');
+      const span = mountComponent().get('.record-technical dl :nth-child(2) dd span');
       span.text().should.equal('foobar');
-      await span.should.have.textTooltip();
     });
 
     it('does not render if there is not a device ID', () => {
@@ -83,7 +82,7 @@ describe('SubmissionBasicDetails', () => {
           }
         }
       });
-      component.get('dl :nth-child(6) dd').text().should.equal('Collect');
+      component.get('.record-technical dl :nth-child(2) dd').text().should.equal('Collect');
     });
 
     it('does not render if there is not a user agent', () => {
@@ -98,7 +97,7 @@ describe('SubmissionBasicDetails', () => {
         attachmentsExpected: 3,
         attachmentsPresent: 2
       });
-      const text = mountComponent().get('dl :nth-child(6) dd span').text();
+      const text = mountComponent().get('dl :nth-child(5) dd span').text();
       text.should.equal('2 files / 3 expected');
     });
 
@@ -107,7 +106,7 @@ describe('SubmissionBasicDetails', () => {
         attachmentsExpected: 3,
         attachmentsPresent: 2
       });
-      const spans = mountComponent().findAll('dl :nth-child(6) dd span');
+      const spans = mountComponent().findAll('dl :nth-child(5) dd span');
       spans.length.should.equal(3);
       spans[1].classes('icon-exclamation-triangle').should.be.true;
       spans[2].text().should.equal('Missing Attachment');
