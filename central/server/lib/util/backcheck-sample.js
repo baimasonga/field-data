@@ -63,3 +63,45 @@ const draw = (eligible, settings, seed) => {
 };
 
 module.exports = { LIMITS, SEED_PATTERN, newSeed, drawKey, validateSettings, takeFrom, draw };
+
+// O6 scheduled samples (docs/field-intelligence/O6-scheduled-backcheck-samples.md).
+// Periods are UTC days, or weeks starting on Monday.
+const DAY = 24 * 60 * 60 * 1000;
+const FREQUENCIES = ['daily', 'weekly'];
+const periodLength = (frequency) => (frequency === 'weekly' ? 7 * DAY : DAY);
+// The start of the period that `at` falls in.
+const boundaryAtOrBefore = (at, frequency) => {
+  const day = Date.UTC(at.getUTCFullYear(), at.getUTCMonth(), at.getUTCDate());
+  return new Date(frequency === 'weekly' ? day - ((at.getUTCDay() + 6) % 7) * DAY : day);
+};
+const nextBoundaryAfter = (at, frequency) => new Date(boundaryAtOrBefore(at, frequency).getTime() + periodLength(frequency));
+
+// The run due at `now` for a schedule whose current period started at
+// `periodStart`: up to the latest boundary, covering every period missed.
+const dueRun = ({ periodStart, frequency }, now) => {
+  const start = new Date(periodStart);
+  const end = boundaryAtOrBefore(now, frequency);
+  if (end <= start) return null;
+  const periods = Math.round((end - boundaryAtOrBefore(start, frequency)) / periodLength(frequency));
+  return { periodStart: start, periodEnd: end, periods };
+};
+
+// One request ID per schedule and period, so a period is drawn at most once.
+const runRequestId = (scheduleId, periodStart) => {
+  const hex = createHash('sha256').update(`backcheck-schedule:${scheduleId}:${new Date(periodStart).toISOString()}`).digest('hex');
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-5${hex.slice(13, 16)}-${'89ab'[parseInt(hex[16], 16) % 4]}${hex.slice(17, 20)}-${hex.slice(20, 32)}`;
+};
+
+// A schedule's settings from a request body, or { field, reason }.
+const validateSchedule = (body) => {
+  if (body == null || typeof body !== 'object' || Array.isArray(body)) return { error: { field: 'body', reason: 'must be an object' } };
+  const unknown = Object.keys(body).find((k) => !['rate', 'minPerCollector', 'frequency', 'enabled'].includes(k));
+  if (unknown != null) return { error: { field: unknown, reason: 'is not a setting' } };
+  const { settings, error } = validateSettings({ rate: body.rate, minPerCollector: body.minPerCollector ?? 1 });
+  if (error != null) return { error };
+  if (!FREQUENCIES.includes(body.frequency)) return { error: { field: 'frequency', reason: 'must be daily or weekly' } };
+  if (typeof body.enabled !== 'boolean') return { error: { field: 'enabled', reason: 'must be true or false' } };
+  return { schedule: { rate: settings.rate, minPerCollector: settings.minPerCollector, frequency: body.frequency, enabled: body.enabled } };
+};
+
+Object.assign(module.exports, { FREQUENCIES, periodLength, boundaryAtOrBefore, nextBoundaryAfter, dueRun, runRequestId, validateSchedule });

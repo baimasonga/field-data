@@ -121,3 +121,20 @@ may require a storage inventory/orphan audit; compare keys to DB references befo
 removal. Review provider storage/egress/container/database costs monthly, monitor
 pool/backlog/capacity, and set provider budgets. Alert recipients, capacity budgets,
 24-hour staffing and signed support commitments must be assigned by a human owner.
+
+## Scheduled back-check samples
+
+Configure daily or weekly UTC samples on the form's Verification page. The
+existing five-minute operations cron runs them without the browser remaining
+open. No extra cron entry or credential is needed. First-period sampling begins
+when the schedule is enabled; older submissions need a manual sample.
+
+History shows drawn, empty and failed periods with sample coverage links.
+Oversized draws fail without partial writes and advance the period; use a lower
+rate or draw that period by hand. Unexpected write failures retain their period
+and retry automatically, with a sanitized message in the operations log. Lost
+manager permission or a deleted/archived project pauses the schedule; an
+authorized manager must re-enable it. Deleted forms are skipped.
+
+Reviewers still request each independent backcheck themselves; scheduled
+sampling does not automatically assign App Users.

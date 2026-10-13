@@ -117,3 +117,83 @@ test('a viewer sees samples but cannot draw one', async ({ page: p }) => {
   await expect(section.getByRole('button', { name: 'Draw sample' })).toHaveCount(0);
   expect(errors).toEqual([]);
 });
+
+// O6 scheduled samples: docs/field-intelligence/O6-scheduled-backcheck-samples.md
+const schedulePath = '/v1/projects/1/forms/household/backcheck-schedule';
+const scheduled = { ...detail, id: '22222222-2222-4222-8222-222222222222', drawnBy: null, scheduled: true,
+  settings: { rate: 20, minPerCollector: 1, receivedFrom: '2026-10-05', receivedTo: '2026-10-11', periodStart: '2026-10-05T00:00:00.000Z', periodEnd: '2026-10-12T00:00:00.000Z' } };
+const saved = (body) => ({
+  schedule: { ...body, periodStart: '2026-10-05T00:00:00.000Z', nextRunAt: body.enabled ? '2026-10-19T00:00:00.000Z' : null, updatedAt: '2026-10-11T00:00:00.000Z', updatedByName: 'Fixture' },
+  runs: [
+    { periodStart: '2026-10-05T00:00:00.000Z', periodEnd: '2026-10-12T00:00:00.000Z', periods: 1, outcome: 'drawn', sampleId: scheduled.id, eligible: 9, sampled: 5, error: null, ranAt: '2026-10-12T00:05:00Z' },
+    { periodStart: '2026-09-14T00:00:00.000Z', periodEnd: '2026-10-05T00:00:00.000Z', periods: 3, outcome: 'nothing-eligible', sampleId: null, eligible: 0, sampled: 0, error: null, ranAt: '2026-10-05T00:05:00Z' },
+    { periodStart: '2026-09-07T00:00:00.000Z', periodEnd: '2026-09-14T00:00:00.000Z', periods: 1, outcome: 'failed', sampleId: null, eligible: 0, sampled: 0, error: '612 submissions is more than the 500 allowed; lower the rate or draw this period by hand.', ranAt: '2026-09-14T00:05:00Z' }
+  ]
+});
+
+test('a manager sets a schedule and sees its runs and scheduled samples', async ({ page: p }) => {
+  const puts = [];
+  let current = { schedule: null, runs: [] };
+  const errors = await api(p, managerVerbs, async (route, path) => {
+    if (path === schedulePath && route.request().method() === 'PUT') {
+      const body = route.request().postDataJSON();
+      puts.push(body);
+      if (puts.length === 1) { await route.fulfill({ status: 400, json: { code: 400.58, message: 'The rate must be a whole percentage from 1 to 100.' } }); return true; }
+      current = saved(body);
+      await route.fulfill({ json: current });
+      return true;
+    }
+    if (path === schedulePath) { await route.fulfill({ json: current }); return true; }
+    // The latest sample was drawn by hand; the scheduled one is older.
+    if (path === samplesPath) { await route.fulfill({ json: [summary, { ...summary, ...scheduled }] }); return true; }
+    if (path === `${samplesPath}/${sampleId}`) { await route.fulfill({ json: detail }); return true; }
+    if (path === `${samplesPath}/${scheduled.id}`) { await route.fulfill({ json: scheduled }); return true; }
+    return false;
+  });
+  await p.goto(`${appUrl}${page}`);
+  const section = p.locator('.backcheck-schedule');
+  await expect(section.locator('.backcheck-schedule-status')).toHaveText('No schedule.');
+  await expect(section).toContainText('Turning it on starts from now');
+  await section.getByLabel('Share of each collector').fill('20');
+  await section.getByLabel('Every').selectOption('weekly');
+  await section.getByRole('button', { name: 'Save schedule' }).click();
+  await expect(section.getByRole('alert')).toHaveText('The rate must be a whole percentage from 1 to 100.');
+  await section.getByRole('button', { name: 'Save schedule' }).click();
+  await expect(section.locator('.backcheck-schedule-status')).toContainText('On: 20% per collector, at least 1, weekly. Next sample after');
+  expect(puts.at(-1)).toEqual({ rate: 20, minPerCollector: 1, frequency: 'weekly', enabled: true });
+  const runs = section.locator('.backcheck-schedule-runs li');
+  await expect(runs).toHaveCount(3);
+  await expect(runs.nth(0)).toContainText('5 of 9 chosen');
+  await expect(runs.nth(1)).toContainText('(3 periods, caught up): nothing received to sample');
+  await expect(runs.nth(2)).toContainText('not drawn: 612 submissions is more than the 500 allowed');
+
+  // The run's sample opens below, marked as drawn on schedule.
+  await expect(p.locator('.backcheck-sample-summary')).toContainText('by Fixture');
+  await expect(p.locator('.backcheck-sample-pick option').nth(1)).toContainText('scheduled');
+  await runs.nth(0).getByRole('button', { name: 'Show sample' }).click();
+  await expect(p.locator('.backcheck-sample-summary')).toContainText('on schedule:');
+  await expect(p.locator('.backcheck-sample-summary')).not.toContainText('by Fixture');
+
+  // Turning it off.
+  await section.getByLabel('On', { exact: true }).uncheck();
+  await section.getByRole('button', { name: 'Save schedule' }).click();
+  await expect(section.locator('.backcheck-schedule-status')).toHaveText('Off.');
+  expect(puts.at(-1).enabled).toBe(false);
+  await p.setViewportSize({ width: 360, height: 800 });
+  expect(await p.evaluate(() => document.documentElement.scrollWidth <= 360)).toBe(true);
+  expect(errors).toEqual([]);
+});
+
+test('a viewer sees the schedule but cannot change it', async ({ page: p }) => {
+  const errors = await api(p, viewerVerbs, async (route, path) => {
+    if (path === schedulePath) { await route.fulfill({ json: saved({ rate: 10, minPerCollector: 1, frequency: 'daily', enabled: true }) }); return true; }
+    if (path === samplesPath) { await route.fulfill({ json: [] }); return true; }
+    return false;
+  });
+  await p.goto(`${appUrl}${page}`);
+  const section = p.locator('.backcheck-schedule');
+  await expect(section.locator('.backcheck-schedule-status')).toContainText('On: 10% per collector, at least 1, daily.');
+  await expect(section.getByRole('button', { name: 'Save schedule' })).toHaveCount(0);
+  await expect(section.locator('.backcheck-schedule-runs li')).toHaveCount(3);
+  expect(errors).toEqual([]);
+});
