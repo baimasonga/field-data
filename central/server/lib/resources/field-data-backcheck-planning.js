@@ -1,5 +1,8 @@
 // Copyright 2026 Field Data Developers. Licensed under the Apache License, Version 2.0.
 const { sql } = require('slonik');
+const { createHash } = require('node:crypto');
+const { isDeepStrictEqual } = require('node:util');
+const { UUID_PATTERN } = require('../util/claim-versioning');
 const { getOrNotFound } = require('../util/promise');
 const Problem = require('../util/problem');
 const { validDate, validateCalendar, quotaOn, shiftOn } = require('../util/backcheck-calendar');
@@ -52,7 +55,7 @@ module.exports = (service, endpoint) => {
     response.set('Cache-Control', 'private, no-store');
     return { ...actor, ...row };
   }));
-  service.get('/projects/:projectId/backcheck-route', endpoint(async (container, { params, auth, query }, _, response) => {
+  const preview = async (container, params, auth, query) => {
     const project = await projectFor(container, auth, params, true);
     const actor = await actorFor(container.db, project.id, Number(query.actorId));
     if (!validDate(query.date) || typeof query.startLat !== 'string' || !query.startLat.trim()
@@ -64,8 +67,7 @@ module.exports = (service, endpoint) => {
     if ((visitOverride != null && (!Number.isInteger(visitOverride) || visitOverride < 1 || visitOverride > 480))
       || (dayOverride != null && (!Number.isInteger(dayOverride) || dayOverride < 1 || dayOverride > 1440))) throw invalid();
     if (!Number.isFinite(start.latitude) || Math.abs(start.latitude) > 90 || !Number.isFinite(start.longitude) || Math.abs(start.longitude) > 180) throw invalid();
-    response.set('Cache-Control', 'private, no-store');
-    const rows = await container.db.any(sql`SELECT b.id, b."caseId", b.question, s."instanceId", sf."xmlFormId", sf."acteeId" AS "sourceActee",
+    const rows = await container.db.any(sql`SELECT b.id, b."claimVersionId", b."caseId", b.question, s."instanceId", sf."xmlFormId", sf."acteeId" AS "sourceActee",
       rf."acteeId" AS "responseActee", rf.state AS "responseState", rf."deletedAt" AS "responseDeleted",
       sd.current, s."deletedAt" AS "sourceDeleted", sf."deletedAt" AS "formDeleted", c.status AS "caseStatus", fd."keyId",
       count(*) OVER () AS total,
@@ -99,7 +101,7 @@ module.exports = (service, endpoint) => {
       if (reason != null) { excluded[reason] += 1; continue; } // eslint-disable-line no-continue
       const uncertain = location.accuracy == null || location.accuracy < 0 || location.accuracy > 100;
       if (uncertain) uncertainLocations += 1;
-      visits.push({ id: row.id, caseId: row.caseId, instanceId: row.instanceId, xmlFormId: row.xmlFormId, location, uncertain });
+      visits.push({ id: row.id, claimVersionId: row.claimVersionId, caseId: row.caseId, instanceId: row.instanceId, xmlFormId: row.xmlFormId, location, uncertain });
     }
     const calendar = await container.db.maybeOne(sql`SELECT settings FROM field_data_backcheck_calendars
       WHERE "actorId" = ${actor.id} AND "projectId" = ${project.id}`);
@@ -124,11 +126,48 @@ module.exports = (service, endpoint) => {
     const totalMinutes = road.status === 'ok' ? Math.ceil(road.travelMinutes + visits.length * visitMinutes) : null;
     const timing = { visitMinutes, dayMinutes, shiftBudgetMinutes, totalMinutes, shift: shift ?? null, shiftUnavailable: shift === null, expiredShift,
       previewOverrides: visitOverride != null || dayOverride != null, overBudget: totalMinutes == null ? null : totalMinutes > dayMinutes };
-    return { actor, date: query.date, start, capacity, used, unplanned, excluded, uncertainLocations, truncated,
+    const result = { actor, date: query.date, start, capacity, used, unplanned, excluded, uncertainLocations, truncated,
       needsReview: project.archived === true || unplanned > 0 || omitted > 0 || truncated || capacity == null || used > capacity || uncertainLocations > 0
         || shift === null || expiredShift || road.status !== 'ok' || road.maxSnapMeters > 100 || timing.overBudget === true,
       method: optimization?.status === 'ok' ? 'OSRM road trip suggestion, return to start; not a guarantee of optimality' : 'nearest-next-stop, great-circle distance, return to start',
       ordering: { requested: query.order ?? 'straight', applied: optimization?.status === 'ok' ? 'road' : 'straight', status: optimization?.status ?? 'notRequested' }, route, road, timing };
+    result.reviewToken = createHash('sha256').update(JSON.stringify({ actor: actor.id, date: result.date, start, capacity, used,
+      excluded, truncated, shift: timing.shift, ordering: result.ordering, stops: route.stops })).digest('hex');
+    return result;
+  };
+  service.get('/projects/:projectId/backcheck-route', endpoint(async (container, { params, auth, query }, _, response) => {
+    response.set('Cache-Control', 'private, no-store');
+    return preview(container, params, auth, query);
+  }));
+  service.post('/projects/:projectId/backcheck-itineraries', endpoint(async (container, { params, auth, body }, _, response) => {
+    if (body == null || Object.keys(body).some(k => !['id', 'reviewToken', 'query', 'note'].includes(k))
+      || !UUID_PATTERN.test(body.id ?? '') || !/^[a-f0-9]{64}$/.test(body.reviewToken ?? '')
+      || typeof body.note !== 'string' || !body.note.trim() || body.note.trim().length > 2000
+      || body.query == null || typeof body.query !== 'object' || Array.isArray(body.query)
+      || Object.keys(body.query).some(k => !['actorId', 'date', 'startLat', 'startLon', 'order', 'visitMinutes', 'dayMinutes'].includes(k))) throw invalid();
+    const project = await projectFor(container, auth, params, true);
+    const row = await container.transacting(async tx => {
+      await tx.db.query(sql`SELECT pg_advisory_xact_lock(${ALLOCATION_LOCK}, ${project.id})`);
+      const existing = await tx.db.maybeOne(sql`SELECT * FROM field_data_backcheck_itineraries WHERE id = ${body.id}`);
+      if (existing != null) {
+        if (existing.projectId !== project.id || existing.approvedBy !== auth.actor.orNull().id
+          || existing.snapshot.reviewToken !== body.reviewToken || existing.note !== body.note.trim() || !isDeepStrictEqual(existing.snapshot.query, body.query)) throw invalid();
+        return existing;
+      }
+      const snapshot = await preview(tx, params, auth, body.query);
+      if (snapshot.reviewToken !== body.reviewToken || snapshot.route.stops.length === 0 || snapshot.truncated
+        || project.archived === true || snapshot.timing.shiftUnavailable || snapshot.timing.expiredShift) throw invalid();
+      snapshot.query = body.query;
+      const inserted = await tx.db.one(sql`INSERT INTO field_data_backcheck_itineraries
+        (id, "projectId", "actorId", "visitDate", snapshot, note, "approvedBy")
+        VALUES (${body.id}, ${project.id}, ${snapshot.actor.id}, ${snapshot.date}::date, ${JSON.stringify(snapshot)}, ${body.note.trim()}, ${auth.actor.orNull().id}) RETURNING *`);
+      await tx.db.query(sql`INSERT INTO audits ("actorId", action, "acteeId", details, "loggedAt", processed, failures)
+        VALUES (${auth.actor.orNull().id}, 'field_data.backcheck.itinerary.approve', ${project.acteeId},
+          ${JSON.stringify({ id: body.id, actorId: snapshot.actor.id, date: snapshot.date, stops: snapshot.route.stops.length, needsReview: snapshot.needsReview })}, clock_timestamp(), NULL, 0)`);
+      return inserted;
+    });
+    response.set('Cache-Control', 'private, no-store'); response.status(201);
+    return { id: row.id, createdAt: row.createdAt, note: row.note };
   }));
 };
 

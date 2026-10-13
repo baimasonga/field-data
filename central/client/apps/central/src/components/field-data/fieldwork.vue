@@ -45,6 +45,25 @@ Acknowledge request
         </li>
       </ul>
       <button v-if="nextCursor" type="button" class="btn btn-default" :disabled="loading" @click="load(nextCursor)">Load older requests</button>
+      <h2>Approved itineraries</h2>
+      <p v-if="itineraryError" role="alert">{{ itineraryError }}</p>
+      <p v-else-if="!loading && itineraries.length === 0">No approved itineraries are available.</p>
+      <ul class="tasks">
+        <li v-for="itinerary of itineraries" :key="itinerary.id">
+          <h3>{{ itinerary.date }} · approved stop order</h3>
+          <p>{{ itinerary.note }}</p>
+          <p v-if="itinerary.needsReview">The supervisor approved this itinerary with review warnings. Confirm access and travel time before starting.</p>
+          <p v-if="itinerary.withheld" role="status">{{ itinerary.withheld }} stops are no longer available. Refresh and contact your supervisor.</p>
+          <p>Start: {{ itinerary.start.latitude }}, {{ itinerary.start.longitude }}. Return to this start after the visits.</p>
+          <ol>
+<li v-for="stop of itinerary.stops" :key="stop.id">
+<strong>Stop {{ stop.order }}</strong> · {{ stop.question }}<br>
+            {{ stop.location.latitude }}, {{ stop.location.longitude }} · accuracy {{ stop.location.accuracy ?? 'unknown' }} m<br>Request: {{ stop.id }}
+</li>
+</ol>
+          <p>This is an approved stop order, not turn-by-turn navigation. Road access and conditions may change.</p>
+        </li>
+      </ul>
       <h2>Re-verification visits</h2>
       <p>Assets your supervisor asked you to check again. Visit the site, then collect and submit the form in ODK Collect. Your supervisor links the submission to close the visit.</p>
       <p v-if="visitsError" role="alert">{{ visitsError }}</p>
@@ -89,6 +108,7 @@ defineOptions({ name: 'FieldDataFieldwork' });
 const inputKey = ref('');
 const connected = ref(false);
 const loading = ref(false);
+const itineraries = ref([]); const itineraryError = ref('');
 const error = ref('');
 const identity = ref({});
 const items = ref([]);
@@ -120,6 +140,7 @@ const clear = () => {
   inputKey.value = '';
   connected.value = false;
   items.value = [];
+  itineraries.value = []; itineraryError.value = '';
   visits.value = [];
   visitsError.value = '';
   receipts.value = [];
@@ -186,6 +207,16 @@ const loadReceipts = async (current) => {
     if (current === generation) receiptsError.value = 'Receipts could not be loaded. Refresh to retry.';
   }
 };
+const loadItineraries = async (current) => {
+  try {
+    const data = await api('itineraries');
+    if (current !== generation) return;
+    if (!Array.isArray(data.items)) throw new Error('Invalid itinerary response');
+    itineraries.value = data.items; itineraryError.value = '';
+  } catch {
+    if (current === generation) { itineraries.value = []; itineraryError.value = 'Approved itineraries could not be loaded. Refresh to retry.'; }
+  }
+};
 const load = async (cursor = null) => {
   const current = generation;
   loading.value = true;
@@ -198,7 +229,7 @@ const load = async (cursor = null) => {
     items.value = cursor == null ? data.items : [...items.value, ...data.items];
     nextCursor.value = data.nextCursor;
     connected.value = true;
-    if (cursor == null) await Promise.all([loadVisits(current), loadReceipts(current)]);
+    if (cursor == null) await Promise.all([loadVisits(current), loadReceipts(current), loadItineraries(current)]);
   } catch (failure) {
     if (current !== generation) return;
     error.value = 'The inbox could not be loaded. Refresh or try opening it again.';
@@ -335,7 +366,10 @@ const disconnect = async () => {
 .fieldwork { max-width: 760px; margin: 24px auto; padding: 0 12px; overflow-wrap: anywhere; }
 .actions { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
 .tasks { list-style: none; padding: 0; }
-.tasks li { border: 1px solid #bbb; border-radius: 4px; padding: 16px; margin-top: 16px; }
+.tasks > li { border: 1px solid #d8e5e9; border-radius: 12px; background: #fff; padding: 20px; margin-top: 16px; }
+.tasks h3 { font-size: 18px; margin-top: 0; }
+.itinerary-stops { padding-left: 20px; }
+.itinerary-stops li { padding: 12px 0; border-bottom: 1px solid #e5edef; }
 .tasks h2 { font-size: 20px; margin-top: 0; }
 .question { white-space: pre-wrap; }
   .hash { overflow-wrap: anywhere; }

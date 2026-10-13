@@ -9,7 +9,7 @@ const key = 'fixture-app-user-key';
 const visitFixture = { id: '88888888-8888-4888-8888-888888888888', assetName: 'Water point', externalId: 'WP-01', assetType: 'water-point',
   predicate: 'condition', instruction: 'Check the pump handle. <img src=x onerror=alert(1)>', xmlFormId: 'verification',
   formName: 'Independent verification', visitBy: '2026-10-20T00:00:00Z', dispatchedAt: '2026-10-09T10:00:00Z', actionable: true };
-const setup = async (page, { push = false, denied = false, fail = false, delayed = false, failDelete = false, offline = false, offlineOrigin = null, visits = [], failVisits = false, receipts = [], failReceipts = false } = {}) => {
+const setup = async (page, { push = false, denied = false, fail = false, delayed = false, failDelete = false, offline = false, offlineOrigin = null, visits = [], failVisits = false, receipts = [], failReceipts = false, itineraries = [], failItineraries = false } = {}) => {
   const state = { inboxReads: 0, seen: false, registered: false, deleted: false, failures: fail ? 1 : 0, requests: [] };
   const errors = [];
   if (offline) {
@@ -67,6 +67,7 @@ const setup = async (page, { push = false, denied = false, fail = false, delayed
       if (failReceipts) return route.fulfill({ status: 503, json: {} });
       return route.fulfill({ json: { receipts, head: { projectId: 7, seq: receipts[0]?.seq ?? 0, entryHash: receipts[0]?.entryHash ?? '0'.repeat(64), signed: receipts.length ? { algorithm: 'ES256' } : null } } });
     }
+    if (path.endsWith('/itineraries')) return route.fulfill({ status: failItineraries ? 503 : 200, json: { items: itineraries } });
     if (path.endsWith('/seen')) { state.seen = true; return route.fulfill({ json: { id: taskId, seenAt: '2026-10-09T04:00:00Z' } }); }
     if (path.endsWith('/push') && req.method() === 'GET')
       return route.fulfill({ json: { enabled: push, publicKey: 'AQID', subscriptions: [] } });
@@ -389,5 +390,22 @@ test('a receipts failure does not hide the inbox', async ({ page }) => {
   await page.getByRole('button', { name: 'Open my inbox' }).click();
   await expect(page.getByText('Receipts could not be loaded. Refresh to retry.')).toBeVisible();
   await expect(page.locator('.tasks li').first()).toContainText('Verify the visit.');
+  expect(errors).toEqual([]);
+});
+
+
+test('approved itinerary stops are escaped, withheld work is visible and disconnect clears locations', async ({ page }) => {
+  const { errors } = await setup(page, { itineraries: [{ id: taskId, date: '2026-10-14', note: 'Check access. <img src=x onerror=alert(1)>',
+    start: { latitude: 8.48, longitude: -13.23 }, needsReview: true, withheld: 1,
+    stops: [{ id: taskId, order: 2, question: 'Verify this visit.', location: { latitude: 8.49, longitude: -13.22, accuracy: 15 } }] }] });
+  await connect(page);
+  await expect(page.getByRole('heading', { name: '2026-10-14 · approved stop order' })).toBeVisible();
+  await expect(page.getByText('1 stops are no longer available.', { exact: false })).toBeVisible();
+  await expect(page.getByText('8.49, -13.22', { exact: false })).toBeVisible();
+  await expect(page.locator('.tasks img')).toHaveCount(0);
+  await page.setViewportSize({ width: 320, height: 700 });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= globalThis.innerWidth)).toBe(true);
+  await page.getByRole('button', { name: 'Disconnect', exact: true }).click();
+  await expect(page.getByRole('heading', { name: '2026-10-14 · approved stop order' })).toHaveCount(0);
   expect(errors).toEqual([]);
 });

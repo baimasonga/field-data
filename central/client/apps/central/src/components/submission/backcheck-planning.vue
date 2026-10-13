@@ -118,6 +118,14 @@ Review required: {{ plan.truncated ? 'the task list was truncated; ' : '' }}{{ o
         <p>Return to start: {{ plan.route.returnKm }} km straight-line.</p>
         <button type="button" class="btn btn-default" @click="download">Download itinerary CSV</button>
         <p>The preview does not dispatch, reschedule or change a visit.</p>
+        <form v-if="plan.reviewToken && plan.route.stops.length && !plan.truncated && !plan.timing?.shiftUnavailable && !plan.timing?.expiredShift" @submit.prevent="approve">
+          <h4>Approve itinerary for collector</h4>
+          <p>The saved stop order and locations will be shared with {{ plan.actor.name }} in their fieldwork inbox. Approval does not complete or reschedule visits.</p>
+          <label>Dispatch instructions <textarea v-model.trim="dispatchNote" required maxlength="2000" class="form-control"></textarea></label>
+          <label><input v-model="dispatchReviewed" type="checkbox" required>I reviewed the warnings, access and time assumptions for this itinerary.</label>
+          <button type="submit" class="btn btn-primary" :disabled="busy || dispatched">Approve and send itinerary</button>
+          <p v-if="dispatched" role="status">Approved itinerary sent to the collector's fieldwork inbox.</p>
+        </form>
       </div>
     </template>
     </template>
@@ -138,6 +146,8 @@ const date = ref(new Date().toISOString().slice(0, 10)); const startLat = ref(''
 const useShifts = ref(false); const weeklyShifts = ref(Array.from({ length: 7 }, () => ({ start: '08:00', end: '17:00' })));
 const shiftAvailable = ref(Array(7).fill(true)); const expectedVisitMinutes = ref(30); const useSavedTiming = ref(false);
 const stopOrder = ref('straight');
+const previewQuery = ref(null); const dispatchNote = ref(''); const dispatchReviewed = ref(false); const dispatched = ref(false);
+let dispatchId = null;
 const visitMinutes = ref(30); const dayMinutes = ref(480);
 const weekdays = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 const reasons = {
@@ -186,15 +196,24 @@ const saveCalendar = () => {
 };
 const preview = () => {
   if (busy.value) return Promise.resolve();
-  error.value = ''; plan.value = null;
-  return request({
-    method: 'GET', url: `${base()}/backcheck-route?${new URLSearchParams({
-      actorId: actorId.value, ...(stopOrder.value === 'road' ? { order: 'road' } : {}),
-      date: date.value, startLat: String(startLat.value), startLon: String(startLon.value),
-      ...(useSavedTiming.value ? {} : { visitMinutes: String(visitMinutes.value), dayMinutes: String(dayMinutes.value) })
-    })}`, alert: false
-  })
+  error.value = ''; plan.value = null; dispatched.value = false; dispatchReviewed.value = false; dispatchId = null;
+  previewQuery.value = {
+    actorId: actorId.value, ...(stopOrder.value === 'road' ? { order: 'road' } : {}),
+    date: date.value, startLat: String(startLat.value), startLon: String(startLon.value),
+    ...(useSavedTiming.value ? {} : { visitMinutes: String(visitMinutes.value), dayMinutes: String(dayMinutes.value) })
+  };
+  return request({ method: 'GET', url: `${base()}/backcheck-route?${new URLSearchParams(previewQuery.value)}`, alert: false })
     .then(({ data }) => { plan.value = data; }).catch(e => { error.value = e.response?.data?.message || 'Itinerary could not be planned.'; });
+};
+const approve = () => {
+  if (busy.value || dispatched.value || !dispatchReviewed.value || !dispatchNote.value) return Promise.resolve();
+  dispatchId ??= crypto.randomUUID(); error.value = '';
+  return request({
+    method: 'POST', url: `${base()}/backcheck-itineraries`, alert: false,
+    data: { id: dispatchId, reviewToken: plan.value.reviewToken, query: previewQuery.value, note: dispatchNote.value }
+  })
+    .then(() => { dispatched.value = true; })
+    .catch(() => { error.value = 'The itinerary could not be approved. Refresh the preview if tasks or availability changed; otherwise retry.'; });
 };
 const download = () => {
   const text = value => {
