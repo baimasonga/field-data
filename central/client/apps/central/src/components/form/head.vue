@@ -87,7 +87,10 @@ const TAB_GROUPS = [
     // submission.list, so it belongs with the data rather than under
     // Settings, where a Project viewer would have been shown a tab full of
     // settings they cannot change.
-    members: ['submissions', 'import', 'summary', 'charts', 'photos', 'verification']
+    members: ['submissions', 'import', 'summary', 'charts', 'photos']
+  },
+  {
+    key: 'verification', labelKey: 'group.verification', local: true, members: ['verification']
   },
   {
     key: 'share', labelKey: 'group.share', local: true,
@@ -269,6 +272,7 @@ export default {
       "label": "Views"
     },
     "group": {
+      "verification": "Verification & planning",
       // Tab grouping the Form's Submissions, summary, charts and photos.
       "data": "Data",
       // Tab grouping the ways this Form's data is shared outside the Project:

@@ -22,6 +22,13 @@ except according to the terms contained in the LICENSE file.
         <project-sort v-model="sortMode"/>
       </template>
       <template #body>
+        <div class="project-search">
+          <label for="project-search">Search active projects</label>
+          <input id="project-search" v-model="search" type="search" class="form-control" placeholder="Project name">
+          <button v-if="search" type="button" class="btn btn-link" @click="search = ''">Clear search</button>
+        </div>
+        <p v-if="projects.dataExists && search.trim()" role="status">{{ filteredProjects.length }} matching {{ filteredProjects.length === 1 ? 'project' : 'projects' }}</p>
+        <p v-if="projects.dataExists && search.trim() && filteredProjects.length === 0">No active projects match your search.</p>
         <div v-if="projects.dataExists">
           <project-home-block v-for="project of chunkyProjects" :key="project.id"
             :project="project" :sort-func="sortFunction"
@@ -114,13 +121,15 @@ export default {
         : [];
     });
     watchEffect(() => { activeProjects.value.sort(sortFunction.value); });
-    const chunkyProjects = useChunkyArray(activeProjects);
+    const search = ref('');
+    const filteredProjects = computed(() => activeProjects.value.filter(p => p.name.toLocaleLowerCase().includes(search.value.trim().toLocaleLowerCase())));
+    const chunkyProjects = useChunkyArray(filteredProjects);
 
     const { projectPath } = useRoutes();
     return {
       currentUser, projects,
       sortMode, sortFunction,
-      activeProjects, chunkyProjects,
+      activeProjects, chunkyProjects, search, filteredProjects,
       createModal: modalData(),
       projectPath
     };
@@ -348,3 +357,13 @@ export default {
   }
 }
 </i18n>
+
+<style lang="scss">
+#project-list {
+  .page-section-heading { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+  .page-section-heading > span:first-child { margin-right: auto; }
+  .project-search { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; margin: 0 0 18px; }
+  .project-search label { font-size: 13px; margin: 0; }
+  .project-search input { width: 320px; max-width: 100%; background: #fff; border: 1px solid #c9d7dc; }
+}
+</style>

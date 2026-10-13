@@ -23,13 +23,8 @@ home page.
       <div v-for="s of statCards" :key="s.key" class="fd-hstat">
         <div class="fd-hstat-top">
           <span class="l">{{ s.label }}</span>
-          <span class="fd-hstat-icon" :class="`tone-${s.tone}`">
-            <!-- eslint-disable-next-line vue/no-v-html -->
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-              stroke-linecap="round" stroke-linejoin="round" v-html="statIcons[s.icon]"></svg>
-          </span>
-        </div>
-        <div class="n"><template v-if="s.ready">{{ $n(s.value, 'default') }}</template><spinner v-else inline/></div>
+</div>
+        <div class="n"><template v-if="s.ready"><template v-if="s.value != null">{{ $n(s.value, 'default') }}</template><span v-else class="stat-unavailable">Unavailable</span></template><spinner v-else inline/></div>
       </div>
     </div>
   </div>
@@ -53,7 +48,7 @@ if (currentUser.can('user.list')) users.request({ url: '/v1/users' }).catch(noop
 
 const sumArray = (arr) => arr.reduce((a, b) => a + b, 0);
 const ready = computed(() => projects.dataExists);
-const projectCount = computed(() => (projects.dataExists ? projects.length : 0));
+const projectCount = computed(() => (projects.dataExists ? projects.filter(p => !p.archived).length : 0));
 const formCount = computed(() => (projects.dataExists
   ? sumArray(projects.map(p => (p.formList ? p.formList.filter(f => f.publishedAt != null).length : 0)))
   : 0));
@@ -69,13 +64,6 @@ const greeting = computed(() => {
   return name ? t(`greet.${part}Name`, { name }) : t(`greet.${part}`);
 });
 
-const statIcons = {
-  folder: '<path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>',
-  file: '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>',
-  inbox: '<polyline points="22 12 16 12 14 15 10 15 8 12 2 12"/><path d="M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/>',
-  users: '<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>'
-};
-
 const statCards = computed(() => {
   const cards = [
     { key: 'projects', label: t('stat.projects'), value: projectCount.value, ready: ready.value, icon: 'folder', tone: 'blue' },
@@ -83,7 +71,7 @@ const statCards = computed(() => {
     { key: 'subs', label: t('stat.submissions'), value: submissionCount.value, ready: ready.value, icon: 'inbox', tone: 'green' }
   ];
   if (currentUser.can('user.list'))
-    cards.push({ key: 'users', label: t('stat.users'), value: users.dataExists ? users.length : 0, ready: !users.initiallyLoading, icon: 'users', tone: 'violet' });
+    cards.push({ key: 'users', label: t('stat.users'), value: users.dataExists ? users.length : null, ready: !users.initiallyLoading, icon: 'users', tone: 'violet' });
   return cards;
 });
 </script>
@@ -151,3 +139,16 @@ const statCards = computed(() => {
   }
 }
 </i18n>
+
+<style lang="scss">
+#fd-home-summary {
+  .fd-home-stats { display: flex; flex-wrap: wrap; gap: 0; background: #fff; border: 1px solid #e1e9ec; border-radius: 10px; margin-bottom: 24px; }
+  .fd-hstat { display: flex; align-items: center; gap: 14px; flex: 1 1 180px; box-shadow: none; border: 0; border-radius: 0; padding: 14px 18px; }
+  .fd-hstat-top { margin: 0; gap: 10px; align-items: center; }
+  .fd-hstat:has(.stat-unavailable) { flex-direction: column; align-items: flex-start; gap: 6px; }
+  .stat-unavailable { font-size: 12px; }
+  .fd-hstat .n { font-size: 22px; margin-left: auto; }
+  .fd-hstat-icon { display: none; }
+}
+@media (max-width: 600px) { #fd-home-summary .fd-hstat { flex-basis: 50%; min-width: 0; padding: 12px; } }
+</style>

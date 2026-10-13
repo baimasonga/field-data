@@ -41,7 +41,8 @@ const api = async (page, verbs, custom) => {
       lastSubmission: null, version: '1', hash: 'h', sha: 's', sha256: 's', keyId: null, enketoId: null, webformsEnabled: true, entityRelated: false, publicLinks: 0, excelContentType: null };
     const json = path === '/v1/sessions/restore' ? { expiresAt: '2099-01-01T00:00:00Z', csrf: 'fixture' }
       : path === '/v1/users/current' ? { id: 1, displayName: 'Fixture', verbs: [], preferences: { site: {}, projects: {} } }
-        : path === '/v1/projects' ? [project]
+        : path.endsWith('/backcheck-allocation') ? { policy: null, forms: [], collectors: [] }
+          : path === '/v1/projects' ? [project]
           : path === '/v1/projects/1' ? project
             : path === '/v1/projects/1/forms/household' ? form
               : path === '/v1/projects/1/forms/household/fields' ? fields
@@ -353,7 +354,7 @@ test('form navigation and submission pagination are readable at desktop and mobi
   });
   await p.goto(`${appUrl}/projects/1/forms/household/submissions`);
   const nav = p.locator('#form-subtabs');
-  await expect(nav).toHaveText('Submissions Summary Charts Photos Verification');
+  await expect(nav).toHaveText('Submissions Summary Charts Photos');
   await expect(nav.getByRole('link', { name: 'Submissions', exact: true })).toHaveAttribute('aria-current', 'page');
   const pagination = p.locator('.pagination');
   await expect(pagination).toContainText('Row 1 of 1');
@@ -369,7 +370,7 @@ test('form navigation and submission pagination are readable at desktop and mobi
     expect(field.x + field.width).toBeLessThanOrEqual(label.x);
     expect(await p.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   }
-  await nav.getByRole('link', { name: 'Verification', exact: true }).click();
+  await p.locator('#page-head-tabs').getByRole('link', { name: 'Verification & planning', exact: true }).click();
   await expect(p).toHaveURL(/\/verification$/);
   expect(errors).toEqual([]);
 });
@@ -466,5 +467,64 @@ test('map inspector exposes the record summary, recorded timing and permission-g
   await inspector.getByRole('button', { name: 'Close', exact: true }).focus();
   await p.keyboard.press('Escape');
   await expect(inspector).toBeHidden();
+  expect(errors).toEqual([]);
+});
+
+test('planning panels keep their identity and retry failed requests independently', async ({ page: p }) => {
+  const calls = { samples: 0, allocation: 0, calendars: 0 };
+  const errors = await api(p, managerVerbs, async (route, path) => {
+    const kind = path === samplesPath ? 'samples' : path.endsWith('/backcheck-allocation') ? 'allocation' : path.endsWith('/backcheck-calendars') ? 'calendars' : null;
+    if (kind == null) return false;
+    calls[kind] += 1;
+    if (calls[kind] === 1) { await route.fulfill({ status: 503, json: { message: 'Temporarily unavailable' } }); return true; }
+    await route.fulfill({ json: kind === 'allocation' ? { policy: null, forms: [], collectors: [] } : [] }); return true;
+  });
+  await p.goto(`${appUrl}${page}`);
+  for (const [selector, text] of [['.backcheck-sample', 'Sampling could not be loaded.'], ['.backcheck-allocation', 'Assignment policy could not be loaded.'], ['.backcheck-planning', 'Availability could not be loaded.']]) {
+    const section = p.locator(selector);
+    const alert = section.getByRole('alert').filter({ hasText: text });
+    await expect(alert).toBeVisible();
+    await alert.getByRole('button', { name: 'Retry', exact: true }).click();
+    await expect(alert).toHaveCount(0);
+  }
+  expect(calls).toEqual({ samples: 2, allocation: 2, calendars: 2 });
+  expect(errors).toEqual([]);
+});
+
+test('projects can be searched without hiding verification entry points or breaking mobile cards', async ({ page: p }) => {
+  const verbs = [...managerVerbs];
+  const makeForm = (projectId, xmlFormId, name) => ({ projectId, xmlFormId, name, state: 'open', publishedAt: '2026-10-01T00:00:00Z', submissions: 3,
+    reviewStates: { received: 1, hasIssues: 1, edited: 1 }, lastSubmission: '2026-10-09T22:18:39Z', publicLinks: 0, enketoId: null });
+  const projects = [{ id: 1, name: 'Housing Survey 2026', archived: false, verbs, forms: 1, datasets: 0,
+    formList: [makeForm(1, 'household', 'Housing field test')], datasetList: [] },
+  { id: 2, name: 'Water availability', archived: false, verbs, forms: 1, datasets: 0,
+    formList: [makeForm(2, 'water', 'Water field test')], datasetList: [] }];
+  const errors = await api(p, verbs, async (route, path) => {
+    if (path === '/v1/projects') { await route.fulfill({ json: projects }); return true; }
+    if (path === '/v1/users/current') { await route.fulfill({ json: { id: 1, displayName: 'Fixture', email: 'fixture@example.org', verbs: ['project.list', 'project.create'], preferences: { site: { whatsNewDismissed: '2026.2' }, projects: {} } } }); return true; }
+    return false;
+  });
+  await p.goto(`${appUrl}/`);
+  await expect(p.locator('.fd-project-card')).toHaveCount(2);
+  await p.getByRole('searchbox', { name: 'Search active projects' }).fill('  hOuSiNg  ');
+  await expect(p.locator('.fd-project-card')).toHaveCount(1);
+  await expect(p.locator('#project-list')).toContainText('1 matching project');
+  const verification = p.getByRole('link', { name: /Verification & planning\s*:\s*Housing field test/ });
+  await expect(verification).toHaveAttribute('href', '/projects/1/forms/household/verification');
+  const review = p.locator('.review-link');
+  const query = new URL(await review.getAttribute('href'), appUrl).searchParams;
+  expect(query.getAll('reviewState')).toEqual(['null', "'hasIssues'", "'edited'"]);
+  for (const width of [1440, 320]) {
+    await p.setViewportSize({ width, height: 900 });
+    await expect(verification).toBeVisible();
+    expect(await p.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+    await p.screenshot({ path: test.info().outputPath(`projects-${width}.png`), fullPage: true });
+  }
+  await p.getByRole('searchbox', { name: 'Search active projects' }).fill('missing project');
+  await expect(p.locator('#project-list')).toContainText('No active projects match your search.');
+  await p.getByRole('button', { name: 'Clear search' }).click();
+  await expect(p.locator('.fd-project-card')).toHaveCount(2);
+  await verification.click();
+  await expect(p.locator('#page-head-tabs').getByRole('link', { name: 'Verification & planning', exact: true })).toBeVisible();
   expect(errors).toEqual([]);
 });

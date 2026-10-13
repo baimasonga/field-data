@@ -1,7 +1,10 @@
 <!-- Copyright 2026 Field Data Developers. Licensed under the Apache License, Version 2.0. -->
 <template>
-  <section v-if="data" class="backcheck-allocation" aria-labelledby="backcheck-allocation-title">
+  <section class="backcheck-allocation" aria-labelledby="backcheck-allocation-title">
     <h3 id="backcheck-allocation-title">Automatic independent assignment</h3>
+    <p v-if="!data && !loadError" role="status">Loading assignment policy…</p>
+    <div v-if="loadError" role="alert">Assignment policy could not be loaded. <button type="button" class="btn btn-link" :disabled="busy" @click="loadPanel">Retry</button></div>
+    <template v-if="data">
     <p>
 Assign sampled Submissions to the least-loaded eligible App User, never the original collector.
       Capacity counts all their pending backchecks. Manual requests can override these limits.
@@ -54,12 +57,14 @@ Last run {{ data.policy.report.at }}: {{ data.policy.report.assigned }} assigned
         {{ data.policy.report.atCapacity }} waiting for capacity; {{ data.policy.report.noCalendarSlot || 0 }} waiting for a calendar slot.
 </p>
     </div>
-    <backcheck-planning :project-id="projectId" :can-manage="canConfigure"/>
+
     <p>
 Runs every five minutes. Enabling assigns open sampled cases to the configuring manager for review.
       Cases already owned by another reviewer and cases with any earlier backcheck are left alone.
       Each request includes its source Submission reference; answers are not copied.
 </p>
+    </template>
+    <backcheck-planning :project-id="projectId" :can-manage="canConfigure"/>
   </section>
 </template>
 
@@ -80,6 +85,7 @@ const loadCollectors = () => request({ method: 'GET', url: `${base()}?responseXm
   .then(({ data: answer }) => { data.value.collectors = answer.collectors; })
   .catch(() => { error.value = 'Collector workload could not be loaded.'; });
 const apply = (answer) => {
+  if (!Array.isArray(answer?.forms) || !Array.isArray(answer?.collectors)) throw new Error();
   if (!Array.isArray(answer?.forms) || !Array.isArray(answer?.collectors)) return;
   data.value = answer;
   if (answer.policy) {
@@ -88,7 +94,12 @@ const apply = (answer) => {
     for (const limit of answer.policy.settings.collectorLimits ?? []) overrides[limit.actorId] = String(limit.maxPending);
   }
 };
-request({ method: 'GET', url: base(), alert: false }).then(({ data: answer }) => apply(answer)).catch(() => {});
+const loadError = ref(false);
+const loadPanel = () => {
+  loadError.value = false;
+  return request({ method: 'GET', url: base(), alert: false }).then(({ data: answer }) => apply(answer)).catch(() => { loadError.value = true; });
+};
+loadPanel();
 const save = () => {
   if (busy.value) return Promise.resolve();
   error.value = ''; saved.value = false;
