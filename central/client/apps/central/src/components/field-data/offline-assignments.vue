@@ -43,6 +43,25 @@
           <p>Request ID: {{ item.id }}</p>
         </li>
       </ul>
+      <template v-if="snapshot.itineraries">
+        <h3>Offline approved itineraries</h3>
+        <p>Locations and stop order were checked when this snapshot was issued. Cancellations, access changes and road conditions cannot be checked offline.</p>
+        <p v-if="!snapshot.itineraries.complete" role="status">{{ snapshot.itineraries.omitted }} itinerary dates were omitted by snapshot limits. Reconnect to see them.</p>
+        <p v-if="snapshot.itineraries.items.length === 0">No approved itineraries were included.</p>
+        <article v-for="itinerary of snapshot.itineraries.items" :key="itinerary.id">
+          <h4>{{ itinerary.date }} · approved itinerary snapshot</h4>
+          <p>{{ itinerary.note }}</p>
+          <p v-if="itinerary.withheld">{{ itinerary.withheld }} stops were unavailable when saved.</p>
+          <p v-if="itinerary.needsReview">This itinerary was approved with review warnings. Confirm access and travel assumptions with your supervisor.</p>
+          <p>Start and return: {{ itinerary.start.latitude }}, {{ itinerary.start.longitude }}</p>
+          <ol>
+<li v-for="stop of itinerary.stops" :key="stop.id">
+<strong>Stop {{ stop.order }}</strong> · {{ stop.question }}<br>
+            {{ stop.location.latitude }}, {{ stop.location.longitude }} · accuracy {{ stop.location.accuracy ?? 'unknown' }} m<br>Request: {{ stop.id }}
+</li>
+</ol>
+        </article>
+      </template>
       <p>This snapshot cannot acknowledge a request, complete a visit or submit a decision.</p>
     </template>
   </section>

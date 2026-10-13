@@ -9,7 +9,7 @@ const key = 'fixture-app-user-key';
 const visitFixture = { id: '88888888-8888-4888-8888-888888888888', assetName: 'Water point', externalId: 'WP-01', assetType: 'water-point',
   predicate: 'condition', instruction: 'Check the pump handle. <img src=x onerror=alert(1)>', xmlFormId: 'verification',
   formName: 'Independent verification', visitBy: '2026-10-20T00:00:00Z', dispatchedAt: '2026-10-09T10:00:00Z', actionable: true };
-const setup = async (page, { push = false, denied = false, fail = false, delayed = false, failDelete = false, offline = false, offlineOrigin = null, visits = [], failVisits = false, receipts = [], failReceipts = false, itineraries = [], failItineraries = false } = {}) => {
+const setup = async (page, { push = false, denied = false, fail = false, delayed = false, failDelete = false, offline = false, offlineOrigin = null, visits = [], failVisits = false, receipts = [], failReceipts = false, itineraries = [], failItineraries = false, offlineItineraries } = {}) => {
   const state = { inboxReads: 0, seen: false, registered: false, deleted: false, failures: fail ? 1 : 0, requests: [] };
   const errors = [];
   if (offline) {
@@ -20,7 +20,7 @@ const setup = async (page, { push = false, denied = false, fail = false, delayed
       origin: offlineOrigin ?? new URL(appUrl).origin },
     { actorId: 42, projectId: 7, displayName: 'Checker', projectName: 'Project' },
     [{ id: taskId, question: '<img src=x onerror=alert(1)> Verify the visit.', xmlFormId: 'verification',
-      formName: 'Independent verification', dueAt: null, plannedVisitDate: '2026-10-14', status: 'requested', actionable: true, seenAt: null }]);
+      formName: 'Independent verification', dueAt: null, plannedVisitDate: '2026-10-14', status: 'requested', actionable: true, seenAt: null }], new Date(), offlineItineraries);
   }
   page.on('pageerror', error => errors.push(error.message));
   let release;
@@ -408,4 +408,34 @@ test('approved itinerary stops are escaped, withheld work is visible and disconn
   await page.getByRole('button', { name: 'Disconnect', exact: true }).click();
   await expect(page.getByRole('heading', { name: '2026-10-14 · approved stop order' })).toHaveCount(0);
   expect(errors).toEqual([]);
+});
+
+
+test('signed approved itineraries unlock offline without persisting plaintext coordinates', async ({ page, context }) => {
+  const approved = { id: taskId, date: '2026-10-14', note: 'Approved access instructions.', needsReview: true, withheld: 1,
+    method: 'nearest-next-stop, great-circle distance, return to start', start: { latitude: 8.48, longitude: -13.23 },
+    stops: [{ id: pushId, order: 2, question: 'Visit approved water point.', location: { latitude: 8.491234, longitude: -13.221234, accuracy: 15 } }] };
+  const { errors, state } = await setup(page, { offline: true, offlineItineraries: [approved] });
+  await connect(page); await saveOffline(page); const panel = offlinePanel(page);
+  await expect(panel.getByRole('status')).toContainText('Encrypted snapshot saved');
+  const raw = JSON.stringify(await vault(page)); expect(raw).not.toContain('8.491234'); expect(raw).not.toContain('Visit approved water point');
+  await page.reload(); await page.waitForLoadState('networkidle'); const reads = state.requests.length;
+  await context.setOffline(true); await unlockOffline(page);
+  await expect(panel.getByRole('heading', { name: 'Offline approved itineraries' })).toBeVisible();
+  await expect(panel).toContainText('8.491234, -13.221234'); await expect(panel).toContainText('1 stops were unavailable when saved');
+  await expect(panel).toContainText('Cancellations, access changes and road conditions cannot be checked offline');
+  expect(state.requests.length).toBe(reads);
+  await page.setViewportSize({ width: 320, height: 700 });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= globalThis.innerWidth)).toBe(true);
+  await panel.getByRole('button', { name: 'Lock snapshot', exact: true }).click();
+  await expect(panel.getByText('8.491234, -13.221234', { exact: false })).toHaveCount(0);
+  expect(errors).toEqual([]);
+});
+
+test('a valid signature cannot make malformed itinerary coordinates acceptable', async ({ page }) => {
+  await setup(page, { offline: true, offlineItineraries: [{ id: taskId, date: '2026-10-14', note: 'Instructions', needsReview: false,
+    withheld: 0, method: 'road suggestion', start: { latitude: 8.48, longitude: -13.23 },
+    stops: [{ id: pushId, order: 1, question: 'Visit', location: { latitude: 99, longitude: -13.22 } }] }] });
+  await connect(page); await saveOffline(page);
+  await expect(offlinePanel(page).getByRole('alert')).toBeVisible(); expect(await vault(page)).toBeNull();
 });

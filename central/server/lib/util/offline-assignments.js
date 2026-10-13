@@ -15,13 +15,31 @@ const config = () => {
   } catch { return null; }
 };
 
-const issue = (settings, user, rows, now = new Date()) => {
-  const data = { schemaVersion: 'offline-assignments@1', id: randomUUID(),
+const boundItineraries = (itineraries, now = new Date()) => {
+  const today = now.toISOString().slice(0, 10);
+  const ordered = [...itineraries].sort((a, b) => {
+    const aDate = a.date ?? ''; const bDate = b.date ?? '';
+    return Number(aDate < today) - Number(bDate < today) || (aDate < today ? bDate.localeCompare(aDate) : aDate.localeCompare(bDate));
+  });
+  const items = []; let stops = 0;
+  for (const itinerary of ordered) {
+    if (items.length >= 5 || stops + itinerary.stops.length > 100) continue; // eslint-disable-line no-continue
+    items.push(itinerary); stops += itinerary.stops.length;
+  }
+  return { items, complete: items.length === itineraries.length, omitted: itineraries.length - items.length };
+};
+const issue = (settings, user, rows, now = new Date(), itineraries) => {
+  const data = { schemaVersion: itineraries === undefined ? 'offline-assignments@1' : 'offline-assignments@2', id: randomUUID(),
     audience: settings.origin, actorId: user.actorId, projectId: user.projectId,
     appUser: { name: user.displayName ?? 'App User', projectName: user.projectName },
     issuedAt: now.toISOString(), expiresAt: new Date(now.getTime() + 8 * 3600000).toISOString(),
-    complete: rows.length <= 50, items: rows.slice(0, 50) };
-  const bytes = Buffer.from(JSON.stringify(data));
+    complete: rows.length <= 50, items: rows.slice(0, 50),
+    ...(itineraries === undefined ? {} : { itineraries: boundItineraries(itineraries, now) }) };
+  let bytes = Buffer.from(JSON.stringify(data));
+  while (bytes.length > 262144 && data.itineraries?.items.length > 0) {
+    data.itineraries.items.pop(); data.itineraries.omitted += 1; data.itineraries.complete = false;
+    bytes = Buffer.from(JSON.stringify(data));
+  }
   if (bytes.length > 262144) throw Object.assign(new Error('Offline snapshot exceeds the payload limit.'),
     { code: 'OFFLINE_SNAPSHOT_TOO_LARGE' });
   return { algorithm: 'ES256', keyId: settings.keyId, publicKey: settings.publicKey,
@@ -29,4 +47,4 @@ const issue = (settings, user, rows, now = new Date()) => {
     signature: sign('sha256', bytes, { key: settings.key, dsaEncoding: 'ieee-p1363' }).toString('base64url') };
 };
 
-module.exports = { config, issue };
+module.exports = { config, issue, boundItineraries };

@@ -27,8 +27,8 @@ approved order. Disconnect clears locations from memory.
 The companion page loads itineraries independently from tasks, re-verification
 and receipts. Failures clear the previously shown routes and provide a retry
 message through Refresh. Content is escaped and credentials remain only in tab
-memory. Itineraries currently require an online refresh; they are not added to
-signed offline bundles or browser push payloads. Turn-by-turn navigation,
+memory. Live itineraries require an online refresh. The [O13 extension](O13-offline-approved-itineraries.md)
+adds signed offline copies; locations are not added to browser push payloads. Turn-by-turn navigation,
 accessibility observations, overnight shifts and other task types remain pending.
 
 Validation covers stale previews, idempotency and changed retry contents,
