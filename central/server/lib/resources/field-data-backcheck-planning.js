@@ -4,6 +4,7 @@ const { getOrNotFound } = require('../util/promise');
 const Problem = require('../util/problem');
 const { validDate, validateCalendar, quotaOn } = require('../util/backcheck-calendar');
 const { itinerary } = require('../util/backcheck-route');
+const { roadEstimate } = require('../util/backcheck-road');
 const { parseGeopoint } = require('../util/fieldwork-integrity');
 const { parseInstance, answerAt } = require('../util/contradiction-rules');
 const { ALLOCATION_LOCK } = require('../util/backcheck-request');
@@ -57,6 +58,10 @@ module.exports = (service, endpoint) => {
     if (!validDate(query.date) || typeof query.startLat !== 'string' || !query.startLat.trim()
       || typeof query.startLon !== 'string' || !query.startLon.trim()) throw invalid();
     const start = { latitude: Number(query.startLat), longitude: Number(query.startLon) };
+    const visitMinutes = query.visitMinutes == null ? 30 : Number(query.visitMinutes);
+    const dayMinutes = query.dayMinutes == null ? 480 : Number(query.dayMinutes);
+    if (!Number.isInteger(visitMinutes) || visitMinutes < 1 || visitMinutes > 480
+      || !Number.isInteger(dayMinutes) || dayMinutes < 1 || dayMinutes > 1440) throw invalid();
     if (!Number.isFinite(start.latitude) || Math.abs(start.latitude) > 90 || !Number.isFinite(start.longitude) || Math.abs(start.longitude) > 180) throw invalid();
     response.set('Cache-Control', 'private, no-store');
     const rows = await container.db.any(sql`SELECT b.id, b."caseId", b.question, s."instanceId", sf."xmlFormId", sf."acteeId" AS "sourceActee",
@@ -104,9 +109,14 @@ module.exports = (service, endpoint) => {
     const capacity = quotaOn(calendar?.settings, query.date);
     const truncated = rows.length > 0 && Number(rows[0].total) > rows.length;
     const omitted = Object.values(excluded).reduce((sum, n) => sum + n, 0);
+    const route = itinerary(start, visits);
+    const road = await roadEstimate(start, route.stops);
+    const totalMinutes = road.status === 'ok' ? Math.ceil(road.travelMinutes + visits.length * visitMinutes) : null;
+    const timing = { visitMinutes, dayMinutes, totalMinutes, overBudget: totalMinutes == null ? null : totalMinutes > dayMinutes };
     return { actor, date: query.date, start, capacity, used, unplanned, excluded, uncertainLocations, truncated,
-      needsReview: project.archived === true || unplanned > 0 || omitted > 0 || truncated || capacity == null || used > capacity || uncertainLocations > 0,
-      method: 'nearest-next-stop, great-circle distance, return to start', route: itinerary(start, visits) };
+      needsReview: project.archived === true || unplanned > 0 || omitted > 0 || truncated || capacity == null || used > capacity || uncertainLocations > 0
+        || road.status !== 'ok' || road.maxSnapMeters > 100 || timing.overBudget === true,
+      method: 'nearest-next-stop, great-circle distance, return to start', route, road, timing };
   }));
 };
 

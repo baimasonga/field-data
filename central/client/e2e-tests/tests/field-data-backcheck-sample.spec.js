@@ -266,6 +266,8 @@ test('a manager saves calendar exceptions and exports an itinerary with capacity
   let settings = null; const saves = []; const routes = [];
   const plan = { actor: { id: 5, name: 'Checker' }, date: '2026-10-14', capacity: 1, used: 2, unplanned: 1, uncertainLocations: 1,
     truncated: true, needsReview: true, excluded: { permission: 0, inactive: 0, collectorUnavailable: 0, encryptedSource: 0, sourceUnverified: 1, missingLocation: 1 },
+    road: { status: 'ok', distanceKm: 3, travelMinutes: 60, maxSnapMeters: 150, legs: [{ distanceKm: 1.5, travelMinutes: 30 }, { distanceKm: 1.5, travelMinutes: 30 }] },
+    timing: { totalMinutes: 90, visitMinutes: 30, dayMinutes: 60, overBudget: true },
     route: { distanceKm: 2.2, returnKm: 1.1, stops: [{ id: 'task', instanceId: '=unsafe', order: 1, legKm: 1.1,
       location: { latitude: 8.49, longitude: -13.23, accuracy: null }, uncertain: true }] } };
   const errors = await api(p, managerVerbs, async (route, path) => {
@@ -297,19 +299,28 @@ test('a manager saves calendar exceptions and exports an itinerary with capacity
   await section.getByLabel('Route date').fill('2026-10-14');
   await section.getByLabel('Start latitude').fill('8.48');
   await section.getByLabel('Start longitude').fill('-13.23');
+  await section.getByLabel('Available minutes including travel').fill('60');
   await section.getByRole('button', { name: 'Preview itinerary' }).click();
   await expect(section).toContainText('1 located stops · 2.2 km straight-line total');
   await expect(section).toContainText('This day is over capacity');
+  await expect(section).toContainText('60 minutes driving');
+  await expect(section).toContainText('This itinerary exceeds the available time');
+  await expect(section).toContainText('90 minutes including 30 minutes per visit');
+  await expect(section).toContainText('more than 100 metres');
   await expect(section).toContainText('the task list was truncated');
-  expect(Object.fromEntries(routes[0])).toEqual({ actorId: '5', date: '2026-10-14', startLat: '8.48', startLon: '-13.23' });
+  expect(Object.fromEntries(routes[0])).toEqual({ actorId: '5', date: '2026-10-14', startLat: '8.48', startLon: '-13.23', visitMinutes: '30', dayMinutes: '60' });
   const downloaded = p.waitForEvent('download');
   await section.getByRole('button', { name: 'Download itinerary CSV' }).click();
   const download = await downloaded;
   const csv = await readFile(await download.path(), 'utf8');
+  expect(csv).toContain('Driving leg (minutes)'); expect(csv).toContain('Road estimate status');
   expect(csv).toContain("'=" + 'unsafe'); expect(csv).toContain('Review required'); expect(csv).toContain('Truncated'); expect(csv).toContain('"-13.23"');
   await p.setViewportSize({ width: 390, height: 844 });
   await expect(section.getByRole('button', { name: 'Preview itinerary' })).toBeVisible();
   expect(await p.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  plan.road = { status: 'unavailable' };
+  await section.getByRole('button', { name: 'Preview itinerary' }).click();
+  await expect(section).toContainText('Travel time remains unknown.');
   expect(errors).toEqual([]);
 });
 

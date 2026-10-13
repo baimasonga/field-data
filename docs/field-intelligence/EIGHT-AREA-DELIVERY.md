@@ -102,7 +102,10 @@ also exist. Those features must not be re-labelled as full completion of this pr
   capacity including completed visits, fieldwork/offline dates, and a
   deterministic stop-order preview with great-circle distance, integrity,
   permission, location and capacity warnings and CSV export: implemented and
-  locally validated. Road navigation, shift hours, travel-time optimization,
+  merged in PR #91. Road estimates (O9) add an optional operator-controlled
+  OSRM driving adapter, return-trip travel time, per-visit duration and day
+  budget warnings; live provider acceptance remains pending. Road navigation,
+  shift hours, travel-time optimization,
   automatic route dispatch and planning for other task types remain pending.
 - Static survey doctor (S1, first adaptive-surveys slice): checks of a form
   definition for unknown references, cycles, never-shown questions, impossible

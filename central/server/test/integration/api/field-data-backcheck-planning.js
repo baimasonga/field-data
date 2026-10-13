@@ -78,7 +78,7 @@ describe('api: calendar availability and route planning', () => {
     await runAllocations(c.db, now);
     const preview = await route(alice, users[1]);
     assert.equal(preview.headers['cache-control'], 'private, no-store');
-    assert.equal(preview.body.route.stops.length, 2); assert.equal(preview.body.needsReview, false);
+    assert.equal(preview.body.route.stops.length, 2); assert.equal(preview.body.needsReview, true); assert.equal(preview.body.road.status, 'disabled');
     assert.deepEqual(preview.body.route.stops.map(s => s.instanceId), ['visit0', 'visit1']);
     assert.equal(preview.body.route.stops[0].location.accuracy, 15);
     const { LIMITS } = require('../../../lib/resources/field-data-backcheck-planning');
@@ -132,6 +132,36 @@ describe('api: calendar availability and route planning', () => {
       assert.equal(calendars.find(row => row.id === users[1].id).settings.weeklyCapacity[3], 1);
       assert.equal((await checks(c))[0].date, '2026-10-14');
     } finally { await db.destroy(); }
+  }));
+
+  it('adds road travel and visit-time budgets without exposing task identifiers upstream', testService(async (service, c) => {
+    const { alice, users } = await setup(service, true, 1);
+    await calendar(alice, users[1], [2, 2, 2, 2, 2, 2, 2]);
+    await runAllocations(c.db, now);
+    const originalFetch = global.fetch; const originalUrl = process.env.FIELD_DATA_OSRM_URL;
+    process.env.FIELD_DATA_OSRM_URL = 'https://routing.example';
+    let calls = 0;
+    global.fetch = async (url) => {
+      calls += 1; assert.equal(url.hostname, 'routing.example');
+      assert.equal(url.pathname.includes('visit0'), false);
+      return new Response(JSON.stringify({ code: 'Ok', routes: [{ distance: 2000, duration: 3600,
+        legs: [{ distance: 1000, duration: 1800 }, { distance: 1000, duration: 1800 }] }],
+      waypoints: [{ distance: 0 }, { distance: 150 }, { distance: 0 }] }));
+    };
+    try {
+      const result = (await alice.get(`${root}/backcheck-route?actorId=${users[1].id}&date=2026-10-14&startLat=8.48&startLon=-13.23&visitMinutes=30&dayMinutes=60`).expect(200)).body;
+      assert.equal(result.road.travelMinutes, 60); assert.equal(result.timing.totalMinutes, 90);
+      assert.equal(result.timing.overBudget, true); assert.equal(result.needsReview, true);
+      await alice.get(`${root}/backcheck-route?actorId=${users[1].id}&date=2026-10-14&startLat=8.48&startLon=-13.23&visitMinutes=0`).expect(400);
+      assert.equal(calls, 1);
+      global.fetch = async () => { throw new Error('upstream secret'); };
+      const unavailable = (await route(alice, users[1])).body;
+      assert.deepEqual(unavailable.road, { status: 'unavailable' }); assert.equal(unavailable.timing.totalMinutes, null);
+      assert.equal(unavailable.needsReview, true);
+    } finally {
+      global.fetch = originalFetch;
+      if (originalUrl == null) delete process.env.FIELD_DATA_OSRM_URL; else process.env.FIELD_DATA_OSRM_URL = originalUrl;
+    }
   }));
 
 });
