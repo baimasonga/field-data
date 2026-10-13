@@ -138,3 +138,22 @@ authorized manager must re-enable it. Deleted forms are skipped.
 
 Reviewers still request each independent backcheck themselves; scheduled
 sampling does not automatically assign App Users.
+
+## Automatic back-check allocation
+
+On a form's Verification page, configure and enable Automatic independent
+assignment. Select a response form and instructions, due interval and pending
+capacity. Set a collector's override to zero when unavailable. This opts into
+claiming open sampled cases for the configuring manager and requesting checks
+from independent, authorized App Users through the usual inbox/push workflow.
+
+The existing operations cron runs allocation after sampling every five minutes.
+Cases wait unchanged when there is no independent checker or no capacity.
+Pending counts include manual requests; manual assignment can override the
+automatic limits. Linking or cancelling work frees capacity, but cancelled
+cases require manual replacement and are not automatically requested again.
+The last-run report shows assigned and waiting counts or a sanitized failure.
+Revoked manager permission or unavailable source/response scope pauses the policy.
+Correct the settings and re-enable it to resume. Unexpected write failures retry
+without partial case claims or requests. Route and calendar capacity planning
+remain future work; verify real inbox/push and field response delivery in the pilot.

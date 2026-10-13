@@ -1,4 +1,4 @@
-/* global localStorage */
+/* global localStorage, document, window */
 // O3 random backcheck sample in the browser: docs/field-intelligence/O3-backcheck-sample.md
 import { expect, test } from '@playwright/test';
 
@@ -196,4 +196,64 @@ test('a viewer sees the schedule but cannot change it', async ({ page: p }) => {
   await expect(section.getByRole('button', { name: 'Save schedule' })).toHaveCount(0);
   await expect(section.locator('.backcheck-schedule-runs li')).toHaveCount(3);
   expect(errors).toEqual([]);
+});
+
+test('a manager configures independent automatic allocation, collector capacity and sees waiting reports', async ({ page: p }) => {
+  const allocationPath = '/v1/projects/1/forms/household/backcheck-allocation';
+  const forms = [{ id: 2, xmlFormId: 'responses', name: 'Revisit' }];
+  const collectors = [{ id: 5, name: 'Checker A', pending: 2, overdue: 1, maxPending: 5 }, { id: 6, name: 'Checker B', pending: 0, overdue: 0, maxPending: 5 }];
+  const puts = [];
+  let policy = null;
+  const errors = await api(p, managerVerbs, async (route, path) => {
+    if (path === allocationPath) {
+      if (route.request().method() === 'PUT') {
+        const settings = route.request().postDataJSON(); puts.push(settings);
+        if (puts.length === 1) { await route.fulfill({ status: 500, json: { message: 'Save failed; try again.' } }); return true; }
+        policy = { enabled: settings.enabled, settings, report: { at: '2026-10-13T12:00:00Z', examined: 5, assigned: 2, noIndependentCollector: 1, atCapacity: 2, failure: null } };
+      }
+      await route.fulfill({ json: { policy, forms, collectors } }); return true;
+    }
+    if (path === samplesPath) { await route.fulfill({ json: [] }); return true; }
+    return false;
+  });
+  await p.goto(`${appUrl}${page}`);
+  const section = p.locator('.backcheck-allocation');
+  await expect(section).toContainText('never the original collector');
+  await section.getByLabel('Automatic response Form').selectOption('responses');
+  await section.getByLabel('Backcheck instructions').fill('Verify the visit with the respondent.');
+  await section.getByLabel('Due within').fill('7');
+  await section.getByLabel('Default pending capacity').fill('3');
+  await section.getByLabel('Pending capacity for Checker A').fill('0');
+  await section.getByLabel('Enable automatic assignment').check();
+  await section.getByRole('button', { name: 'Save allocation policy' }).click();
+  await expect(section.getByRole('alert')).toContainText('Save failed');
+  await section.getByRole('button', { name: 'Save allocation policy' }).click();
+  expect(puts[1]).toEqual({ enabled: true, responseXmlFormId: 'responses', question: 'Verify the visit with the respondent.', dueDays: 7,
+    maxPending: 3, collectorLimits: [{ actorId: 5, maxPending: 0 }] });
+  expect(puts[0]).toEqual(puts[1]);
+  await expect(section).toContainText('2 assigned of 5 considered');
+  await expect(section).toContainText('1 waiting for an independent collector');
+  await expect(section).toContainText('2 waiting for capacity');
+  await section.getByLabel('Enable automatic assignment').uncheck();
+  await section.getByRole('button', { name: 'Save allocation policy' }).click();
+  await expect(section).toContainText('Paused');
+  await p.setViewportSize({ width: 390, height: 844 });
+  await expect(section.getByRole('button', { name: 'Save allocation policy' })).toBeVisible();
+  expect(await p.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  expect(errors).toEqual([]);
+});
+
+test('a viewer reads automatic allocation failure without configuration controls', async ({ page: p }) => {
+  await api(p, viewerVerbs, async (route, path) => {
+    if (path.endsWith('/backcheck-allocation')) {
+      await route.fulfill({ json: { policy: { enabled: false, settings: { responseXmlFormId: 'responses', dueDays: 7, maxPending: 2, question: 'Verify.', collectorLimits: [] },
+        report: { failure: 'Automatic allocation paused: access was revoked.' } }, forms: [], collectors: [] } }); return true;
+    }
+    if (path === samplesPath) { await route.fulfill({ json: [] }); return true; }
+    return false;
+  });
+  await p.goto(`${appUrl}${page}`);
+  const section = p.locator('.backcheck-allocation');
+  await expect(section).toContainText('access was revoked');
+  await expect(section.getByRole('button', { name: 'Save allocation policy' })).toHaveCount(0);
 });

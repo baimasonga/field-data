@@ -17,7 +17,7 @@ and a number that looks like one would be believed.
 -->
 <template>
   <div id="submission-verification">
-    <loading :state="loading"/>
+    <loading-indicator :state="loading"/>
 
     <template v-if="!loading && evidence != null">
       <submission-review-queue :key="queueKey" :project-id="projectId" :xml-form-id="xmlFormId"
@@ -35,7 +35,7 @@ and a number that looks like one would be believed.
             <div class="kpi-value">
               {{ $t('evidence.outOf', {
                 some: $n(evidence.coverage.withCaptureTime, 'default'),
-                total: $n(evidence.coverage.total, 'default')
+                total: $n(evidence.coverage.total, 'default'),
               }) }}
             </div>
             <div class="kpi-label">{{ $t('evidence.captureTime') }}</div>
@@ -44,7 +44,7 @@ and a number that looks like one would be believed.
             <div class="kpi-value">
               {{ $t('evidence.outOf', {
                 some: $n(evidence.coverage.withLocation, 'default'),
-                total: $n(evidence.coverage.total, 'default')
+                total: $n(evidence.coverage.total, 'default'),
               }) }}
             </div>
             <div class="kpi-label">{{ $t('evidence.location') }}</div>
@@ -89,7 +89,7 @@ and a number that looks like one would be believed.
       </section>
 
       <imagery-availability :project-id="projectId" :xml-form-id="xmlFormId" :can-check="canReview"/>
-      <backcheck-sample :project-id="projectId" :xml-form-id="xmlFormId" :can-draw="canReview"
+      <backcheck-sample :project-id="projectId" :xml-form-id="xmlFormId" :can-draw="canReview" :can-manage="canManage"
         @drawn="queueKey += 1"/>
       <backcheck-agreement :project-id="projectId" :xml-form-id="xmlFormId"/>
       <contradiction-rules v-if="canReview" :project-id="projectId" :xml-form-id="xmlFormId"
@@ -112,11 +112,12 @@ and a number that looks like one would be believed.
             examined: $n(lastRun.examined, 'default'),
             collectors: $n(lastRun.collectors, 'default'),
             concerns: $n(lastRun.concerns, 'default'),
-            inconclusive: $n(lastRun.inconclusive, 'default')
+            inconclusive: $n(lastRun.inconclusive, 'default'),
           }) }}
           <span class="run-rule">{{ $t('findings.rule', {
-            rule: lastRun.rule, version: lastRun.ruleVersion,
-            speed: lastRun.thresholds.maxSpeedKmh
+            rule: lastRun.rule,
+version: lastRun.ruleVersion,
+            speed: lastRun.thresholds.maxSpeedKmh,
           }) }}</span>
           <span v-for="rule of lastRun.locationRules ?? []" :key="rule.rule" class="run-rule">
             {{ rule.ran
@@ -165,16 +166,20 @@ and a number that looks like one would be believed.
             <dl v-if="flag.rule === 'implausible-travel' && flag.outcome === 'concern'" class="finding-evidence">
               <div>
                 <dt>{{ $t('evidenceLabel.distance') }}</dt>
-                <dd>{{ $t('evidenceLabel.distanceValue', {
+                <dd>
+{{ $t('evidenceLabel.distanceValue', {
                   least: $n(flag.evidence.leastDistanceM, 'default'),
-                  straight: $n(flag.evidence.straightLineM, 'default')
-                }) }}</dd>
+                  straight: $n(flag.evidence.straightLineM, 'default'),
+                }) }}
+</dd>
               </div>
               <div>
                 <dt>{{ $t('evidenceLabel.apart') }}</dt>
-                <dd>{{ $t('evidenceLabel.minutes', {
-                  minutes: $n(Math.round(flag.evidence.secondsBetween / 60), 'default')
-                }) }}</dd>
+                <dd>
+{{ $t('evidenceLabel.minutes', {
+                  minutes: $n(Math.round(flag.evidence.secondsBetween / 60), 'default'),
+                }) }}
+</dd>
               </div>
               <div>
                 <dt>{{ $t('evidenceLabel.implied') }}</dt>
@@ -243,11 +248,13 @@ and a number that looks like one would be believed.
             </dl>
 
             <template v-else-if="isIdentity(flag)">
-              <p class="finding-subhead">{{ $t(flag.evidence.kind === 'reused'
+              <p class="finding-subhead">
+{{ $t(flag.evidence.kind === 'reused'
                 ? 'identity.reusedLead' : 'identity.inconsistentLead', {
                 count: $n(flag.evidence.sharedBy ?? 2, 'default'),
-                allowed: $n(flag.evidence.maxUses ?? 1, 'default')
-              }) }}</p>
+                allowed: $n(flag.evidence.maxUses ?? 1, 'default'),
+              }) }}
+</p>
               <div class="identity-table-wrap">
                 <table class="table identity-table">
                   <thead>
@@ -316,7 +323,9 @@ and a number that looks like one would be believed.
                 type="text" :placeholder="$t('review.note')"
                 :aria-label="$t('review.note')" maxlength="4000">
               <button type="submit" class="btn btn-default"
-                :aria-disabled="awaitingResponse">{{ $t('action.record') }}</button>
+                :aria-disabled="awaitingResponse">
+{{ $t('action.record') }}
+</button>
             </form>
           </li>
         </ul>
@@ -329,7 +338,7 @@ and a number that looks like one would be believed.
 import { computed, defineAsyncComponent, reactive, ref, watchEffect } from 'vue';
 import { useI18n } from 'vue-i18n';
 
-import Loading from '../loading.vue';
+import LoadingIndicator from '../loading.vue';
 import Spinner from '../spinner.vue';
 import SubmissionReviewQueue from './review-queue.vue';
 import ContradictionRules from './contradiction-rules.vue';

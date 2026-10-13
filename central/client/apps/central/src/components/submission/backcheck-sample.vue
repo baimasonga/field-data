@@ -81,6 +81,8 @@ docs/field-intelligence/O6-scheduled-backcheck-samples.md -->
       </ul>
     </section>
 
+    <backcheck-allocation :project-id="projectId" :xml-form-id="xmlFormId" :can-configure="canDraw && canManage"/>
+
     <p v-if="samples.length === 0" class="backcheck-sample-empty">No sample has been drawn for this Form.</p>
     <template v-else>
       <label v-if="samples.length > 1" class="backcheck-sample-pick">Sample
@@ -94,9 +96,7 @@ docs/field-intelligence/O6-scheduled-backcheck-samples.md -->
         <p role="status" class="backcheck-sample-summary">
           Drawn {{ formatDate(sample.drawnAt) }}<template v-if="sample.scheduled"> on schedule</template><template v-else-if="sample.drawnBy"> by {{ sample.drawnBy.displayName }}</template>:
           {{ sample.sampled }} of {{ sample.eligible }} eligible Submissions
-          ({{ sample.settings.rate }}% per collector, at least {{ sample.settings.minPerCollector }}<template v-if="sample.settings.receivedFrom || sample.settings.receivedTo">,
-          received {{ sample.settings.receivedFrom || '…' }} to {{ sample.settings.receivedTo || '…' }}</template>)<template v-if="sample.sampledBefore > 0">;
-          {{ sample.sampledBefore }} skipped as sampled before</template>.
+          ({{ sample.settings.rate }}% per collector, at least {{ sample.settings.minPerCollector }}{{ receivedRange }}){{ sampledBeforeText }}.
           <template v-if="sample.alreadyDecided > 0">
             {{ sample.alreadyDecided }} already had a review decision and were not reopened.
           </template>
@@ -136,15 +136,17 @@ docs/field-intelligence/O6-scheduled-backcheck-samples.md -->
 </template>
 
 <script setup>
-import { reactive, ref } from 'vue';
+import { computed, reactive, ref } from 'vue';
 
 import Spinner from '../spinner.vue';
+import BackcheckAllocation from './backcheck-allocation.vue';
 import useRequest from '../../composables/request';
 
 defineOptions({ name: 'BackcheckSample' });
 const props = defineProps({
   projectId: { type: String, required: true },
   xmlFormId: { type: String, required: true },
+  canManage: Boolean,
   canDraw: Boolean
 });
 const emit = defineEmits(['drawn']);
@@ -153,6 +155,11 @@ const base = () => `/v1/projects/${props.projectId}/forms/${encodeURIComponent(p
 
 const samples = ref(null); const sample = ref(null); const selectedId = ref(null); const error = ref('');
 const settings = reactive({ rate: 10, minPerCollector: 1, receivedFrom: '', receivedTo: '' });
+const receivedRange = computed(() => {
+  const value = sample.value?.settings;
+  return value?.receivedFrom || value?.receivedTo ? `, received ${value.receivedFrom || '…'} to ${value.receivedTo || '…'}` : '';
+});
+const sampledBeforeText = computed(() => (sample.value?.sampledBefore > 0 ? `; ${sample.value.sampledBefore} skipped as sampled before` : ''));
 
 // O6: the form's schedule (undefined until loaded or when it cannot be read).
 const schedule = ref(undefined); const runs = ref([]); const scheduleError = ref('');
