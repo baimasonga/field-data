@@ -104,8 +104,11 @@ also exist. Those features must not be re-labelled as full completion of this pr
   permission, location and capacity warnings and CSV export: implemented and
   merged in PR #91. Road estimates (O9) add an optional operator-controlled
   OSRM driving adapter, return-trip travel time, per-visit duration and day
-  budget warnings; live provider acceptance remains pending. Road navigation,
-  shift hours, travel-time optimization,
+  budget warnings; live provider acceptance remains pending. Persisted UTC
+  shift windows and visit-time planning (O10) add weekday/date overrides,
+  closed/expired-window handling, conservative allocation time limits and
+  saved preview assumptions: implemented and locally validated. Road
+  navigation, overnight shifts, travel-time optimization,
   automatic route dispatch and planning for other task types remain pending.
 - Static survey doctor (S1, first adaptive-surveys slice): checks of a form
   definition for unknown references, cycles, never-shown questions, impossible

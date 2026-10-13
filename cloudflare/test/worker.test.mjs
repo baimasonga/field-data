@@ -69,14 +69,15 @@ test('a proxy failure and a bad gateway answer starting up; an application 500 p
   assert.equal(await response.text(), '{"code":500.1}');
 });
 
-test('push and imagery settings reach the container, and are off unless set', () => {
+test('push, imagery and optional routing settings reach the container, and are off unless set', () => {
   const off = new FieldDataContainer().envVars;
   assert.equal(off.FIELD_DATA_PUSH_ENABLED, 'false');
   assert.equal(off.FIELD_DATA_IMAGERY_ENABLED, 'false');
   assert.equal(off.FIELD_DATA_PUSH_PRIVATE_KEY, '');
+  assert.equal(off.FIELD_DATA_OSRM_URL, undefined);
   Object.assign(globalThis.__env, {
     FIELD_DATA_PUSH_ENABLED: 'true', FIELD_DATA_PUSH_SUBJECT: 'mailto:ops@example.test',
-    FIELD_DATA_PUSH_PUBLIC_KEY: 'public', FIELD_DATA_PUSH_PRIVATE_KEY: 'private', FIELD_DATA_IMAGERY_ENABLED: 'true'
+    FIELD_DATA_PUSH_PUBLIC_KEY: 'public', FIELD_DATA_PUSH_PRIVATE_KEY: 'private', FIELD_DATA_IMAGERY_ENABLED: 'true', FIELD_DATA_OSRM_URL: 'https://routing.example.test'
   });
   try {
     const on = new FieldDataContainer().envVars;
@@ -85,7 +86,8 @@ test('push and imagery settings reach the container, and are off unless set', ()
     assert.equal(on.FIELD_DATA_PUSH_PUBLIC_KEY, 'public');
     assert.equal(on.FIELD_DATA_PUSH_PRIVATE_KEY, 'private');
     assert.equal(on.FIELD_DATA_IMAGERY_ENABLED, 'true');
+    assert.equal(on.FIELD_DATA_OSRM_URL, 'https://routing.example.test');
   } finally {
-    for (const key of ['FIELD_DATA_PUSH_ENABLED', 'FIELD_DATA_PUSH_SUBJECT', 'FIELD_DATA_PUSH_PUBLIC_KEY', 'FIELD_DATA_PUSH_PRIVATE_KEY', 'FIELD_DATA_IMAGERY_ENABLED']) delete globalThis.__env[key];
+    for (const key of ['FIELD_DATA_PUSH_ENABLED', 'FIELD_DATA_PUSH_SUBJECT', 'FIELD_DATA_PUSH_PUBLIC_KEY', 'FIELD_DATA_PUSH_PRIVATE_KEY', 'FIELD_DATA_IMAGERY_ENABLED', 'FIELD_DATA_OSRM_URL']) delete globalThis.__env[key];
   }
 });

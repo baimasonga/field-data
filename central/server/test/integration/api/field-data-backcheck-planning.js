@@ -164,4 +164,31 @@ describe('api: calendar availability and route planning', () => {
     }
   }));
 
+  it('persists UTC shifts, bounds automatic dates by minimum visit time and uses saved preview assumptions', testService(async (service, c) => {
+    const { alice, users } = await setup(service, true, 3);
+    const settings = { weeklyCapacity: [100, 100, 100, 100, 100, 100, 100], visitMinutes: 45,
+      weeklyShifts: Array(7).fill({ start: '08:00', end: '08:30' }),
+      exceptions: [{ date: '2026-10-15', maxVisits: 100, shift: { start: '08:00', end: '09:30' } }] };
+    await alice.put(`${root}/backcheck-calendars/${users[1].id}`).send(settings).expect(200);
+    await runAllocations(c.db, now);
+    const rows = await checks(c);
+    assert.equal(rows.length, 2); assert.deepEqual(rows.map(r => r.date), ['2026-10-15', '2026-10-15']);
+    const { report } = (await alice.get(`${root}/forms/route_survey/backcheck-allocation`).expect(200)).body.policy;
+    assert.equal(report.noCalendarSlot, 1);
+    const plan = (await alice.get(`${root}/backcheck-route?actorId=${users[1].id}&date=2026-10-15&startLat=8.48&startLon=-13.23`).expect(200)).body;
+    assert.equal(plan.timing.visitMinutes, 45); assert.equal(plan.timing.dayMinutes, 90);
+    assert.equal(plan.timing.shift.start, '08:00'); assert.equal(plan.timing.shift.end, '09:30');
+    assert.equal(plan.timing.previewOverrides, false); assert.equal(plan.timing.totalMinutes, null);
+    const invalid = { ...settings, weeklyShifts: Array(7).fill({ start: '09:00', end: '08:00' }) };
+    await alice.put(`${root}/backcheck-calendars/${users[1].id}`).send(invalid).expect(400);
+    await alice.put(`${root}/backcheck-calendars/${users[1].id}`).send({ ...settings, exceptions: [{ date: '2026-10-15', maxVisits: 100, shift: null }] }).expect(200);
+    const closed = (await alice.get(`${root}/backcheck-route?actorId=${users[1].id}&date=2026-10-15&startLat=8.48&startLon=-13.23`).expect(200)).body;
+    assert.equal(closed.timing.shiftUnavailable, true); assert.equal(closed.timing.dayMinutes, 0); assert.equal(closed.needsReview, true);
+    assert.equal((await checks(c)).length, 2); // Edits never move existing visits.
+    const past = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+    const expired = (await alice.get(`${root}/backcheck-route?actorId=${users[1].id}&date=${past}&startLat=8.48&startLon=-13.23&dayMinutes=1440`).expect(200)).body;
+    assert.equal(expired.timing.expiredShift, true); assert.equal(expired.timing.dayMinutes, 0);
+    assert.equal(expired.timing.shiftBudgetMinutes, 0); assert.equal(expired.needsReview, true);
+  }));
+
 });
