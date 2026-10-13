@@ -574,3 +574,35 @@ test('a manager saves UTC shift windows and previews using persistent visit-time
   expect(await p.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   expect(errors).toEqual([]);
 });
+
+
+test('road-aware preview exposes the applied order and honest provider fallback', async ({ page: p }) => {
+  let attempt = 0; const queries = [];
+  const errors = await api(p, managerVerbs, async (route, path) => {
+    if (path.endsWith('/backcheck-calendars')) { await route.fulfill({ json: [{ id: 5, name: 'Checker', settings: null }] }); return true; }
+    if (path.endsWith('/backcheck-route')) {
+      attempt += 1; queries.push(Object.fromEntries(new URL(route.request().url()).searchParams));
+      await route.fulfill({ json: { actor: { id: 5, name: 'Checker' }, date: '2026-10-15', capacity: 2, used: 1, unplanned: 0,
+        excluded: {}, uncertainLocations: 0, truncated: false, needsReview: attempt > 1,
+        route: { stops: [], distanceKm: 0, returnKm: 0 },
+        ordering: { requested: 'road', applied: attempt === 1 ? 'road' : 'straight', status: attempt === 1 ? 'ok' : 'unavailable' },
+        road: attempt === 1 ? { status: 'ok', distanceKm: 0, travelMinutes: 0, legs: [], maxSnapMeters: 0 } : { status: 'unavailable' },
+        timing: { visitMinutes: 30, dayMinutes: 480, totalMinutes: attempt === 1 ? 0 : null } } }); return true;
+    }
+    return false;
+  });
+  await p.goto(`${appUrl}${page}`);
+  const section = p.locator('.backcheck-planning');
+  await section.getByLabel('Planning collector').selectOption('5');
+  await section.getByLabel('Stop order', { exact: true }).selectOption('road');
+  await section.getByLabel('Start latitude').fill('8.48'); await section.getByLabel('Start longitude').fill('-13.23');
+  await section.getByRole('button', { name: 'Preview itinerary' }).click();
+  await expect(section).toContainText('Road-aware order suggested by the approved routing service');
+  expect(queries[0].order).toBe('road');
+  await section.getByRole('button', { name: 'Preview itinerary' }).click();
+  await expect(section).toContainText('Road-aware ordering unavailable (unavailable)');
+  await expect(section).toContainText('driving time remains unknown');
+  await p.setViewportSize({ width: 390, height: 900 });
+  expect(await p.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  expect(errors).toEqual([]);
+});

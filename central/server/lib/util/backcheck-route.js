@@ -18,4 +18,13 @@ const itinerary = (start, visits) => {
   const back = stops.length ? distanceKm(previous, start) : 0;
   return { stops, distanceKm: Math.round((total + back) * 100) / 100, returnKm: Math.round(back * 100) / 100 };
 };
-module.exports = { distanceKm, itinerary };
+const orderedItinerary = (start, visits) => {
+  let previous = start; let total = 0;
+  const stops = visits.map((visit, i) => {
+    const leg = distanceKm(previous, visit.location); total += leg; previous = visit.location;
+    return { ...visit, order: i + 1, legKm: Math.round(leg * 100) / 100 };
+  });
+  const back = stops.length ? distanceKm(previous, start) : 0;
+  return { stops, distanceKm: Math.round((total + back) * 100) / 100, returnKm: Math.round(back * 100) / 100 };
+};
+module.exports = { distanceKm, itinerary, orderedItinerary };

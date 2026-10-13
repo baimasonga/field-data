@@ -3,8 +3,8 @@ const { sql } = require('slonik');
 const { getOrNotFound } = require('../util/promise');
 const Problem = require('../util/problem');
 const { validDate, validateCalendar, quotaOn, shiftOn } = require('../util/backcheck-calendar');
-const { itinerary } = require('../util/backcheck-route');
-const { roadEstimate } = require('../util/backcheck-road');
+const { itinerary, orderedItinerary } = require('../util/backcheck-route');
+const { roadEstimate, roadOrder } = require('../util/backcheck-road');
 const { parseGeopoint } = require('../util/fieldwork-integrity');
 const { parseInstance, answerAt } = require('../util/contradiction-rules');
 const { ALLOCATION_LOCK } = require('../util/backcheck-request');
@@ -57,6 +57,7 @@ module.exports = (service, endpoint) => {
     const actor = await actorFor(container.db, project.id, Number(query.actorId));
     if (!validDate(query.date) || typeof query.startLat !== 'string' || !query.startLat.trim()
       || typeof query.startLon !== 'string' || !query.startLon.trim()) throw invalid();
+    if (query.order != null && !['straight', 'road'].includes(query.order)) throw invalid();
     const start = { latitude: Number(query.startLat), longitude: Number(query.startLon) };
     const visitOverride = query.visitMinutes == null ? null : Number(query.visitMinutes);
     const dayOverride = query.dayMinutes == null ? null : Number(query.dayMinutes);
@@ -116,15 +117,18 @@ module.exports = (service, endpoint) => {
       : Math.max(0, Math.floor((Date.parse(shift.endAt) - Math.max(Date.parse(shift.startAt), at)) / 60000));
     const dayMinutes = shiftBudgetMinutes == null ? dayOverride ?? 480 : Math.min(dayOverride ?? shiftBudgetMinutes, shiftBudgetMinutes);
     const expiredShift = shift != null && Date.parse(shift.endAt) <= at;
-    const route = itinerary(start, visits);
-    const road = await roadEstimate(start, route.stops);
+    let route = itinerary(start, visits);
+    const optimization = query.order === 'road' ? await roadOrder(start, route.stops) : null;
+    if (optimization?.status === 'ok') route = orderedItinerary(start, optimization.order.map(i => route.stops[i]));
+    const road = optimization ?? await roadEstimate(start, route.stops);
     const totalMinutes = road.status === 'ok' ? Math.ceil(road.travelMinutes + visits.length * visitMinutes) : null;
     const timing = { visitMinutes, dayMinutes, shiftBudgetMinutes, totalMinutes, shift: shift ?? null, shiftUnavailable: shift === null, expiredShift,
       previewOverrides: visitOverride != null || dayOverride != null, overBudget: totalMinutes == null ? null : totalMinutes > dayMinutes };
     return { actor, date: query.date, start, capacity, used, unplanned, excluded, uncertainLocations, truncated,
       needsReview: project.archived === true || unplanned > 0 || omitted > 0 || truncated || capacity == null || used > capacity || uncertainLocations > 0
         || shift === null || expiredShift || road.status !== 'ok' || road.maxSnapMeters > 100 || timing.overBudget === true,
-      method: 'nearest-next-stop, great-circle distance, return to start', route, road, timing };
+      method: optimization?.status === 'ok' ? 'OSRM road trip suggestion, return to start; not a guarantee of optimality' : 'nearest-next-stop, great-circle distance, return to start',
+      ordering: { requested: query.order ?? 'straight', applied: optimization?.status === 'ok' ? 'road' : 'straight', status: optimization?.status ?? 'notRequested' }, route, road, timing };
   }));
 };
 
