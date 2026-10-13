@@ -69,3 +69,7 @@ manual requests, scheduled sampling and claim versions, and six browser
 workflows passed. Changed server/client files and browser tests pass lint.
 Real browser push/Collect acceptance remains separate from mocked browser
 workflow tests and the real PostgreSQL API checks.
+
+O8 adds the optional `respectCalendar` flag (default false for existing
+policies), daily availability and `plannedVisitDate` on assigned requests.
+See [calendar and route planning](O8-calendar-route-planning.md).

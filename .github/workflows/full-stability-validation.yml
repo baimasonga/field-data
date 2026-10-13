@@ -225,6 +225,7 @@ jobs:
               test/integration/api/field-data-backcheck-samples.js \
               test/integration/api/field-data-backcheck-schedules.js \
               test/integration/api/field-data-backcheck-allocation.js \
+              test/integration/api/field-data-backcheck-planning.js \
               test/integration/api/field-data-backcheck-agreement.js \
               test/integration/api/field-data-near-duplicates.js \
               test/integration/api/field-data-collusion.js \

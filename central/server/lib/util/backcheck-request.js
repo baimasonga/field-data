@@ -3,7 +3,7 @@ const { sql } = require('slonik');
 const Problem = require('./problem');
 const ALLOCATION_LOCK = 74143;
 const requestBackcheck = async (db, { caseId, claimVersionId, projectId, formActeeId,
-  responseForm, reviewerId, revision, requestId, requestHash, assignedTo, question, dueAt }) => {
+  responseForm, reviewerId, revision, requestId, requestHash, assignedTo, question, dueAt, plannedVisitDate = null }) => {
   // Acquire before the case lock: manual requests and automatic allocation
   // share capacity serialization without changing manual override behavior.
   await db.query(sql`SELECT pg_advisory_xact_lock(${ALLOCATION_LOCK}, ${projectId})`);
@@ -42,9 +42,9 @@ const requestBackcheck = async (db, { caseId, claimVersionId, projectId, formAct
   if (pending.length > 0) throw Problem.user.reviewCaseClosed();
   const inserted = await db.one(sql`INSERT INTO field_data_backchecks
     ("caseId", "claimVersionId", "requestId", "requestHash", "requestedBy",
-      "assignedTo", question, "dueAt", "responseFormId")
+      "assignedTo", question, "dueAt", "responseFormId", "plannedVisitDate")
     VALUES (${caseId}, ${claimVersionId}, ${requestId},
-      ${requestHash}, ${reviewerId}, ${assignedTo}, ${question}, ${dueAt}, ${responseForm.id})
+      ${requestHash}, ${reviewerId}, ${assignedTo}, ${question}, ${dueAt}, ${responseForm.id}, ${plannedVisitDate}::date)
     RETURNING id`);
   await db.query(sql`UPDATE field_data_review_cases
     SET revision = revision + 1, "updatedAt" = clock_timestamp()
@@ -53,7 +53,7 @@ const requestBackcheck = async (db, { caseId, claimVersionId, projectId, formAct
     "loggedAt", processed, failures)
     VALUES (${reviewerId}, 'field_data.backcheck.request', ${formActeeId},
       ${JSON.stringify({ caseId, backcheckId: inserted.id,
-    claimVersionId, assignedTo, responseFormId: responseForm.id })},
+    claimVersionId, assignedTo, responseFormId: responseForm.id, ...(plannedVisitDate == null ? {} : { plannedVisitDate }) })},
       clock_timestamp(), NULL, 0)`);
   return { id: inserted.id, status: 'requested', revision: locked.revision + 1, replayed: false };
 };

@@ -1,3 +1,4 @@
+/* global document */
 import { expect, test } from '@playwright/test';
 import { createHash, createPublicKey, generateKeyPairSync } from 'node:crypto';
 import offlineAssignments from '../../../server/lib/util/offline-assignments.js';
@@ -19,7 +20,7 @@ const setup = async (page, { push = false, denied = false, fail = false, delayed
       origin: offlineOrigin ?? new URL(appUrl).origin },
     { actorId: 42, projectId: 7, displayName: 'Checker', projectName: 'Project' },
     [{ id: taskId, question: '<img src=x onerror=alert(1)> Verify the visit.', xmlFormId: 'verification',
-      formName: 'Independent verification', dueAt: null, status: 'requested', actionable: true, seenAt: null }]);
+      formName: 'Independent verification', dueAt: null, plannedVisitDate: '2026-10-14', status: 'requested', actionable: true, seenAt: null }]);
   }
   page.on('pageerror', error => errors.push(error.message));
   let release;
@@ -55,7 +56,7 @@ const setup = async (page, { push = false, denied = false, fail = false, delayed
       if (state.failures > 0) { state.failures -= 1; return route.fulfill({ status: 503, json: {} }); }
       return route.fulfill({ json: { appUser: { name: 'Checker', projectName: 'Project' }, nextCursor: null, items: [
         { id: taskId, question: '<img src=x onerror=alert(1)> Verify the visit.', xmlFormId: 'verification', formName: 'Independent verification',
-          dueAt: null, status: 'requested', actionable: true, seenAt: state.seen ? '2026-10-09T04:00:00Z' : null }
+          dueAt: null, plannedVisitDate: '2026-10-14', status: 'requested', actionable: true, seenAt: state.seen ? '2026-10-09T04:00:00Z' : null }
       ] } });
     }
     if (path.endsWith('/reverification')) {
@@ -86,6 +87,7 @@ const connect = async (page) => {
 test('App User inbox works without Central login, acknowledges safely and clears credentials on disconnect', async ({ page }) => {
   const { state, errors } = await setup(page);
   await connect(page);
+  await expect(page.getByText('Planned visit: 2026-10-14 (UTC date)', { exact: true })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Independent verification (verification)' })).toBeVisible();
   await expect(page.getByText('<img src=x onerror=alert(1)> Verify the visit.', { exact: true })).toBeVisible();
   await expect(page.locator('.tasks img')).toHaveCount(0);
@@ -212,6 +214,7 @@ test('encrypted assignments survive reload and unlock offline without persisted 
   await expect(panel.getByRole('alert')).toContainText('could not be unlocked');
   await unlockOffline(page);
   await expect(panel).toContainText('Read-only snapshot from');
+  await expect(panel).toContainText('Planned visit: 2026-10-14 (UTC date)');
   await expect(panel).toContainText('<img src=x onerror=alert(1)> Verify the visit.');
   await expect(panel.locator('img')).toHaveCount(0);
   await expect(panel.getByRole('button', { name: 'Acknowledge request' })).toHaveCount(0);

@@ -18,7 +18,7 @@ const appUser = async (container, auth) => {
 
 // App Users have submission.create, not submission.read. Limit this surface to
 // their own assignments and instructions, never original answers or review data.
-const inboxQuery = (user, cursor = null, id = null) => sql`SELECT b.id, b.question, b."dueAt",
+const inboxQuery = (user, cursor = null, id = null) => sql`SELECT b.id, b.question, b."dueAt", to_char(b."plannedVisitDate", 'YYYY-MM-DD') AS "plannedVisitDate",
   b.status, to_char(b."createdAt" AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS "createdAt", b."seenAt", f."xmlFormId", fd.name AS "formName",
   (b.status = 'requested' AND sd.current AND c.status = 'in-review' AND f.state = 'open') AS actionable
   FROM field_data_backchecks b
