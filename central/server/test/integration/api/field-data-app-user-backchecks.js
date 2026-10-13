@@ -74,6 +74,8 @@ describe('api: App User backcheck notifications', () => {
         assert(verify('sha256', bytes, { key: publicKey, dsaEncoding: 'ieee-p1363' }, Buffer.from(bundle.signature, 'base64url')));
         const data = JSON.parse(bytes.toString('utf8'));
         assert.equal(data.actorId, checker.id);
+        assert.equal(data.schemaVersion, 'offline-assignments@2');
+        assert.deepEqual(data.itineraries, { items: [], complete: true, omitted: 0 });
         assert.equal(data.items.length, 1);
         assert.equal(data.items[0].question, 'Verify the visit.');
         assert.equal(data.items[0].claimVersionId, undefined);

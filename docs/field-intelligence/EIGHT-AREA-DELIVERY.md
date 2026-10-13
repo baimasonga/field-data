@@ -198,6 +198,12 @@ metadata and focused server/API/browser tests. See [O11-road-stop-order.md](O11-
 
 ### O12 reviewed itinerary dispatch
 
-Immutable manager-approved backcheck itineraries are implemented locally, with
+Immutable manager-approved backcheck itineraries are merged in PR #98, with
 stale-preview checks, audit history and collector-scoped online delivery that
 withholds cancelled, superseded or inaccessible stops. See [O12-reviewed-itinerary-dispatch.md](O12-reviewed-itinerary-dispatch.md). Offline itinerary bundles, navigation and field acceptance remain pending.
+
+### O13 offline approved itineraries
+
+Signed, encrypted itinerary snapshots are implemented locally with version-1
+compatibility, whole-plan bounds, omission counts, typed coordinate/date checks
+and explicit offline freshness limits. See [O13-offline-approved-itineraries.md](O13-offline-approved-itineraries.md). Page-shell caching, resumable uploads and offline relays remain pending.

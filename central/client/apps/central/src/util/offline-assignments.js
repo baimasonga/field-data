@@ -42,7 +42,7 @@ export const verifySnapshot = async (bundle, origin = window.location.origin) =>
   if (signature.length !== 64 || !await crypto.subtle.verify({ name: 'ECDSA', hash: 'SHA-256' }, publicKey, signature, bytes))
     throw new Error('Invalid signature');
   const data = JSON.parse(decoder.decode(bytes));
-  if (data.schemaVersion !== 'offline-assignments@1' || data.audience !== origin || !uuid(data.id) ||
+  if (!['offline-assignments@1', 'offline-assignments@2'].includes(data.schemaVersion) || data.audience !== origin || !uuid(data.id) ||
     !Number.isSafeInteger(data.actorId) || data.actorId <= 0 ||
     !Number.isSafeInteger(data.projectId) || data.projectId <= 0 ||
     !text(data.appUser?.name, 2000) || !text(data.appUser?.projectName, 2000) ||
@@ -51,6 +51,23 @@ export const verifySnapshot = async (bundle, origin = window.location.origin) =>
       !text(item.xmlFormId, 1000) || (item.formName != null && !text(item.formName, 2000)) ||
       !['requested', 'linked', 'cancelled'].includes(item.status) || typeof item.actionable !== 'boolean'))
     throw new Error('Invalid snapshot');
+  if (data.schemaVersion === 'offline-assignments@2') {
+    const routes = data.itineraries;
+    const location = value => value != null && typeof value.latitude === 'number' && Number.isFinite(value.latitude) && Math.abs(value.latitude) <= 90 &&
+      typeof value.longitude === 'number' && Number.isFinite(value.longitude) && Math.abs(value.longitude) <= 180;
+    if (routes == null || typeof routes.complete !== 'boolean' || !Number.isInteger(routes.omitted) || routes.omitted < 0 || routes.omitted > 30 ||
+      routes.complete !== (routes.omitted === 0) || !Array.isArray(routes.items) || routes.items.length > 5 ||
+      routes.items.some(route => !uuid(route.id) || !text(route.note, 2000) || typeof route.needsReview !== 'boolean' ||
+        !text(route.method, 500) || !/^\d{4}-\d{2}-\d{2}$/.test(route.date ?? '') || !Number.isFinite(Date.parse(`${route.date}T00:00:00Z`)) ||
+        new Date(`${route.date}T00:00:00Z`).toISOString().slice(0, 10) !== route.date || !location(route.start) ||
+        !Number.isInteger(route.withheld) || route.withheld < 0 || route.withheld > 100 || !Array.isArray(route.stops) || route.stops.length > 100 ||
+        route.stops.some((stop, i) => !uuid(stop.id) || !Number.isInteger(stop.order) || stop.order < 1 || stop.order > 100 ||
+          (i > 0 && stop.order <= route.stops[i - 1].order) || !text(stop.question, 2000) || !location(stop.location) ||
+          (stop.location.accuracy != null && (typeof stop.location.accuracy !== 'number' || !Number.isFinite(stop.location.accuracy))))) ||
+      routes.items.reduce((n, route) => n + route.stops.length, 0) > 100 ||
+      new Set(routes.items.map(route => route.date)).size !== routes.items.length)
+      throw new Error('Invalid itinerary snapshot');
+  }
   validateTime(data);
   return data;
 };

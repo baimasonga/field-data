@@ -1,6 +1,7 @@
 require('should');
 const assert = require('node:assert/strict');
 const { sql } = require('slonik');
+const { generateKeyPairSync } = require('node:crypto');
 const { testService, testServiceFullTrx } = require('../setup');
 const testData = require('../../data/xml');
 const { runAllocations } = require('../../../lib/worker/field-data-backcheck-allocation');
@@ -236,6 +237,21 @@ describe('api: calendar availability and route planning', () => {
     const get = user => service.get('/v1/field-data/app-user/itineraries').set('Authorization', `Bearer ${user.token}`).expect(200);
     assert.equal((await get(users[2])).body.items.length, 0);
     const received = (await get(users[1])).body.items[0];
+    const previousKey = process.env.FIELD_DATA_OFFLINE_SIGNING_KEY; const previousOrigin = process.env.FIELD_DATA_OFFLINE_ORIGIN;
+    try {
+      process.env.FIELD_DATA_OFFLINE_SIGNING_KEY = generateKeyPairSync('ec', { namedCurve: 'prime256v1' }).privateKey.export({ type: 'pkcs8', format: 'pem' });
+      process.env.FIELD_DATA_OFFLINE_ORIGIN = 'https://field.example.test';
+      const { bundle } = (await service.get('/v1/field-data/app-user/offline-assignments').set('Authorization', `Bearer ${users[1].token}`).expect(200)).body;
+      const issued = JSON.parse(Buffer.from(bundle.payload, 'base64url'));
+      assert.equal(issued.schemaVersion, 'offline-assignments@2'); assert.equal(issued.itineraries.items.length, 1);
+      assert.deepEqual(issued.itineraries.items[0].stops, received.stops);
+      const otherBundle = (await service.get('/v1/field-data/app-user/offline-assignments').set('Authorization', `Bearer ${users[2].token}`).expect(200)).body.bundle;
+      assert.equal(JSON.parse(Buffer.from(otherBundle.payload, 'base64url')).itineraries.items.length, 0);
+    } finally {
+      if (previousKey == null) delete process.env.FIELD_DATA_OFFLINE_SIGNING_KEY; else process.env.FIELD_DATA_OFFLINE_SIGNING_KEY = previousKey;
+      if (previousOrigin == null) delete process.env.FIELD_DATA_OFFLINE_ORIGIN; else process.env.FIELD_DATA_OFFLINE_ORIGIN = previousOrigin;
+    }
+
     assert.equal(received.stops.length, 2); assert.equal(received.withheld, 0);
     assert.equal(Object.hasOwn(received.stops[0], 'instanceId'), false); assert.equal(Object.hasOwn(received.stops[0], 'claimVersionId'), false);
     const pinned = preview.route.stops[0].claimVersionId;
