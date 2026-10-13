@@ -12,7 +12,8 @@ except according to the terms contained in the LICENSE file.
 <template>
   <div class="feed-entry">
     <div class="feed-entry-heading">
-      <date-time :iso="iso"/>
+      <record-date-time v-if="precise" :iso="iso"/>
+      <date-time v-else :iso="iso"/>
       <div class="feed-entry-title" :class="{ truncate: !wrapTitle }">
         <slot name="title"></slot>
       </div>
@@ -23,13 +24,15 @@ except according to the terms contained in the LICENSE file.
 
 <script setup>
 import DateTime from './date-time.vue';
+import RecordDateTime from './record-date-time.vue';
 
 defineProps({
   iso: {
     type: String,
     required: true
   },
-  wrapTitle: Boolean
+  wrapTitle: Boolean,
+  precise: Boolean
 });
 </script>
 

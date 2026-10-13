@@ -1,4 +1,4 @@
-/* global localStorage, document, window */
+/* global localStorage, document, window, getComputedStyle */
 // O3 random backcheck sample in the browser: docs/field-intelligence/O3-backcheck-sample.md
 import { expect, test } from '@playwright/test';
 import { readFile } from 'node:fs/promises';
@@ -371,5 +371,100 @@ test('form navigation and submission pagination are readable at desktop and mobi
   }
   await nav.getByRole('link', { name: 'Verification', exact: true }).click();
   await expect(p).toHaveURL(/\/verification$/);
+  expect(errors).toEqual([]);
+});
+
+test('submission records show compact details, exact dates and honest evidence with accessible disclosures', async ({ page: p }) => {
+  const record = { __id: 'uuid:one', meta: { instanceName: 'sl2601 – Fonima' }, __system: {
+    submissionDate: '2026-10-09T22:18:39Z', submitterId: 1, submitterName: 'Mohamed Bangura',
+    reviewState: null, edits: 0, attachmentsPresent: 0, attachmentsExpected: 0,
+    formVersion: '2026100901', deviceId: 'wf:device', status: null
+  } };
+  const errors = await api(p, [...managerVerbs, 'submission.delete'], async (route, path) => {
+    if (path === '/v1/users/current') {
+      await route.fulfill({ json: { id: 1, displayName: 'Mohamed Bangura', email: 'fixture@example.org',
+        verbs: ['project.list', 'project.create', 'user.list'], preferences: { site: {}, projects: {} } } }); return true;
+    }
+    if (path.includes('.svc/Submissions(')) { await route.fulfill({ json: { value: [record] } }); return true; }
+    if (path.includes('/versions/')) { await route.fulfill({ json: { userAgent: 'Very long browser metadata '.repeat(15) } }); return true; }
+    if (path.endsWith('/diffs')) { await route.fulfill({ json: {} }); return true; }
+    if (path.endsWith('/audits')) { await route.fulfill({ json: [{ action: 'submission.create', loggedAt: record.__system.submissionDate, actor: { id: 1, displayName: 'Mohamed Bangura' } }] }); return true; }
+    if (path.endsWith('/claim')) { await route.fulfill({ json: { currentVersionId: 'v1', versions: [{ id: 'v1', ordinal: 1, current: true,
+      provenance: { origin: 'collected', degraded: 'inferred', receivedAt: record.__system.submissionDate, integrityHash: 'a'.repeat(64) } }] } }); return true; }
+    if (path.endsWith('/evidence')) { await route.fulfill({ json: { items: [{ id: 'e1', name: 'submission-xml', sourceKind: 'submission-xml', integrityStatus: 'verified', downloadUrl: '/v1/evidence-original' }] } }); return true; }
+    return false;
+  });
+  await p.goto(`${appUrl}/projects/1/forms/household/submissions/uuid%3Aone`);
+  await expect(p.locator('.fd-shell')).toBeVisible();
+  await expect(p.locator('#page-head-title')).toContainText('sl2601 – Fonima');
+  const details = p.locator('#submission-basic-details');
+  await expect(details).toContainText('9 Oct 2026 · 22:18:39 UTC');
+  await expect(details.locator('.record-technical')).not.toHaveAttribute('open');
+  await expect(details.getByText('wf:device', { exact: true })).not.toBeVisible();
+  const evidence = p.locator('.claim-evidence');
+  await expect(evidence).toContainText('Stored bytes: verified');
+  await expect(evidence).toContainText('does not verify the field claim');
+  await evidence.getByText('Integrity details', { exact: true }).click();
+  await expect(evidence.locator('code')).toHaveText('a'.repeat(64));
+  await details.getByText('Technical details', { exact: true }).click();
+  await expect(details.getByText('wf:device', { exact: true })).toBeVisible();
+  for (const width of [1440, 390]) {
+    await p.setViewportSize({ width, height: 1000 });
+    expect(await p.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+    await expect(p.locator('#submission-activity-review-button')).toBeVisible();
+    await p.evaluate(() => window.scrollTo(0, 0));
+    await p.screenshot({ path: test.info().outputPath(`record-${width}.png`), fullPage: true });
+  }
+  await details.getByText('Technical details', { exact: true }).click();
+  await evidence.getByText('Integrity details', { exact: true }).click();
+  await p.evaluate(() => window.scrollTo(0, 0));
+  await p.screenshot({ path: test.info().outputPath('record-summary-mobile.png'), fullPage: true });
+  await p.locator('#submission-activity .record-more summary').click();
+  await expect(p.locator('#submission-activity-delete-button')).toBeVisible();
+  expect(errors).toEqual([]);
+});
+
+test('map inspector exposes the record summary, recorded timing and permission-gated actions on desktop and mobile', async ({ page: p }) => {
+  const record = { __id: 'uuid:one', meta: { instanceName: 'sl2601 – Fonima' },
+    start: '2026-10-09T22:12:12Z', end: '2026-10-09T22:18:38Z', location: 'POINT (-13.23 8.49)',
+    __system: { submissionDate: '2026-10-09T22:18:39Z', submitterId: 1, submitterName: 'Mohamed Bangura',
+      reviewState: null, edits: 0, attachmentsPresent: 0, attachmentsExpected: 0, status: null } };
+  const errors = await api(p, [...managerVerbs, 'submission.delete'], async (route, path) => {
+    if (path.endsWith('/fields')) { await route.fulfill({ json: [
+      { name: 'start', path: '/start', type: 'dateTime' }, { name: 'end', path: '/end', type: 'dateTime' },
+      { name: 'location', path: '/location', type: 'geopoint' }
+    ] }); return true; }
+    if (path.endsWith('/submissions.geojson')) { await route.fulfill({ json: { type: 'FeatureCollection', features: [{
+      type: 'Feature', id: 'uuid:one', properties: { fieldpath: '/location' }, geometry: { type: 'Point', coordinates: [-13.23, 8.49] }
+    }] } }); return true; }
+    if (path.includes('.svc/Submissions')) { await route.fulfill({ json: { '@odata.count': new URL(route.request().url()).searchParams.get('$filter')?.includes('deletedAt') ? 0 : 1, value: [record] } }); return true; }
+    return false;
+  });
+  await p.goto(`${appUrl}/projects/1/forms/household/submissions?map=true`);
+  await expect(p.locator('#map-view .ol-viewport')).toBeVisible();
+  await expect(p.locator('#map-view > .loading')).toBeHidden();
+  const viewport = p.locator('#map-view .ol-viewport');
+  const box = await viewport.boundingBox();
+  await viewport.click({ position: { x: box.width / 2, y: box.height / 2 } });
+  const inspector = p.getByRole('region', { name: 'Submission record' });
+  await expect(inspector).toBeVisible();
+  await expect(inspector).toContainText('Mohamed Bangura');
+  await expect(inspector).toContainText('Recorded duration');
+  await expect(inspector).toContainText('6 min 26 sec');
+  await expect(inspector.locator('.record-answers')).not.toHaveAttribute('open');
+  await p.screenshot({ path: test.info().outputPath('map-inspector-desktop.png') });
+  await expect(inspector.getByRole('link', { name: 'View full record' })).toHaveAttribute('href', /submissions\/uuid%3Aone$/);
+  await expect(inspector.getByRole('button', { name: 'Delete', exact: true })).not.toBeVisible();
+  await inspector.locator('.record-more summary').click();
+  await expect(inspector.getByRole('button', { name: 'Delete', exact: true })).toBeVisible();
+  await inspector.locator('.record-more summary').click();
+  await p.setViewportSize({ width: 390, height: 900 });
+  await expect(inspector).toBeVisible();
+  expect(await inspector.evaluate(el => getComputedStyle(el).bottom)).toBe('0px');
+  await p.screenshot({ path: test.info().outputPath('map-inspector-mobile.png') });
+  expect(await p.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  await inspector.getByRole('button', { name: 'Close', exact: true }).focus();
+  await p.keyboard.press('Escape');
+  await expect(inspector).toBeHidden();
   expect(errors).toEqual([]);
 });

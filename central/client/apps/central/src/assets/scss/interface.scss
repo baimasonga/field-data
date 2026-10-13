@@ -182,3 +182,37 @@
 @media (max-width: 600px) {
   .fd-shell #page-body .row > [class*='col-xs-'] { width: 100%; float: none; margin-block-end: 20px; }
 }
+
+// Legacy Central headings render spans and .h1 instead of heading elements.
+.fd-shell {
+  #page-head .h1 { font-size: clamp(24px, 2.2vw, 30px); line-height: 1.25; overflow-wrap: anywhere; }
+  .page-section-heading { font-size: 20px; line-height: 1.35; }
+  .page-section-heading > :is(h1, h2, h3, h4, h5, h6, span):first-child { font-size: 20px; }
+  .panel .panel-title { font-size: 16px; }
+  .breadcrumb { background: transparent; font-size: 13px; padding-block: 12px; }
+  .page-section-body { min-width: 0; }
+  .panel { border-color: #e1e9ec; }
+  .btn, .form-control { border-radius: 7px; }
+  .record-more { border: 0; padding: 0; margin: 0; }
+  .record-more[open] > summary { margin-bottom: 4px; }
+  .record-technical, .evidence-technical { border: 0; padding: 0; border-top: 1px solid #e7edef; border-radius: 0; margin-bottom: 0; }
+  #submission-show .record-layout .page-section-heading > span:first-child { font-size: 18px; }
+  #submission-show .submission-feed-entry h3, #submission-show .submission-feed-entry .feed-entry-title { font-size: 15px; }
+  @media (max-width: 600px) {
+    .btn { min-height: 44px; }
+    #page-head .h1 { font-size: 24px; }
+  }
+}
+.fd-shell #submission-show .submission-feed-entry {
+  .feed-entry-heading { display: flex; flex-direction: column-reverse; gap: 6px; padding: 14px 16px; }
+  .feed-entry-heading time { float: none; font-size: 12px; line-height: 1.4; }
+  .feed-entry-title { width: 100%; white-space: normal; }
+}
+#submission-map-popup > .close { min-width: 44px; min-height: 44px; top: 0; right: 0; }
+.fd-shell {
+  .record-more > summary { font-size: 13px; line-height: 1.35; min-height: 40px; padding: 10px 12px; border: 1px solid var(--border-default); border-radius: 7px; background: #fff; }
+  .record-more > summary::after { content: ' ▾'; font-size: 12px; }
+  :is(.record-technical, .evidence-technical, .record-answers) > summary::before { content: '›'; display: inline-block; margin-right: 8px; }
+  :is(.record-technical, .evidence-technical, .record-answers)[open] > summary::before { transform: rotate(90deg); }
+  .claim-evidence h3 { margin-top: 18px; margin-bottom: 10px; }
+}

@@ -30,11 +30,14 @@ except according to the terms contained in the LICENSE file.
             <span class="icon-pencil"></span>{{ $t('action.edit') }}
           </button>
         </template>
+        <details v-if="project.dataExists && project.permits('submission.delete')" class="record-more">
+          <summary>{{ $t('action.more') }}</summary>
         <button v-if="project.dataExists && project.permits('submission.delete')"
           id="submission-activity-delete-button" type="button" class="btn btn-default"
           @click="$emit('delete')">
           <span class="icon-trash"></span>{{ $t('action.delete') }}
         </button>
+        </details>
       </template>
     </template>
     <template #body>

@@ -10,7 +10,8 @@ including this file, may be copied, modified, propagated, or distributed
 except according to the terms contained in the LICENSE file.
 -->
 <template>
-  <div ref="el" class="map-popup">
+  <div ref="el" class="map-popup" :role="label ? 'region' : null" :aria-label="label"
+    @keyup.esc.prevent="$emit('hide')">
     <button type="button" class="close" :aria-label="$t('action.close')"
       @click="$emit('hide')">
       <span aria-hidden="true">&times;</span>
@@ -28,7 +29,8 @@ except according to the terms contained in the LICENSE file.
 import { useTemplateRef } from 'vue';
 
 defineProps({
-  back: Boolean
+  back: Boolean,
+  label: String
 });
 defineEmits(['hide', 'back']);
 

@@ -13,15 +13,15 @@ except according to the terms contained in the LICENSE file.
   <div id="submission-show">
     <breadcrumbs v-if="dataExists" :links="breadcrumbLinks"/>
     <page-head v-show="dataExists">
-      <template #title>{{ submission.dataExists ? submission.instanceNameOrId : '' }}</template>
+      <template #title>{{ submission.dataExists ? submission.instanceNameOrId : '' }} <submission-review-state v-if="submission.dataExists" class="record-status" :value="submission.__system.reviewState"/></template>
     </page-head>
     <page-body>
       <loading :state="initiallyLoading"/>
-      <div v-show="dataExists" class="row">
-        <div class="col-xs-4">
+      <div v-show="dataExists" class="record-layout">
+        <div class="record-details-column">
           <submission-basic-details/>
         </div>
-        <div class="col-xs-8">
+        <div class="record-activity-column">
           <submission-activity :project-id="projectId" :xml-form-id="xmlFormId"
             :instance-id="instanceId" @review="reviewModal.show()"
             @comment="fetchActivityData" @delete="deleteModal.show()"/>
@@ -47,6 +47,7 @@ import Loading from '../loading.vue';
 import PageBody from '../page/body.vue';
 import PageHead from '../page/head.vue';
 import SubmissionActivity from './activity.vue';
+import SubmissionReviewState from './review-state.vue';
 import SubmissionBasicDetails from './basic-details.vue';
 import SubmissionClaimEvidence from './claim-evidence.vue';
 import SubmissionUpdateReviewState from './update-review-state.vue';
@@ -69,6 +70,7 @@ export default {
     PageBody,
     PageHead,
     SubmissionActivity,
+    SubmissionReviewState,
     SubmissionBasicDetails,
     SubmissionClaimEvidence,
     SubmissionDelete,
@@ -296,3 +298,23 @@ export default {
   }
 }
 </i18n>
+
+<style lang="scss">
+#submission-show {
+  .record-layout { display: grid; grid-template-columns: minmax(260px, 1fr) minmax(0, 2fr); gap: 24px; align-items: start; margin-bottom: 24px; }
+  .record-layout > div { min-width: 0; }
+  .record-layout .page-section { margin-bottom: 0; background: #fff; border: 1px solid #e1e9ec; border-radius: 10px; padding: 20px; }
+  .record-layout .page-section-heading { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 18px; }
+  .record-layout .page-section-heading > span:first-child { font-size: 18px; font-weight: 700; margin-right: auto; }
+  #submission-basic-details .icon-file { display: none; }
+  #submission-basic-details dl > div { display: grid; grid-template-columns: 105px minmax(0, 1fr); gap: 12px; padding: 9px 0; }
+  #submission-basic-details dt { font-size: 12px; color: #5a6b71; }
+  #submission-basic-details dd { font-size: 14px; margin: 0; }
+  .record-status { display: inline-flex; gap: 6px; vertical-align: middle; margin-left: 10px; font-size: 13px; font-weight: 500; padding: 6px 10px; background: #eaf0f2; border-radius: 6px; }
+  #submission-activity-review-button { background: #0c7890; border-color: #0c7890; color: #fff; }
+  #submission-activity-delete-button { color: #a42727; }
+  #submission-comment textarea { background: #fff; border: 1px solid #d7e2e7; border-radius: 7px; padding: 12px; }
+  .submission-feed-entry { box-shadow: none; border: 1px solid #edf1f3; border-radius: 8px; }
+  @media (max-width: 900px) { .record-layout { grid-template-columns: minmax(0, 1fr); gap: 16px; } }
+}
+</style>

@@ -1,6 +1,6 @@
 import ActorLink from '../../../src/components/actor-link.vue';
 import DatasetLink from '../../../src/components/dataset/link.vue';
-import DateTime from '../../../src/components/date-time.vue';
+import DateTime from '../../../src/components/record-date-time.vue';
 import EntityLink from '../../../src/components/entity/link.vue';
 import MarkdownView from '../../../src/components/markdown/view.vue';
 import SubmissionFeedEntry from '../../../src/components/submission/feed-entry.vue';

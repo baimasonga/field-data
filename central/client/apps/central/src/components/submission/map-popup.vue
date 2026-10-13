@@ -11,14 +11,14 @@ except according to the terms contained in the LICENSE file.
 -->
 <template>
   <map-popup v-show="instanceId != null" id="submission-map-popup" ref="popup"
-    :back="odata != null" @hide="$emit('hide')" @back="$emit('back')">
+    :back="odata != null" label="Submission record" @hide="$emit('hide')" @back="$emit('back')">
     <template v-if="submission.dataExists" #title>
-      <submission-review-state :value="submission.__system.reviewState" tooltip/>
-      <span v-tooltip.text>{{ submission.instanceName ?? $t('submissionDetails') }}</span>
+<span v-tooltip.text>{{ submission.instanceName ?? $t('submissionDetails') }}</span>
     </template>
     <template #body>
       <loading :state="submission.awaitingResponse"/>
       <div v-if="fields.dataExists" v-show="submission.dataExists">
+        <submission-review-state v-if="submission.dataExists" class="record-status" :value="submission.__system.reviewState"/>
         <dl>
           <div>
             <dt>{{ $t('header.submitterName') }}</dt>
@@ -26,7 +26,7 @@ except according to the terms contained in the LICENSE file.
           </div>
           <div>
             <dt>{{ $t('header.submissionDate') }}</dt>
-            <dd><date-time :iso="submission?.__system?.submissionDate"/></dd>
+            <dd><record-date-time :iso="submission?.__system?.submissionDate"/></dd>
           </div>
         </dl>
         <div v-if="missingField != null">
@@ -39,6 +39,17 @@ except according to the terms contained in the LICENSE file.
             </template>
           </i18n-t>
         </div>
+        <section v-if="timing" class="record-timing">
+          <h3>Collection timing</h3>
+          <dl>
+            <div><dt>Started</dt><dd><record-date-time :iso="timing.start"/></dd></div>
+            <div><dt>Ended</dt><dd><record-date-time :iso="timing.end"/></dd></div>
+            <div><dt>Recorded duration</dt><dd>{{ Math.floor(timing.seconds / 60) }} min {{ timing.seconds % 60 }} sec</dd></div>
+          </dl>
+        </section>
+        <p v-if="fieldpath" class="record-location-context">Mapped location: {{ mappedFieldName }} · GPS accuracy: Unknown.</p>
+        <details class="record-answers">
+<summary>Survey answers · {{ fields.selectable.length }}</summary>
         <dl>
           <div v-for="field of fields.selectable" :key="field.path">
             <dl-data
@@ -58,11 +69,12 @@ except according to the terms contained in the LICENSE file.
             </dl-data>
           </div>
         </dl>
+        </details>
       </div>
     </template>
     <template #footer>
       <submission-actions v-if="submission.dataExists"
-        :submission="submission.data" :awaiting-response="awaitingResponse"
+        :submission="submission.data" :awaiting-response="awaitingResponse" inspector
         @click="handleActions"/>
     </template>
   </map-popup>
@@ -72,7 +84,8 @@ except according to the terms contained in the LICENSE file.
 import { computed, useTemplateRef, watch } from 'vue';
 import { last } from 'ramda';
 
-import DateTime from '../date-time.vue';
+import RecordDateTime from '../record-date-time.vue';
+import recordTiming from '../../util/record-timing';
 import DlData from '../dl-data.vue';
 import Loading from '../loading.vue';
 import MapPopup from '../map/popup.vue';
@@ -134,12 +147,15 @@ watch(
   { immediate: true }
 );
 
+const timing = computed(() => (submission.dataExists && fields.dataExists ? recordTiming(submission.data, fields.selectable) : null));
+
 const missingField = computed(() => {
   if (props.fieldpath == null || fields.selectable.find(field => field.path === props.fieldpath)) return null;
   const elements = props.fieldpath.split('/');
   elements.shift();
   return { name: last(elements), header: elements.join('-') };
 });
+const mappedFieldName = computed(() => missingField.value?.name ?? fields.selectable?.find(field => field.path === props.fieldpath)?.name ?? props.fieldpath);
 const handleActions = (event) => {
   const action = event.target.closest('.btn');
   if (action == null) return;
@@ -156,7 +172,29 @@ const handleActions = (event) => {
 @import '../../assets/scss/variables';
 
 #submission-map-popup {
-  @include icon-btn-group;
+  width: min(380px, calc(100% - 30px));
+  max-height: calc(100% - 30px);
+  background: #fff;
+  border: 1px solid #dce6e9;
+  border-radius: 12px;
+  box-shadow: 0 8px 28px rgba(20, 48, 57, 0.16);
+
+  .map-popup-title { font-size: 18px; padding-bottom: 12px; }
+  .map-popup-footer { padding-top: 14px; }
+  .map-popup-body { font-size: 14px; }
+  .record-status { display: inline-flex; padding: 4px 9px; border-radius: 6px; background: #eef3f5; margin-bottom: 14px; }
+  dl > div { display: grid; grid-template-columns: 100px minmax(0, 1fr); gap: 10px; padding: 6px 0; }
+  dt { font-size: 12px; color: #5a6b71; }
+  dd { font-size: 14px; margin: 0; white-space: normal; overflow-wrap: anywhere; }
+  .record-timing h3 { font-size: 14px; font-weight: 700; margin: 14px 0 6px; }
+  .record-location-context { color: #5a6b71; font-size: 12px; margin-top: 12px; }
+  .record-answers summary { padding: 12px 0; font-weight: 600; cursor: pointer; }
+
+  @media (max-width: 600px) {
+    top: auto; bottom: 0; left: 0; width: 100%; max-height: 70%;
+    border-radius: 14px 14px 0 0;
+    > .close { min-width: 44px; min-height: 44px; top: 0; right: 0; }
+  }
 
   .submission-review-state {
     position: relative;

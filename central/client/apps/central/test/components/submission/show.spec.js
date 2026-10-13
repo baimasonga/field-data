@@ -56,7 +56,7 @@ describe('SubmissionShow', () => {
     const component = await load('/projects/1/forms/f/submissions/s', {
       root: false
     });
-    component.get('#page-head-title').text().should.equal('My Submission');
+    component.get('#page-head-title').text().should.equal('My Submission Received');
   });
 
   it('shows instance ID if submission does not have an instance name', async () => {
@@ -64,16 +64,16 @@ describe('SubmissionShow', () => {
     const component = await load('/projects/1/forms/f/submissions/s', {
       root: false
     });
-    component.get('#page-head-title').text().should.equal('s');
+    component.get('#page-head-title').text().should.equal('s Received');
   });
 
   it('shows the current claim provenance and evidence section', async () => {
     testData.extendedSubmissions.createPast(1, { instanceId: 's' });
     const component = await load('/projects/1/forms/f/submissions/s', { root: false });
     const panel = component.get('.claim-evidence');
-    panel.text().should.containEql('Version 1');
-    panel.text().should.containEql('Source: collected');
-    panel.text().should.containEql('No evidence records are linked');
+    panel.text().should.contain('Version 1');
+    panel.text().should.contain('Source: collected');
+    panel.text().should.contain('No evidence records are linked');
   });
 
   describe('delete', () => {

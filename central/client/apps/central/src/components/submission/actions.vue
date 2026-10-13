@@ -10,7 +10,21 @@ including this file, may be copied, modified, propagated, or distributed
 except according to the terms contained in the LICENSE file.
 -->
 <template>
-  <div class="submission-actions btn-group">
+  <div v-if="inspector" class="submission-actions submission-inspector-actions">
+    <router-link :to="detailPath" class="more-button btn btn-primary">View full record</router-link>
+    <button v-if="project.verbs.has('submission.update')" type="button" class="review-button btn btn-default">{{ $t('action.review') }}</button>
+    <details v-if="project.verbs.has('submission.update') || project.verbs.has('submission.delete')" class="record-more">
+      <summary>{{ $t('action.more') }}</summary>
+      <div class="record-more-options">
+        <template v-if="project.verbs.has('submission.update')">
+          <a v-if="submission.__system.status == null" class="btn btn-link" :href="editPath" target="_blank" rel="noopener noreferrer">{{ $t('action.edit') }}</a>
+          <button v-else type="button" class="btn btn-link" disabled>{{ $t('action.edit') }}</button>
+        </template>
+        <button v-if="project.verbs.has('submission.delete')" type="button" class="delete-button btn btn-link" :disabled="awaitingResponse">{{ $t('action.delete') }}<spinner :state="awaitingResponse"/></button>
+      </div>
+    </details>
+  </div>
+  <div v-else class="submission-actions btn-group">
     <button v-if="project.verbs.has('submission.delete')" type="button"
       class="delete-button btn btn-default" :aria-label="$t('action.delete')"
       v-tooltip.aria-label>
@@ -59,7 +73,8 @@ const props = defineProps({
     type: Object,
     required: true
   },
-  awaitingResponse: Boolean
+  awaitingResponse: Boolean,
+  inspector: Boolean
 });
 
 const { i18n } = inject('container');
@@ -79,3 +94,15 @@ const editLabel = computed(() => i18n.t('submission.action.edit', {
   count: i18n.n(props.submission.__system.edits, 'default')
 }));
 </script>
+
+<style lang="scss">
+.submission-inspector-actions {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 8px;
+  > .btn { min-height: 44px; font-size: 13px; padding: 10px 12px; border-radius: 7px; }
+  .more-button { flex: 1; }
+  .record-more { position: relative; }
+  summary { padding: 12px 8px; min-height: 44px; cursor: pointer; font-size: 13px; }
+  .record-more-options { display: flex; flex-wrap: wrap; }
+  .delete-button { color: #a42727; }
+}
+</style>

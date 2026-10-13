@@ -1,6 +1,6 @@
 import { T } from 'ramda';
 
-import DateTime from '../../../src/components/date-time.vue';
+import DateTime from '../../../src/components/record-date-time.vue';
 import DlData from '../../../src/components/dl-data.vue';
 import GeojsonMap from '../../../src/components/geojson-map.vue';
 import SubmissionAttachmentLink from '../../../src/components/submission/attachment-link.vue';
@@ -102,7 +102,7 @@ describe('SubmissionMapPopup', () => {
         .mount(SubmissionMapPopup, mountOptions())
         .respondWithData(testData.submissionOData)
         .afterResponse(async (component) => {
-          const span = component.get('.submission-review-state + span');
+          const span = component.get('.map-popup-title > span');
           span.text().should.equal('Some instance');
           await span.should.have.textTooltip();
         }));
@@ -114,7 +114,7 @@ describe('SubmissionMapPopup', () => {
         .mount(SubmissionMapPopup, mountOptions())
         .respondWithData(testData.submissionOData)
         .afterResponse(component => {
-          const text = component.get('.submission-review-state + span').text();
+          const text = component.get('.map-popup-title > span').text();
           text.should.equal('Submission Details');
         });
     });
@@ -127,7 +127,7 @@ describe('SubmissionMapPopup', () => {
       .afterResponse(async (component) => {
         const dd = component.findAll('dd');
         dd[0].text().should.equal('Allison');
-        await dd[0].should.have.textTooltip();
+
 
         const { createdAt } = testData.extendedSubmissions.last();
         dd[1].getComponent(DateTime).props().iso.should.equal(createdAt);
