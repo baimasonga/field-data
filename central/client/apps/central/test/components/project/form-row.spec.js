@@ -9,7 +9,6 @@ import testData from '../../data';
 import { mockLogin } from '../../util/session';
 import { mockRouter } from '../../util/router';
 import { mount } from '../../util/lifecycle';
-import { setLuxon } from '../../util/date-time';
 import { testRequestData } from '../../util/request-data';
 
 const mountComponent = (showIcon = false) => {
@@ -96,209 +95,64 @@ describe('ProjectFormRow', () => {
     });
   });
 
-  describe('review state counts', () => {
-    beforeEach(mockLogin);
 
-    it('shows the correct counts and icons for each review state', async () => {
-      testData.extendedForms.createPast(1, { xmlFormId: 'a b', reviewStates: { received: 2345, hasIssues: 1, edited: 3 } });
-      const columns = mountComponent().findAll('.review-state');
-      columns.length.should.equal(3);
-      columns.map((col) => col.get('a').text()).should.eql(['2,345', '1', '3']);
-      columns[0].find('.icon-dot-circle-o').exists().should.be.true;
-      columns[1].find('.icon-comments').exists().should.be.true;
-      columns[2].find('.icon-pencil').exists().should.be.true;
-      await columns[0].get('span').should.have.tooltip('Received');
-      await columns[1].get('span').should.have.tooltip('Has issues');
-      await columns[2].get('span').should.have.tooltip('Edited');
-    });
-
-    it('shows blank review state columns when the form is a draft', () => {
-      testData.extendedForms.createPast(1, { xmlFormId: 'a b', draft: true });
-      const row = mountComponent();
-      row.findAll('.review-state').length.should.equal(0);
-    });
+  it('opens published form submissions and exposes verification under the same read permissions', () => {
+    mockLogin();
+    testData.extendedForms.createPast(1, { xmlFormId: 'a b', name: 'Housing' });
+    const component = mountComponent();
+    component.getComponent(FormLink).props().to.should.equal('/projects/1/forms/a%20b/submissions');
+    component.getComponent('.f-verification').props().to.should.equal('/projects/1/forms/a%20b/verification');
+    component.get('.form-name').text().should.equal('Housing');
   });
-
-  describe('last submission', () => {
-    beforeEach(mockLogin);
-
-    it('shows the correct time since the last submission', async () => {
-      setLuxon({ defaultZoneName: 'UTC' });
-      const lastSubmission = '2023-01-01T00:00:00Z';
-      testData.extendedForms.createPast(1, { lastSubmission });
-      const span = mountComponent().get('.last-submission span');
-      span.text().should.match(/ago$/);
-      const dateTime = span.getComponent(DateTime);
-      dateTime.props().iso.should.equal(lastSubmission);
-      await span.should.have.tooltip('Latest Submission\n2023/01/01 00:00:00');
-      await dateTime.should.not.have.tooltip();
-    });
-
-    it('shows the correct icon', () => {
-      testData.extendedForms.createPast(1, { submissions: 4 });
-      const cell = mountComponent().get('.last-submission');
-      cell.find('.icon-clock-o').exists().should.be.true;
-    });
-
-    it('shows (none) if no submission', async () => {
-      testData.extendedForms.createPast(1, { submissions: 0 });
-      const span = mountComponent().get('.last-submission span');
-      span.text().should.equal('(none)');
-      await span.should.have.tooltip('Latest Submission');
-    });
-
-    it('shows blank last submission column when the form is a draft', () => {
-      testData.extendedForms.createPast(1, { xmlFormId: 'a b', draft: true });
-      mountComponent().find('.last-submission').exists().should.be.false;
-    });
+  it('adds the form identifier when names are duplicated', () => {
+    mockLogin();
+    testData.extendedForms.createPast(2, { name: 'Housing' });
+    mountComponent().get('.dup-id').text().should.equal(`(${testData.extendedForms.first().xmlFormId})`);
   });
-
-  describe('submission count', () => {
-    beforeEach(mockLogin);
-
-    it('shows the correct count for all submissions', () => {
-      testData.extendedForms.createPast(1, { xmlFormId: 'a b', submissions: 1234 });
-      mountComponent().find('.total-submissions').text().should.equal('1,234');
-    });
-
-    it('shows "not published yet" when form is a draft', () => {
-      testData.extendedForms.createPast(1, { xmlFormId: 'a b', draft: true });
-      const row = mountComponent();
-      row.find('.total-submissions').exists().should.be.false;
-      row.find('.not-published').text().should.equal('Not published yet');
-    });
-
-    it('shows the correct icon', async () => {
-      testData.extendedForms.createPast(1, { xmlFormId: 'a b', submissions: 4 });
-      const cell = mountComponent().find('.total-submissions');
-      cell.find('.icon-asterisk').exists().should.be.true;
-      await cell.get('span').should.have.tooltip('Total Submissions');
-    });
+  it('sums unresolved review states and links to all of them', () => {
+    mockLogin();
+    testData.extendedForms.createPast(1, { xmlFormId: 'a b', submissions: 20, reviewStates: { received: 2, hasIssues: 1, edited: 3, approved: 14 } });
+    const component = mountComponent();
+    component.get('.review-link').text().should.equal('6to review');
+    const url = new URL(component.getComponent('.review-link').props().to, 'https://example.org');
+    url.searchParams.getAll('reviewState').should.eql(['null', "'hasIssues'", "'edited'"]);
+    component.findAll('.f-num')[0].text().should.equal('20');
   });
-
-  describe('all submission links', () => {
-    describe('Administrator', () => {
-      beforeEach(() => {
-        mockLogin();
-        const lastSubmission = new Date().toISOString();
-        testData.extendedForms.createPast(1, { xmlFormId: 'a b', reviewStates: { received: 2, hasIssues: 1, edited: 3 }, lastSubmission, submissions: 6 });
-      });
-
-      it('links to the correct filtered submissions for each review state', () => {
-        const columns = mountComponent().findAll('.review-state');
-        columns.length.should.equal(3);
-        columns.map((col) => col.getComponent('a').props().to).should.eql([
-          '/projects/1/forms/a%20b/submissions?reviewState=null',
-          '/projects/1/forms/a%20b/submissions?reviewState=%27hasIssues%27',
-          '/projects/1/forms/a%20b/submissions?reviewState=%27edited%27']);
-      });
-
-      it('last submission has the correct links', () => {
-        const link = mountComponent().getComponent('.last-submission a');
-        link.props().to.should.equal('/projects/1/forms/a%20b/submissions');
-      });
-
-      it('submission count links to the right place', () => {
-        const link = mountComponent().getComponent('.total-submissions a');
-        link.props().to.should.equal('/projects/1/forms/a%20b/submissions');
-      });
-    });
-
-    describe('Project Manager', () => {
-      beforeEach(() => {
-        mockLogin({ role: 'none' });
-        testData.extendedProjects.createPast(1, { role: 'manager', forms: 1 });
-        testData.extendedForms.createPast(1, { xmlFormId: 'a b', reviewStates: { received: 2, hasIssues: 1, edited: 3 }, submissions: 6 });
-      });
-
-      it('links to the correct filtered submissions for each review state', () => {
-        const columns = mountComponent().findAll('.review-state');
-        columns.length.should.equal(3);
-        columns.map((col) => col.getComponent('a').props().to).should.eql([
-          '/projects/1/forms/a%20b/submissions?reviewState=null',
-          '/projects/1/forms/a%20b/submissions?reviewState=%27hasIssues%27',
-          '/projects/1/forms/a%20b/submissions?reviewState=%27edited%27']);
-      });
-
-      it('last submission has the correct links', () => {
-        const link = mountComponent().getComponent('.last-submission a');
-        link.props().to.should.equal('/projects/1/forms/a%20b/submissions');
-      });
-
-      it('submission count links to the right place', () => {
-        const link = mountComponent().getComponent('.total-submissions a');
-        link.props().to.should.equal('/projects/1/forms/a%20b/submissions');
-      });
-    });
-
-    describe('Project Viewer', () => {
-      beforeEach(() => {
-        mockLogin({ role: 'none' });
-        testData.extendedProjects.createPast(1, { role: 'viewer', forms: 1 });
-        testData.extendedForms.createPast(1, { xmlFormId: 'a b', reviewStates: { received: 2, hasIssues: 1, edited: 3 }, submissions: 6 });
-      });
-
-      it('links to the correct filtered submissions for each review state', () => {
-        const columns = mountComponent().findAll('.review-state');
-        columns.length.should.equal(3);
-        columns.map((col) => col.getComponent('a').props().to).should.eql([
-          '/projects/1/forms/a%20b/submissions?reviewState=null',
-          '/projects/1/forms/a%20b/submissions?reviewState=%27hasIssues%27',
-          '/projects/1/forms/a%20b/submissions?reviewState=%27edited%27']);
-      });
-
-      it('last submission has the correct links', () => {
-        const link = mountComponent().getComponent('.last-submission a');
-        link.props().to.should.equal('/projects/1/forms/a%20b/submissions');
-      });
-
-      it('submission count links to the right place', () => {
-        const link = mountComponent().getComponent('.total-submissions a');
-        link.props().to.should.equal('/projects/1/forms/a%20b/submissions');
-      });
-    });
-
-    describe('Data Collector', () => {
-      beforeEach(() => {
-        mockLogin({ role: 'none' });
-        testData.extendedProjects.createPast(1, { role: 'formfill', forms: 1 });
-        testData.extendedForms.createPast(1, { name: 'My Form', xmlFormId: 'a b', reviewStates: { received: 2, hasIssues: 2, edited: 2 }, submissions: 6 });
-      });
-
-      it('does not render a link for each review state', () => {
-        const columns = mountComponent().findAll('.review-state');
-        columns.length.should.equal(3);
-        for (const col of columns) {
-          col.find('a').exists().should.be.false;
-          col.text().should.equal('2');
-        }
-      });
-
-      it('does not render a link for last submission', () => {
-        const nonLink = mountComponent().get('.last-submission');
-        nonLink.find('a').exists().should.be.false;
-        nonLink.findComponent(DateTime).exists().should.be.true;
-      });
-
-      it('does not render a link for submission count', () => {
-        const nonLink = mountComponent().get('.total-submissions');
-        nonLink.find('a').exists().should.be.false;
-        nonLink.text().should.equal('6');
-      });
-    });
+  it('displays zero when there are no unresolved submissions', () => {
+    mockLogin();
+    testData.extendedForms.createPast(1, { submissions: 3, reviewStates: { received: 0, hasIssues: 0, edited: 0, approved: 3 } });
+    mountComponent().findAll('.f-num')[1].text().should.equal('0');
   });
-
-  describe('show icon', () => {
-    beforeEach(mockLogin);
-
-    it('should show form icon', () => {
-      testData.extendedForms.createPast(1, { name: 'My Form', xmlFormId: 'f' });
-      mountComponent(true).find('.col-icon span.icon-file').exists().should.be.true;
-    });
-
-    it('should not show form icon', () => {
-      testData.extendedForms.createPast(1, { name: 'My Form', xmlFormId: 'f' });
-      mountComponent().find('.col-icon span.icon-file').exists().should.be.false;
-    });
+  it('retains the recorded last-submission date and form status', () => {
+    mockLogin();
+    const lastSubmission = '2026-10-09T22:18:39Z';
+    testData.extendedForms.createPast(1, { lastSubmission, state: 'closing' });
+    const component = mountComponent();
+    component.getComponent(DateTime).props().iso.should.equal(lastSubmission);
+    component.get('.f-status').text().should.equal('Closing');
+  });
+  it('keeps unpublished forms editable without verification or invented counts', () => {
+    mockLogin();
+    testData.extendedForms.createPast(1, { draft: true });
+    const component = mountComponent();
+    component.find('.f-verification').exists().should.be.false;
+    (component.getComponent(FormLink).props().to === undefined).should.be.true;
+    component.findAll('.f-num').map(cell => cell.text()).should.eql(['—', '—']);
+    component.get('.f-status').text().should.equal('Not published yet');
+  });
+  it('does not give a collector verification or submission-list links', () => {
+    mockLogin({ role: 'none' });
+    testData.extendedProjects.createPast(1, { role: 'formfill', forms: 1 });
+    testData.extendedForms.createPast(1, { name: 'Housing', submissions: 6, reviewStates: { received: 2, hasIssues: 2, edited: 2 } });
+    const component = mountComponent();
+    component.find('.f-verification').exists().should.be.false;
+    component.findAll('.f-num a').length.should.equal(0);
+    component.findAll('.f-num')[1].text().should.equal('6to review');
+  });
+  it('provides a read-only project viewer access to verification', () => {
+    mockLogin({ role: 'none' });
+    testData.extendedProjects.createPast(1, { role: 'viewer', forms: 1 });
+    testData.extendedForms.createPast(1);
+    mountComponent().find('.f-verification').exists().should.be.true;
   });
 });

@@ -14,7 +14,8 @@ review · Last submission · Status) instead of the original cryptic icon column
 -->
 <template>
   <tr class="fd-form-row">
-    <td class="f-name form-name">
+    <td class="f-name">
+      <span class="form-name">
       <span class="f-dot"></span>
       <template v-if="canLinkToDraftStatus">
         <form-link :form="form"/>
@@ -26,15 +27,17 @@ review · Last submission · Status) instead of the original cryptic icon column
         <a :href="enketoPath" target="_blank">{{ form.nameOrId }}</a>
       </template>
       <template v-else>{{ form.nameOrId }}</template>
-      <span v-if="showIdForDuplicateName" class="dup-id">{{ form.xmlFormId }}</span>
+      <span v-if="showIdForDuplicateName" class="dup-id">({{ form.xmlFormId }})</span>
+      </span>
+      <router-link v-if="canLinkToVerification" class="f-verification" :to="formPath(form.projectId, form.xmlFormId, 'verification')">Verification &amp; planning<span class="sr-only">: {{ form.nameOrId }}</span></router-link>
     </td>
 
     <template v-if="form.publishedAt != null">
-      <td class="f-num">
+      <td :data-label="$t('resource.submissions')" class="f-num">
         <router-link v-if="canLinkToSubmissions" :to="submissionsPath.all">{{ $n(form.submissions, 'default') }}</router-link>
         <template v-else>{{ $n(form.submissions, 'default') }}</template>
       </td>
-      <td class="f-num">
+      <td data-label="Needs review" class="f-num">
         <template v-if="needsReview > 0">
           <router-link v-if="canLinkToSubmissions" :to="submissionsPath.received" class="review-link">
             {{ $n(needsReview, 'default') }}<span class="f-sub">{{ $t('toReview') }}</span>
@@ -43,19 +46,19 @@ review · Last submission · Status) instead of the original cryptic icon column
         </template>
         <span v-else class="f-none">0</span>
       </td>
-      <td class="f-when">
+      <td data-label="Last submission" class="f-when">
         <template v-if="form.lastSubmission != null">
           <date-time :iso="form.lastSubmission" relative="past" :tooltip="false"/>
         </template>
         <span v-else class="f-none">{{ $t('submission.noSubmission') }}</span>
       </td>
-      <td class="f-status"><span class="fd-pill" :class="statusClass">{{ statusLabel }}</span></td>
+      <td data-label="Status" class="f-status"><span class="fd-pill" :class="statusClass">{{ statusLabel }}</span></td>
     </template>
     <template v-else>
-      <td class="f-num"><span class="f-none">—</span></td>
-      <td class="f-num"><span class="f-none">—</span></td>
-      <td class="f-when"><span class="f-none">{{ $t('submission.noSubmission') }}</span></td>
-      <td class="f-status"><span class="fd-pill draft">{{ $t('formState.unpublished') }}</span></td>
+      <td data-label="Submissions" class="f-num"><span class="f-none">—</span></td>
+      <td data-label="Needs review" class="f-num"><span class="f-none">—</span></td>
+      <td data-label="Last submission" class="f-when"><span class="f-none">{{ $t('submission.noSubmission') }}</span></td>
+      <td data-label="Status" class="f-status"><span class="fd-pill draft">{{ $t('formState.unpublished') }}</span></td>
     </template>
   </tr>
 </template>
@@ -84,6 +87,9 @@ export default {
     return { duplicateFormNamesPerProject, formPath, newSubmissionPath };
   },
   computed: {
+    canLinkToVerification() {
+      return this.form.publishedAt != null && this.project.permits(['form.read', 'submission.list', 'submission.read']);
+    },
     canLinkToDraftStatus() {
       return this.form.publishedAt == null && this.project.permits('form.update');
     },
@@ -109,7 +115,7 @@ export default {
     submissionsPath() {
       const submissionPath = this.formPath(this.form.projectId, this.form.xmlFormId, 'submissions');
       return {
-        received: `${submissionPath}?reviewState=null`,
+        received: `${submissionPath}?reviewState=null&reviewState=%27hasIssues%27&reviewState=%27edited%27`,
         all: submissionPath
       };
     },
@@ -141,6 +147,7 @@ export default {
     font-weight: 500;
     a { color: #23343a; font-weight: 600; &:hover { color: #0E7490; } }
   }
+  .f-verification { display: block; color: #0b5e75 !important; font-size: 12px; font-weight: 500 !important; margin-top: 6px; padding-block: 5px; }
   .f-dot {
     display: inline-block; width: 8px; height: 8px; border-radius: 2px;
     background: #1C6FA6; margin-right: 10px; vertical-align: middle;

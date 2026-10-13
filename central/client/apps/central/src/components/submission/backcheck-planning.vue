@@ -1,7 +1,10 @@
 <!-- Copyright 2026 Field Data Developers. Licensed under the Apache License, Version 2.0. -->
 <template>
-  <section v-if="collectors" class="backcheck-planning" aria-labelledby="backcheck-planning-title">
+  <section class="backcheck-planning" aria-labelledby="backcheck-planning-title">
     <h3 id="backcheck-planning-title">Availability and route planning</h3>
+    <p v-if="!collectors && !loadError" role="status">Loading availability…</p>
+    <div v-if="loadError" role="alert">Availability could not be loaded. <button type="button" class="btn btn-link" :disabled="busy" @click="loadPanel">Retry</button></div>
+    <template v-if="collectors">
     <p>Calendars use UTC dates. Zero visits means unavailable. Calendar changes affect future assignments; existing visits keep their dates.</p>
     <label>Planning collector
       <select v-model="actorId" class="form-control" @change="selectCollector">
@@ -81,6 +84,7 @@ Review required: {{ plan.truncated ? 'the task list was truncated; ' : '' }}{{ o
         <p>The preview does not dispatch, reschedule or change a visit.</p>
       </div>
     </template>
+    </template>
   </section>
 </template>
 
@@ -109,8 +113,13 @@ const selectCollector = () => {
   weeklyCapacity.value = [...(collector?.settings?.weeklyCapacity ?? [0, 0, 0, 0, 0, 0, 0])];
   exceptions.value = (collector?.settings?.exceptions ?? []).map(e => ({ ...e })); plan.value = null; saved.value = false; error.value = '';
 };
-request({ method: 'GET', url: `${base()}/backcheck-calendars`, alert: false })
-  .then(({ data }) => { if (Array.isArray(data)) collectors.value = data; }).catch(() => {});
+const loadError = ref(false);
+const loadPanel = () => {
+  loadError.value = false;
+  return request({ method: 'GET', url: `${base()}/backcheck-calendars`, alert: false })
+    .then(({ data }) => { if (!Array.isArray(data)) throw new Error(); collectors.value = data; }).catch(() => { loadError.value = true; });
+};
+loadPanel();
 const saveCalendar = () => {
   if (busy.value) return Promise.resolve();
   error.value = ''; saved.value = false;

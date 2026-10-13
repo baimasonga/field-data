@@ -151,6 +151,7 @@ describe('FormHead', () => {
         // row below.
         tabs.map(tab => textWithout(tab, '.badge')).should.eql([
           'Data',
+          'Verification & planning',
           'Share',
           'Versions',
           'Settings'
@@ -165,8 +166,7 @@ describe('FormHead', () => {
           'Import CSV',
           'Summary',
           'Charts',
-          'Photos',
-          'Verification'
+          'Photos'
         ]);
       });
     });
@@ -190,7 +190,7 @@ describe('FormHead', () => {
       return load('/projects/1/forms/f/submissions').then(app => {
         const tabs = app.findAll('#page-head-tabs a');
         const text = tabs.map(tab => textWithout(tab, '.badge'));
-        text.should.eql(['Data', 'Versions']);
+        text.should.eql(['Data', 'Verification & planning', 'Versions']);
       });
     });
 
@@ -217,7 +217,7 @@ describe('FormHead', () => {
       testData.extendedFormVersions.createPast(1, { draft: true });
       const app = await load('/projects/1/forms/f/draft');
       const tabs = app.findAll('#page-head-tabs li');
-      tabs.length.should.equal(4);
+      tabs.length.should.equal(5);
       for (const tab of tabs) {
         tab.classes('disabled').should.be.false;
         const a = tab.get('a');

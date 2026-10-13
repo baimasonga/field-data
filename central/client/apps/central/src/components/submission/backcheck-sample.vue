@@ -6,8 +6,11 @@ schedule (O6), drawn by the operations runner when each period ends.
 Contracts: docs/field-intelligence/O3-backcheck-sample.md,
 docs/field-intelligence/O6-scheduled-backcheck-samples.md -->
 <template>
-  <section v-if="samples != null" class="backcheck-sample" aria-labelledby="backcheck-sample-title">
+  <section class="backcheck-sample" aria-labelledby="backcheck-sample-title">
     <h2 id="backcheck-sample-title">Random backcheck sample</h2>
+    <p v-if="samples == null && !loadError" role="status">Loading sampling…</p>
+    <div v-if="loadError" role="alert">Sampling could not be loaded. <button type="button" class="btn btn-link" :disabled="busy" @click="load">Retry</button></div>
+    <template v-if="samples != null">
     <p class="section-lead">
       Chooses a share of every collector's Submissions by chance, so work that raised no finding is still revisited.
       Each chosen Submission goes to the review queue with the reason "backcheck-sample", where a reviewer asks
@@ -34,6 +37,7 @@ docs/field-intelligence/O6-scheduled-backcheck-samples.md -->
     </form>
     <p v-if="error" role="alert" class="backcheck-sample-error">{{ error }}</p>
 
+    <div v-if="scheduleLoadError" role="alert">Schedule could not be loaded. <button type="button" class="btn btn-link" :disabled="busy" @click="loadSchedule">Retry</button></div>
     <section v-if="schedule !== undefined" class="backcheck-schedule" aria-labelledby="backcheck-schedule-title">
       <h3 id="backcheck-schedule-title">Schedule</h3>
       <p class="backcheck-schedule-lead">
@@ -81,7 +85,7 @@ docs/field-intelligence/O6-scheduled-backcheck-samples.md -->
       </ul>
     </section>
 
-    <backcheck-allocation :project-id="projectId" :xml-form-id="xmlFormId" :can-configure="canDraw && canManage"/>
+
 
     <p v-if="samples.length === 0" class="backcheck-sample-empty">No sample has been drawn for this Form.</p>
     <template v-else>
@@ -132,6 +136,8 @@ docs/field-intelligence/O6-scheduled-backcheck-samples.md -->
         </p>
       </div>
     </template>
+    </template>
+    <backcheck-allocation :project-id="projectId" :xml-form-id="xmlFormId" :can-configure="canDraw && canManage"/>
   </section>
 </template>
 
@@ -153,6 +159,7 @@ const emit = defineEmits(['drawn']);
 const { request, awaitingResponse: busy } = useRequest();
 const base = () => `/v1/projects/${props.projectId}/forms/${encodeURIComponent(props.xmlFormId)}/backcheck-samples`;
 
+const loadError = ref(false);
 const samples = ref(null); const sample = ref(null); const selectedId = ref(null); const error = ref('');
 const settings = reactive({ rate: 10, minPerCollector: 1, receivedFrom: '', receivedTo: '' });
 const receivedRange = computed(() => {
@@ -162,6 +169,7 @@ const receivedRange = computed(() => {
 const sampledBeforeText = computed(() => (sample.value?.sampledBefore > 0 ? `; ${sample.value.sampledBefore} skipped as sampled before` : ''));
 
 // O6: the form's schedule (undefined until loaded or when it cannot be read).
+const scheduleLoadError = ref(false);
 const schedule = ref(undefined); const runs = ref([]); const scheduleError = ref('');
 const scheduleSettings = reactive({ rate: 10, minPerCollector: 1, frequency: 'daily', enabled: true });
 const scheduleUrl = () => `/v1/projects/${props.projectId}/forms/${encodeURIComponent(props.xmlFormId)}/backcheck-schedule`;
@@ -172,9 +180,11 @@ const showSchedule = (data) => {
     Object.assign(scheduleSettings, { rate, minPerCollector, frequency, enabled });
   }
 };
-const loadSchedule = () => request({ method: 'GET', url: scheduleUrl(), alert: false })
-  .then(({ data }) => showSchedule(data))
-  .catch(() => { schedule.value = undefined; });
+const loadSchedule = () => {
+  scheduleLoadError.value = false; return request({ method: 'GET', url: scheduleUrl(), alert: false })
+    .then(({ data }) => showSchedule(data))
+    .catch(() => { schedule.value = undefined; scheduleLoadError.value = true; });
+};
 loadSchedule();
 const saveSchedule = () => {
   if (busy.value) return Promise.resolve();
@@ -188,14 +198,17 @@ const loadSample = () => (selectedId.value == null ? Promise.resolve()
   : request({ method: 'GET', url: `${base()}/${selectedId.value}`, alert: false })
     .then(({ data }) => { sample.value = data; })
     .catch(() => { sample.value = null; }));
-const load = () => request({ method: 'GET', url: base(), alert: false })
-  .then(({ data }) => {
-    samples.value = Array.isArray(data) ? data : null;
-    if (samples.value != null && !samples.value.some((s) => s.id === selectedId.value))
-      selectedId.value = samples.value[0]?.id ?? null;
-    return loadSample();
-  })
-  .catch(() => { samples.value = null; });
+const load = () => {
+  loadError.value = false; return request({ method: 'GET', url: base(), alert: false })
+    .then(({ data }) => {
+      if (!Array.isArray(data)) throw new Error();
+      samples.value = data;
+      if (samples.value != null && !samples.value.some((s) => s.id === selectedId.value))
+        selectedId.value = samples.value[0]?.id ?? null;
+      return loadSample();
+    })
+    .catch(() => { samples.value = null; loadError.value = true; });
+};
 load();
 
 // One request ID per set of settings, so a retried draw is not drawn twice.

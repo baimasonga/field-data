@@ -16,7 +16,7 @@ unlabelled icon columns. Entity lists keep their existing rendering.
 <template>
   <div class="fd-project-card">
     <div class="fd-project-head">
-      <router-link :to="projectPath(project.id)" class="fd-project-mark" aria-hidden="true">
+      <router-link :to="projectPath(project.id)" class="fd-project-mark" aria-hidden="true" tabindex="-1">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
         </svg>
@@ -175,7 +175,7 @@ export default {
   .fd-project-mark {
     width: 40px; height: 40px; border-radius: 10px; flex-shrink: 0;
     display: flex; align-items: center; justify-content: center;
-    background: linear-gradient(135deg, rgba(14,116,144,0.13), rgba(46,139,90,0.14));
+    background: #e6f1f4;
     color: #0E7490;
     svg { width: 20px; height: 20px; }
   }
@@ -204,7 +204,7 @@ export default {
     thead th {
       text-align: left;
       font-size: 11px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase;
-      color: #8fa1a7;
+      color: #526a73;
       padding: 11px 16px;
       border-bottom: 1px solid #eef3f4;
       &.r { text-align: right; }
@@ -219,7 +219,7 @@ export default {
   }
 
   .fd-project-empty {
-    padding: 20px 22px; color: #8fa1a7; font-size: 14px; margin: 0;
+    padding: 20px 22px; color: #526a73; font-size: 14px; margin: 0;
   }
 
   // Entity-list table keeps its original look.
@@ -267,3 +267,21 @@ export default {
   }
 }
 </i18n>
+
+<style lang="scss">
+@media (max-width: 900px) {
+  .fd-project-card {
+    .fd-project-head { flex-wrap: wrap; padding: 16px; }
+    .fd-project-title { min-width: 170px; }
+    .fd-project-open { min-height: 44px; }
+    .fd-forms-table, .fd-forms-table tbody { display: block; }
+    .fd-forms-table thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+    .fd-form-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); padding: 12px 16px; border-bottom: 1px solid #e7edef; }
+    .fd-form-row td { width: auto; min-width: 0; border: 0; padding: 7px 0; text-align: left; }
+    .fd-form-row td[data-label]::before { content: attr(data-label); display: block; font-size: 11px; color: #526a73; margin-bottom: 3px; }
+    .fd-form-row .form-name a { display: inline-flex; min-height: 44px; align-items: center; vertical-align: middle; }
+    .fd-form-row .f-name { grid-column: 1 / -1; overflow-wrap: anywhere; }
+    .fd-form-row .f-verification { display: inline-flex; min-height: 44px; align-items: center; }
+  }
+}
+</style>
