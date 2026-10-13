@@ -109,7 +109,7 @@ const compileFilter = (query, fieldByPath) => {
 // server, which is how the earlier form of it survived three features.
 const extractObject = (paths) => sql`(
   select coalesce(jsonb_object_agg(p.path,
-    btrim((xpath('/*' || p.path || '/text()', sd.xml::xml))[1]::text)), '{}'::jsonb)
+    btrim((select x.value from XMLTABLE('/*' PASSING (sd.xml::xml) COLUMNS value text PATH ('(/*' || p.path || '/text())[1]')) x))), '{}'::jsonb)
   from unnest(${sql.array(paths, 'text')}) as p(path))`;
 
 const projectObject = (columns) => sql`(

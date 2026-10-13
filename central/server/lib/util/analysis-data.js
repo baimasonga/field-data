@@ -46,6 +46,7 @@ const analysisFields = (source, repeatPath = null) => source.fields.filter(f => 
   return repeatPath ? nearest === repeatPath : !f.repeated;
 });
 const normalizeAnalysis = (body, source) => {
+  if (body?.recodes != null && typeof body.recodes !== 'boolean') throw invalid('recodes', body.recodes, 'Use true or false.');
   if (body?.version != null && body.version !== 1) throw invalid('version', body.version, 'Unsupported saved-view version.');
   const repeatPath = body?.repeatPath || null;
   if (repeatPath && source.kind === 'filtered' && source.definition.query.some(f => source.repeatPaths.some(p => f.column.startsWith(`${p}/`)))) throw invalid('repeatPath', repeatPath, 'Repeat-level delegated filters require a dataset boundary designed for repeat rows. Use a parent-scoped delegation.');
@@ -69,9 +70,9 @@ const normalizeAnalysis = (body, source) => {
       : 'Choose a location question from this form.');
   const tab = body?.tab || 'table';
   if (!['table', 'chart', 'map'].includes(tab)) throw invalid('tab', tab, 'Choose table, chart or map.');
-  return { version: 1, source: body.source, columns: definition.columns, query: definition.query, chart, geometry, tab, ...(repeatPath ? { repeatPath } : {}) };
+  return { version: 1, source: body.source, columns: definition.columns, query: definition.query, chart, geometry, tab, ...(repeatPath ? { repeatPath } : {}), ...(body?.recodes == null ? {} : { recodes: body.recodes }) };
 };
-const sourceRowsSql = (source, repeatPath = null) => {
+const sourceRowsSql = (source, repeatPath = null, withRecodes = false) => {
   const visible = source.fields.map(f => f.path);
   const forms = source.kind === 'filtered'
     ? [{ formId: source.dataset.formId, xmlFormId: source.dataset.xmlFormId }] : source.forms;
@@ -83,29 +84,54 @@ const sourceRowsSql = (source, repeatPath = null) => {
     const repeatFields = analysisFields(source, repeatPath).map(f => f.path);
     return sql.join(forms.map(form => sql`
       select "instanceId", "submittedAt", "sourceForm", repeat_index::integer as "repeatIndex",
-        (select coalesce(jsonb_object_agg(p.path, btrim((xpath('/*' || substring(p.path from ${repeatPath.length + 1}::integer) || '/text()', fragment))[1]::text)), '{}'::jsonb)
+        ${withRecodes ? sql`"recodeFormId", "recodeVersion", "recodeXml",` : sql``}
+        (select coalesce(jsonb_object_agg(p.path, btrim((select x.value from XMLTABLE('/*' PASSING fragment COLUMNS value text PATH ('(/*' || substring(p.path from ${repeatPath.length + 1}::integer) || '/text())[1]')) x))), '{}'::jsonb)
           from unnest(${sql.array(repeatFields, 'text')}) p(path)) as extracted
       from (select s."instanceId", s."createdAt" as "submittedAt", ${form.xmlFormId}::text as "sourceForm", sd.xml,
+        ${withRecodes ? sql`${form.formId}::integer as "recodeFormId", fd.version as "recodeVersion", sd.xml as "recodeXml",` : sql``}
         ${extractObject(paths)} as extracted
         from submissions s join submission_defs sd on sd."submissionId"=s.id and sd.current=true
+        ${withRecodes ? sql`join form_defs fd on fd.id = sd."formDefId"` : sql``}
         where s."formId"=${form.formId} and s."deletedAt" is null and s.draft=false and xml_is_well_formed_document(sd.xml)) parent
       cross join lateral unnest(xpath('/*' || ${repeatPath}::text, parent.xml::xml)) with ordinality r(fragment, repeat_index)
       where ${delegatedFilter}`), sql` union all `);
   }
   return sql.join(forms.map(form => sql`
-    select "instanceId", "submittedAt", "sourceForm", ${projectObject(visible)} as extracted
+    select "instanceId", "submittedAt", "sourceForm", ${withRecodes ? sql`"recodeFormId", "recodeVersion", "recodeXml",` : sql``} ${projectObject(visible)} as extracted
     from (
       select s."instanceId", s."createdAt" as "submittedAt", ${form.xmlFormId}::text as "sourceForm",
+        ${withRecodes ? sql`${form.formId}::integer as "recodeFormId", fd.version as "recodeVersion", sd.xml as "recodeXml",` : sql``}
         ${extractObject(paths)} as extracted
       from submissions s join submission_defs sd on sd."submissionId"=s.id and sd.current=true
+        ${withRecodes ? sql`join form_defs fd on fd.id = sd."formDefId"` : sql``}
       where s."formId"=${form.formId} and s."deletedAt" is null and s.draft=false
         and xml_is_well_formed_document(sd.xml)
     ) as source where ${delegatedFilter}`), sql` union all `);
 };
+const recodeFields = (source, definition) => analysisFields(source, definition.repeatPath).filter(f => definition.columns.includes(f.path) || definition.geometry === f.path);
 const scopedRowsSql = (source, definition) => {
   const normalized = normalizeDefinition(definition, analysisFields(source, definition.repeatPath));
-  return sql`select * from (${sourceRowsSql(source, definition.repeatPath)}) as permitted
+  const recoding = definition.recodes === true && definition._recodeRuleIds?.length > 0;
+  const stored = sql`select * from (${sourceRowsSql(source, definition.repeatPath, recoding)}) as permitted
     where ${compileFilter(normalized.query, normalized.fieldByPath)}`;
+  if (!recoding) return stored;
+  const fields = recodeFields(source, definition);
+  return sql`select "instanceId", "submittedAt", "sourceForm", ${definition.repeatPath ? sql`"repeatIndex",` : sql``}
+    field_data_analysis_recode(extracted, "recodeXml", "recodeVersion", "recodeFormId",
+      ${sql.array(fields.map(f => f.path), 'text')}, ${sql.array(fields.filter(f => f.selectMultiple).map(f => f.path), 'text')},
+      ${sql.array(definition._recodeRuleIds, 'uuid')}, ${source.kind !== 'filtered' && !definition.repeatPath}) as extracted
+    from (${stored}) as selected`;
+};
+const prepareScreenRecodes = async (db, source, definition) => {
+  if (definition.recodes !== true) return { effective: definition, metadata: { applied: false, rules: [], skippedPathRules: 0 } };
+  const forms = source.kind === 'filtered' ? [source.dataset.formId] : source.forms.map(f => f.formId);
+  const fields = recodeFields(source, definition);
+  const active = await db.any(sql`SELECT id, kind, path FROM field_data_export_recodes
+    WHERE "formId" = ANY(${sql.array(forms, 'int4')}) AND "retiredAt" IS NULL AND path = ANY(${sql.array(fields.map(f => f.path), 'text')})
+    ORDER BY "createdAt", id`);
+  const rules = active.filter(rule => rule.kind !== 'path' || (source.kind !== 'filtered' && !definition.repeatPath));
+  return { effective: { ...definition, _recodeRuleIds: rules.map(rule => rule.id) },
+    metadata: { applied: true, rules, skippedPathRules: active.length - rules.length, filterScope: 'stored-answers' } };
 };
 const analysisRows = (db, source, definition, limit, offset = 0) => db.any(sql`
   select "instanceId", "submittedAt", "sourceForm", ${definition.repeatPath ? sql`"repeatIndex"` : sql`null::integer as "repeatIndex"`}, ${projectObject(definition.columns)} as data
@@ -141,4 +167,4 @@ const mapFeatures = (rows, geometry) => ({ type: 'FeatureCollection', features: 
   return p == null ? [] : [{ type: 'Feature', geometry: { type: 'Point', coordinates: [p.longitude, p.latitude] },
     properties: { instanceId: row.instanceId, sourceForm: row.sourceForm, ...(row.repeatIndex == null ? {} : { repeatIndex: row.repeatIndex }) } }];
 }) });
-module.exports = { analysisFields, invalid, sourceSpec, authorizeSource, normalizeAnalysis, sourceRowsSql, scopedRowsSql, analysisRows, analysisSummary, mapFeatures };
+module.exports = { analysisFields, invalid, sourceSpec, authorizeSource, normalizeAnalysis, prepareScreenRecodes, sourceRowsSql, scopedRowsSql, analysisRows, analysisSummary, mapFeatures };

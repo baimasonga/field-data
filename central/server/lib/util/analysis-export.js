@@ -19,6 +19,7 @@ const write = payload => new Promise((resolve, reject) => {
 const prepareExport = async (container, params, auth, body) => {
   if (!['csv', 'xlsx', 'kml', 'sav', 'dta'].includes(params.format)) throw invalid('format', params.format, 'Unsupported export format.');
   const { source } = await authorizeSource(container, params.projectId, body?.source, auth);
+  // Export SQL omits the screen-only prepared rule IDs; the writer applies frozen rules once.
   const analysed = normalizeAnalysis(body, source);
   // The location question need not be a table column, but KML is built from
   // it, so a KML export reads it too. Other formats keep exactly the columns
@@ -36,10 +37,12 @@ const prepareExport = async (container, params, auth, body) => {
   if (body.recodes != null && typeof body.recodes !== 'boolean') throw invalid('recodes', body.recodes, 'Use true or false.');
   const applied = body.recodes !== false;
   const formIds = source.kind === 'filtered' ? [source.dataset.formId] : source.forms.map(f => f.formId);
-  const recodes = { applied, rules: applied ? await activeRules(container.db, formIds) : [] };
+  const visible = new Set(fields.map(field => field.path));
+  const rules = applied ? await activeRules(container.db, formIds) : [];
+  const recodes = { applied, rules: rules.filter(rule => visible.has(rule.path) && (source.kind !== 'filtered' || rule.kind !== 'path')) };
   // The rules travel with every writer request beside the rows, so keep them
   // small enough to leave the rows their budget.
-  if (Buffer.byteLength(JSON.stringify(recodes)) > 2 * 1024 * 1024) throw invalid('recodes', null, 'The recode rules for these forms exceed 2 MB. Export with recode rules off, or retire rules that are no longer needed.');
+  if (Buffer.byteLength(JSON.stringify({ applied, rules })) > 2 * 1024 * 1024) throw invalid('recodes', null, 'The recode rules for these forms exceed 2 MB. Export with recode rules off, or retire rules that are no longer needed.');
   return { source, definition, fields, payload: { format: params.format, source: body.source, definition, fields, repeatPaths: source.repeatPaths, geometry: definition.geometry, boundary, recodes } };
 };
 // Each row carries the form version of the submission's current definition,
