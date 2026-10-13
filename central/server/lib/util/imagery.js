@@ -34,7 +34,7 @@ const searchBody = (cell, window) => ({
   intersects: { type: 'Point', coordinates: [cell.lon, cell.lat] },
   datetime: `${window.from}/${window.to}`,
   limit: 100,
-  fields: { include: ['id', 'properties.datetime', 'properties.eo:cloud_cover', 'collection'], exclude: ['assets', 'links', 'geometry', 'bbox'] }
+  fields: { include: ['id', 'properties.datetime', 'properties.eo:cloud_cover', 'collection'], exclude: ['assets', 'geometry', 'bbox'] }
 });
 
 // Scenes from a search answer, each { id, at, cloud }, oldest first. Items
@@ -76,20 +76,49 @@ const plan = (located, fresh, max) => {
   return { todo: [...lookups.values()], pending: pending.length, considered: considered.length, truncated: pending.length > considered.length, cached: cached.size };
 };
 
-// One catalogue request with a timeout. `fetchImpl` is injectable for tests.
+// Older cached searches have no completeness marker. A full first page with
+// an unknown total is conservatively retried instead of presented as complete.
+const complete = (count, matched) => (matched == null ? count < 100 : count >= matched);
+
+// Catalogue pages share one timeout and stay on the configured origin. `fetchImpl` is injectable for tests.
 // Resolves { ok: true, scenes } or { ok: false, reason }; never throws.
 const lookup = async (catalogueUrl, cell, window, { fetchImpl = fetch, timeoutMs = 15000 } = {}) => {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
-    const response = await fetchImpl(`${catalogueUrl.replace(/\/+$/, '')}/search`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/geo+json' },
-      body: JSON.stringify(searchBody(cell, window)), signal: controller.signal
-    });
-    if (!response.ok) return { ok: false, reason: `catalogue answered ${response.status}` };
-    const answer = await response.json();
-    if (!Array.isArray(answer?.features)) return { ok: false, reason: 'catalogue answer was not a search result' };
-    return { ok: true, scenes: scenesOf(answer), matched: Number.isFinite(answer.numberMatched) ? answer.numberMatched : null };
+    const searchUrl = `${catalogueUrl.replace(/\/+$/, '')}/search`;
+    let url = searchUrl; let method = 'POST'; let body = searchBody(cell, window);
+    const features = new Map(); const visited = new Set(); let matched = null;
+    for (let page = 0; page < 10; page += 1) {
+      const key = JSON.stringify([url, method, body]);
+      if (visited.has(key)) return { ok: false, reason: 'catalogue pagination repeated a page' };
+      visited.add(key);
+      // eslint-disable-next-line no-await-in-loop
+      const response = await fetchImpl(url, {
+        method, headers: { 'Content-Type': 'application/json', Accept: 'application/geo+json' },
+        ...(method === 'POST' ? { body: JSON.stringify(body) } : {}), signal: controller.signal,
+        redirect: 'error'
+      });
+      if (!response.ok) return { ok: false, reason: `catalogue answered ${response.status}` };
+      // eslint-disable-next-line no-await-in-loop
+      const answer = await response.json();
+      if (!Array.isArray(answer?.features)) return { ok: false, reason: 'catalogue answer was not a search result' };
+      if (Number.isFinite(answer.numberMatched)) matched = Math.max(matched ?? 0, answer.numberMatched);
+      for (const f of answer.features) features.set(`${f.collection ?? ''}|${f.id}`, f);
+      const next = answer.links?.find((link) => link.rel === 'next');
+      if (next == null || (matched != null && features.size >= matched)) {
+        if (!complete(matched == null ? answer.features.length : features.size, matched)) return { ok: false, reason: 'catalogue returned an incomplete search result' };
+        const scenes = scenesOf({ features: [...features.values()] });
+        return { ok: true, scenes, matched: scenes.length };
+      }
+      const nextUrl = new URL(next.href, url);
+      if (nextUrl.origin !== new URL(searchUrl).origin)
+        return { ok: false, reason: 'catalogue pagination left the configured origin' };
+      url = nextUrl.href; method = next.method ?? 'GET';
+      if (!['GET', 'POST'].includes(method)) return { ok: false, reason: 'catalogue pagination used an unsupported method' };
+      body = next.merge ? { ...body, ...next.body } : next.body;
+    }
+    return { ok: false, reason: 'catalogue pagination exceeded the page limit' };
   } catch (error) {
     return { ok: false, reason: error.name === 'AbortError' ? 'catalogue did not answer in time' : 'catalogue could not be reached' };
   } finally {
@@ -97,4 +126,4 @@ const lookup = async (catalogueUrl, cell, window, { fetchImpl = fetch, timeoutMs
   }
 };
 
-module.exports = { CELL_DEGREES, WINDOW_DAYS, COLLECTION, CLEAR, cellOf, windowAround, searchBody, scenesOf, summarize, keyOf, plan, lookup };
+module.exports = { CELL_DEGREES, WINDOW_DAYS, COLLECTION, CLEAR, cellOf, windowAround, searchBody, scenesOf, summarize, keyOf, plan, complete, lookup };

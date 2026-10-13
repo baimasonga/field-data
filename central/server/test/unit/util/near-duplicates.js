@@ -74,6 +74,15 @@ describe('(util) near-duplicate submissions', () => {
     counts.tooFewAnswers.should.equal(2);
   });
 
+  it('counts cross-group matches inherited by copies, including interleaved copies', () => {
+    const a = distinct(0); const b = changed(a, 1);
+    const rows = [submission('a', a), submission('b', b), submission('a-copy', a), submission('b-copy', b),
+      ...Array.from({ length: 4 }, (_, n) => submission(`other${n}`, distinct(n + 1)))];
+    const { findings } = findNearDuplicates(rows, fields);
+    findings.find((f) => f.instanceId === 'a-copy').evidence.alsoSimilarTo.should.equal(1);
+    findings.find((f) => f.instanceId === 'b-copy').evidence.alsoSimilarTo.should.equal(2);
+  });
+
   it('treats multiple-choice order, case and spacing as the same answer', () => {
     const base = { ...distinct(0), '/colours': 'red blue' };
     const rows = [

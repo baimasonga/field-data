@@ -72,7 +72,7 @@ describe('api: G1b imagery availability', () => {
       stac.requests[0].body.should.eql({
         collections: ['sentinel-2-l2a'], intersects: { type: 'Point', coordinates: [-13.225, 8.475] },
         datetime: '2026-08-21T00:00:00Z/2026-10-20T23:59:59Z', limit: 100,
-        fields: { include: ['id', 'properties.datetime', 'properties.eo:cloud_cover', 'collection'], exclude: ['assets', 'links', 'geometry', 'bbox'] }
+        fields: { include: ['id', 'properties.datetime', 'properties.eo:cloud_cover', 'collection'], exclude: ['assets', 'geometry', 'bbox'] }
       });
       stac.requests[0].body.datetime.should.equal('2026-08-21T00:00:00Z/2026-10-20T23:59:59Z');
       JSON.stringify(stac.requests).should.not.match(/8\.48|8\.46|13\.23|13\.21|10:30|15:00|uuid/);
@@ -94,6 +94,23 @@ describe('api: G1b imagery availability', () => {
     const cached = await all(sql`select * from field_data_imagery_lookups`);
     cached.length.should.equal(1);
     cached[0].should.containEql({ cellKey: '8.475,-13.225', windowDays: 30, catalogue: 'https://catalogue.test/v1' });
+  }));
+
+  it('hides and refreshes a fresh cache entry whose search was incomplete', testService(async (service, { run }) => {
+    const alice = await setUp(service, run, [['uuid:a', '8.4801 -13.2344 10 5', '2026-09-20T10:30:00Z']]);
+    process.env.FIELD_DATA_IMAGERY_ENABLED = 'true';
+    process.env.FIELD_DATA_STAC_URL = 'https://catalogue.test/v1';
+    const stac = catalogue(async () => ok(freetown));
+    try {
+      await alice.post(`${base}/imagery/check`).expect(200);
+      await run(sql`update field_data_imagery_lookups set matched = 101`);
+      const view = (await alice.get(`${base}/imagery`).expect(200)).body;
+      view.submissions[0].status.should.equal('not-checked');
+      view.coverage.checked.should.equal(0);
+      (await alice.post(`${base}/imagery/check`).expect(200)).body.should.containEql({ looked: 1, cached: 0 });
+      (await alice.get(`${base}/imagery`).expect(200)).body.submissions[0].status.should.equal('checked');
+      stac.requests.length.should.equal(2);
+    } finally { stac.restore(); }
   }));
 
   it('records a failing catalogue as unavailable without caching it, and retries next time', testService(async (service, { run, all }) => {

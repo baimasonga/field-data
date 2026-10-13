@@ -80,6 +80,23 @@ describe('api: F4 near-duplicate submissions', () => {
     (await nearDuplicates(alice))[0].outcome.should.equal('withdrawn');
   }));
 
+  it('keeps existing concerns when the comparison limit truncates a later run', testService(async (service) => {
+    const alice = await setUp(service);
+    await alice.post(`${base}/submissions`).send(instance('copy-a', { ...answers(0), q9: 'changed-a' }))
+      .set('Content-Type', 'application/xml').expect(200);
+    await alice.post(`${base}/submissions`).send(instance('copy-b', { ...answers(1), q9: 'changed-b' }))
+      .set('Content-Type', 'application/xml').expect(200);
+    (await run(alice)).nearDuplicates.concern.should.equal(2);
+    const max = NEAR_DUPLICATE.maxCandidates;
+    try {
+      NEAR_DUPLICATE.maxCandidates = 1;
+      const report = await run(alice);
+      report.nearDuplicates.truncated.should.be.true();
+      report.withdrawn.should.equal(0);
+      (await nearDuplicates(alice)).filter((f) => f.outcome === 'concern').length.should.equal(2);
+    } finally { NEAR_DUPLICATE.maxCandidates = max; }
+  }));
+
   it('does not run on forms too large to compare, and reports why', testService(async (service) => {
     const alice = await setUp(service);
     const max = NEAR_DUPLICATE.maxSubmissions;
