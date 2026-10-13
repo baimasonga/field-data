@@ -136,7 +136,8 @@ also exist. Those features must not be re-labelled as full completion of this pr
   than estimates: merged in PR #75. Scheduled samples (O6): a daily or
   weekly schedule per form, drawn by the operations runner with the O3 rules
   when each UTC period ends, once per period, catching up after an outage,
-  with a run record for each: implemented and locally validated. Other
+  with permission rechecks, atomic retry and a run record for each:
+  implemented and locally validated for PR #86. Other
   strata and calibrated estimates from backcheck results remain pending.
 - Remaining deliverables in all eight rows: pending.
 - Version-scoped evidence graph and recorded survey timeline: implemented and

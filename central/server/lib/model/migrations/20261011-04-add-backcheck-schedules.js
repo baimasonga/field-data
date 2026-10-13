@@ -16,9 +16,11 @@ const up = async (db) => {
     -- The start of the period the next run samples, and when that run is due.
     "periodStart" TIMESTAMPTZ NOT NULL,
     "nextRunAt" TIMESTAMPTZ NOT NULL CHECK ("nextRunAt" > "periodStart"),
+    "lastAttemptAt" TIMESTAMPTZ,
     "updatedBy" INTEGER REFERENCES actors(id) ON DELETE SET NULL,
     "updatedAt" TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp()
   );
+  ALTER TABLE field_data_backcheck_schedules ADD COLUMN IF NOT EXISTS "lastAttemptAt" TIMESTAMPTZ;
   CREATE INDEX IF NOT EXISTS field_data_backcheck_schedules_due ON field_data_backcheck_schedules ("nextRunAt") WHERE enabled;
 
   ALTER TABLE field_data_backcheck_samples

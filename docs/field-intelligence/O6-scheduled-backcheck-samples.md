@@ -38,6 +38,14 @@ records the schedule it came from; it is drawn by no person.
   run is recorded as failed with the count, and the schedule moves on. The
   manager can lower the rate or draw by hand for that period.
 - A schedule on a deleted form is not run.
+- Every due run rechecks the configuring manager's current permission. Lost
+  permission or a deleted/archived project pauses the schedule with a failed
+  run record; an authorized manager must enable it again.
+- Unexpected write failures roll back the whole period and retry it on a later
+  tick. They do not advance the period or record a successful draw. Oversized
+  draws remain terminal failures requiring a manual draw or changed settings.
+- At most 20 schedules are attempted per tick, least recently attempted first,
+  so failed forms cannot permanently block other schedules.
 
 Changing a schedule's rate, minimum or frequency applies from the next
 period; turning it off stops it; turning it on again starts a new first
@@ -53,7 +61,7 @@ if failed, and when it ran. Run records are never changed.
 
 Under `/v1/projects/:projectId/forms/:xmlFormId/backcheck-schedule`:
 
-- `GET` (`submission.read`): the schedule (or null) with its next run and the
+- `GET` (`submission.list` and `submission.read`): the schedule (or null) with its next run and the
   20 latest run records.
 - `PUT` (`submission.update`): `{ rate, minPerCollector, frequency, enabled }`.
   400.58 for invalid settings, as for O3.
@@ -93,7 +101,7 @@ Locally, against real PostgreSQL 16:
   - due runs, including catching up;
   - the per-period request ID;
   - schedule settings.
-- Integration: 4 tests in `test/integration/api/field-data-backcheck-schedules.js`:
+- Integration: 8 tests in `test/integration/api/field-data-backcheck-schedules.js`:
   - setting and reading a schedule:
     - seven refused bodies;
     - the first run at the next Monday;
@@ -124,3 +132,14 @@ Locally, against real PostgreSQL 16:
   - 12 server breakages made a test fail.
   - The 2 that did not are the re-checks under the row lock (schedule still on, form not deleted). These guard against a change between selecting and locking, which a single-threaded test cannot reach.
   - All client breakages made a test fail, after one test was strengthened.
+
+Additional validation during integration: manager permission revocation and
+archived projects pause without sampling; an injected failure after writes
+leaves no sample, run or routed cases and retries the original period;
+concurrent runners and a manual draw select each submission only once.
+
+The bounded-batch regression creates 21 schedules, injects failure for the
+first 20 attempts, and verifies that the untouched schedule is served on the
+next tick. Final local validation: 1,844 server unit tests passed (one pending),
+62 hardening checks passed, four browser tests passed, and the scheduled/manual
+sample and claim-version integration suites passed.

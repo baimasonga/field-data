@@ -171,4 +171,73 @@ describe('api: O6 scheduled backcheck samples', () => {
     } finally { await db.destroy(); }
     (await alice.get(path).expect(200)).body.schedule.rate.should.equal(10);
   }));
+  it('pauses when the configuring manager loses permission or the project is archived', testService(async (service, container) => {
+    const alice = await service.login('alice'); const chelsea = await service.login('chelsea');
+    const { id } = (await chelsea.get('/v1/users/current').expect(200)).body;
+    await alice.post(`/v1/projects/1/assignments/manager/${id}`).expect(200);
+    await chelsea.put(path).send({ rate: 100, frequency: 'daily', enabled: true }).expect(200);
+    await submit(alice, 'revoked');
+    const schedule = await scheduleRow(container.one);
+    await container.run(sql`DELETE FROM assignments WHERE "actorId" = ${id}`);
+    const [failed] = await runBackcheckSchedules(container.db, schedule.nextRunAt);
+    assert.equal(failed.outcome, 'failed'); assert.match(failed.error, /Schedule paused/);
+    assert.equal((await scheduleRow(container.one)).enabled, false);
+    assert.equal(await container.oneFirst(sql`SELECT count(*)::integer FROM field_data_backcheck_samples`), 0);
+    await alice.put(path).send({ rate: 100, frequency: 'daily', enabled: true }).expect(200);
+    await container.run(sql`UPDATE projects SET archived = TRUE WHERE id = 1`);
+    await runBackcheckSchedules(container.db, (await scheduleRow(container.one)).nextRunAt);
+    assert.equal((await scheduleRow(container.one)).enabled, false);
+  }));
+
+  it('rolls back a failure after writes and retries the original period cleanly', testService(async (service, container) => {
+    const alice = await service.login('alice');
+    await alice.put(path).send({ rate: 100, frequency: 'daily', enabled: true }).expect(200);
+    await submit(alice, 'retry0', 'retry1');
+    const first = await scheduleRow(container.one);
+    const wrap = db => ({ ...db, transaction: callback => db.transaction(trx => callback(wrap(trx))), query: query => {
+      if (query.sql.includes('INSERT INTO field_data_backcheck_sample_items')) throw new Error('injected failure');
+      return db.query(query);
+    } });
+    assert.deepEqual(await runBackcheckSchedules(wrap(container.db), first.nextRunAt), []);
+    assert.equal(await container.oneFirst(sql`SELECT count(*)::integer FROM field_data_backcheck_samples`), 0);
+    assert.equal(await container.oneFirst(sql`SELECT count(*)::integer FROM field_data_backcheck_schedule_runs`), 0);
+    assert.equal(await container.oneFirst(sql`SELECT count(*)::integer FROM field_data_review_cases WHERE "reasonCodes" @> '["backcheck-sample"]'::jsonb`), 0);
+    assert.equal((await scheduleRow(container.one)).periodStart.toISOString(), first.periodStart.toISOString());
+    const [result] = await runBackcheckSchedules(container.db, first.nextRunAt);
+    assert.equal(result.outcome, 'drawn'); assert.equal(result.sampled, 2);
+  }));
+
+  it('serializes overlapping runners and manual draws without duplicate selections', testServiceFullTrx(async (service, container) => {
+    const alice = await service.login('alice');
+    await alice.put(path).send({ rate: 100, frequency: 'daily', enabled: true }).expect(200);
+    await submit(alice, 'overlap0', 'overlap1');
+    const schedule = await scheduleRow(container.one);
+    await Promise.all([
+      runBackcheckSchedules(container.db, schedule.nextRunAt), runBackcheckSchedules(container.db, schedule.nextRunAt),
+      alice.post('/v1/projects/1/forms/simple/backcheck-samples')
+        .send({ requestId: '22222222-2222-4222-8222-222222222222', rate: 100 }).expect(201)
+    ]);
+    assert.equal(await container.oneFirst(sql`SELECT count(*)::integer FROM field_data_backcheck_schedule_runs`), 1);
+    assert.equal(await container.oneFirst(sql`SELECT count(*)::integer FROM field_data_backcheck_sample_items`), 2);
+  }));
+
+  it('keeps the batch bounded and serves untouched schedules ahead of failed attempts', testService(async (service, container) => {
+    const alice = await service.login('alice');
+    await alice.put(path).send({ rate: 10, frequency: 'daily', enabled: true }).expect(200);
+    for (let n = 0; n < 20; n += 1) {
+      const xmlFormId = `fair${n}`;
+      await alice.post('/v1/projects/1/forms?publish=true').send(testData.forms.simple.replace('id="simple"', `id="${xmlFormId}"`))
+        .set('Content-Type', 'application/xml').expect(200);
+      await alice.put(`/v1/projects/1/forms/${xmlFormId}/backcheck-schedule`).send({ rate: 10, frequency: 'daily', enabled: true }).expect(200);
+    }
+    await container.run(sql`UPDATE field_data_backcheck_schedules SET "periodStart" = '2026-01-01', "nextRunAt" = '2026-01-02'`);
+    const broken = { ...container.db, transaction: async () => { throw new Error('injected connection failure'); } };
+    assert.deepEqual(await runBackcheckSchedules(broken, new Date('2026-01-03')), []);
+    const untouched = await container.all(sql`SELECT id FROM field_data_backcheck_schedules WHERE "lastAttemptAt" IS NULL`);
+    assert.equal(untouched.length, 1);
+    const results = await runBackcheckSchedules(container.db, new Date('2026-01-03'));
+    assert.equal(results.length, 20);
+    assert.ok(results.some(result => result.scheduleId === untouched[0].id));
+  }));
+
 });

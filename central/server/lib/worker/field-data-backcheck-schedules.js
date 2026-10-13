@@ -8,6 +8,7 @@
 
 const { sql } = require('slonik');
 const { createHash } = require('crypto');
+const { withDefaults } = require('../model/container');
 const { dueRun, nextBoundaryAfter, runRequestId } = require('../util/backcheck-sample');
 const { drawSample } = require('../resources/field-data-backcheck-samples');
 
@@ -29,8 +30,17 @@ const runSchedule = (db, scheduleId, now) => db.transaction(async (trx) => {
     periodStart: run.periodStart.toISOString(), periodEnd: run.periodEnd.toISOString()
   };
   const requestHash = createHash('sha256').update(JSON.stringify(settings)).digest('hex');
+  const container = withDefaults({ db: trx });
+  const actor = schedule.updatedBy == null ? null : (await container.Actors.getById(schedule.updatedBy)).orNull();
+  const projectActive = await trx.oneFirst(sql`SELECT EXISTS (SELECT 1 FROM projects p JOIN forms f ON f."projectId" = p.id
+    WHERE f.id = ${schedule.formId} AND p."deletedAt" IS NULL AND p.archived IS NOT TRUE)`);
+  const allowed = projectActive && actor != null && await container.Auth.can(actor, 'submission.update', schedule.acteeId);
   let outcome;
-  try {
+  if (!allowed) {
+    await trx.query(sql`UPDATE field_data_backcheck_schedules SET enabled = FALSE WHERE id = ${schedule.id}`);
+    outcome = { outcome: 'failed', sampleId: null, eligible: 0, sampled: 0,
+      error: 'The configuring manager is no longer authorized, or the project is unavailable. Schedule paused.' };
+  } else try {
     // A failed draw rolls back to here and is recorded.
     const drawn = await trx.transaction((inner) => drawSample(inner, { id: schedule.formId, acteeId: schedule.acteeId }, {
       requestId: runRequestId(schedule.id, run.periodStart), settings, requestHash, actorId: null,
@@ -40,6 +50,9 @@ const runSchedule = (db, scheduleId, now) => db.transaction(async (trx) => {
       ? { outcome: 'nothing-eligible', sampleId: null, eligible: 0, sampled: 0, error: null }
       : { outcome: 'drawn', sampleId: drawn.id, eligible: drawn.eligible ?? 0, sampled: drawn.sampled ?? 0, error: null };
   } catch (error) {
+    // Transient failures retain the due period and roll back all writes so the
+    // next tick retries. Only an oversized draw is a terminal period outcome.
+    if (error?.problemCode !== 400.59) throw error;
     const details = error?.problemDetails;
     const message = details?.count != null
       ? `${details.count} ${details.what} is more than the ${details.max} allowed; lower the rate or draw this period by hand.`
@@ -67,15 +80,19 @@ const runBackcheckSchedules = async (db, now = new Date()) => {
   const due = await db.any(sql`SELECT b.id FROM field_data_backcheck_schedules b
     JOIN forms f ON f.id = b."formId" AND f."deletedAt" IS NULL
     WHERE b.enabled AND b."nextRunAt" <= ${now.toISOString()}
-    ORDER BY b."nextRunAt", b.id LIMIT ${BATCH}`);
+    ORDER BY b."lastAttemptAt" NULLS FIRST, b."nextRunAt", b.id LIMIT ${BATCH}`);
   const results = [];
   // One schedule failing does not stop the others; it is retried next time.
   for (const { id } of due) {
     try {
       results.push(await runSchedule(db, id, now)); // eslint-disable-line no-await-in-loop
-    } catch (error) {
-      process.stderr.write(`Backcheck schedule ${id} could not run: ${error?.message ?? error}\n`);
+    } catch {
+      process.stderr.write(`Backcheck schedule ${id} could not run; it will be retried. Check database availability.\n`);
     }
+    // Persist attempt order even after a rolled-back draw so failing forms do
+    // not monopolize the bounded batch.
+    // eslint-disable-next-line no-await-in-loop
+    await db.query(sql`UPDATE field_data_backcheck_schedules SET "lastAttemptAt" = clock_timestamp() WHERE id = ${id}`);
   }
   return results.filter((r) => r != null);
 };

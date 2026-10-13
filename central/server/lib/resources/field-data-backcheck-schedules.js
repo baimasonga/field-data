@@ -35,7 +35,7 @@ module.exports = (service, endpoint) => {
   const base = '/projects/:projectId/forms/:xmlFormId/backcheck-schedule';
 
   service.get(base, endpoint(async (container, { params, auth }, _, response) => {
-    const form = await formFor(container, auth, params, ['submission.read']);
+    const form = await formFor(container, auth, params, ['submission.list', 'submission.read']);
     response.set('Cache-Control', 'private, no-store');
     return view(container.db, form.id);
   }));
