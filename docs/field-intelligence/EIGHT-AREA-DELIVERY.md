@@ -204,6 +204,13 @@ withholds cancelled, superseded or inaccessible stops. See [O12-reviewed-itinera
 
 ### O13 offline approved itineraries
 
-Signed, encrypted itinerary snapshots are implemented locally with version-1
+Signed, encrypted itinerary snapshots are merged in PR #99 with version-1
 compatibility, whole-plan bounds, omission counts, typed coordinate/date checks
 and explicit offline freshness limits. See [O13-offline-approved-itineraries.md](O13-offline-approved-itineraries.md). Page-shell caching, resumable uploads and offline relays remain pending.
+
+### O14 companion page preparation
+
+The public companion shell can be prepared explicitly for offline reload, with
+asset allowlists, byte/time limits, expiry and separate encrypted private data.
+Implemented locally and covered by real production-service-worker browser tests.
+See [O14-fieldwork-offline-page.md](O14-fieldwork-offline-page.md). Upload queues, resumable transfers and relays remain pending.

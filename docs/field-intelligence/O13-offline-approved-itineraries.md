@@ -23,7 +23,8 @@ or external navigation requests are added.
 Offline copies cannot discover subsequent cancellations, changed permissions,
 source edits or road conditions. The page explicitly labels this limitation
 and the issue/expiry times; a live inbox refresh removes the older saved snapshot.
-The page shell must be loaded before going offline and is not cached. An expired
+The [O14 page-preparation extension](O14-fieldwork-offline-page.md) can retain
+the public shell separately, with its own expiry. An expired
 snapshot must be refreshed online; this does not provide a multi-day standalone
 Collect client, turn-by-turn navigation, background relay or resumable uploads.
 

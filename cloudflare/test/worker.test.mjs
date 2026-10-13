@@ -75,9 +75,10 @@ test('push, imagery and optional routing settings reach the container, and are o
   assert.equal(off.FIELD_DATA_IMAGERY_ENABLED, 'false');
   assert.equal(off.FIELD_DATA_PUSH_PRIVATE_KEY, '');
   assert.equal(off.FIELD_DATA_OSRM_URL, undefined);
+  assert.equal(off.FIELD_DATA_OFFLINE_ORIGIN, ''); assert.equal(off.FIELD_DATA_OFFLINE_SIGNING_KEY, '');
   Object.assign(globalThis.__env, {
     FIELD_DATA_PUSH_ENABLED: 'true', FIELD_DATA_PUSH_SUBJECT: 'mailto:ops@example.test',
-    FIELD_DATA_PUSH_PUBLIC_KEY: 'public', FIELD_DATA_PUSH_PRIVATE_KEY: 'private', FIELD_DATA_IMAGERY_ENABLED: 'true', FIELD_DATA_OSRM_URL: 'https://routing.example.test'
+    FIELD_DATA_PUSH_PUBLIC_KEY: 'public', FIELD_DATA_PUSH_PRIVATE_KEY: 'private', FIELD_DATA_IMAGERY_ENABLED: 'true', FIELD_DATA_OSRM_URL: 'https://routing.example.test', FIELD_DATA_OFFLINE_ORIGIN: 'https://field.example.test', FIELD_DATA_OFFLINE_SIGNING_KEY: 'fixture-signing-key'
   });
   try {
     const on = new FieldDataContainer().envVars;
@@ -87,7 +88,8 @@ test('push, imagery and optional routing settings reach the container, and are o
     assert.equal(on.FIELD_DATA_PUSH_PRIVATE_KEY, 'private');
     assert.equal(on.FIELD_DATA_IMAGERY_ENABLED, 'true');
     assert.equal(on.FIELD_DATA_OSRM_URL, 'https://routing.example.test');
+    assert.equal(on.FIELD_DATA_OFFLINE_ORIGIN, 'https://field.example.test'); assert.equal(on.FIELD_DATA_OFFLINE_SIGNING_KEY, 'fixture-signing-key');
   } finally {
-    for (const key of ['FIELD_DATA_PUSH_ENABLED', 'FIELD_DATA_PUSH_SUBJECT', 'FIELD_DATA_PUSH_PUBLIC_KEY', 'FIELD_DATA_PUSH_PRIVATE_KEY', 'FIELD_DATA_IMAGERY_ENABLED', 'FIELD_DATA_OSRM_URL']) delete globalThis.__env[key];
+    for (const key of ['FIELD_DATA_PUSH_ENABLED', 'FIELD_DATA_PUSH_SUBJECT', 'FIELD_DATA_PUSH_PUBLIC_KEY', 'FIELD_DATA_PUSH_PRIVATE_KEY', 'FIELD_DATA_IMAGERY_ENABLED', 'FIELD_DATA_OSRM_URL', 'FIELD_DATA_OFFLINE_ORIGIN', 'FIELD_DATA_OFFLINE_SIGNING_KEY']) delete globalThis.__env[key];
   }
 });

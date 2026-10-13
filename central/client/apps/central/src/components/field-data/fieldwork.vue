@@ -96,12 +96,14 @@ Acknowledge request
     </template>
     <p v-if="loading" role="status">Loading your inbox…</p>
     <p v-if="error" role="alert">{{ error }}</p>
+    <field-data-offline-page/>
     <field-data-offline-assignments :connected="connected" :session-id="sessionId"
       :revocation="offlineRevocation" :fetch-bundle="fetchOfflineBundle"/>
   </section>
 </template>
 <script setup>
 import { onBeforeUnmount, onMounted, ref } from 'vue';
+import FieldDataOfflinePage from './offline-page.vue';
 import FieldDataOfflineAssignments from './offline-assignments.vue';
 
 defineOptions({ name: 'FieldDataFieldwork' });
