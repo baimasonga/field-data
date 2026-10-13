@@ -121,6 +121,8 @@ export class FieldDataContainer extends Container {
     FIELD_DATA_STAC_URL: env.FIELD_DATA_STAC_URL,
     // Optional operator-approved driving route service; no public default.
     FIELD_DATA_OSRM_URL: env.FIELD_DATA_OSRM_URL,
+    FIELD_DATA_OFFLINE_ORIGIN: env.FIELD_DATA_OFFLINE_ORIGIN ?? '',
+    FIELD_DATA_OFFLINE_SIGNING_KEY: env.FIELD_DATA_OFFLINE_SIGNING_KEY ?? '',
     // Browser push to App Users (P0.6): off unless an operator sets the switch
     // and a matching key pair; the server checks the pair and stays off if not.
     FIELD_DATA_PUSH_ENABLED: env.FIELD_DATA_PUSH_ENABLED || 'false',

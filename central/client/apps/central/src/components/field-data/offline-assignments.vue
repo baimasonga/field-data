@@ -2,7 +2,7 @@
 <template>
   <section class="offline-assignments" aria-label="Protected offline assignments">
     <h2>Protected offline assignments</h2>
-    <p>Save a read-only snapshot on this device. Load this page before going offline; the page itself is not cached.</p>
+    <p>Save a read-only snapshot on this device. Prepare the offline page separately before going offline so it can reopen; your snapshot and page assets have separate expiry times.</p>
     <p>Your separate passphrase protects the saved instructions. App User keys and passphrases are never saved.</p>
     <p>A successful live inbox refresh removes the older snapshot. Save a new one after checking the current instructions.</p>
     <form v-if="connected" @submit.prevent="save">
