@@ -606,3 +606,34 @@ test('road-aware preview exposes the applied order and honest provider fallback'
   expect(await p.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   expect(errors).toEqual([]);
 });
+
+
+test('a manager explicitly approves a preview with instructions and retains its original query', async ({ page: p }) => {
+  const approvals = []; const errors = await api(p, managerVerbs, async (route, path) => {
+    if (path.endsWith('/backcheck-calendars')) { await route.fulfill({ json: [{ id: 5, name: 'Checker', settings: null }] }); return true; }
+    if (path.endsWith('/backcheck-itineraries')) { approvals.push(route.request().postDataJSON()); await route.fulfill({ status: 201, json: { id: 'approved' } }); return true; }
+    if (path.endsWith('/backcheck-route')) {
+      await route.fulfill({ json: { actor: { id: 5, name: 'Checker' }, date: '2026-10-15', reviewToken: 'a'.repeat(64), capacity: 2, used: 1, unplanned: 0,
+        excluded: {}, uncertainLocations: 0, truncated: false, needsReview: true,
+        route: { stops: [{ id: 'task1', order: 1, instanceId: 'visit1', location: { latitude: 8.49, longitude: -13.22, accuracy: 15 }, legKm: 2 }], distanceKm: 4, returnKm: 2 },
+        road: { status: 'disabled' }, timing: { visitMinutes: 30, dayMinutes: 480, totalMinutes: null } } }); return true;
+    }
+    return false;
+  });
+  await p.goto(`${appUrl}${page}`); const section = p.locator('.backcheck-planning');
+  await section.getByLabel('Planning collector').selectOption('5');
+  await section.getByLabel('Route date').fill('2026-10-15');
+  await section.getByLabel('Start latitude').fill('8.48'); await section.getByLabel('Start longitude').fill('-13.23');
+  await section.getByRole('button', { name: 'Preview itinerary' }).click();
+  await expect(section.getByRole('heading', { name: 'Approve itinerary for collector' })).toBeVisible();
+  await section.getByLabel('Dispatch instructions').fill('Confirm access with the supervisor.');
+  await section.getByRole('button', { name: 'Approve and send itinerary' }).click(); expect(approvals).toHaveLength(0);
+  await section.getByLabel('I reviewed the warnings', { exact: false }).check();
+  await section.getByLabel('Start latitude').fill('9');
+  await section.getByRole('button', { name: 'Approve and send itinerary' }).click();
+  await expect(section).toContainText('Approved itinerary sent to the collector');
+  expect(approvals[0].query.startLat).toBe('8.48'); expect(approvals[0].reviewToken).toBe('a'.repeat(64));
+  expect(approvals[0].note).toBe('Confirm access with the supervisor.');
+  await expect(section.getByRole('button', { name: 'Approve and send itinerary' })).toBeDisabled();
+  expect(errors).toEqual([]);
+});

@@ -220,4 +220,38 @@ describe('api: calendar availability and route planning', () => {
     }
   }));
 
+  it('approves an immutable itinerary, scopes it to its collector and withholds cancelled work', testService(async (service, c) => {
+    const { alice, users } = await setup(service, true, 2);
+    await calendar(alice, users[1], [2, 2, 2, 2, 2, 2, 2]); await runAllocations(c.db, now);
+    const preview = (await route(alice, users[1])).body;
+    const body = { id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', reviewToken: preview.reviewToken, note: 'Review access with the supervisor.',
+      query: { actorId: String(users[1].id), date: '2026-10-14', startLat: '8.48', startLon: '-13.23' } };
+    await alice.post(`${root}/backcheck-itineraries`).send({ ...body, reviewToken: '0'.repeat(64) }).expect(400);
+    await alice.post(`${root}/backcheck-itineraries`).send(body).expect(201);
+    await alice.post(`${root}/backcheck-itineraries`).send(body).expect(201);
+    await alice.post(`${root}/backcheck-itineraries`).send({ ...body, note: 'Changed' }).expect(400);
+    await alice.post(`${root}/backcheck-itineraries`).send({ ...body, query: { ...body.query, startLat: '9' } }).expect(400);
+    assert.equal(await c.oneFirst(sql`SELECT count(*)::integer FROM field_data_backcheck_itineraries`), 1);
+    assert.equal(await c.oneFirst(sql`SELECT count(*)::integer FROM audits WHERE action = 'field_data.backcheck.itinerary.approve'`), 1);
+    const get = user => service.get('/v1/field-data/app-user/itineraries').set('Authorization', `Bearer ${user.token}`).expect(200);
+    assert.equal((await get(users[2])).body.items.length, 0);
+    const received = (await get(users[1])).body.items[0];
+    assert.equal(received.stops.length, 2); assert.equal(received.withheld, 0);
+    assert.equal(Object.hasOwn(received.stops[0], 'instanceId'), false); assert.equal(Object.hasOwn(received.stops[0], 'claimVersionId'), false);
+    const pinned = preview.route.stops[0].claimVersionId;
+    const provenance = await c.one(sql`SELECT p.* FROM field_data_submission_provenance p JOIN field_data_claim_versions v ON v."submissionDefId" = p."submissionDefId" WHERE v.id = ${pinned}`);
+    await c.db.query(sql`UPDATE field_data_submission_provenance SET "integrityHash" = ${'0'.repeat(64)} WHERE "submissionDefId" = ${provenance.submissionDefId}`);
+    assert.equal((await get(users[1])).body.items[0].withheld, 1);
+    await c.db.query(sql`UPDATE field_data_submission_provenance SET "integrityHash" = ${provenance.integrityHash} WHERE "submissionDefId" = ${provenance.submissionDefId}`);
+    await service.get('/v1/field-data/app-user/itineraries').expect(401);
+    await service.post(`${root}/backcheck-itineraries`).set('Authorization', `Bearer ${users[1].token}`).send(body).expect(403);
+    const first = preview.route.stops[0]; const detail = await alice.get(`/v1/field-data/review-queue/${first.caseId}`).expect(200);
+    await alice.post(`/v1/field-data/review-queue/${first.caseId}/backchecks/${first.id}/cancel`).set('If-Match', detail.headers.etag)
+      .send({ requestId: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', reason: 'No longer needed.' }).expect(200);
+    const refreshed = (await get(users[1])).body.items[0]; assert.equal(refreshed.stops.length, 1); assert.equal(refreshed.withheld, 1);
+    await alice.post(`${root}/backcheck-itineraries`).send({ ...body, id: 'cccccccc-cccc-4ccc-8ccc-cccccccccccc' }).expect(400);
+    await alice.delete(`${root}/forms/simple/assignments/app-user/${users[1].id}`).expect(200);
+    assert.equal((await get(users[1])).body.items[0].stops.length, 0);
+  }));
+
 });

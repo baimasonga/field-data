@@ -108,7 +108,7 @@ also exist. Those features must not be re-labelled as full completion of this pr
   shift windows and visit-time planning (O10) add weekday/date overrides,
   closed/expired-window handling, conservative allocation time limits and
   saved preview assumptions: implemented and merged in PR #96. Road
-  navigation, overnight shifts, reviewed route dispatch,
+  navigation, overnight shifts,
   automatic route dispatch and planning for other task types remain pending.
 - Static survey doctor (S1, first adaptive-surveys slice): checks of a form
   definition for unknown references, cycles, never-shown questions, impossible
@@ -192,6 +192,12 @@ column has supporting evidence.
 
 ### O11 road-aware ordering
 
-Optional fixed-depot road trip suggestions are implemented locally, with complete
+Optional fixed-depot road trip suggestions are merged in PR #97, with complete
 permutation validation, explicit fallback, unknown-time preservation, CSV method
 metadata and focused server/API/browser tests. See [O11-road-stop-order.md](O11-road-stop-order.md). Live provider acceptance, persisted dispatch and navigation remain pending.
+
+### O12 reviewed itinerary dispatch
+
+Immutable manager-approved backcheck itineraries are implemented locally, with
+stale-preview checks, audit history and collector-scoped online delivery that
+withholds cancelled, superseded or inaccessible stops. See [O12-reviewed-itinerary-dispatch.md](O12-reviewed-itinerary-dispatch.md). Offline itinerary bundles, navigation and field acceptance remain pending.
