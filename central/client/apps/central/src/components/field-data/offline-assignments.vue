@@ -54,12 +54,7 @@
           <p v-if="itinerary.withheld">{{ itinerary.withheld }} stops were unavailable when saved.</p>
           <p v-if="itinerary.needsReview">This itinerary was approved with review warnings. Confirm access and travel assumptions with your supervisor.</p>
           <p>Start and return: {{ itinerary.start.latitude }}, {{ itinerary.start.longitude }}</p>
-          <ol>
-<li v-for="stop of itinerary.stops" :key="stop.id">
-<strong>Stop {{ stop.order }}</strong> · {{ stop.question }}<br>
-            {{ stop.location.latitude }}, {{ stop.location.longitude }} · accuracy {{ stop.location.accuracy ?? 'unknown' }} m<br>Request: {{ stop.id }}
-</li>
-</ol>
+          <field-data-itinerary-stops :stops="itinerary.stops" snapshot/>
         </article>
       </template>
       <p>This snapshot cannot acknowledge a request, complete a visit or submit a decision.</p>
@@ -68,6 +63,7 @@
 </template>
 <script setup>
 import { onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import FieldDataItineraryStops from './itinerary-stops.vue';
 import { decryptSnapshot, encryptSnapshot, storedSnapshot, validateTime, verifySnapshot } from '../../util/offline-assignments';
 
 defineOptions({ name: 'FieldDataOfflineAssignments' });

@@ -8,7 +8,7 @@ const approvedItineraries = async (container, user) => {
         AND i."visitDate" BETWEEN (clock_timestamp() AT TIME ZONE 'UTC')::date - 7 AND (clock_timestamp() AT TIME ZONE 'UTC')::date + 90
       ORDER BY i."visitDate", i."createdAt" DESC, i.id DESC LIMIT 30`);
   const ids = plans.flatMap(p => p.snapshot.route.stops.map(s => s.id));
-  const available = ids.length === 0 ? [] : await container.db.any(sql`SELECT b.id, b."claimVersionId", b.question,
+  const available = ids.length === 0 ? [] : await container.db.any(sql`SELECT b.id, b."claimVersionId", b.question, b."dueAt", rf."xmlFormId", response_def.name AS "formName", response_def.version AS "formVersion",
       to_char(b."plannedVisitDate", 'YYYY-MM-DD') AS date
       FROM field_data_backchecks b JOIN field_data_review_cases c ON c.id = b."caseId" AND c.status = 'in-review'
       JOIN field_data_claim_versions cv ON cv.id = b."claimVersionId" JOIN submission_defs sd ON sd.id = cv."submissionDefId" AND sd.current
@@ -18,6 +18,7 @@ const approvedItineraries = async (container, user) => {
       JOIN submissions s ON s.id = sd."submissionId" AND s."deletedAt" IS NULL
       JOIN forms sf ON sf.id = s."formId" AND sf."deletedAt" IS NULL AND sf."projectId" = ${user.projectId}
       JOIN forms rf ON rf.id = COALESCE(b."responseFormId", sf.id) AND rf."projectId" = ${user.projectId} AND rf."deletedAt" IS NULL AND rf.state = 'open'
+      JOIN form_defs response_def ON response_def.id = rf."currentDefId"
       WHERE b.id = ANY(${sql.array(ids, 'uuid')}) AND b."assignedTo" = ${user.actorId} AND b.status = 'requested'
         AND EXISTS (SELECT 1 FROM assignments a JOIN roles r ON r.id = a."roleId" WHERE a."actorId" = ${user.actorId} AND a."acteeId" = rf."acteeId" AND r.verbs ? 'submission.create')`);
   const fresh = new Map(available.map(row => [row.id, row]));
@@ -25,7 +26,7 @@ const approvedItineraries = async (container, user) => {
     const stops = plan.snapshot.route.stops.flatMap(stop => {
       const current = fresh.get(stop.id);
       return current?.claimVersionId === stop.claimVersionId && current.date === plan.date
-        ? [{ id: stop.id, order: stop.order, location: stop.location, question: current.question }] : [];
+        ? [{ id: stop.id, order: stop.order, location: stop.location, question: current.question, xmlFormId: current.xmlFormId, formName: current.formName, formVersion: current.formVersion, dueAt: current.dueAt }] : [];
     });
     return { id: plan.id, date: plan.date, createdAt: plan.createdAt, note: plan.note, stops,
       withheld: plan.snapshot.route.stops.length - stops.length, needsReview: plan.snapshot.needsReview,

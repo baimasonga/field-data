@@ -226,5 +226,12 @@ fixed rule IDs and delegated-path restrictions shared with exports. See
 
 Missing Worker signing bindings can be prepared atomically during deployment,
 and a custom-domain release/signature check cleans up its own empty fixture.
-Implemented locally with 15 Worker/readiness checks; live verification follows
-release. See [O15-signing-readiness.md](O15-signing-readiness.md). Existing invalid bindings and provider/device acceptance remain operator checks.
+Merged in PR #102 with 15 Worker/readiness checks; live verification follows
+deployment. See [O15-signing-readiness.md](O15-signing-readiness.md). Existing invalid bindings and provider/device acceptance remain operator checks.
+
+### O16 collector form guidance
+
+Approved stop cards identify the response form/version and deadline in online
+and signed offline views, preserving legacy snapshots and hiding technical
+references by default. Implemented locally with 13 database and 23 browser
+checks. See [O16-collector-form-guidance.md](O16-collector-form-guidance.md). Collect form availability and device acceptance remain field checks.

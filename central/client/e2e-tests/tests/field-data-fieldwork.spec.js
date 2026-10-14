@@ -397,11 +397,13 @@ test('a receipts failure does not hide the inbox', async ({ page }) => {
 test('approved itinerary stops are escaped, withheld work is visible and disconnect clears locations', async ({ page }) => {
   const { errors } = await setup(page, { itineraries: [{ id: taskId, date: '2026-10-14', note: 'Check access. <img src=x onerror=alert(1)>',
     start: { latitude: 8.48, longitude: -13.23 }, needsReview: true, withheld: 1,
-    stops: [{ id: taskId, order: 2, question: 'Verify this visit.', location: { latitude: 8.49, longitude: -13.22, accuracy: 15 } }] }] });
+    stops: [{ id: taskId, order: 2, question: 'Verify this visit.', xmlFormId: 'verify', formName: 'Independent verification', formVersion: '2', dueAt: '2026-10-15T10:00:00Z', location: { latitude: 8.49, longitude: -13.22, accuracy: 15 } }] }] });
   await connect(page);
   await expect(page.getByRole('heading', { name: '2026-10-14 · approved stop order' })).toBeVisible();
   await expect(page.getByText('1 stops are no longer available.', { exact: false })).toBeVisible();
   await expect(page.getByText('8.49, -13.22', { exact: false })).toBeVisible();
+  await expect(page.getByText('Independent verification (verify)', { exact: false })).toBeVisible();
+  await expect(page.getByText('Form version: 2', { exact: false })).toBeVisible();
   await expect(page.locator('.tasks img')).toHaveCount(0);
   await page.setViewportSize({ width: 320, height: 700 });
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= globalThis.innerWidth)).toBe(true);
@@ -414,7 +416,7 @@ test('approved itinerary stops are escaped, withheld work is visible and disconn
 test('signed approved itineraries unlock offline without persisting plaintext coordinates', async ({ page, context }) => {
   const approved = { id: taskId, date: '2026-10-14', note: 'Approved access instructions.', needsReview: true, withheld: 1,
     method: 'nearest-next-stop, great-circle distance, return to start', start: { latitude: 8.48, longitude: -13.23 },
-    stops: [{ id: pushId, order: 2, question: 'Visit approved water point.', location: { latitude: 8.491234, longitude: -13.221234, accuracy: 15 } }] };
+    stops: [{ id: pushId, order: 2, question: 'Visit approved water point.', xmlFormId: 'verify', formName: 'Independent verification', formVersion: '2', dueAt: '2026-10-15T10:00:00Z', location: { latitude: 8.491234, longitude: -13.221234, accuracy: 15 } }] };
   const { errors, state } = await setup(page, { offline: true, offlineItineraries: [approved] });
   await connect(page); await saveOffline(page); const panel = offlinePanel(page);
   await expect(panel.getByRole('status')).toContainText('Encrypted snapshot saved');
@@ -422,6 +424,7 @@ test('signed approved itineraries unlock offline without persisting plaintext co
   await page.reload(); await page.waitForLoadState('networkidle'); const reads = state.requests.length;
   await context.setOffline(true); await unlockOffline(page);
   await expect(panel.getByRole('heading', { name: 'Offline approved itineraries' })).toBeVisible();
+  await expect(panel).toContainText('Independent verification (verify)'); await expect(panel).toContainText('Form version: 2 · as saved');
   await expect(panel).toContainText('8.491234, -13.221234'); await expect(panel).toContainText('1 stops were unavailable when saved');
   await expect(panel).toContainText('Cancellations, access changes and road conditions cannot be checked offline');
   expect(state.requests.length).toBe(reads);
@@ -436,6 +439,15 @@ test('a valid signature cannot make malformed itinerary coordinates acceptable',
   await setup(page, { offline: true, offlineItineraries: [{ id: taskId, date: '2026-10-14', note: 'Instructions', needsReview: false,
     withheld: 0, method: 'road suggestion', start: { latitude: 8.48, longitude: -13.23 },
     stops: [{ id: pushId, order: 1, question: 'Visit', location: { latitude: 99, longitude: -13.22 } }] }] });
+  await connect(page); await saveOffline(page);
+  await expect(offlinePanel(page).getByRole('alert')).toBeVisible(); expect(await vault(page)).toBeNull();
+});
+
+
+test('a signed itinerary with malformed collection metadata is rejected before storage', async ({ page }) => {
+  await setup(page, { offline: true, offlineItineraries: [{ id: taskId, date: '2026-10-14', note: 'Instructions', needsReview: false,
+    withheld: 0, method: 'road suggestion', start: { latitude: 8.48, longitude: -13.23 },
+    stops: [{ id: pushId, order: 1, question: 'Visit', xmlFormId: 'verify', formVersion: {}, dueAt: 'not-a-date', location: { latitude: 8.49, longitude: -13.22 } }] }] });
   await connect(page); await saveOffline(page);
   await expect(offlinePanel(page).getByRole('alert')).toBeVisible(); expect(await vault(page)).toBeNull();
 });

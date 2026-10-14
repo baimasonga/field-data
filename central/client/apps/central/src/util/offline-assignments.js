@@ -62,7 +62,10 @@ export const verifySnapshot = async (bundle, origin = window.location.origin) =>
         new Date(`${route.date}T00:00:00Z`).toISOString().slice(0, 10) !== route.date || !location(route.start) ||
         !Number.isInteger(route.withheld) || route.withheld < 0 || route.withheld > 100 || !Array.isArray(route.stops) || route.stops.length > 100 ||
         route.stops.some((stop, i) => !uuid(stop.id) || !Number.isInteger(stop.order) || stop.order < 1 || stop.order > 100 ||
-          (i > 0 && stop.order <= route.stops[i - 1].order) || !text(stop.question, 2000) || !location(stop.location) ||
+          (i > 0 && stop.order <= route.stops[i - 1].order) || !text(stop.question, 2000) ||
+          (stop.xmlFormId != null && !text(stop.xmlFormId, 1000)) || (stop.formName != null && !text(stop.formName, 2000)) ||
+          (stop.formVersion != null && !text(stop.formVersion, 200)) ||
+          (stop.dueAt != null && (typeof stop.dueAt !== 'string' || !Number.isFinite(Date.parse(stop.dueAt)))) || !location(stop.location) ||
           (stop.location.accuracy != null && (typeof stop.location.accuracy !== 'number' || !Number.isFinite(stop.location.accuracy))))) ||
       routes.items.reduce((n, route) => n + route.stops.length, 0) > 100 ||
       new Set(routes.items.map(route => route.date)).size !== routes.items.length)
