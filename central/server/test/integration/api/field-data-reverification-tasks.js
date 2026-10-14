@@ -461,3 +461,45 @@ describe('api: concurrent shared reservations', () => {
     assert.equal(result.body.used, 1);
   }));
 });
+
+describe('api: offline re-verification snapshots', () => {
+  it('signs only the collector instructions and rechecks reassignment, cancellation and permissions', testService(async (service, container) => {
+    const { generateKeyPairSync, verify } = require('node:crypto');
+    const ctx = await setup(service, container);
+    const savedKey = process.env.FIELD_DATA_OFFLINE_SIGNING_KEY; const savedOrigin = process.env.FIELD_DATA_OFFLINE_ORIGIN;
+    const { privateKey, publicKey } = generateKeyPairSync('ec', { namedCurve: 'prime256v1' });
+    try {
+      process.env.FIELD_DATA_OFFLINE_SIGNING_KEY = privateKey.export({ format: 'pem', type: 'pkcs8' });
+      process.env.FIELD_DATA_OFFLINE_ORIGIN = 'https://field.example.test';
+      const date = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
+      await ctx.alice.put(`/v1/projects/1/backcheck-calendars/${ctx.collector.id}`)
+        .send({ weeklyCapacity: [1, 1, 1, 1, 1, 1, 1] }).expect(200);
+      await dispatch(ctx, 1, ctx.collector, { plannedVisitDate: date, visitBy: future() }).expect(200);
+      const get = async user => {
+        const { bundle } = (await service.get('/v1/field-data/app-user/offline-assignments')
+          .set('Authorization', `Bearer ${user.token}`).expect(200)).body;
+        const bytes = Buffer.from(bundle.payload, 'base64url');
+        assert(verify('sha256', bytes, { key: publicKey, dsaEncoding: 'ieee-p1363' }, Buffer.from(bundle.signature, 'base64url')));
+        return JSON.parse(bytes);
+      };
+      const data = await get(ctx.collector);
+      assert.equal(data.schemaVersion, 'offline-assignments@3'); assert.equal(data.reverification.items.length, 1);
+      assert.equal(data.reverification.items[0].plannedVisitDate, date);
+      assert.equal(data.reverification.items[0].instruction, 'Visit the site.');
+      assert.equal(data.reverification.items[0].value, undefined); assert.equal(data.reverification.items[0].observationId, undefined);
+      assert.equal(data.reverification.items[0].claimVersionId, undefined);
+      assert.equal((await get(ctx.other)).reverification.items.length, 0);
+      await dispatch(ctx, 2, ctx.other).expect(200);
+      assert.equal((await get(ctx.collector)).reverification.items.length, 0);
+      assert.equal((await get(ctx.other)).reverification.items.length, 1);
+      await ctx.alice.delete(`/v1/projects/1/forms/simple/assignments/app-user/${ctx.other.id}`).expect(200);
+      assert.equal((await get(ctx.other)).reverification.items.length, 0);
+      await ctx.alice.post(`/v1/projects/1/forms/simple/assignments/app-user/${ctx.other.id}`).expect(200);
+      await act(ctx.alice, ctx.path, 'cancel', 3, { reasonCode: 'safety' }).expect(200);
+      assert.deepEqual((await get(ctx.other)).reverification, { items: [], complete: true, omitted: 0 });
+    } finally {
+      if (savedKey === undefined) delete process.env.FIELD_DATA_OFFLINE_SIGNING_KEY; else process.env.FIELD_DATA_OFFLINE_SIGNING_KEY = savedKey;
+      if (savedOrigin === undefined) delete process.env.FIELD_DATA_OFFLINE_ORIGIN; else process.env.FIELD_DATA_OFFLINE_ORIGIN = savedOrigin;
+    }
+  }));
+});

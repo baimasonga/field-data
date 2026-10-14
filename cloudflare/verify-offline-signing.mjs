@@ -68,8 +68,10 @@ export const verifyOfflineSigning = async ({ base, workerBase, deploymentId, aud
     if (bytes.length > 262144 || key.asymmetricKeyType !== 'ec' || key.asymmetricKeyDetails.namedCurve !== 'prime256v1' || keyId !== bundle.keyId
       || !verify('sha256', bytes, { key, dsaEncoding: 'ieee-p1363' }, Buffer.from(bundle.signature, 'base64url'))) throw new ReadinessError('The deployed snapshot signature could not be verified.');
     const data = JSON.parse(bytes.toString('utf8'));
-    if (data.schemaVersion !== 'offline-assignments@2' || data.audience !== new URL(audience).origin || data.actorId !== appUser.id || data.projectId !== project.id
+    if (!['offline-assignments@2', 'offline-assignments@3'].includes(data.schemaVersion) || data.audience !== new URL(audience).origin || data.actorId !== appUser.id || data.projectId !== project.id
       || data.complete !== true || !Array.isArray(data.items) || data.items.length !== 0 || !Array.isArray(data.itineraries?.items) || data.itineraries.items.length !== 0
+      || (data.schemaVersion === 'offline-assignments@3' && (data.reverification?.complete !== true || data.reverification.omitted !== 0
+        || !Array.isArray(data.reverification.items) || data.reverification.items.length !== 0))
       || data.itineraries.complete !== true || data.itineraries.omitted !== 0 || Date.parse(data.issuedAt) > Date.now() + 5 * 60000
       || Date.parse(data.expiresAt) <= Date.now() || Date.parse(data.expiresAt) - Date.parse(data.issuedAt) !== 8 * 3600000)
       throw new ReadinessError('The deployed snapshot audience, identity or expiry is incorrect.');

@@ -25,7 +25,9 @@ test.beforeAll(async () => {
       const item = { id: task, question: 'Do not cache this private task.', xmlFormId: 'verify', formName: 'Verify', status: 'requested', actionable: true };
       if (path.endsWith('/backchecks')) json(response, { appUser: { name: 'Checker', projectName: 'Project' }, items: [item], nextCursor: null });
       else if (path.endsWith('/offline-assignments')) json(response, { enabled: true, bundle: offlineAssignments.issue({ ...settings, origin },
-        { actorId: 1, projectId: 1, displayName: 'Checker', projectName: 'Project' }, [item], new Date(), []) });
+        { actorId: 1, projectId: 1, displayName: 'Checker', projectName: 'Project' }, [item], new Date(), [], { items: [{ id: task, assetName: 'Water point', externalId: 'WP-01', assetType: 'water-point',
+          predicate: 'condition', instruction: 'Private re-verification visit.', xmlFormId: 'verify', formName: 'Verify',
+          plannedVisitDate: '2026-10-19', visitBy: null, dispatchedAt: new Date().toISOString(), actionable: true }], complete: true, omitted: 0 }) });
       else if (path.endsWith('/push')) json(response, { enabled: false, subscriptions: [] });
       else json(response, { items: [], complete: true, receipts: [], head: null });
       return;
@@ -66,7 +68,7 @@ test('a prepared production page reloads offline while private tasks remain only
       const cache = await globalThis.caches.open(name);
       for (const request of await cache.keys()) entries.push({ url: request.url, body: await (await cache.match(request)).text() });
     }
-    return { names, urls: entries.map(e => e.url), privateContent: entries.some(e => e.body.includes('Do not cache this private task.')) };
+    return { names, urls: entries.map(e => e.url), privateContent: entries.some(e => e.body.includes('Do not cache this private task.') || e.body.includes('Private re-verification visit.')) };
   });
   expect(cacheInfo.names).toHaveLength(1); expect(cacheInfo.privateContent).toBe(false);
   expect(cacheInfo.urls.every(url => !url.includes('/v1/') && !url.includes(key))).toBe(true);
@@ -86,6 +88,8 @@ test('a prepared production page reloads offline while private tasks remain only
   await snapshot.getByLabel('Saved snapshot passphrase', { exact: true }).fill('separate-fixture-passphrase');
   await snapshot.getByRole('button', { name: 'Unlock saved snapshot', exact: true }).click();
   await expect(snapshot).toContainText('Do not cache this private task.');
+  await expect(snapshot).toContainText('Private re-verification visit.');
+  await expect(snapshot).toContainText('Planned visit: 2026-10-19 (UTC)');
   await page.setViewportSize({ width: 320, height: 700 });
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= globalThis.innerWidth)).toBe(true);
   await prep.getByRole('button', { name: 'Remove offline page', exact: true }).click();

@@ -57,6 +57,22 @@
           <field-data-itinerary-stops :stops="itinerary.stops" snapshot/>
         </article>
       </template>
+      <template v-if="snapshot.reverification">
+        <h3>Offline re-verification visits</h3>
+        <p>These are instructions as saved. Reassignment, cancellation and access changes cannot be checked offline. The earlier answer is not included.</p>
+        <p v-if="!snapshot.reverification.complete" role="status">{{ snapshot.reverification.omitted }} visits were omitted by snapshot limits. Reconnect to see them.</p>
+        <p v-if="snapshot.reverification.items.length === 0">No re-verification visits were included.</p>
+        <article v-for="visit of snapshot.reverification.items" :key="visit.id">
+          <h4>{{ visit.assetName }} · {{ visit.externalId }}</h4>
+          <p>Check: {{ visit.predicate }}</p>
+          <p>{{ visit.instruction }}</p>
+          <p>Form: {{ visit.formName || visit.xmlFormId }} ({{ visit.xmlFormId }})</p>
+          <p>Planned visit: {{ visit.plannedVisitDate || 'Not set' }} (UTC) · Visit by: {{ visit.visitBy || 'Not set' }}</p>
+          <p v-if="!visit.actionable">This visit was unavailable for collection when saved.</p>
+          <details><summary>Task reference</summary><p>{{ visit.id }}</p></details>
+        </article>
+      </template>
+      <p v-else>This older snapshot does not include re-verification visits. Reconnect and save a new snapshot to include them.</p>
       <p>This snapshot cannot acknowledge a request, complete a visit or submit a decision.</p>
     </template>
   </section>

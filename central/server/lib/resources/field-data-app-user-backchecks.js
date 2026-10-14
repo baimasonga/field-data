@@ -4,6 +4,7 @@ const Problem = require('../util/problem');
 const { UUID_PATTERN } = require('../util/claim-versioning');
 const { pushConfig, subscriptionBody } = require('../util/backcheck-push');
 const offlineAssignments = require('../util/offline-assignments');
+const { reverificationVisits } = require('../util/reverification-visits');
 const { approvedItineraries } = require('../util/approved-itineraries');
 
 const appUser = async (container, auth) => {
@@ -45,15 +46,16 @@ module.exports = (service, endpoint) => {
     if (settings == null) return { enabled: false };
     const rows = await container.db.any(inboxQuery(user));
     const itineraries = await approvedItineraries(container, user);
+    const visits = await reverificationVisits(container, user);
     let bundle;
-    try { bundle = offlineAssignments.issue(settings, user, rows, new Date(), itineraries.items); } catch (error) {
+    try { bundle = offlineAssignments.issue(settings, user, rows, new Date(), itineraries.items, visits); } catch (error) {
       if (error.code === 'OFFLINE_SNAPSHOT_TOO_LARGE') throw Problem.user.reviewAssignmentInvalid();
       throw error;
     }
     const data = JSON.parse(Buffer.from(bundle.payload, 'base64url').toString('utf8'));
     await container.Audits.log(auth.actor.orNull(), 'field_data.offline.assignments.issue', null,
       { bundleId: data.id, projectId: user.projectId, actorId: user.actorId,
-        expiresAt: data.expiresAt, count: data.items.length, itineraryCount: data.itineraries?.items.length ?? 0, keyId: settings.keyId });
+        expiresAt: data.expiresAt, count: data.items.length, reverificationCount: data.reverification?.items.length ?? 0, itineraryCount: data.itineraries?.items.length ?? 0, keyId: settings.keyId });
     return { enabled: true, bundle };
   }));
   service.get('/field-data/app-user/backchecks', endpoint(async (container, { auth, query }, request, response) => {

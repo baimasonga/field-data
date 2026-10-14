@@ -41,8 +41,8 @@ const fixture = ({ deployment = 'release-1', differentAssets = false, disabled =
     if (path === '/v1/projects/99/app-users') { actor = JSON.parse(options.body); return Response.json({ id: 77, displayName: actor.displayName, token: 'temporary-fixture-key' }); }
     if (path.endsWith('/offline-assignments')) {
       if (disabled) return Response.json({ enabled: false });
-      const issuedAt = new Date(); const data = { schemaVersion: 'offline-assignments@2', id: 'fixture', actorId: 77, projectId: 99,
-        audience: badAudience ? 'https://other.example.test' : cfg.origin, items: [], complete: true, itineraries: { items: [], complete: true, omitted: 0 },
+      const issuedAt = new Date(); const data = { schemaVersion: 'offline-assignments@3', id: 'fixture', actorId: 77, projectId: 99,
+        audience: badAudience ? 'https://other.example.test' : cfg.origin, items: [], complete: true, reverification: { items: [], complete: true, omitted: 0 }, itineraries: { items: [], complete: true, omitted: 0 },
         issuedAt: issuedAt.toISOString(), expiresAt: new Date(issuedAt.getTime() + 8 * 3600000).toISOString() };
       const bytes = Buffer.from(JSON.stringify(data)); const publicKey = createPublicKey(pair.privateKey);
       return Response.json({ enabled: true, bundle: { algorithm: 'ES256', publicKey: publicKey.export({ format: 'jwk' }),
