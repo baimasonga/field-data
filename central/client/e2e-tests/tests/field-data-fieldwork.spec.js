@@ -566,3 +566,173 @@ test('media transfers pause at a chunk boundary and cancel only temporary data',
   await expect(panel.getByRole('status')).toContainText('Queue finished');
   expect([...rows.values()][0].status).toBe('completed');
 });
+
+const mediaVaultPanel = page => page.getByRole('region', { name: 'Encrypted offline media' });
+const mediaPhrase = 'media-fixture-long-passphrase';
+const storedMediaRecord = page => page.evaluate(async () => new Promise((resolve, reject) => {
+  const open = globalThis.indexedDB.open('field-data-media', 1);
+  open.onupgradeneeded = () => open.result.createObjectStore('packages');
+  open.onsuccess = () => {
+    const db = open.result; const request = db.transaction('packages').objectStore('packages').get('current');
+    request.onsuccess = () => { db.close(); resolve(request.result ?? null); }; request.onerror = () => reject(request.error);
+  };
+}));
+const protectMedia = async page => {
+  const panel = mediaVaultPanel(page);
+  await panel.getByLabel('Offline media form ID', { exact: true }).fill('verification');
+  await panel.getByLabel('Offline media submission instance ID').fill('own-media-source');
+  await panel.getByLabel('Files to protect').setInputFiles({ name: 'private-photo.jpg', mimeType: 'image/jpeg', buffer: Buffer.from('Private original media bytes') });
+  await panel.getByLabel('Media package passphrase').fill(mediaPhrase);
+  await panel.getByRole('button', { name: 'Encrypt and save files' }).click();
+  await expect(panel.getByRole('status')).toContainText('Encrypted media saved');
+};
+const unlockMedia = async page => {
+  const panel = mediaVaultPanel(page);
+  await panel.getByLabel('Media package passphrase').fill(mediaPhrase);
+  await panel.getByRole('button', { name: 'Unlock saved media' }).click();
+  await expect(panel).toContainText('private-photo.jpg');
+};
+
+test('encrypted media survives reload, exports and imports without uploading or storing plaintext', async ({ page }) => {
+  const { errors, state } = await setup(page);
+  await protectMedia(page);
+  const record = await storedMediaRecord(page);
+  const serialized = JSON.stringify(record);
+  for (const secret of ['private-photo.jpg', 'own-media-source', 'Private original media bytes', mediaPhrase, key]) expect(serialized).not.toContain(secret);
+  expect(Object.keys(record).sort()).toEqual(['ciphertext', 'iv', 'salt', 'schemaVersion']);
+  const panel = mediaVaultPanel(page);
+  await panel.getByLabel('Media package passphrase').fill(mediaPhrase);
+  const downloadReady = page.waitForEvent('download');
+  await panel.getByRole('button', { name: 'Export encrypted package' }).click();
+  const download = await downloadReady;
+  expect(download.suggestedFilename()).toBe('field-data-media.fdmedia');
+  const path = await download.path();
+  await panel.getByRole('button', { name: 'Delete saved media' }).click();
+  await expect(panel.getByRole('status')).toContainText('Saved media deleted');
+  expect(await storedMediaRecord(page)).toBeNull();
+  await panel.getByLabel('Media package passphrase').fill(mediaPhrase);
+  await panel.getByLabel('Import encrypted media package').setInputFiles(path);
+  await expect(panel.getByRole('status')).toContainText('Encrypted package imported');
+  expect(await storedMediaRecord(page)).toEqual(record);
+  await expect(panel.getByRole('button', { name: 'Add unlocked files to upload queue' })).toBeDisabled();
+  await page.reload();
+  await expect(panel).not.toContainText('private-photo.jpg');
+  await unlockMedia(page);
+  expect(state.requests.filter(request => request.url.includes('/media-uploads'))).toHaveLength(0);
+  await page.setViewportSize({ width: 320, height: 700 });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= 320)).toBe(true);
+  await panel.getByRole('button', { name: 'Lock and clear open files' }).click();
+  await expect(panel).not.toContainText('private-photo.jpg');
+  await expect(panel.getByLabel('Media package passphrase')).toHaveValue('');
+  expect(errors).toEqual([]);
+});
+
+test('media package rejects wrong passwords and tampering without replacing the saved copy', async ({ page }) => {
+  await setup(page); await protectMedia(page);
+  const panel = mediaVaultPanel(page); const original = await storedMediaRecord(page);
+  await panel.getByLabel('Media package passphrase').fill('incorrect-long-passphrase');
+  await panel.getByRole('button', { name: 'Unlock saved media' }).click();
+  await expect(panel.getByRole('alert')).toContainText('Unable to open or save media');
+  await expect(panel).not.toContainText('private-photo.jpg');
+  const tampered = { ...original, ciphertext: `${original.ciphertext[0] === 'A' ? 'B' : 'A'}${original.ciphertext.slice(1)}` };
+  await panel.getByLabel('Media package passphrase').fill(mediaPhrase);
+  await panel.getByLabel('Import encrypted media package').setInputFiles({ name: 'tampered.fdmedia', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(tampered)) });
+  await expect(panel.getByRole('alert')).toContainText('Unable to open or save media');
+  expect(await storedMediaRecord(page)).toEqual(original);
+  await unlockMedia(page);
+  await connect(page);
+  // Connecting a new identity locks all plaintext; the user must unlock again.
+  await expect(panel).not.toContainText('private-photo.jpg');
+  await unlockMedia(page);
+  await panel.getByRole('button', { name: 'Add unlocked files to upload queue' }).click();
+  const uploads = page.getByRole('region', { name: 'Recover media uploads' });
+  await expect(uploads.getByRole('heading', { name: 'private-photo.jpg' })).toBeVisible();
+  await page.getByRole('button', { name: 'Disconnect', exact: true }).click();
+  await expect(panel).not.toContainText('private-photo.jpg');
+  await expect(uploads).toHaveCount(0);
+  expect(await storedMediaRecord(page)).toEqual(original);
+});
+
+test('restored encrypted media uploads original bytes only after explicit action and clears on revoked access', async ({ page }) => {
+  await setup(page); await protectMedia(page); await connect(page); await unlockMedia(page);
+  let manifest; let bytes; let writes = 0; let revoked = false;
+  await page.route('**/v1/field-data/app-user/media-uploads**', async route => {
+    const request = route.request(); const path = new URL(request.url()).pathname;
+    expect(request.headers().authorization).toBe(`Bearer ${key}`);
+    if (revoked) return route.fulfill({ status: 403, json: {} });
+    if (request.method() !== 'GET') writes += 1;
+    if (path.endsWith('/media-uploads')) {
+      if (request.method() === 'GET') return route.fulfill({ json: { items: [] } });
+      manifest = { ...request.postDataJSON(), offset: 0, status: 'pending', chunkSize: 262144 };
+      return route.fulfill({ json: manifest });
+    }
+    if (path.includes('/chunks/')) {
+      bytes = request.postDataBuffer();
+      expect(createHash('sha256').update(bytes).digest('hex')).toBe(manifest.sha256);
+      manifest.offset = bytes.length;
+    }
+    if (path.endsWith('/complete')) manifest.status = 'completed';
+    return route.fulfill({ json: manifest });
+  });
+  const vaultPanel = mediaVaultPanel(page); const uploads = page.getByRole('region', { name: 'Recover media uploads' });
+  await vaultPanel.getByRole('button', { name: 'Add unlocked files to upload queue' }).click();
+  await expect(uploads).toContainText('Unlocked files added'); expect(writes).toBe(0);
+  await vaultPanel.getByRole('button', { name: 'Add unlocked files to upload queue' }).click();
+  await expect(uploads.getByRole('alert')).toContainText('already queued');
+  await uploads.getByRole('button', { name: 'Upload or resume queue' }).click();
+  await expect(uploads.getByRole('status')).toContainText('Queue finished');
+  expect(bytes.toString()).toBe('Private original media bytes');
+  expect(manifest.instanceId).toBe('own-media-source'); expect(writes).toBe(3);
+  // Import does not confer authority; a fresh server denial revokes live access.
+  await page.reload(); await connect(page); await unlockMedia(page);
+  await vaultPanel.getByRole('button', { name: 'Add unlocked files to upload queue' }).click(); revoked = true;
+  await uploads.getByRole('button', { name: 'Upload or resume queue' }).click();
+  await expect(uploads).toHaveCount(0); await expect(vaultPanel).not.toContainText('private-photo.jpg');
+  expect(writes).toBe(3); expect(await storedMediaRecord(page)).not.toBeNull();
+});
+
+test('locking during encryption prevents a delayed save from restoring private files', async ({ page }) => {
+  await setup(page);
+  await page.evaluate(() => {
+    const encrypt = globalThis.crypto.subtle.encrypt.bind(globalThis.crypto.subtle);
+    globalThis.crypto.subtle.encrypt = async (...args) => { const result = await encrypt(...args); globalThis.mediaEncrypted = true; return result; };
+    const original = globalThis.crypto.subtle.deriveKey.bind(globalThis.crypto.subtle);
+    globalThis.crypto.subtle.deriveKey = async (...args) => {
+      globalThis.mediaDeriving = true;
+      await new Promise(resolve => { globalThis.releaseMediaDerive = resolve; });
+      return original(...args);
+    };
+  });
+  const panel = mediaVaultPanel(page);
+  await panel.getByLabel('Offline media form ID', { exact: true }).fill('verification');
+  await panel.getByLabel('Offline media submission instance ID').fill('own-media-source');
+  await panel.getByLabel('Files to protect').setInputFiles({ name: 'private-photo.jpg', mimeType: 'image/jpeg', buffer: Buffer.from('Private original media bytes') });
+  await panel.getByLabel('Media package passphrase').fill(mediaPhrase);
+  await panel.getByRole('button', { name: 'Encrypt and save files' }).click();
+  await expect.poll(() => page.evaluate(() => globalThis.mediaDeriving)).toBe(true);
+  await panel.getByRole('button', { name: 'Lock and clear open files' }).click();
+  await page.evaluate(() => globalThis.releaseMediaDerive());
+  await expect(panel.getByRole('status')).toContainText('Media locked');
+  await expect.poll(() => page.evaluate(() => globalThis.mediaEncrypted)).toBe(true);
+  await expect.poll(() => storedMediaRecord(page)).toBeNull();
+  await expect(panel).not.toContainText('private-photo.jpg');
+});
+
+test('a failed encrypted media save preserves the previous package and can be retried', async ({ page }) => {
+  await setup(page); await protectMedia(page);
+  const original = await storedMediaRecord(page); const panel = mediaVaultPanel(page);
+  await panel.getByLabel('Files to protect').setInputFiles({ name: 'replacement.jpg', mimeType: 'image/jpeg', buffer: Buffer.from('Replacement media') });
+  await page.evaluate(() => {
+    globalThis.originalMediaPut = globalThis.IDBObjectStore.prototype.put;
+    globalThis.IDBObjectStore.prototype.put = function failPut() { throw new Error('Storage quota exceeded'); };
+  });
+  await panel.getByLabel('Media package passphrase').fill(mediaPhrase);
+  await panel.getByRole('button', { name: 'Encrypt and save files' }).click();
+  await expect(panel.getByRole('alert')).toContainText('previous saved package is unchanged');
+  expect(await storedMediaRecord(page)).toEqual(original);
+  await page.evaluate(() => { globalThis.IDBObjectStore.prototype.put = globalThis.originalMediaPut; });
+  await panel.getByLabel('Media package passphrase').fill(mediaPhrase);
+  await panel.getByRole('button', { name: 'Encrypt and save files' }).click();
+  await expect(panel.getByRole('status')).toContainText('Encrypted media saved');
+  expect(await storedMediaRecord(page)).not.toEqual(original);
+});

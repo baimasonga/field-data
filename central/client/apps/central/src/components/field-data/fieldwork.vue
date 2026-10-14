@@ -92,7 +92,8 @@ Acknowledge request
     </template>
     <p v-if="loading" role="status">Loading your inbox…</p>
     <p v-if="error" role="alert">{{ error }}</p>
-    <field-data-media-uploads v-if="connected" :key="sessionId" :send="mediaSend"/>
+    <field-data-media-uploads v-if="connected" :key="sessionId" ref="mediaUploads" :send="mediaSend"/>
+    <field-data-offline-media :connected="connected" :session-id="sessionId" @restore="restoreMedia"/>
     <field-data-offline-page/>
     <field-data-offline-assignments :connected="connected" :session-id="sessionId"
       :revocation="offlineRevocation" :fetch-bundle="fetchOfflineBundle"/>
@@ -101,6 +102,7 @@ Acknowledge request
 <script setup>
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import FieldDataMediaUploads from './media-uploads.vue';
+import FieldDataOfflineMedia from './offline-media.vue';
 import FieldDataItineraryStops from './itinerary-stops.vue';
 import FieldDataOfflinePage from './offline-page.vue';
 import FieldDataOfflineAssignments from './offline-assignments.vue';
@@ -108,6 +110,8 @@ import FieldDataOfflineAssignments from './offline-assignments.vue';
 defineOptions({ name: 'FieldDataFieldwork' });
 const inputKey = ref('');
 const connected = ref(false);
+const mediaUploads = ref(null);
+const restoreMedia = rows => { if (connected.value) mediaUploads.value?.restoreFiles(rows); };
 const loading = ref(false);
 const itineraries = ref([]); const itineraryError = ref('');
 const error = ref('');

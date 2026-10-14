@@ -3,7 +3,7 @@
   <section class="media-uploads" aria-labelledby="media-uploads-title">
     <h2 id="media-uploads-title">Recover media uploads</h2>
     <p>The submission XML must already be received by this server. Attach missing photos, audio or video from your own unedited submission. This does not change ODK Collect's native upload protocol.</p>
-    <p>Verified chunks resume after an interruption. Temporary uploads expire after 24 hours. Files stay in this tab's memory; after reopening, reconnect and reselect the same file. No access key or media is saved in browser storage.</p>
+    <p>Verified chunks resume after an interruption. Temporary uploads expire after 24 hours. This queue keeps files in memory; after reopening, reconnect and reselect the same file or unlock an encrypted media package below. Access keys are never saved in browser storage.</p>
     <form @submit.prevent>
       <fieldset :disabled="busy">
         <label>Form ID <input v-model.trim="xmlFormId" class="form-control" maxlength="1000" required></label>
@@ -96,6 +96,19 @@ const addFiles = event => {
     });
   }
 };
+const restoreFiles = rows => {
+  if (busy.value) { error.value = 'Pause the current upload before adding unlocked files.'; return; }
+  if (rows.some(row => queue.value.some(item => item.file.name === row.file.name && item.xmlFormId === row.xmlFormId && item.instanceId === row.instanceId))) {
+    error.value = 'A file for this submission is already queued. Remove it before restoring the package.'; return;
+  }
+  const additions = rows;
+  if (queue.value.length + additions.length > 10 || [...queue.value, ...additions].reduce((n, row) => n + row.file.size, 0) > 100 * 1024 * 1024) {
+    error.value = 'The upload queue is full. Remove files before restoring this package.'; return;
+  }
+  for (const row of additions) queue.value.push({ ...row, localId: crypto.randomUUID(), id: null, offset: 0, state: 'Ready' });
+  error.value = ''; message.value = 'Unlocked files added. Review the queue, then explicitly upload or resume.';
+};
+defineExpose({ restoreFiles });
 const run = async () => {
   if (busy.value) return;
   const current = generation; busy.value = true; paused.value = false; error.value = ''; message.value = '';

@@ -268,3 +268,14 @@ quotas and atomic native attachment delivery. See
 [R2-resumable-media-uploads.md](R2-resumable-media-uploads.md).
 Native Collect resumption, priority XML queues, encrypted persistent media,
 background uploads, relay transport and device acceptance remain pending.
+
+## R3 encrypted offline media packages
+
+The companion page now supports explicit encrypted IndexedDB storage and
+.fdmedia export/import for up to 10 files and 20 MiB combined. Full manifests
+and bytes use origin-bound AES-GCM and passphrase-derived keys; strict integrity,
+expiry and size validation precedes restoration. Reconnect, unlock and explicit
+upload remain required, with R2's live authorization checks. This implements a
+bounded file relay; delegated courier authority, signed custody, native Collect
+queues, background sync and real-device acceptance remain pending.
+See [R3-encrypted-media-packages.md](R3-encrypted-media-packages.md).

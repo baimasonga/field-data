@@ -128,6 +128,15 @@ jobs:
           if [ "$failed" -lt "$CLIENT_FAILURE_BASELINE" ]; then
             echo "::notice::$failed failures, below the baseline of $CLIENT_FAILURE_BASELINE. Lower CLIENT_FAILURE_BASELINE to $failed to hold the gain."
           fi
+      - name: Require encrypted media integrity tests to pass
+        run: |
+          set -o pipefail
+          cd apps/central
+          CHROME_BIN="$(command -v google-chrome || command -v chromium || command -v chromium-browser)" \
+            TEST_PATTERN='encrypted offline media' NODE_ENV=test npx karma start karma.nosandbox.js \
+            2>&1 | tee ../../encrypted-media-karma.log
+          sed -r 's/\x1b\[[0-9;]*m//g' ../../encrypted-media-karma.log \
+            | grep -Eq 'Executed [1-9][0-9]* of [1-9][0-9]* SUCCESS'
       - name: Upload client log
         if: always()
         uses: actions/upload-artifact@v4
