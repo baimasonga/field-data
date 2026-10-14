@@ -30,12 +30,13 @@ test('explicit valid repository settings need no control-plane read, and invalid
   await assert.rejects(prepareOfflineSigning({ ...cfg, fetcher: async () => Response.json({ success: false, errors: ['private-sentinel'] }, { status: 403 }) }), /metadata is unavailable/);
 });
 const fixture = ({ deployment = 'release-1', differentAssets = false, disabled = false, badAudience = false, cleanupFailure = false, malformedProject = false } = {}) => {
-  const calls = []; const pair = generateKeyPairSync('ec', { namedCurve: 'prime256v1' }); let actor;
+  const calls = []; const removed = new Set(); const pair = generateKeyPairSync('ec', { namedCurve: 'prime256v1' }); let actor;
   const fetcher = async (url, options = {}) => {
     const path = new URL(url).pathname; const method = options.method ?? 'GET'; calls.push({ path, method });
     if (path === '/field-data-build.json') return Response.json({ deploymentId: deployment });
     if (path === '/') return new Response(`<script type="module" src="/assets/central/${differentAssets && new URL(url).hostname === 'worker.example.test' ? 'old' : 'current'}.js"></script>`);
-    if (method === 'DELETE') return cleanupFailure ? new Response('cleanup unavailable', { status: 503 }) : Response.json({ success: true });
+    if (method === 'DELETE') { if (cleanupFailure) return new Response('cleanup unavailable', { status: 503 }); removed.add(path); return new Response(null, { status: 200 }); }
+    if (method === 'GET' && removed.has(path)) return new Response('not found', { status: 404 });
     if (path === '/v1/projects') return Response.json({ id: 99, name: malformedProject ? 'Existing user project' : JSON.parse(options.body).name });
     if (path === '/v1/projects/99/app-users') { actor = JSON.parse(options.body); return Response.json({ id: 77, displayName: actor.displayName, token: 'temporary-fixture-key' }); }
     if (path.endsWith('/offline-assignments')) {
