@@ -151,6 +151,7 @@ module.exports = (container) => {
   require('../resources/field-data-reviews')(service, endpoint);
   require('../resources/field-data-backchecks')(service, endpoint);
   require('../resources/field-data-app-user-backchecks')(service, endpoint);
+  require('../resources/field-data-media-uploads')(service, endpoint);
 
   ////////////////////////////////////////////////////////////////////////////////
   // POSTRESOURCE HANDLERS

@@ -232,7 +232,13 @@ jobs:
               test/integration/api/field-data-receipts.js \
               test/integration/api/field-data-search.js \
               test/integration/api/field-data-investigations.js \
+              test/integration/api/field-data-media-uploads.js \
               test/integration/api/field-data-app-user-backchecks.js
+      - name: Exercise standard attachment retry permissions
+        run: |
+          NODE_ENV=test NODE_CONFIG_DIR=./config NODE_CONFIG_ENV=test BCRYPT=insecure \
+            FIELD_DATA_STORAGE_DIR="${{ runner.temp }}" \
+            npx mocha --timeout 30000 test/integration/api/submissions.js --grep '/:instanceId/attachments/:name POST'
 
   server-integration-report:
     name: Server integration suite (report only)

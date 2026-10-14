@@ -14,7 +14,8 @@ const { construct } = require('../../util/util');
 
 const DEFAULT_CONTENT_TYPE = 'application/octet-stream';
 
-const ensure = (blob) => ({ oneFirst }) => oneFirst(sql`
+const ensure = (blob) => async ({ oneFirst }) => {
+  const id = await oneFirst(sql`
   WITH extant AS (
     SELECT id FROM blobs WHERE (sha, "contentType") = (${blob.sha}, ${blob.contentType || DEFAULT_CONTENT_TYPE})
   ),
@@ -27,6 +28,11 @@ const ensure = (blob) => ({ oneFirst }) => oneFirst(sql`
   )
   SELECT coalesce((SELECT id FROM ensured), (SELECT id FROM extant)) as id
 `);
+  // ON CONFLICT can wait for an insert absent from the CTE's earlier snapshot.
+  // Read again after that transaction commits instead of returning a null id.
+  return id == null ? oneFirst(sql`SELECT id FROM blobs WHERE sha = ${blob.sha}
+    AND "contentType" = ${blob.contentType || DEFAULT_CONTENT_TYPE}`) : id;
+};
 
 const getById = (blobId) => ({ maybeOne }) =>
   maybeOne(sql`select * from blobs where id=${blobId}`)

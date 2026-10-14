@@ -1,4 +1,4 @@
-/* global document */
+/* global document, localStorage, sessionStorage */
 import { expect, test } from '@playwright/test';
 import { createHash, createPublicKey, generateKeyPairSync } from 'node:crypto';
 import offlineAssignments from '../../../server/lib/util/offline-assignments.js';
@@ -46,6 +46,7 @@ const setup = async (page, { push = false, denied = false, fail = false, delayed
     state.requests.push({ url: req.url(), authorization: req.headers().authorization, method: req.method() });
     if (state.revoked) return route.fulfill({ status: 401, json: {} });
     if (req.headers().authorization !== `Bearer ${key}`) return route.fulfill({ status: 403, json: {} });
+    if (path.endsWith('/media-uploads')) return route.fulfill({ json: { items: [] } });
     if (path.endsWith('/offline-assignments')) {
       if (state.offlineWait) await state.offlineWait;
       return route.fulfill({ json: offline ? { enabled: true, bundle: state.bundle } : { enabled: false } });
@@ -471,3 +472,97 @@ for (const [name, invalid] of [
     expect(await vault(page)).toBeNull();
   });
 }
+
+test('media queue resumes confirmed chunks after a lost acknowledgement and honors priorities', async ({ page }) => {
+  const { errors } = await setup(page); let lost = false; const uploads = new Map(); const starts = []; const chunks = [];
+  await page.route('**/v1/field-data/app-user/media-uploads**', async route => {
+    const request = route.request(); const url = new URL(request.url());
+    expect(request.headers().authorization).toBe(`Bearer ${key}`);
+    if (url.pathname.endsWith('/media-uploads')) {
+      if (request.method() === 'GET') return route.fulfill({ json: { items: [...uploads.values()] } });
+      const manifest = request.postDataJSON(); starts.push(manifest.name);
+      const row = { ...manifest, offset: 0, status: 'pending', expiresAt: '2026-10-20T12:00:00Z', chunkSize: 262144 };
+      uploads.set(row.id, row); return route.fulfill({ json: row });
+    }
+    const id = url.pathname.split('/media-uploads/')[1].split('/')[0]; const row = uploads.get(id);
+    if (url.pathname.includes('/chunks/')) {
+      const bytes = request.postDataBuffer();
+      expect(createHash('sha256').update(bytes).digest('hex')).toBe(request.headers()['x-chunk-sha256']);
+      const offset = Number(url.pathname.split('/chunks/')[1]); expect(offset).toBe(row.offset);
+      row.offset += bytes.length; chunks.push({ name: row.name, offset });
+      if (row.name === 'photo.jpg' && !lost) { lost = true; return route.abort('failed'); }
+      return route.fulfill({ json: row });
+    }
+    if (url.pathname.endsWith('/complete')) { row.status = 'completed'; return route.fulfill({ json: row }); }
+    return route.fulfill({ json: row });
+  });
+  await connect(page); const panel = page.getByRole('region', { name: 'Recover media uploads' });
+  await panel.getByLabel('Form ID', { exact: true }).fill('verification');
+  await panel.getByLabel('Synced submission instance ID').fill('own-synced-instance');
+  await panel.getByLabel('Media files (up to 20 MB each)').setInputFiles([
+    { name: 'photo.jpg', mimeType: 'image/jpeg', buffer: Buffer.alloc(262157, 7) },
+    { name: 'urgent.mp3', mimeType: 'audio/mpeg', buffer: Buffer.from('Urgent audio') }
+  ]);
+  await panel.getByLabel('Priority for urgent.mp3').selectOption('1');
+  await panel.getByRole('button', { name: 'Upload or resume queue' }).click();
+  await expect(panel.getByRole('alert')).toContainText('Transfer interrupted');
+  expect(starts).toEqual(['urgent.mp3', 'photo.jpg']);
+  const storage = await page.evaluate(() => JSON.stringify({ local: { ...localStorage }, session: { ...sessionStorage } }));
+  expect(storage).not.toContain('photo.jpg'); expect(storage).not.toContain('own-synced-instance');
+  await page.reload(); await connect(page);
+  await panel.getByLabel('Form ID', { exact: true }).fill('verification');
+  await panel.getByLabel('Synced submission instance ID').fill('own-synced-instance');
+  await panel.getByLabel('Media files (up to 20 MB each)').setInputFiles({ name: 'photo.jpg', mimeType: 'image/jpeg', buffer: Buffer.alloc(262157, 7) });
+  await panel.getByRole('button', { name: 'Upload or resume queue' }).click();
+  await expect(panel.getByRole('status')).toContainText('Queue finished');
+  expect(chunks.filter(chunk => chunk.name === 'photo.jpg').map(chunk => chunk.offset)).toEqual([0, 262144]);
+  expect(starts).toHaveLength(2);
+  await page.setViewportSize({ width: 320, height: 700 });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= 320)).toBe(true);
+  await page.getByRole('button', { name: 'Disconnect', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'photo.jpg', exact: true })).toHaveCount(0);
+  expect(errors).toEqual([]);
+});
+
+test('media transfers pause at a chunk boundary and cancel only temporary data', async ({ page }) => {
+  await setup(page); const rows = new Map(); let release; let arrived; let held = false; let cancelled = 0;
+  const received = new Promise(resolve => { arrived = resolve; });
+  const wait = new Promise(resolve => { release = resolve; });
+  await page.route('**/v1/field-data/app-user/media-uploads**', async route => {
+    const request = route.request(); const path = new URL(request.url()).pathname;
+    if (path.endsWith('/media-uploads')) {
+      if (request.method() === 'GET') return route.fulfill({ json: { items: [...rows.values()] } });
+      const row = { ...request.postDataJSON(), offset: 0, status: 'pending', chunkSize: 262144, expiresAt: new Date(Date.now() + 86400000).toISOString() };
+      rows.set(row.id, row); return route.fulfill({ json: row });
+    }
+    const id = path.split('/media-uploads/')[1].split('/')[0]; const row = rows.get(id);
+    if (request.method() === 'DELETE') { cancelled += 1; rows.delete(id); return route.fulfill({ json: { cancelled: true } }); }
+    if (path.includes('/chunks/')) {
+      row.offset += request.postDataBuffer().length;
+      if (!held) { held = true; arrived(); await wait; }
+      return route.fulfill({ json: row });
+    }
+    if (path.endsWith('/complete')) row.status = 'completed';
+    return route.fulfill({ json: row });
+  });
+  await connect(page); const panel = page.getByRole('region', { name: 'Recover media uploads' });
+  await panel.getByLabel('Form ID', { exact: true }).fill('verification');
+  await panel.getByLabel('Synced submission instance ID').fill('own-submission');
+  await panel.getByLabel('Media files (up to 20 MB each)').setInputFiles({ name: 'photo.jpg', mimeType: 'image/jpeg', buffer: Buffer.alloc(262157, 7) });
+  await panel.getByRole('button', { name: 'Upload or resume queue' }).click();
+  await received;
+  await panel.getByRole('button', { name: 'Pause after current chunk' }).click(); release();
+  await expect(panel.getByRole('status')).toContainText('Paused');
+  expect([...rows.values()][0].offset).toBe(262144);
+  expect([...rows.values()][0].status).toBe('pending');
+  await panel.getByRole('button', { name: 'Refresh saved transfers' }).click();
+  await expect(panel.getByRole('status')).toContainText('Saved transfers refreshed');
+  await panel.locator('summary').click();
+  await panel.getByRole('button', { name: 'Cancel saved transfer: photo.jpg' }).click();
+  await expect(panel.getByRole('status')).toContainText('Submission attachments are unchanged');
+  await expect(panel).toContainText('0 of 262157 bytes');
+  expect(cancelled).toBe(1); expect(rows.size).toBe(0);
+  await panel.getByRole('button', { name: 'Upload or resume queue' }).click();
+  await expect(panel.getByRole('status')).toContainText('Queue finished');
+  expect([...rows.values()][0].status).toBe('completed');
+});

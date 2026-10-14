@@ -92,13 +92,15 @@ Acknowledge request
     </template>
     <p v-if="loading" role="status">Loading your inbox…</p>
     <p v-if="error" role="alert">{{ error }}</p>
+    <field-data-media-uploads v-if="connected" :key="sessionId" :send="mediaSend"/>
     <field-data-offline-page/>
     <field-data-offline-assignments :connected="connected" :session-id="sessionId"
       :revocation="offlineRevocation" :fetch-bundle="fetchOfflineBundle"/>
   </section>
 </template>
 <script setup>
-import { onBeforeUnmount, onMounted, ref } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
+import FieldDataMediaUploads from './media-uploads.vue';
 import FieldDataItineraryStops from './itinerary-stops.vue';
 import FieldDataOfflinePage from './offline-page.vue';
 import FieldDataOfflineAssignments from './offline-assignments.vue';
@@ -174,6 +176,24 @@ const api = async (path, method = 'GET', body = null) => {
   }
   return result.json();
 };
+const mediaRequest = async (session, path, method, body, chunkHash) => {
+  if (session !== sessionId.value || !connected.value || !token) throw new Error('Upload session ended');
+  const current = generation;
+  const response = await fetch(`/v1/field-data/app-user/media-uploads${path}`, {
+    method, credentials: 'omit', cache: 'no-store', signal: controller.signal,
+    headers: {
+      Authorization: `Bearer ${token}`, 'Content-Type': chunkHash == null ? 'application/json' : 'application/octet-stream',
+      ...(chunkHash == null ? {} : { 'X-Chunk-Sha256': chunkHash })
+    },
+    ...(body == null ? {} : { body: chunkHash == null ? JSON.stringify(body) : body })
+  });
+  if (!response.ok) {
+    if ([401, 403].includes(response.status) && current === generation) { offlineRevocation.value += 1; clear(); error.value = 'Access or attachment availability changed. Reconnect and check your upload target.'; }
+    const failure = new Error('Media transfer failed'); failure.status = response.status; throw failure;
+  }
+  return response.json();
+};
+const mediaSend = computed(() => { const session = sessionId.value; return (...args) => mediaRequest(session, ...args); });
 const parseKey = (value) => {
   if (!value.includes('://')) return value;
   const url = new URL(value);
