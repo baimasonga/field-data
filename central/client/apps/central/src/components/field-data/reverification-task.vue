@@ -45,6 +45,7 @@
               <label>Planned visit date (optional, UTC) <input v-model="plannedVisitDate" class="form-control" type="date"></label>
               <p>A planned date requires a visit deadline and a saved collector calendar. It reserves capacity shared with backchecks. Leaving it empty keeps this task unplanned.</p>
               <label>Visit by (optional) <input v-model="visitBy" class="form-control" type="datetime-local"></label>
+              <p>The visit deadline uses your browser’s local time; the planned date uses UTC.</p>
               <label>Instruction shown to the collector
                 <textarea v-model="dispatchNote" class="form-control" required maxlength="2000"></textarea>
               </label>
@@ -143,6 +144,8 @@ const read = async (current) => {
   if (current !== generation) return;
   detail.value = data;
   plannedVisitDate.value = data.task.plannedVisitDate ?? '';
+  const deadline = data.task.visitBy == null ? null : new Date(data.task.visitBy);
+  visitBy.value = deadline == null ? '' : new Date(deadline.getTime() - deadline.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
   if (data.task.assignee != null) assigneeId.value = data.task.assignee.id;
 };
 const perform = async (work) => {

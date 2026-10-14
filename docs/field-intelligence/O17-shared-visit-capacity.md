@@ -25,5 +25,5 @@ Re-verification tasks are not yet included in encrypted offline snapshots.
 
 The migration preserves dated work and append-only history on rollback. API
 coverage checks calendar requirements, invalid dates, self-slot retention,
-competing reservations, cancelled-slot reuse and automatic backcheck allocation.
+competing and simultaneous last-slot reservations, cancelled-slot reuse and automatic backcheck allocation.
 Browser coverage checks manager entry and collector display of planned dates.

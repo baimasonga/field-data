@@ -441,3 +441,23 @@ describe('api: completed shared reservations', () => {
     assert.equal(result.body.used, 1); assert.equal(result.body.otherVisits, 1);
   }));
 });
+
+describe('api: concurrent shared reservations', () => {
+  it('allows only one of two simultaneous tasks to reserve the last slot', testServiceFullTrx(async (service, container) => {
+    const ctx = await setup(service, container);
+    await ctx.observe(await ctx.submitAs(ctx.alice, 'two'), { predicate: 'pressure' });
+    await generateReverification(container.db);
+    const another = (await ctx.alice.get(tasks).expect(200)).body.items.find(item => item.predicate === 'pressure');
+    const date = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
+    await ctx.alice.put(`/v1/projects/1/backcheck-calendars/${ctx.collector.id}`)
+      .send({ weeklyCapacity: [1, 1, 1, 1, 1, 1, 1] }).expect(200);
+    const body = { assigneeId: ctx.collector.id, plannedVisitDate: date, visitBy: future() };
+    const responses = await Promise.all([
+      dispatch(ctx, 1, ctx.collector, body),
+      act(ctx.alice, `${tasks}/${another.id}`, 'dispatch', 1, body)
+    ]);
+    assert.deepEqual(responses.map(response => response.status).sort(), [200, 400]);
+    const result = await ctx.alice.get(`/v1/projects/1/backcheck-route?actorId=${ctx.collector.id}&date=${date}&startLat=8&startLon=-13`).expect(200);
+    assert.equal(result.body.used, 1);
+  }));
+});
