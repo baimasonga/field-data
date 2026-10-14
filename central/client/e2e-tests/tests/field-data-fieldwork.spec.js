@@ -736,3 +736,111 @@ test('a failed encrypted media save preserves the previous package and can be re
   await expect(panel.getByRole('status')).toContainText('Encrypted media saved');
   expect(await storedMediaRecord(page)).not.toEqual(original);
 });
+
+const capturePanel = page => page.getByRole('region', { name: 'Capture a challenged photo' });
+const prepareCapture = async page => {
+  const panel = capturePanel(page);
+  await panel.getByLabel('Capture form ID', { exact: true }).fill('verification');
+  await panel.getByLabel('Capture submission instance ID').fill('own-camera-source');
+  await panel.getByLabel('Expected image filename').fill('challenged.jpg');
+  await panel.getByRole('button', { name: 'Get capture challenge' }).click();
+  await expect(panel).toContainText('ABCDEF01');
+};
+const routeCapture = async page => {
+  let challenge; let issues = 0;
+  await page.route('**/v1/field-data/app-user/capture-challenges**', async route => {
+    const request = route.request(); expect(request.headers().authorization).toBe(`Bearer ${key}`);
+    if (request.method() === 'GET') return route.fulfill({ json: { items: challenge ? [challenge] : [] } });
+    if (request.method() === 'DELETE') { challenge.status = 'cancelled'; return route.fulfill({ json: { cancelled: true } }); }
+    issues += 1; const body = request.postDataJSON();
+    challenge = { ...body, nonce: `abcdef01${'2'.repeat(56)}`, code: 'ABCDEF01', status: 'issued',
+      issuedAt: new Date().toISOString(), expiresAt: new Date(Date.now() + 20 * 60000).toISOString(), boundAt: null, contentHash: null, sceneReview: 'not-assessed' };
+    return route.fulfill({ json: challenge });
+  });
+  return { count: () => issues };
+};
+const mockCamera = async (page, delay = false, denied = false) => page.evaluate(({ delay, denied }) => {
+  globalThis.cameraCalls = 0; globalThis.cameraStops = 0;
+  globalThis.navigator.mediaDevices.getUserMedia = async constraints => {
+    globalThis.cameraCalls += 1;
+    if (constraints.audio !== false) throw new Error('Audio was requested');
+    if (denied) throw new Error('Camera permission denied');
+    const canvas = document.createElement('canvas'); canvas.width = 320; canvas.height = 240;
+    const drawing = canvas.getContext('2d'); drawing.fillStyle = '#72999b'; drawing.fillRect(0, 0, 320, 240);
+    drawing.fillStyle = '#ffffff'; drawing.font = '24px sans-serif'; drawing.fillText('ABCDEF01', 40, 100);
+    const stream = canvas.captureStream(5);
+    for (const track of stream.getTracks()) {
+      const stop = track.stop.bind(track); track.stop = () => { globalThis.cameraStops += 1; stop(); };
+    }
+    if (delay) await new Promise(resolve => { globalThis.releaseCamera = resolve; });
+    return stream;
+  };
+}, { delay, denied });
+
+test('camera capture binds the original server challenge to a JPEG queue without automatic upload', async ({ page }) => {
+  const { errors } = await setup(page); const state = await routeCapture(page); await mockCamera(page); await connect(page);
+  await prepareCapture(page); const panel = capturePanel(page);
+  expect(await page.evaluate(() => globalThis.cameraCalls)).toBe(0);
+  await panel.getByRole('button', { name: 'Open camera', exact: true }).click();
+  await expect(panel.getByRole('status')).toContainText('Camera ready');
+  await expect.poll(() => panel.locator('video').evaluate(video => video.videoWidth)).toBeGreaterThan(0);
+  let starts = 0; let manifest; let sent;
+  await page.route('**/v1/field-data/app-user/media-uploads**', async route => {
+    const request = route.request(); const path = new URL(request.url()).pathname;
+    if (path.endsWith('/media-uploads')) {
+      if (request.method() === 'GET') return route.fulfill({ json: { items: [] } });
+      starts += 1; manifest = { ...request.postDataJSON(), offset: 0, status: 'pending', chunkSize: 262144 }; return route.fulfill({ json: manifest });
+    }
+    if (path.includes('/chunks/')) { sent = request.postDataBuffer(); manifest.offset += sent.length; }
+    if (path.endsWith('/complete')) manifest.status = 'completed';
+    return route.fulfill({ json: manifest });
+  });
+  await panel.getByRole('button', { name: 'Capture photo and add to queue' }).click();
+  const queue = page.getByRole('region', { name: 'Recover media uploads' });
+  await expect(queue).toContainText('challenged.jpg');
+  expect(starts).toBe(0); expect(await page.evaluate(() => globalThis.cameraStops)).toBe(1);
+  await queue.getByRole('button', { name: 'Upload or resume queue' }).click();
+  await expect(queue.getByRole('status')).toContainText('Queue finished');
+  expect(manifest.challengeNonce).toBe(`abcdef01${'2'.repeat(56)}`); expect(manifest.challengeId).toMatch(/^[0-9a-f-]{36}$/);
+  expect(manifest.contentType).toBe('image/jpeg'); expect(sent[0]).toBe(255); expect(sent[1]).toBe(216);
+  expect(createHash('sha256').update(sent).digest('hex')).toBe(manifest.sha256);
+  expect(state.count()).toBe(1);
+  const storage = await page.evaluate(() => JSON.stringify({ ...localStorage, ...sessionStorage }));
+  expect(storage).not.toContain(manifest.challengeNonce); expect(storage).not.toContain('own-camera-source');
+  await page.setViewportSize({ width: 320, height: 700 });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= 320)).toBe(true);
+  expect(errors).toEqual([]);
+});
+
+test('camera permission denial keeps the inbox usable and a delayed camera is stopped on disconnect', async ({ page }) => {
+  await setup(page); await routeCapture(page); await mockCamera(page, false, true); await connect(page); await prepareCapture(page);
+  const panel = capturePanel(page);
+  await panel.getByRole('button', { name: 'Open camera', exact: true }).click();
+  await expect(panel.getByRole('alert')).toContainText('camera permission');
+  await expect(page.getByRole('button', { name: 'Disconnect', exact: true })).toBeVisible();
+  await mockCamera(page, true);
+  await panel.getByRole('button', { name: 'Open camera', exact: true }).click();
+  await expect.poll(() => page.evaluate(() => typeof globalThis.releaseCamera)).toBe('function');
+  await page.getByRole('button', { name: 'Disconnect', exact: true }).click();
+  await page.evaluate(() => globalThis.releaseCamera());
+  await expect.poll(() => page.evaluate(() => globalThis.cameraStops)).toBe(1);
+  await expect(panel).toHaveCount(0);
+  await expect(page.getByRole('heading', { name: 'challenged.jpg' })).toHaveCount(0);
+});
+
+test('issued challenges recover after reload and cancellation closes the camera', async ({ page }) => {
+  await setup(page); const state = await routeCapture(page); await connect(page); await prepareCapture(page);
+  await page.reload(); await connect(page); await mockCamera(page);
+  const panel = capturePanel(page);
+  await panel.getByLabel('Capture form ID', { exact: true }).fill('verification');
+  await panel.getByLabel('Capture submission instance ID').fill('own-camera-source');
+  await panel.getByLabel('Expected image filename').fill('challenged.jpg');
+  await panel.getByRole('button', { name: 'Recover issued challenge' }).click();
+  await expect(panel).toContainText('ABCDEF01'); expect(state.count()).toBe(1);
+  await panel.getByRole('button', { name: 'Open camera', exact: true }).click();
+  await expect(panel.getByRole('status')).toContainText('Camera ready');
+  await panel.getByRole('button', { name: 'Cancel challenge', exact: true }).click();
+  await expect(panel.getByRole('status')).toContainText('Challenge cancelled');
+  expect(await page.evaluate(() => globalThis.cameraStops)).toBe(1);
+  await expect(panel.locator('video')).toHaveCount(0);
+});

@@ -191,6 +191,7 @@ const problems = {
       `The recode rule is invalid: ${field} ${reason}.`),
 
     mediaUploadInvalid: problem(400.65, () => 'Upload manifest, chunk length or content hash is invalid.'),
+    captureChallengeInvalid: problem(400.66, () => 'Capture challenge or image details are invalid.'),
 
     // no detail information for security reasons.
     authenticationFailed: problem(401.2, () => 'Could not authenticate with the provided credentials.'),
@@ -321,6 +322,7 @@ const problems = {
       `This recode rule cannot be changed: ${reason}.`),
     mediaUploadConflict: problem(409.43, () => 'Upload offset, identity or target has changed. Refresh upload status and retry.'),
     mediaUploadQuota: problem(409.44, () => 'Temporary upload capacity is full. Finish or cancel pending uploads, or retry after expiry.'),
+    captureChallengeConflict: problem(409.45, () => 'Capture challenge expired, was consumed, or the same image was already challenged. Start a new capture.'),
     reviewRevisionStale: problem(412.1, () => 'The review case has changed. Refresh and retry.'),
     assetRevisionStale: problem(412.2, () => 'The asset has changed. Reload its history before saving.'),
     reverificationRevisionStale: problem(412.3, () => 'The re-verification task has changed. Reload it before saving.'),

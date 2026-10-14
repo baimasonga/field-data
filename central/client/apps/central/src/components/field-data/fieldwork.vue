@@ -93,6 +93,7 @@ Acknowledge request
     <p v-if="loading" role="status">Loading your inbox…</p>
     <p v-if="error" role="alert">{{ error }}</p>
     <field-data-media-uploads v-if="connected" :key="sessionId" ref="mediaUploads" :send="mediaSend"/>
+    <field-data-capture-challenge v-if="connected" :key="`capture-${sessionId}`" :send="captureSend" @capture="restoreMedia"/>
     <field-data-offline-media :connected="connected" :session-id="sessionId" @restore="restoreMedia"/>
     <field-data-offline-page/>
     <field-data-offline-assignments :connected="connected" :session-id="sessionId"
@@ -102,6 +103,7 @@ Acknowledge request
 <script setup>
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import FieldDataMediaUploads from './media-uploads.vue';
+import FieldDataCaptureChallenge from './capture-challenge.vue';
 import FieldDataOfflineMedia from './offline-media.vue';
 import FieldDataItineraryStops from './itinerary-stops.vue';
 import FieldDataOfflinePage from './offline-page.vue';
@@ -180,10 +182,10 @@ const api = async (path, method = 'GET', body = null) => {
   }
   return result.json();
 };
-const mediaRequest = async (session, path, method, body, chunkHash) => {
+const mediaRequest = async (session, path, method, body, chunkHash, resource = 'media-uploads') => {
   if (session !== sessionId.value || !connected.value || !token) throw new Error('Upload session ended');
   const current = generation;
-  const response = await fetch(`/v1/field-data/app-user/media-uploads${path}`, {
+  const response = await fetch(`/v1/field-data/app-user/${resource}${path}`, {
     method, credentials: 'omit', cache: 'no-store', signal: controller.signal,
     headers: {
       Authorization: `Bearer ${token}`, 'Content-Type': chunkHash == null ? 'application/json' : 'application/octet-stream',
@@ -198,6 +200,7 @@ const mediaRequest = async (session, path, method, body, chunkHash) => {
   return response.json();
 };
 const mediaSend = computed(() => { const session = sessionId.value; return (...args) => mediaRequest(session, ...args); });
+const captureSend = computed(() => { const session = sessionId.value; return (path, method, body) => mediaRequest(session, path, method, body, null, 'capture-challenges'); });
 const parseKey = (value) => {
   if (!value.includes('://')) return value;
   const url = new URL(value);
