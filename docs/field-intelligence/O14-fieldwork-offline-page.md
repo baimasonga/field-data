@@ -50,3 +50,8 @@ Repository secret/variable metadata was inaccessible to the current GitHub
 integration (HTTP 403). No signing key was created or rotated, and live signing
 configuration has not been verified. These are operator settings, separate
 from the implemented and tested forwarding path.
+
+The [O15 readiness extension](O15-signing-readiness.md) prepares absent Worker
+bindings through the deployment and verifies an issued snapshot on the custom
+domain. It preserves existing keys; the earlier GitHub metadata denial does
+not prevent this deployment-managed path.
