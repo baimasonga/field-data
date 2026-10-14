@@ -24,6 +24,8 @@
       <li v-for="row of queue" :key="row.localId">
         <h3>{{ row.file.name }}</h3>
         <p>{{ row.xmlFormId }} · {{ Math.ceil(row.file.size / 1024) }} KB · {{ row.state }}</p>
+        <p v-if="row.captureLocation">Includes device-reported location: {{ row.captureLocation.latitude.toFixed(6) }}, {{ row.captureLocation.longitude.toFixed(6) }} · Reported accuracy ±{{ Math.ceil(row.captureLocation.accuracy) }} m. Uploading shares this location with authorized reviewers.</p>
+        <button v-if="row.captureLocation" type="button" class="btn btn-default" :disabled="busy || row.id != null" @click="delete row.captureLocation">Remove location before upload: {{ row.file.name }}</button>
         <label>Priority for {{ row.file.name }}
           <select v-model.number="row.priority" :disabled="busy || row.id != null">
             <option :value="1">High</option><option :value="2">Normal</option><option :value="3">Large media</option>
@@ -49,6 +51,7 @@
 // Transfers deliberately run serially to honor priority and confirmed offsets.
 /* eslint-disable no-await-in-loop, no-continue */
 import { onBeforeUnmount, ref } from 'vue';
+import { checkedLocation, sameLocation } from '../../util/capture-location';
 
 defineOptions({ name: 'FieldDataMediaUploads' });
 const props = defineProps({ send: { type: Function, required: true } });
@@ -61,11 +64,11 @@ const valid = row => row != null && /^[0-9a-f-]{36}$/i.test(row.id ?? '') && Num
   row.size > 0 && row.size <= 20 * 1024 * 1024 && row.offset >= 0 && row.offset <= row.size && row.chunkSize === 262144 &&
   ['pending', 'completed'].includes(row.status) && (row.status !== 'completed' || row.offset === row.size) && [1, 2, 3].includes(row.priority) && typeof row.name === 'string' &&
   typeof row.xmlFormId === 'string' && typeof row.instanceId === 'string' && /^[0-9a-f]{64}$/.test(row.sha256 ?? '');
-const accept = row => { if (!valid(row)) throw new Error('Invalid upload response'); return row; };
+const accept = row => { if (row?.captureLocation != null) checkedLocation(row.captureLocation); if (!valid(row)) throw new Error('Invalid upload response'); return row; };
 const readSaved = async () => {
   const data = await props.send('', 'GET');
-  if (!Array.isArray(data.items) || data.items.length > 50 || data.items.some(row => !valid(row))) throw new Error('Invalid upload list');
-  return data.items;
+  if (!Array.isArray(data.items) || data.items.length > 50) throw new Error('Invalid upload list');
+  return data.items.map(accept);
 };
 const fail = failure => {
   if (failure.code === 'SOURCE_CHANGED') { error.value = 'This file differs from the saved transfer. Reselect the original file, or cancel that saved transfer before uploading a different file.'; return; }
@@ -127,7 +130,7 @@ const run = async () => {
       if (existing == null && rows.some(r => sameTarget(r) && r.status === 'pending')) {
         const failure = new Error('Original file changed'); failure.code = 'SOURCE_CHANGED'; throw failure;
       }
-      if (existing != null && (existing.challengeId !== row.challengeId || existing.challengeNonce !== row.challengeNonce)) throw new Error('Capture challenge changed');
+      if (existing != null && (existing.challengeId !== row.challengeId || existing.challengeNonce !== row.challengeNonce || !sameLocation(existing.captureLocation, row.captureLocation))) throw new Error('Capture challenge changed');
       if (existing != null) { row.id = existing.id; row.priority = existing.priority; } else row.id ??= crypto.randomUUID();
       jobs.push({ row, sha256, existing });
     }
@@ -137,13 +140,14 @@ const run = async () => {
       let status = existing != null && existing.id === row.id ? existing : accept(await props.send('', 'POST', {
         id: row.id, xmlFormId: row.xmlFormId, instanceId: row.instanceId, name: row.file.name, size: row.file.size, sha256,
         contentType: /^(image|audio|video)\//.test(row.file.type) ? row.file.type : 'application/octet-stream', priority: row.priority,
-        ...(row.challengeId == null ? {} : { challengeId: row.challengeId, challengeNonce: row.challengeNonce })
+        ...(row.challengeId == null ? {} : { challengeId: row.challengeId, challengeNonce: row.challengeNonce }),
+        ...(row.captureLocation == null ? {} : { captureLocation: checkedLocation(row.captureLocation) })
       }));
       if (current !== generation) return;
       const checked = value => {
         const response = accept(value);
         if (response.id !== row.id || response.sha256 !== sha256 || response.size !== row.file.size || response.name !== row.file.name ||
-          response.xmlFormId !== row.xmlFormId || response.instanceId !== row.instanceId || response.challengeId !== row.challengeId || response.challengeNonce !== row.challengeNonce) throw new Error('Upload identity changed');
+          response.xmlFormId !== row.xmlFormId || response.instanceId !== row.instanceId || response.challengeId !== row.challengeId || response.challengeNonce !== row.challengeNonce || !sameLocation(response.captureLocation, row.captureLocation)) throw new Error('Upload identity changed');
         return response;
       };
       status = checked(status); row.priority = status.priority; row.offset = status.offset;

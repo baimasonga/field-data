@@ -844,3 +844,109 @@ test('issued challenges recover after reload and cancellation closes the camera'
   expect(await page.evaluate(() => globalThis.cameraStops)).toBe(1);
   await expect(panel.locator('video')).toHaveCount(0);
 });
+
+const mockLocation = async (page, { denied = false, delayed = false, stale = false } = {}) => page.evaluate(options => {
+  globalThis.locationCalls = 0;
+  Object.defineProperty(globalThis.navigator.geolocation, 'getCurrentPosition', { configurable: true, value: (success, failure, settings) => {
+    globalThis.locationCalls += 1;
+    if (settings.maximumAge !== 0 || settings.timeout !== 10000) throw new Error('Unexpected location options');
+    const finish = () => options.denied ? failure({ code: 1 }) : success({ coords: { latitude: 8.48, longitude: -13.23, accuracy: 15 }, timestamp: Date.now() - (options.stale ? 61000 : 0) });
+    if (options.delayed) globalThis.releaseLocation = finish; else finish();
+  } });
+}, { denied, delayed, stale });
+const routePhotoUpload = async (page, tampered = false) => {
+  let manifest; let completed = 0; let starts = 0;
+  await page.route('**/v1/field-data/app-user/media-uploads**', async route => {
+    const request = route.request(); const path = new URL(request.url()).pathname;
+    if (path.endsWith('/media-uploads')) {
+      if (request.method() === 'GET') return route.fulfill({ json: { items: [] } });
+      starts += 1; manifest = { ...request.postDataJSON(), offset: 0, status: 'pending', chunkSize: 262144 };
+      if (tampered && manifest.captureLocation) manifest.captureLocation.latitude = 9;
+    }
+    if (path.includes('/chunks/')) manifest.offset += request.postDataBuffer().length;
+    if (path.endsWith('/complete')) { manifest.status = 'completed'; completed += 1; }
+    return route.fulfill({ json: manifest });
+  });
+  return { manifest: () => manifest, starts: () => starts, completed: () => completed };
+};
+const openCaptureCamera = async page => {
+  await setup(page); await routeCapture(page); await mockCamera(page); await connect(page); await prepareCapture(page);
+  const panel = capturePanel(page); await panel.getByRole('button', { name: 'Open camera', exact: true }).click();
+  await expect(panel.getByRole('status')).toContainText('Camera ready');
+  await expect.poll(() => panel.locator('video').evaluate(video => video.videoWidth)).toBeGreaterThan(0);
+  return panel;
+};
+
+test('optional location requires explicit consent and one request, then reaches the challenged upload unchanged', async ({ page }) => {
+  const panel = await openCaptureCamera(page); await mockLocation(page); const transfers = await routePhotoUpload(page);
+  expect(await page.evaluate(() => globalThis.locationCalls)).toBe(0);
+  await expect(panel.getByRole('button', { name: 'Read location for photo' })).toHaveCount(0);
+  await panel.getByLabel('Include an optional location reading with this photo').check();
+  expect(await page.evaluate(() => globalThis.locationCalls)).toBe(0);
+  await panel.getByRole('button', { name: 'Read location for photo' }).click();
+  await expect(panel).toContainText('8.480000, -13.230000');
+  await panel.getByRole('button', { name: 'Capture photo and add to queue' }).click();
+  const queue = page.getByRole('region', { name: 'Recover media uploads' });
+  await expect(queue).toContainText('Uploading shares this location with authorized reviewers'); expect(transfers.starts()).toBe(0);
+  await queue.getByRole('button', { name: 'Upload or resume queue' }).click();
+  await expect(queue.getByRole('status')).toContainText('Queue finished');
+  const location = transfers.manifest().captureLocation;
+  expect(location).toMatchObject({ source: 'browser-geolocation', latitude: 8.48, longitude: -13.23, accuracy: 15 });
+  expect(Date.parse(location.capturedAt) - Date.parse(location.sampledAt)).toBeLessThanOrEqual(60000);
+  expect(await page.evaluate(() => globalThis.locationCalls)).toBe(1); expect(transfers.completed()).toBe(1);
+  const storage = await page.evaluate(() => JSON.stringify({ ...localStorage, ...sessionStorage })); expect(storage).not.toContain('sampledAt'); expect(storage).not.toContain('-13.23');
+  await page.setViewportSize({ width: 320, height: 700 }); expect(await page.evaluate(() => document.documentElement.scrollWidth <= globalThis.innerWidth)).toBe(true);
+});
+
+test('a collector can remove location from a queued photo before any upload begins', async ({ page }) => {
+  const panel = await openCaptureCamera(page); await mockLocation(page); const transfers = await routePhotoUpload(page);
+  await panel.getByLabel('Include an optional location reading with this photo').check(); await panel.getByRole('button', { name: 'Read location for photo' }).click();
+  await expect(panel).toContainText('Reading ready'); await panel.getByRole('button', { name: 'Capture photo and add to queue' }).click();
+  const queue = page.getByRole('region', { name: 'Recover media uploads' });
+  await queue.getByRole('button', { name: 'Remove location before upload: challenged.jpg' }).click();
+  await expect(queue).not.toContainText('Includes device-reported location');
+  await queue.getByRole('button', { name: 'Upload or resume queue' }).click(); await expect(queue.getByRole('status')).toContainText('Queue finished');
+  expect(transfers.manifest().captureLocation).toBeUndefined(); expect(transfers.completed()).toBe(1);
+});
+
+for (const scenario of ['denied', 'stale']) test(`a ${scenario} location reading does not block a photo without location`, async ({ page }) => {
+  const panel = await openCaptureCamera(page); await mockLocation(page, { [scenario]: true }); const transfers = await routePhotoUpload(page);
+  await panel.getByLabel('Include an optional location reading with this photo').check(); await panel.getByRole('button', { name: 'Read location for photo' }).click();
+  await expect(panel).toContainText('You can capture without a location reading');
+  await panel.getByRole('button', { name: 'Capture photo and add to queue' }).click();
+  const queue = page.getByRole('region', { name: 'Recover media uploads' });
+  await queue.getByRole('button', { name: 'Upload or resume queue' }).click(); await expect(queue.getByRole('status')).toContainText('Queue finished');
+  expect(transfers.manifest().captureLocation).toBeUndefined();
+});
+
+test('a delayed location callback cannot restore data after camera close or disconnect', async ({ page }) => {
+  const panel = await openCaptureCamera(page); await mockLocation(page, { delayed: true });
+  await panel.getByLabel('Include an optional location reading with this photo').check(); await panel.getByRole('button', { name: 'Read location for photo' }).click();
+  await expect.poll(() => page.evaluate(() => typeof globalThis.releaseLocation)).toBe('function');
+  await panel.getByRole('button', { name: 'Close camera', exact: true }).click(); await page.evaluate(() => globalThis.releaseLocation());
+  await expect(panel).not.toContainText('8.480000'); await expect(panel.getByRole('button', { name: 'Read location for photo' })).toBeDisabled();
+  await panel.getByRole('button', { name: 'Open camera', exact: true }).click(); await expect(panel).toContainText('Camera ready');
+  await panel.getByRole('button', { name: 'Read location for photo' }).click();
+  await page.getByRole('button', { name: 'Disconnect', exact: true }).click(); await page.evaluate(() => globalThis.releaseLocation());
+  await expect(panel).toHaveCount(0); await expect(page.getByRole('heading', { name: 'challenged.jpg' })).toHaveCount(0);
+});
+
+test('altered server location metadata stops the resumable photo workflow before completion', async ({ page }) => {
+  const panel = await openCaptureCamera(page); await mockLocation(page); const transfers = await routePhotoUpload(page, true);
+  await panel.getByLabel('Include an optional location reading with this photo').check(); await panel.getByRole('button', { name: 'Read location for photo' }).click();
+  await expect(panel).toContainText('Reading ready'); await panel.getByRole('button', { name: 'Capture photo and add to queue' }).click();
+  const queue = page.getByRole('region', { name: 'Recover media uploads' });
+  await queue.getByRole('button', { name: 'Upload or resume queue' }).click(); await expect(queue.getByRole('alert')).toContainText('Transfer interrupted');
+  expect(transfers.completed()).toBe(0);
+});
+
+test('a location reading that ages before capture is omitted from the photo upload', async ({ page }) => {
+  const panel = await openCaptureCamera(page); await page.clock.install(); await mockLocation(page); const transfers = await routePhotoUpload(page);
+  await panel.getByLabel('Include an optional location reading with this photo').check(); await panel.getByRole('button', { name: 'Read location for photo' }).click();
+  await expect(panel).toContainText('Reading ready'); await page.clock.fastForward(61000);
+  await panel.getByRole('button', { name: 'Capture photo and add to queue' }).click();
+  await expect(panel).toContainText('without a location reading');
+  const queue = page.getByRole('region', { name: 'Recover media uploads' });
+  await queue.getByRole('button', { name: 'Upload or resume queue' }).click(); await expect(queue.getByRole('status')).toContainText('Queue finished');
+  expect(transfers.manifest().captureLocation).toBeUndefined();
+});

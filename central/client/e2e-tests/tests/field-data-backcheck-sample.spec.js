@@ -791,3 +791,16 @@ test('a viewer cannot sign and tampered witness signatures are not displayed as 
   await expect(section.getByRole('alert')).toContainText('could not be loaded or verified');
   await expect(section).not.toContainText('Signature verified'); await expect(section.getByRole('button', { name: 'Sign and submit witness statement' })).toHaveCount(0);
 });
+
+test('reviewers see device-reported location limits and historical context after replacement', async ({ page: p }) => {
+  await setupAssessmentRecord(p, async (route, path) => {
+    if (path.endsWith('/capture-challenges')) { await route.fulfill({ json: { items: [{ ...reviewCapture, bindingCurrent: false, canAssess: false,
+      captureLocation: { source: 'browser-geolocation', latitude: 8.48, longitude: -13.23, accuracy: 15, sampledAt: '2026-10-14T11:00:00.000Z', capturedAt: '2026-10-14T11:00:05.000Z' } }] } }); return true; }
+    return false;
+  }, viewerVerbs);
+  const panel = p.getByRole('region', { name: 'Capture challenges', exact: true });
+  await expect(panel).toContainText('Device-reported location'); await expect(panel).toContainText('8.480000, -13.230000');
+  await expect(panel).toContainText('Reported accuracy ±15 m'); await expect(panel).toContainText('Historical reading');
+  await expect(panel).toContainText('This does not establish presence');
+  await p.setViewportSize({ width: 320, height: 700 }); expect(await p.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+});
