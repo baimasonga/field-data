@@ -58,6 +58,13 @@ test('a prepared production page reloads offline while private tasks remain only
   await snapshot.getByLabel('Confirm offline passphrase', { exact: true }).fill('separate-fixture-passphrase');
   await snapshot.getByRole('button', { name: 'Save encrypted snapshot', exact: true }).click();
   await expect(snapshot.getByRole('status')).toContainText('Encrypted snapshot saved');
+  const media = page.getByRole('region', { name: 'Encrypted offline media' });
+  await media.getByLabel('Offline media form ID', { exact: true }).fill('verify');
+  await media.getByLabel('Offline media submission instance ID').fill('offline-own-source');
+  await media.getByLabel('Files to protect').setInputFiles({ name: 'offline-private-photo.jpg', mimeType: 'image/jpeg', buffer: Buffer.from('Offline original media') });
+  await media.getByLabel('Media package passphrase').fill('offline-media-fixture-passphrase');
+  await media.getByRole('button', { name: 'Encrypt and save files' }).click();
+  await expect(media.getByRole('status')).toContainText('Encrypted media saved');
   const prep = page.getByRole('region', { name: 'Offline page preparation' });
   await prep.getByRole('button', { name: 'Prepare offline page', exact: true }).click();
   await expect(prep.getByRole('status')).toContainText('Offline page prepared', { timeout: 30000 });
@@ -68,7 +75,7 @@ test('a prepared production page reloads offline while private tasks remain only
       const cache = await globalThis.caches.open(name);
       for (const request of await cache.keys()) entries.push({ url: request.url, body: await (await cache.match(request)).text() });
     }
-    return { names, urls: entries.map(e => e.url), privateContent: entries.some(e => e.body.includes('Do not cache this private task.') || e.body.includes('Private re-verification visit.')) };
+    return { names, urls: entries.map(e => e.url), privateContent: entries.some(e => e.body.includes('Do not cache this private task.') || e.body.includes('Private re-verification visit.') || e.body.includes('offline-private-photo.jpg') || e.body.includes('Offline original media')) };
   });
   expect(cacheInfo.names).toHaveLength(1); expect(cacheInfo.privateContent).toBe(false);
   expect(cacheInfo.urls.every(url => !url.includes('/v1/') && !url.includes(key))).toBe(true);
@@ -85,6 +92,11 @@ test('a prepared production page reloads offline while private tasks remain only
   await context.setOffline(true); await page.reload();
   await expect(page.getByRole('heading', { name: 'Fieldwork inbox', exact: true })).toBeVisible();
   await expect(page.getByText('Do not cache this private task.', { exact: true })).toHaveCount(0);
+  await expect(media).not.toContainText('offline-private-photo.jpg');
+  await media.getByLabel('Media package passphrase').fill('offline-media-fixture-passphrase');
+  await media.getByRole('button', { name: 'Unlock saved media' }).click();
+  await expect(media).toContainText('offline-private-photo.jpg');
+  await expect(media.getByRole('button', { name: 'Add unlocked files to upload queue' })).toBeDisabled();
   await snapshot.getByLabel('Saved snapshot passphrase', { exact: true }).fill('separate-fixture-passphrase');
   await snapshot.getByRole('button', { name: 'Unlock saved snapshot', exact: true }).click();
   await expect(snapshot).toContainText('Do not cache this private task.');
