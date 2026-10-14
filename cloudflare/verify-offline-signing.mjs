@@ -4,16 +4,26 @@ import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 class ReadinessError extends Error {}
 const entryAssets = html => [...html.matchAll(/(?:src|href)=["'](\/assets\/[^"']+\.(?:js|css))["']/g)].map(match => match[1]).sort();
-export const verifyOfflineSigning = async ({ base, workerBase, deploymentId, audience, sessionToken, fetcher = fetch }) => {
+export const verifyOfflineSigning = async ({ base, workerBase, deploymentId, audience, sessionToken, fetcher = fetch, pause = ms => new Promise(resolve => setTimeout(resolve, ms)) }) => {
   const root = new URL(base); const worker = new URL(workerBase);
   if (root.protocol !== 'https:' || worker.protocol !== 'https:' || root.href !== `${root.origin}/` || worker.href !== `${worker.origin}/`
     || root.username || root.password || worker.username || worker.password || !deploymentId || !sessionToken) throw new ReadinessError('Signing verification requires the deployed site and authenticated session.');
-  const get = async (url, options = {}) => {
-    let response;
-    try { response = await fetcher(url, { ...options, redirect: 'error', signal: AbortSignal.timeout(20000) }); }
-    catch { throw new ReadinessError('Signing verification could not reach the deployed site.'); }
-    if (!response.ok) throw new ReadinessError(`Signing verification received HTTP ${response.status}.`);
-    return response;
+  const get = async (url, options = {}, allowedStatuses = []) => {
+    // Only idempotent operations may be retried: a failed creation response
+    // can conceal a successful POST and must never create duplicate fixtures.
+    const retryable = ['GET', 'DELETE'].includes(options.method ?? 'GET');
+    for (let attempt = 0; ; attempt += 1) {
+      let response;
+      try { response = await fetcher(url, { ...options, redirect: 'error', signal: AbortSignal.timeout(20000) }); }
+      catch {
+        if (!retryable || attempt >= 4) throw new ReadinessError('Signing verification could not reach the deployed site.');
+      }
+      if (response?.ok || allowedStatuses.includes(response?.status)) return response;
+      if (response && (!retryable || ![502, 503, 504].includes(response.status) || attempt >= 4))
+        throw new ReadinessError(`Signing verification received HTTP ${response.status}.`);
+      await response?.body?.cancel();
+      await pause(5000 * (attempt + 1));
+    }
   };
   // Validate the actual user-facing origin before sending credentials or
   // creating a fixture. A working workers.dev site does not prove this site
@@ -32,9 +42,9 @@ export const verifyOfflineSigning = async ({ base, workerBase, deploymentId, aud
   const remove = async path => {
     // Successful DELETE responses can legitimately be empty. Confirm removal
     // through the real read route instead of relying on a JSON success body.
-    await api(path, sessionToken, 'DELETE');
-    const response = await fetcher(new URL(`/v1${path}`, root), { headers: { Authorization: `Bearer ${sessionToken}` },
-      cache: 'no-store', redirect: 'error', signal: AbortSignal.timeout(20000) });
+    await get(new URL(`/v1${path}`, root), { method: 'DELETE', headers: { Authorization: `Bearer ${sessionToken}` } }, [404]);
+    const response = await get(new URL(`/v1${path}`, root), { headers: { Authorization: `Bearer ${sessionToken}` },
+      cache: 'no-store' }, [404]);
     if (response.status !== 404) throw new ReadinessError(`Removed fixture is still readable (HTTP ${response.status}).`);
   };
   let project; let projectId; let appUser; let appUserId; let primaryError; const cleanupErrors = [];

@@ -53,7 +53,7 @@ const fixture = ({ deployment = 'release-1', differentAssets = false, disabled =
   };
   return { calls, fetcher };
 };
-const verifyCfg = { base: cfg.origin, workerBase: 'https://worker.example.test', audience: cfg.origin, deploymentId: 'release-1', sessionToken: 'fixture-session' };
+const verifyCfg = { base: cfg.origin, workerBase: 'https://worker.example.test', audience: cfg.origin, deploymentId: 'release-1', sessionToken: 'fixture-session', pause: async () => {} };
 test('live readiness checks custom-domain assets and the issued signature, then removes only its fixture', async () => {
   const f = fixture(); assert.deepEqual(await verifyOfflineSigning({ ...verifyCfg, fetcher: f.fetcher }), { verified: true, customDomain: true, fixtureRemoved: true });
   assert.deepEqual(f.calls.filter(c => c.method === 'DELETE').map(c => c.path), ['/v1/projects/99/app-users/77', '/v1/projects/99']);
@@ -72,4 +72,24 @@ test('unconfirmed resource identifiers are never deleted and cleanup failures ar
   const malformed = fixture({ malformedProject: true }); await assert.rejects(verifyOfflineSigning({ ...verifyCfg, fetcher: malformed.fetcher }), /project was not confirmed/);
   assert.equal(malformed.calls.some(c => c.method === 'DELETE'), false);
   const failure = fixture({ cleanupFailure: true }); await assert.rejects(verifyOfflineSigning({ ...verifyCfg, fetcher: failure.fetcher }), /cleanup could not be confirmed/);
+});
+
+test('transient reads and deletes recover without repeating fixture creation', async () => {
+  const f = fixture(); const failed = new Set();
+  const fetcher = async (url, options = {}) => {
+    const key = `${options.method ?? 'GET'} ${new URL(url).pathname}`;
+    if (!key.startsWith('POST') && !failed.has(key)) { failed.add(key); return new Response(null, { status: 503 }); }
+    return f.fetcher(url, options);
+  };
+  assert.equal((await verifyOfflineSigning({ ...verifyCfg, fetcher })).fixtureRemoved, true);
+  assert.equal(f.calls.filter(call => call.method === 'POST').length, 2);
+});
+test('creation failures are never retried', async () => {
+  const f = fixture(); let posts = 0;
+  const fetcher = async (url, options = {}) => {
+    if (options.method === 'POST') { posts += 1; throw new Error('private response'); }
+    return f.fetcher(url, options);
+  };
+  await assert.rejects(verifyOfflineSigning({ ...verifyCfg, fetcher }), /could not reach/);
+  assert.equal(posts, 1);
 });
