@@ -154,6 +154,7 @@ module.exports = (container) => {
   require('../resources/field-data-media-uploads')(service, endpoint);
   require('../resources/field-data-capture-challenges')(service, endpoint);
   require('../resources/field-data-capture-assessments')(service, endpoint);
+  require('../resources/field-data-capture-witnesses')(service, endpoint);
 
   ////////////////////////////////////////////////////////////////////////////////
   // POSTRESOURCE HANDLERS

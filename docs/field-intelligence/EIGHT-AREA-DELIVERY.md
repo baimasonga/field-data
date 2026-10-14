@@ -301,3 +301,14 @@ available through a scoped integrity-checked download, and earlier decisions hav
 paged history. This does not automatically accept the field claim or certify
 presence. Signed witnesses, sensors and device acceptance remain pending.
 See [T2-human-capture-assessments.md](T2-human-capture-assessments.md).
+
+## T3 signed capture witness statements
+
+Authorized web Users can sign one immutable statement per challenged image, with
+account/name snapshots and server receipt timestamps. P-256 signatures cover the
+exact scoped image fingerprint; browser and standalone export verification reject
+tampering. Live permissions, unchanged-image checks, bounded history, safe retries
+and outdated warnings preserve historical meaning. Distinct accounts do not prove
+independent people, presence or claim truth. Certified witness identity, delegated
+fieldworker witnessing, sensors, correction/withdrawal and device acceptance remain
+pending. See [T3-signed-capture-witnesses.md](T3-signed-capture-witnesses.md).
