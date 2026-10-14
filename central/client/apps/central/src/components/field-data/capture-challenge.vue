@@ -145,7 +145,7 @@ const capture = () => perform(async isCurrent => {
   if (!blob || blob.type !== 'image/jpeg' || blob.size > 5 * 1024 * 1024 || Date.parse(currentChallenge.expiresAt) <= Date.now()) throw new Error('Invalid capture');
   emit('capture', [{
     file: new File([blob], currentChallenge.name, { type: 'image/jpeg' }), xmlFormId: currentChallenge.xmlFormId,
-    instanceId: currentChallenge.instanceId, priority: 1, challengeId: currentChallenge.id, challengeNonce: currentChallenge.nonce, ...(captureLocation == null ? {} : { captureLocation })
+    instanceId: currentChallenge.instanceId, priority: 1, challengeId: currentChallenge.id, challengeNonce: currentChallenge.nonce, challengeIssuedAt: currentChallenge.issuedAt, challengeExpiresAt: currentChallenge.expiresAt, ...(captureLocation == null ? {} : { captureLocation })
   }]);
   stopCamera(); message.value = captureLocation == null
     ? 'Photo offered to the upload queue without a location reading. Review it, then upload before the challenge expires.'

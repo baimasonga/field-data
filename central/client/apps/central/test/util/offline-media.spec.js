@@ -62,3 +62,47 @@ describe('encrypted offline media', function testMedia() {
     await rejects(() => validateMedia({ ...data, expiresAt: now + 25 * 3600000 }, now, origin));
   });
 });
+
+describe('encrypted offline media challenge context', function challengeMedia() {
+  this.timeout(30000);
+  const challengeRow = () => ({
+    ...row(), challengeId: '11111111-1111-4111-8111-111111111111', challengeNonce: 'a'.repeat(64),
+    challengeIssuedAt: new Date(now).toISOString(), challengeExpiresAt: new Date(now + 20 * 60000).toISOString(),
+    captureLocation: { source: 'browser-geolocation', latitude: 8.48, longitude: -13.23, accuracy: 15, sampledAt: new Date(now).toISOString(), capturedAt: new Date(now + 5000).toISOString() }
+  });
+  it('preserves challenge and location inside ciphertext without serializing credentials or transport state', async () => {
+    const original = { ...challengeRow(), token: 'private-access-key', id: 'transport-id' };
+    const record = await encryptMedia([original], phrase, now, origin);
+    record.schemaVersion.should.equal('offline-media@2');
+    const serialized = JSON.stringify(record);
+    for (const value of [original.challengeNonce, original.challengeId, original.instanceId, 'sampledAt', 'private-access-key', 'transport-id']) serialized.includes(value).should.be.false;
+    const data = await decryptMedia(record, phrase, now, origin); const restored = data.items[0];
+    restored.challengeNonce.should.equal(original.challengeNonce); restored.challengeExpiresAt.should.equal(original.challengeExpiresAt);
+    restored.captureLocation.should.eql(original.captureLocation); Object.hasOwn(restored, 'token').should.be.false; Object.hasOwn(restored, 'id').should.be.false;
+  });
+  it('retains expired challenge evidence without inventing a new challenge expiry', async () => {
+    const original = challengeRow(); const record = await encryptMedia([original], phrase, now, origin);
+    const data = await decryptMedia(record, phrase, now + 21 * 60000, origin);
+    data.items[0].challengeExpiresAt.should.equal(original.challengeExpiresAt);
+  });
+  it('rejects partial, malformed, non-image and expanded location challenge manifests', async () => {
+    for (const patch of [{ challengeNonce: undefined }, { challengeId: 'invalid' }, { challengeExpiresAt: new Date(now + 20 * 60000 + 1).toISOString() },
+      { challengeIssuedAt: 'invalid' }, { captureLocation: { ...challengeRow().captureLocation, latitude: 91 } }, { file: new File(['test'], 'audio.mp3', { type: 'audio/mpeg' }) }])
+      await rejects(() => encryptMedia([{ ...challengeRow(), ...patch }], phrase, now, origin));
+  });
+  it('decrypts existing version-one archives with their original authenticated header', async () => {
+    const bytes = new Uint8Array([7]); const sha256 = Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', bytes)), b => b.toString(16).padStart(2, '0')).join('');
+    const data = {
+      schemaVersion: 'offline-media@1', origin, createdAt: now, expiresAt: now + 3600000,
+      items: [{ xmlFormId: 'verify', instanceId: 'own-instance', name: 'old.jpg', contentType: 'image/jpeg', priority: 1, size: 1, sha256, bytes: 'Bw==' }]
+    };
+    const salt = new Uint8Array(16); const iv = new Uint8Array(12); const encoder = new TextEncoder();
+    const material = await crypto.subtle.importKey('raw', encoder.encode(phrase), 'PBKDF2', false, ['deriveKey']);
+    const key = await crypto.subtle.deriveKey({ name: 'PBKDF2', salt, iterations: 600000, hash: 'SHA-256' }, material, { name: 'AES-GCM', length: 256 }, false, ['encrypt']);
+    const ciphertext = await crypto.subtle.encrypt({ name: 'AES-GCM', iv, additionalData: encoder.encode(`offline-media@1:${origin}`) }, key, encoder.encode(JSON.stringify(data)));
+    const encode = value => btoa(String.fromCharCode(...new Uint8Array(value)));
+    const record = { schemaVersion: 'offline-media@1', salt: encode(salt), iv: encode(iv), ciphertext: encode(ciphertext) };
+    (await decryptMedia(record, phrase, now, origin)).items[0].file.name.should.equal('old.jpg');
+    await rejects(() => decryptMedia({ ...record, schemaVersion: 'offline-media@2' }, phrase, now, origin));
+  });
+});

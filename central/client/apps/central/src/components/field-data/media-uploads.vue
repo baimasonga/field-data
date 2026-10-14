@@ -17,6 +17,7 @@
       <button type="button" class="btn btn-primary" :disabled="busy || !queue.some(row => row.state !== 'completed')" @click="run">Upload or resume queue</button>
       <button type="button" class="btn btn-default" :disabled="!busy" @click="paused = true">Pause after current chunk</button>
       <button type="button" class="btn btn-default" :disabled="busy" @click="refresh">Refresh saved transfers</button>
+      <button type="button" class="btn btn-default" :disabled="busy || !queue.some(row => row.state !== 'completed')" @click="protect">Prepare queue for encrypted storage</button>
     </div>
     <p v-if="busy || message" role="status">{{ busy ? 'Working on transfers. Keep this tab open.' : message }}</p>
     <p v-if="error" role="alert">{{ error }}</p>
@@ -51,9 +52,11 @@
 // Transfers deliberately run serially to honor priority and confirmed offsets.
 /* eslint-disable no-await-in-loop, no-continue */
 import { onBeforeUnmount, ref } from 'vue';
+import { challengeContext } from '../../util/offline-media';
 import { checkedLocation, sameLocation } from '../../util/capture-location';
 
 defineOptions({ name: 'FieldDataMediaUploads' });
+const emit = defineEmits(['protect']);
 const props = defineProps({ send: { type: Function, required: true } });
 const xmlFormId = ref(''); const instanceId = ref(''); const queue = ref([]); const saved = ref([]);
 const busy = ref(false); const paused = ref(false); const message = ref(''); const error = ref('');
@@ -110,6 +113,11 @@ const restoreFiles = rows => {
   }
   for (const row of additions) queue.value.push({ ...row, localId: crypto.randomUUID(), id: null, offset: 0, state: 'Ready' });
   error.value = ''; message.value = 'Unlocked files added. Review the queue, then explicitly upload or resume.';
+};
+const protect = () => {
+  if (busy.value) return;
+  const rows = queue.value.filter(row => row.state !== 'completed').map(row => ({ file: row.file, xmlFormId: row.xmlFormId, instanceId: row.instanceId, priority: row.priority, ...challengeContext(row) }));
+  if (rows.length) emit('protect', rows);
 };
 defineExpose({ restoreFiles });
 const run = async () => {

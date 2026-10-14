@@ -3,6 +3,7 @@
   <section class="offline-media" aria-labelledby="offline-media-title">
     <h2 id="offline-media-title">Encrypted offline media</h2>
     <p>Keep up to 10 files and 20 MB in an encrypted package for 24 hours. Prepare this page for offline use before leaving connectivity. Browser storage may be cleared by the device; export a copy if needed.</p>
+    <p>To preserve a challenged camera photo, use Prepare queue for encrypted storage above, then explicitly encrypt it here. Its challenge still expires after 20 minutes; package storage does not extend the upload deadline.</p>
     <p>One package is saved per browser. A successful save or import replaces it. Expiry follows this device's clock; use Delete saved media to remove the encrypted copy.</p>
     <p>A courier can carry the encrypted file. Share the passphrase separately with an authorized collector. Upload requires the original collector's App User access and submission XML already synced. Encryption verifies stored bytes, not the capture or the courier's identity.</p>
     <fieldset :disabled="busy">
@@ -10,7 +11,7 @@
       <label>Offline media submission instance ID <input v-model.trim="instanceId" class="form-control" maxlength="1000"></label>
       <label>Files to protect <input type="file" multiple accept="image/*,audio/*,video/*" @change="selectFiles"></label>
       <label>Media package passphrase <input v-model="passphrase" type="password" class="form-control" minlength="12" maxlength="128" autocomplete="off"></label>
-      <ul v-if="selected.length"><li v-for="row of selected" :key="`${row.xmlFormId}/${row.instanceId}/${row.file.name}`">Selected: {{ row.file.name }} · {{ row.xmlFormId }} · {{ row.instanceId }}</li></ul>
+      <ul v-if="selected.length"><li v-for="row of selected" :key="`${row.xmlFormId}/${row.instanceId}/${row.file.name}`">Selected: {{ row.file.name }} · {{ row.xmlFormId }} · {{ row.instanceId }}<span v-if="row.challengeId"> · Challenge {{ row.challengeNonce.slice(0, 8).toUpperCase() }} expires {{ new Date(row.challengeExpiresAt).toLocaleString() }}{{ row.captureLocation ? ' · Includes device-reported location' : '' }}</span></li></ul>
       <div class="actions">
         <button type="button" class="btn btn-primary" :disabled="!selected.length" @click="save">Encrypt and save files</button>
         <button type="button" class="btn btn-default" @click="unlock">Unlock saved media</button>
@@ -27,13 +28,13 @@
     <p v-if="error" role="alert">{{ error }}</p>
     <template v-if="opened.length">
       <p>Unlocked until {{ new Date(expiresAt).toLocaleString() }}. Lock this package before sharing the device.</p>
-      <ul><li v-for="row of opened" :key="`${row.xmlFormId}/${row.instanceId}/${row.file.name}`">{{ row.file.name }} · {{ row.xmlFormId }} · {{ Math.ceil(row.file.size / 1024) }} KB</li></ul>
+      <ul><li v-for="row of opened" :key="`${row.xmlFormId}/${row.instanceId}/${row.file.name}`">{{ row.file.name }} · {{ row.xmlFormId }} · {{ Math.ceil(row.file.size / 1024) }} KB<span v-if="row.challengeId"> · Challenge {{ row.challengeNonce.slice(0, 8).toUpperCase() }} expires {{ new Date(row.challengeExpiresAt).toLocaleString() }}{{ row.captureLocation ? ' · Includes device-reported location' : '' }}</span></li></ul>
     </template>
   </section>
 </template>
 <script setup>
 import { onBeforeUnmount, ref, watch } from 'vue';
-import { ARCHIVE_LIMIT, decryptMedia, encryptMedia, storedMedia } from '../../util/offline-media';
+import { ARCHIVE_LIMIT, challengeContext, decryptMedia, encryptMedia, storedMedia } from '../../util/offline-media';
 
 defineOptions({ name: 'FieldDataOfflineMedia' });
 const props = defineProps({ connected: Boolean, sessionId: { type: Number, required: true } });
@@ -64,6 +65,12 @@ const selectFiles = event => {
   selected.value = files.map(file => ({ file, xmlFormId: xmlFormId.value, instanceId: instanceId.value, priority: file.size > 1024 * 1024 ? 3 : 2 }));
   message.value = `${files.length} files selected for encryption.`;
 };
+const stageFiles = rows => {
+  if (busy.value || !props.connected) return;
+  selected.value = rows.map(row => ({ file: row.file, xmlFormId: row.xmlFormId, instanceId: row.instanceId, priority: row.priority, ...challengeContext(row) }));
+  message.value = 'Queue selected for encryption. The previous saved package remains until you explicitly encrypt and save these files.';
+};
+defineExpose({ stageFiles });
 const save = () => perform(async isCurrent => {
   const record = await encryptMedia(selected.value, passphrase.value);
   if (!isCurrent()) return;
@@ -106,6 +113,7 @@ const remove = () => perform(async isCurrent => {
 const restore = () => {
   if (busy.value || !props.connected || !opened.value.length) return;
   if (expiresAt.value <= Date.now()) { lock(); return; }
+  if (opened.value.some(row => row.challengeId && Date.parse(row.challengeExpiresAt) <= Date.now())) { error.value = 'A capture challenge expired. Its image remains in the encrypted package, but it cannot be restored for challenged upload. Start a new challenge and photo; the server enforces the original deadline.'; return; }
   emit('restore', opened.value);
 };
 </script>
