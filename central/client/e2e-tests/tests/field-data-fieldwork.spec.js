@@ -752,9 +752,9 @@ const routeCapture = async page => {
     const request = route.request(); expect(request.headers().authorization).toBe(`Bearer ${key}`);
     if (request.method() === 'GET') return route.fulfill({ json: { items: challenge ? [challenge] : [] } });
     if (request.method() === 'DELETE') { challenge.status = 'cancelled'; return route.fulfill({ json: { cancelled: true } }); }
-    issues += 1; const body = request.postDataJSON();
+    issues += 1; const body = request.postDataJSON(); const issuedAt = Date.now();
     challenge = { ...body, nonce: `abcdef01${'2'.repeat(56)}`, code: 'ABCDEF01', status: 'issued',
-      issuedAt: new Date().toISOString(), expiresAt: new Date(Date.now() + 20 * 60000).toISOString(), boundAt: null, contentHash: null, sceneReview: 'not-assessed' };
+      issuedAt: new Date(issuedAt).toISOString(), expiresAt: new Date(issuedAt + 20 * 60000).toISOString(), boundAt: null, contentHash: null, sceneReview: 'not-assessed' };
     return route.fulfill({ json: challenge });
   });
   return { count: () => issues };

@@ -93,3 +93,13 @@ test('creation failures are never retried', async () => {
   await assert.rejects(verifyOfflineSigning({ ...verifyCfg, fetcher }), /could not reach/);
   assert.equal(posts, 1);
 });
+
+test('verification errors identify the request stage without credentials or bodies', async () => {
+  const fetcher = async () => new Response('private body must not be logged', { status: 503 });
+  await assert.rejects(verifyOfflineSigning({ ...verifyCfg, fetcher }), error => {
+    assert.match(error.message, /HTTP 503 \(GET \/field-data-build.json\)/);
+    assert.equal(error.message.includes(verifyCfg.sessionToken), false);
+    assert.equal(error.message.includes('private body'), false);
+    return true;
+  });
+});
