@@ -16,6 +16,7 @@
           <p>Issued <record-date-time :iso="item.issuedAt"/> · Expires <record-date-time :iso="item.expiresAt"/></p>
           <p v-if="item.boundAt">Linked <record-date-time :iso="item.boundAt"/> · {{ item.bindingCurrent ? 'References the current attachment' : 'Current attachment changed or is unavailable' }}</p>
           <submission-capture-assessment :item="item" :project-id="projectId" :xml-form-id="xmlFormId" :instance-id="instanceId" @saved="reload('Photo assessment saved.')" @refresh="reload('The attachment or assessment changed. Review the refreshed history before saving again.')"/>
+          <submission-capture-witness v-if="item.status === 'bound'" :item="item" :project-id="projectId" :xml-form-id="xmlFormId" :instance-id="instanceId"/>
           <details v-if="item.contentHash"><summary>Bound image fingerprint</summary><code>{{ item.contentHash }}</code></details>
         </li>
       </ul>
@@ -26,6 +27,7 @@
 import { onBeforeUnmount, ref, watch } from 'vue';
 import RecordDateTime from '../record-date-time.vue';
 import SubmissionCaptureAssessment from './capture-assessment.vue';
+import SubmissionCaptureWitness from './capture-witness.vue';
 import useRequest from '../../composables/request';
 import { apiPaths } from '../../util/request';
 import { validHistory } from '../../util/capture-assessment';

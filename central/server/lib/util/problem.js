@@ -193,6 +193,7 @@ const problems = {
     mediaUploadInvalid: problem(400.65, () => 'Upload manifest, chunk length or content hash is invalid.'),
     captureChallengeInvalid: problem(400.66, () => 'Capture challenge or image details are invalid.'),
     captureAssessmentInvalid: problem(400.67, () => 'Capture assessment decisions, notes or retry identity are invalid.'),
+    captureWitnessInvalid: problem(400.68, () => 'Witness statement, signature or signing context is invalid.'),
 
     // no detail information for security reasons.
     authenticationFailed: problem(401.2, () => 'Could not authenticate with the provided credentials.'),
@@ -325,6 +326,7 @@ const problems = {
     mediaUploadQuota: problem(409.44, () => 'Temporary upload capacity is full. Finish or cancel pending uploads, or retry after expiry.'),
     captureChallengeConflict: problem(409.45, () => 'Capture challenge expired, was consumed, or the same image was already challenged. Start a new capture.'),
     captureAssessmentTargetChanged: problem(409.46, () => 'The challenged attachment changed or is no longer current. Its assessment is outdated.'),
+    captureWitnessConflict: problem(409.47, () => 'A witness statement already exists for this account, or the witness limit was reached.'),
     reviewRevisionStale: problem(412.1, () => 'The review case has changed. Refresh and retry.'),
     assetRevisionStale: problem(412.2, () => 'The asset has changed. Reload its history before saving.'),
     reverificationRevisionStale: problem(412.3, () => 'The re-verification task has changed. Reload it before saving.'),

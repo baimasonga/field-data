@@ -1,7 +1,7 @@
 /* eslint-disable no-await-in-loop */
 // Copyright 2026 Field Data Developers. Licensed under the Apache License, Version 2.0.
 const assert = require('node:assert/strict');
-const { createHash, randomUUID } = require('node:crypto');
+const { createHash, randomUUID, generateKeyPairSync, sign, verify, createPublicKey } = require('node:crypto');
 const { sql } = require('slonik');
 const { testService, testServiceFullTrx } = require('../setup');
 const xml = require('../../data/xml');
@@ -264,5 +264,123 @@ describe('api: assessment and attachment replacement race', () => {
     const item = (await alice.get('/v1/projects/1/forms/binaryType/submissions/both/capture-challenges').expect(200)).body.items[0];
     assert.equal(item.canAssess, false); assert.equal(item.bindingCurrent, false);
     assert.equal(item.sceneReview, results[0].status === 200 ? 'outdated' : 'not-assessed');
+  }));
+});
+
+const witnessBody = (context, changes = {}) => {
+  const { privateKey, publicKey } = generateKeyPairSync('ec', { namedCurve: 'prime256v1' });
+  const requestId = randomUUID(); const signedAt = new Date().toISOString(); const statement = 'I personally observed the pump and matching paper code.';
+  const fields = { requestId, signedAt, statement, ...changes };
+  const payload = Buffer.from(JSON.stringify({ ...context, ...fields })).toString('base64url');
+  return { ...fields, payload, publicKey: publicKey.export({ format: 'jwk' }),
+    signature: sign('sha256', Buffer.from(payload, 'base64url'), { key: privateKey, dsaEncoding: 'ieee-p1363' }).toString('base64url') };
+};
+describe('api: signed capture witness statements', () => {
+  it('verifies image-scoped signatures, records authenticated identity, and idempotently replays lost acknowledgements', testService(async (service, c) => {
+    const { alice, path } = await assessedSetup(service); const url = `${path}/witnesses`;
+    const view = (await alice.get(url).expect(200)).body;
+    assert.equal(view.canWitness, true); assert.equal(view.context.contentHash, hash(png));
+    const body = witnessBody(view.context); const first = await alice.post(url).send(body).expect(200);
+    const record = first.body.witness;
+    assert.equal(record.witnessId, view.context.witnessId); assert.equal(record.payload, body.payload);
+    assert.ok(verify('sha256', Buffer.from(record.payload, 'base64url'), { key: createPublicKey({ key: record.publicKey, format: 'jwk' }), dsaEncoding: 'ieee-p1363' }, Buffer.from(record.signature, 'base64url')));
+    const replay = await alice.post(url).send(body).expect(200); assert.equal(replay.body.witness.id, record.id);
+    assert.equal(replay.headers['idempotency-status'], 'replayed');
+    const history = (await alice.get(url).expect(200)).body; assert.equal(history.canWitness, false); assert.equal(history.items.length, 1);
+    await alice.post(url).send(witnessBody(view.context)).expect(409);
+    await c.db.query(sql`UPDATE actors SET "displayName" = 'New name' WHERE id = ${record.witnessId}`);
+    assert.equal((await alice.get(url).expect(200)).body.items[0].witnessName, record.witnessName);
+    assert.equal(await c.db.oneFirst(sql`SELECT count(*)::integer FROM audits WHERE action = 'field_data.capture.witnessed'`), 1);
+  }));
+  it('rejects altered statements, signatures, actor or image scope, unknown fields, invalid keys and stale new signatures', testService(async service => {
+    const { alice, path } = await assessedSetup(service); const url = `${path}/witnesses`;
+    const { context } = (await alice.get(url).expect(200)).body; const body = witnessBody(context);
+    for (const change of [{ statement: 'Tampered statement' }, { signature: 'a'.repeat(86) }, { extra: true }, { publicKey: { ...body.publicKey, d: 'private' } }]) await alice.post(url).send({ ...body, ...change }).expect(400);
+    for (const changed of [{ ...context, witnessId: context.witnessId + 1 }, { ...context, contentHash: 'a'.repeat(64) }, { ...context, projectId: 2 }]) await alice.post(url).send(witnessBody(changed)).expect(400);
+    await alice.post(url).send(witnessBody(context, { signedAt: new Date(Date.now() - 11 * 60000).toISOString() })).expect(400);
+    assert.equal((await alice.get(url).expect(200)).body.items.length, 0);
+  }));
+  it('keeps replaced-image statements readable and retryable but blocks new attestations', testService(async service => {
+    const { alice, path } = await assessedSetup(service); const url = `${path}/witnesses`;
+    const { context } = (await alice.get(url).expect(200)).body; const body = witnessBody(context);
+    await alice.post(url).send(body).expect(200);
+    await alice.post('/v1/projects/1/forms/binaryType/submissions/both/attachments/here_is_file2.jpg').set('Content-Type', 'image/png').send(Buffer.concat([png, Buffer.from('new')])).expect(200);
+    const view = (await alice.get(url).expect(200)).body; assert.equal(view.bindingCurrent, false); assert.equal(view.items.length, 1); assert.equal(view.context, null);
+    assert.equal((await alice.post(url).send(body).expect(200)).body.bindingCurrent, false);
+    await alice.post(url).send(witnessBody(context)).expect(409);
+  }));
+  it('permits viewer history but blocks collectors, viewers, revoked grants and deleted sources', testService(async service => {
+    const { alice, collector, path } = await assessedSetup(service); const url = `${path}/witnesses`;
+    const { context } = (await alice.get(url).expect(200)).body; const body = witnessBody(context);
+    const viewer = await service.login('chelsea'); const { id } = (await viewer.get('/v1/users/current').expect(200)).body;
+    await alice.post(`/v1/projects/1/assignments/viewer/${id}`).expect(200);
+    assert.equal((await viewer.get(url).expect(200)).body.canWitness, false);
+    await viewer.post(url).send(body).expect(404);
+    await service.get(url).expect(401);
+    await service.post(url).set('Authorization', `Bearer ${collector.token}`).send(body).expect(404);
+    await alice.delete(`/v1/projects/1/assignments/viewer/${id}`).expect(200); await viewer.get(url).expect(404);
+    await alice.delete('/v1/projects/1/forms/binaryType/submissions/both').expect(200);
+    await alice.get(url).expect(404); await alice.post(url).send(body).expect(404);
+  }));
+  it('serializes duplicate signatures and competing statements from the same account', testServiceFullTrx(async service => {
+    const { alice, path } = await assessedSetup(service); const url = `${path}/witnesses`;
+    const { context } = (await alice.get(url).expect(200)).body; const body = witnessBody(context);
+    const results = await Promise.all([alice.post(url).send(body), alice.post(url).send(body)]);
+    assert.deepEqual(results.map(r => r.status), [200, 200]); assert.equal(results[0].body.witness.id, results[1].body.witness.id);
+  }));
+  it('rechecks original-byte integrity and archived projects before commit', testService(async (service, c) => {
+    const { alice, challenge, path } = await assessedSetup(service); const url = `${path}/witnesses`;
+    const { context } = (await alice.get(url).expect(200)).body;
+    await alice.patch('/v1/projects/1').send({ archived: true }).expect(200);
+    await alice.post(url).send(witnessBody(context)).expect(409);
+    await alice.patch('/v1/projects/1').send({ archived: false }).expect(200);
+    await c.db.query(sql`UPDATE blobs SET content = ${sql.binary(Buffer.from('corrupt'))} WHERE id = (SELECT "blobId" FROM field_data_capture_challenges WHERE id = ${challenge.id})`);
+    await alice.post(url).send(witnessBody(context)).expect(409);
+  }));
+});
+
+describe('api: capture witness lifecycle and bounds', () => {
+  it('rechecks witness grants after context loading and retains read-only history after revocation', testService(async service => {
+    const { alice, path } = await assessedSetup(service); const url = `${path}/witnesses`;
+    const witness = await service.login('chelsea'); const { id } = (await witness.get('/v1/users/current').expect(200)).body;
+    await alice.post(`/v1/projects/1/assignments/manager/${id}`).expect(200);
+    const { context } = (await witness.get(url).expect(200)).body; const body = witnessBody(context);
+    await alice.delete(`/v1/projects/1/assignments/manager/${id}`).expect(200);
+    await witness.post(url).send(body).expect(404);
+    await alice.post(`/v1/projects/1/assignments/manager/${id}`).expect(200);
+    await witness.post(url).send(body).expect(200);
+    await alice.delete(`/v1/projects/1/assignments/manager/${id}`).expect(200);
+    await alice.post(`/v1/projects/1/assignments/viewer/${id}`).expect(200);
+    const view = (await witness.get(url).expect(200)).body; assert.equal(view.items.length, 1); assert.equal(view.canWitness, false);
+    await witness.post(url).send(body).expect(404);
+  }));
+  it('keeps superseded statements readable while blocking new attestations', testService(async service => {
+    const { alice, path } = await assessedSetup(service); const url = `${path}/witnesses`;
+    const { context } = (await alice.get(url).expect(200)).body; await alice.post(url).send(witnessBody(context)).expect(200);
+    await alice.post('/v1/projects/1/submission').set('X-OpenRosa-Version', '1.0')
+      .attach('xml_submission_file', Buffer.from(xml.instances.binaryType.both.replace('<instanceID>both', '<deprecatedID>both</deprecatedID><instanceID>both2')), { filename: 'data.xml' }).expect(201);
+    const view = (await alice.get(url).expect(200)).body; assert.equal(view.items.length, 1); assert.equal(view.bindingCurrent, false); assert.equal(view.context, null);
+    await alice.post(url).send(witnessBody(context)).expect(409);
+  }));
+  it('caps witnesses at ten authenticated accounts', testService(async service => {
+    const { alice, path } = await assessedSetup(service); const url = `${path}/witnesses`;
+    const { context } = (await alice.get(url).expect(200)).body; const original = witnessBody(context);
+    for (let i = 0; i < 10; i += 1) {
+      const email = `witness${i}@example.org`; const password = 'test-only-password';
+      const { id } = (await alice.post('/v1/users').send({ email, password, displayName: `Witness ${i}` }).expect(200)).body;
+      await alice.post(`/v1/projects/1/assignments/manager/${id}`).expect(200);
+      const user = await service.login({ email, password }); const signing = (await user.get(url).expect(200)).body.context;
+      await user.post(url).send(witnessBody(signing)).expect(200);
+    }
+    const view = (await alice.get(url).expect(200)).body; assert.equal(view.items.length, 10); assert.equal(view.canWitness, false); assert.equal(view.context, null);
+    await alice.post(url).send(original).expect(409);
+  }));
+  it('never treats a witness statement as current after a concurrent attachment replacement', testServiceFullTrx(async service => {
+    const { alice, path } = await assessedSetup(service); const url = `${path}/witnesses`;
+    const { context } = (await alice.get(url).expect(200)).body;
+    const results = await Promise.all([alice.post(url).send(witnessBody(context)), alice.post('/v1/projects/1/forms/binaryType/submissions/both/attachments/here_is_file2.jpg')
+      .set('Content-Type', 'image/png').send(Buffer.concat([png, Buffer.from('replacement')]))]);
+    assert.ok([200, 409].includes(results[0].status)); assert.equal(results[1].status, 200);
+    const view = (await alice.get(url).expect(200)).body; assert.equal(view.bindingCurrent, false); assert.equal(view.canWitness, false);
   }));
 });

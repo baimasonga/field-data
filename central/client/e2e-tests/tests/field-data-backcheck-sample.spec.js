@@ -2,6 +2,7 @@
 // O3 random backcheck sample in the browser: docs/field-intelligence/O3-backcheck-sample.md
 import { expect, test } from '@playwright/test';
 import { readFile } from 'node:fs/promises';
+import { createPublicKey, verify } from 'node:crypto';
 
 const appUrl = process.env.ODK_URL || 'http://127.0.0.1:8989';
 const managerVerbs = ['project.read', 'project.update', 'form.read', 'form.list', 'submission.list', 'submission.read', 'submission.update'];
@@ -667,6 +668,7 @@ const assessmentEntry = (sequence, body = {}) => ({ id: `11111111-1111-4111-8111
 const setupAssessmentRecord = async (p, custom, verbs = managerVerbs) => {
   const errors = await api(p, verbs, async (route, path) => {
     if (await custom(route, path)) return true;
+    if (path.endsWith('/witnesses')) { await route.fulfill({ json: { items: [], bindingCurrent: true, canWitness: false, context: null } }); return true; }
     if (path.includes('.svc/Submissions(')) { await route.fulfill({ json: { value: [captureAssessmentRecord] } }); return true; }
     if (path.includes('/versions/')) { await route.fulfill({ json: { userAgent: 'Fixture' } }); return true; }
     if (path.endsWith('/diffs')) { await route.fulfill({ json: {} }); return true; }
@@ -745,4 +747,47 @@ test('a viewer reads and pages assessment history without decision controls', as
   await panel.getByRole('button', { name: 'Load earlier assessments' }).click();
   await expect(panel.locator('.assessment-history > li')).toHaveCount(12);
   await expect(panel.getByRole('button', { name: 'Load earlier assessments' })).toHaveCount(0);
+});
+
+const witnessContext = { purpose: 'field-data.capture-witness@1', challengeId: sampleId, projectId: 1, submissionDefId: 7,
+  xmlFormId: 'household', instanceId: 'uuid:one', name: 'scene.jpg', code: 'ABCDEF01', contentHash: 'b'.repeat(64), witnessId: 1 };
+test('a witness signs exact image bytes, retries an interrupted submission, and exports a verifiable statement on mobile', async ({ page: p }) => {
+  const posts = []; let stored = null;
+  const errors = await setupAssessmentRecord(p, async (route, path) => {
+    if (path.endsWith('/capture-challenges')) { await route.fulfill({ json: { items: [reviewCapture] } }); return true; }
+    if (!path.endsWith('/witnesses')) return false;
+    if (route.request().method() === 'GET') {
+      await route.fulfill({ json: { items: stored ? [stored] : [], bindingCurrent: true, canWitness: !stored, context: stored ? null : witnessContext } }); return true;
+    }
+    const body = route.request().postDataJSON(); posts.push(body);
+    expect(verify('sha256', Buffer.from(body.payload, 'base64url'), { key: createPublicKey({ key: body.publicKey, format: 'jwk' }), dsaEncoding: 'ieee-p1363' }, Buffer.from(body.signature, 'base64url'))).toBe(true);
+    expect(JSON.parse(Buffer.from(body.payload, 'base64url').toString()).contentHash).toBe(reviewCapture.contentHash);
+    stored ??= { id: sampleId, witnessId: 1, witnessName: 'Witness', receivedAt: new Date().toISOString(), algorithm: 'ES256', payload: body.payload, publicKey: body.publicKey, signature: body.signature };
+    if (posts.length === 1) await route.abort('failed'); else await route.fulfill({ json: { witness: stored, bindingCurrent: true, replayed: true } });
+    return true;
+  });
+  const section = p.getByRole('region', { name: 'Signed witness statements' });
+  await section.getByLabel('Describe what you personally observed').fill('I observed the pump and matching paper code.');
+  await expect(section.getByRole('button', { name: 'Sign and submit witness statement' })).toBeDisabled();
+  await section.getByLabel('I reviewed the original challenged image and am signing my own statement for this photo.').check();
+  await section.getByRole('button', { name: 'Sign and submit witness statement' }).click();
+  await expect(section.getByRole('alert')).toContainText('Retry the same statement');
+  await section.getByRole('button', { name: 'Sign and submit witness statement' }).click();
+  await expect(section).toContainText('Signature verified'); expect(posts).toHaveLength(2); expect(posts[1]).toEqual(posts[0]);
+  await expect(section.getByRole('button', { name: 'Sign and submit witness statement' })).toHaveCount(0);
+  const [download] = await Promise.all([p.waitForEvent('download'), section.getByRole('button', { name: 'Download signed statement' }).click()]);
+  const exported = JSON.parse(await readFile(await download.path(), 'utf8')); expect(exported.payload).toBe(stored.payload); expect(exported.signature).toBe(stored.signature);
+  await p.setViewportSize({ width: 320, height: 700 });
+  expect(await p.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true); expect(errors).toEqual([]);
+});
+
+test('a viewer cannot sign and tampered witness signatures are not displayed as verified', async ({ page: p }) => {
+  await setupAssessmentRecord(p, async (route, path) => {
+    if (path.endsWith('/capture-challenges')) { await route.fulfill({ json: { items: [{ ...reviewCapture, canAssess: false }] } }); return true; }
+    if (path.endsWith('/witnesses')) { await route.fulfill({ json: { items: [{ algorithm: 'ES256', payload: 'tampered', signature: 'a'.repeat(86), publicKey: { kty: 'EC', crv: 'P-256' } }], bindingCurrent: false, canWitness: false, context: null } }); return true; }
+    return false;
+  }, viewerVerbs);
+  const section = p.getByRole('region', { name: 'Signed witness statements' });
+  await expect(section.getByRole('alert')).toContainText('could not be loaded or verified');
+  await expect(section).not.toContainText('Signature verified'); await expect(section.getByRole('button', { name: 'Sign and submit witness statement' })).toHaveCount(0);
 });
