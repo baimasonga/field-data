@@ -190,6 +190,8 @@ const problems = {
     recodeInvalid: problem(400.64, ({ field, reason }) =>
       `The recode rule is invalid: ${field} ${reason}.`),
 
+    mediaUploadInvalid: problem(400.65, () => 'Upload manifest, chunk length or content hash is invalid.'),
+
     // no detail information for security reasons.
     authenticationFailed: problem(401.2, () => 'Could not authenticate with the provided credentials.'),
 
@@ -317,6 +319,8 @@ const problems = {
     assetIdentityState: problem(409.41, ({ reason }) => `This change to the asset's identity is not possible: ${reason}.`),
     recodeConflict: problem(409.42, ({ reason }) =>
       `This recode rule cannot be changed: ${reason}.`),
+    mediaUploadConflict: problem(409.43, () => 'Upload offset, identity or target has changed. Refresh upload status and retry.'),
+    mediaUploadQuota: problem(409.44, () => 'Temporary upload capacity is full. Finish or cancel pending uploads, or retry after expiry.'),
     reviewRevisionStale: problem(412.1, () => 'The review case has changed. Refresh and retry.'),
     assetRevisionStale: problem(412.2, () => 'The asset has changed. Reload its history before saving.'),
     reverificationRevisionStale: problem(412.3, () => 'The re-verification task has changed. Reload it before saving.'),

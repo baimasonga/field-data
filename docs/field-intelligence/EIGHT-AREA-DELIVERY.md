@@ -259,3 +259,12 @@ explicit omissions and strict pre-storage validation. See
 [O18-offline-reverification.md](O18-offline-reverification.md).
 This supersedes earlier pending statements about snapshot inclusion for these
 tasks. Collect device acceptance, uploads, relays and unified routes remain pending.
+
+### R2 companion resumable media uploads
+
+A foreground companion queue recovers missing media for already received own
+submissions, with durable verified chunks, priority, pause/reselect recovery,
+quotas and atomic native attachment delivery. See
+[R2-resumable-media-uploads.md](R2-resumable-media-uploads.md).
+Native Collect resumption, priority XML queues, encrypted persistent media,
+background uploads, relay transport and device acceptance remain pending.

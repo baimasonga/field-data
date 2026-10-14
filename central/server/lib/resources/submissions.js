@@ -8,6 +8,7 @@
 // except according to the terms contained in the LICENSE file.
 
 const { always, identity } = require('ramda');
+const { sql } = require('slonik');
 const multer = require('multer');
 const sanitize = require('sanitize-filename');
 const { Blob, Form, Submission } = require('../model/frames');
@@ -488,7 +489,8 @@ module.exports = (service, endpoint, anonymousEndpoint) => {
 
     service.post(
       `${base}/:instanceId/attachments/:name`,
-      endpoint(async ({ Audits, Blobs, Forms, SubmissionAttachments, Submissions }, { params, headers, auth }, request) => {
+      endpoint(async (container, { params, headers, auth }, request) => {
+        const { Blobs, Forms, SubmissionAttachments, Submissions } = container;
         const form = await getForm(params, Forms);
         const verbs = await auth.verbsOn(form);
         if (!verbs.includes('submission.update') && !verbs.includes('submission.create')) {
@@ -511,14 +513,28 @@ module.exports = (service, endpoint, anonymousEndpoint) => {
 
         const blobId = await Blob.fromStream(request, headers['content-type'] || defaultMimetypeFor(params.name)).then(Blobs.ensure);
 
-        await SubmissionAttachments.attach(defId, params.name, blobId);
-
-        await Audits.log(auth.actor, 'submission.attachment.update', form, {
-          instanceId: params.instanceId,
-          submissionDefId: defId,
-          name: params.name,
-          oldBlobId: oldAttachment.blobId,
-          newBlobId: blobId
+        await container.transacting(async tx => {
+          const current = await tx.db.maybeOne(sql`SELECT sd.id, sd.root, sd."submitterId" FROM submission_defs sd
+            JOIN submissions s ON s.id = sd."submissionId" AND s."deletedAt" IS NULL AND s.draft = ${draft}
+            WHERE sd.id = ${defId} AND sd.current FOR SHARE OF sd, s`);
+          if (current == null) throw Problem.user.notFound();
+          const locked = await tx.db.maybeOne(sql`SELECT "blobId" FROM submission_attachments
+            WHERE "submissionDefId" = ${defId} AND name = ${params.name} FOR UPDATE`);
+          if (locked == null) throw Problem.user.notFound();
+          if (!canUpdateSubmissions) {
+            if (!auth.actor.isDefined() || current.submitterId !== auth.actor.get().id || !current.root) throw Problem.user.insufficientRights();
+            // A simultaneous retry may already have delivered the same bytes.
+            if (locked.blobId === blobId) return;
+            if (locked.blobId !== null) throw Problem.user.insufficientRights();
+          }
+          await tx.SubmissionAttachments.attach(defId, params.name, blobId);
+          await tx.Audits.log(auth.actor, 'submission.attachment.update', form, {
+            instanceId: params.instanceId,
+            submissionDefId: defId,
+            name: params.name,
+            oldBlobId: locked.blobId,
+            newBlobId: blobId
+          });
         });
 
         return success();
