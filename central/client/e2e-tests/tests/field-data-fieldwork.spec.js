@@ -950,3 +950,33 @@ test('a location reading that ages before capture is omitted from the photo uplo
   await queue.getByRole('button', { name: 'Upload or resume queue' }).click(); await expect(queue.getByRole('status')).toContainText('Queue finished');
   expect(transfers.manifest().captureLocation).toBeUndefined();
 });
+
+test('encrypted challenged photos recover exact metadata and bytes after reload without persisting credentials', async ({ page }) => {
+  const panel = await openCaptureCamera(page); await mockLocation(page); const transfers = await routePhotoUpload(page);
+  await panel.getByLabel('Include an optional location reading with this photo').check(); await panel.getByRole('button', { name: 'Read location for photo' }).click();
+  await expect(panel).toContainText('Reading ready'); await panel.getByRole('button', { name: 'Capture photo and add to queue' }).click();
+  const queue = page.getByRole('region', { name: 'Recover media uploads' }); const vault = page.getByRole('region', { name: 'Encrypted offline media' });
+  await queue.getByRole('button', { name: 'Prepare queue for encrypted storage' }).click();
+  await expect(vault).toContainText('Challenge ABCDEF01'); await expect(vault).toContainText('Includes device-reported location');
+  await vault.getByLabel('Media package passphrase').fill(mediaPhrase); await vault.getByRole('button', { name: 'Encrypt and save files' }).click();
+  await expect(vault.getByRole('status')).toContainText('Encrypted media saved');
+  const stored = JSON.stringify(await storedMediaRecord(page)); expect(stored).not.toContain('abcdef01'); expect(stored).not.toContain('own-camera-source'); expect(stored).not.toContain('sampledAt'); expect(stored).not.toContain(key);
+  expect(transfers.starts()).toBe(0);
+  await page.reload(); await connect(page); await vault.getByLabel('Media package passphrase').fill(mediaPhrase); await vault.getByRole('button', { name: 'Unlock saved media' }).click();
+  await expect(vault).toContainText('Challenge ABCDEF01'); await vault.getByRole('button', { name: 'Add unlocked files to upload queue' }).click();
+  await expect(queue).toContainText('Includes device-reported location'); await queue.getByRole('button', { name: 'Upload or resume queue' }).click();
+  await expect(queue.getByRole('status')).toContainText('Queue finished'); expect(transfers.manifest().challengeNonce).toBe(`abcdef01${'2'.repeat(56)}`);
+  expect(transfers.manifest().captureLocation.latitude).toBe(8.48); expect(transfers.completed()).toBe(1);
+  await page.setViewportSize({ width: 320, height: 700 }); expect(await page.evaluate(() => document.documentElement.scrollWidth <= globalThis.innerWidth)).toBe(true);
+});
+
+test('expired challenges remain decryptable but cannot be restored for challenged upload', async ({ page }) => {
+  const panel = await openCaptureCamera(page); await page.clock.install(); await panel.getByRole('button', { name: 'Capture photo and add to queue' }).click();
+  const queue = page.getByRole('region', { name: 'Recover media uploads' }); const vault = page.getByRole('region', { name: 'Encrypted offline media' });
+  await queue.getByRole('button', { name: 'Prepare queue for encrypted storage' }).click();
+  await vault.getByLabel('Media package passphrase').fill(mediaPhrase); await vault.getByRole('button', { name: 'Encrypt and save files' }).click();
+  await expect(vault.getByRole('status')).toContainText('Encrypted media saved'); await page.clock.fastForward(21 * 60000);
+  await vault.getByLabel('Media package passphrase').fill(mediaPhrase); await vault.getByRole('button', { name: 'Unlock saved media' }).click();
+  await expect(vault).toContainText('Challenge ABCDEF01'); await vault.getByRole('button', { name: 'Add unlocked files to upload queue' }).click();
+  await expect(vault.getByRole('alert')).toContainText('capture challenge expired');
+});

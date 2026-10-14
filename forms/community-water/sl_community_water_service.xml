@@ -1,0 +1,432 @@
+<?xml version="1.0"?>
+<h:html xmlns="http://www.w3.org/2002/xforms" xmlns:h="http://www.w3.org/1999/xhtml" xmlns:ev="http://www.w3.org/2001/xml-events" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:jr="http://openrosa.org/javarosa" xmlns:orx="http://openrosa.org/xforms" xmlns:odk="http://www.opendatakit.org/xforms">
+  <h:head>
+    <h:title>Sierra Leone: Community Water and Sanitation</h:title>
+    <model odk:xforms-version="1.0.0">
+      <instance>
+        <data id="sl_community_water_service" version="2026101401">
+          <start/>
+          <end/>
+          <intro/>
+          <consent/>
+          <declined/>
+          <visit>
+            <interview_unit/>
+            <visit_date/>
+            <district/>
+            <community/>
+            <site_code/>
+            <water_source/>
+            <other_source/>
+            <functioning/>
+            <round_trip_minutes/>
+            <year_round/>
+            <safe_storage/>
+            <sanitation/>
+            <handwashing/>
+            <priority_needs/>
+            <other_need/>
+            <location_consent/>
+            <water_point_location/>
+            <water_point_photo/>
+            <notes/>
+            <interpretation/>
+          </visit>
+          <meta>
+            <instanceID/>
+            <instanceName/>
+          </meta>
+        </data>
+      </instance>
+      <instance id="yes_no">
+        <root>
+          <item>
+            <name>yes</name>
+            <label>Yes</label>
+          </item>
+          <item>
+            <name>no</name>
+            <label>No</label>
+          </item>
+        </root>
+      </instance>
+      <instance id="yes_no_unknown">
+        <root>
+          <item>
+            <name>yes</name>
+            <label>Yes</label>
+          </item>
+          <item>
+            <name>no</name>
+            <label>No</label>
+          </item>
+          <item>
+            <name>unknown</name>
+            <label>Unknown</label>
+          </item>
+        </root>
+      </instance>
+      <instance id="interview_unit">
+        <root>
+          <item>
+            <name>household</name>
+            <label>Household respondent</label>
+          </item>
+          <item>
+            <name>community</name>
+            <label>Community representative</label>
+          </item>
+        </root>
+      </instance>
+      <instance id="district">
+        <root>
+          <item>
+            <name>bo</name>
+            <label>Bo</label>
+          </item>
+          <item>
+            <name>bombali</name>
+            <label>Bombali</label>
+          </item>
+          <item>
+            <name>bonthe</name>
+            <label>Bonthe</label>
+          </item>
+          <item>
+            <name>falaba</name>
+            <label>Falaba</label>
+          </item>
+          <item>
+            <name>kailahun</name>
+            <label>Kailahun</label>
+          </item>
+          <item>
+            <name>kambia</name>
+            <label>Kambia</label>
+          </item>
+          <item>
+            <name>karene</name>
+            <label>Karene</label>
+          </item>
+          <item>
+            <name>kenema</name>
+            <label>Kenema</label>
+          </item>
+          <item>
+            <name>koinadugu</name>
+            <label>Koinadugu</label>
+          </item>
+          <item>
+            <name>kono</name>
+            <label>Kono</label>
+          </item>
+          <item>
+            <name>moyamba</name>
+            <label>Moyamba</label>
+          </item>
+          <item>
+            <name>port_loko</name>
+            <label>Port Loko</label>
+          </item>
+          <item>
+            <name>pujehun</name>
+            <label>Pujehun</label>
+          </item>
+          <item>
+            <name>tonkolili</name>
+            <label>Tonkolili</label>
+          </item>
+          <item>
+            <name>western_rural</name>
+            <label>Western Area Rural</label>
+          </item>
+          <item>
+            <name>western_urban</name>
+            <label>Western Area Urban</label>
+          </item>
+        </root>
+      </instance>
+      <instance id="water_source">
+        <root>
+          <item>
+            <name>piped</name>
+            <label>Piped supply</label>
+          </item>
+          <item>
+            <name>borehole</name>
+            <label>Borehole / tube well</label>
+          </item>
+          <item>
+            <name>protected_well</name>
+            <label>Protected well</label>
+          </item>
+          <item>
+            <name>unprotected_well</name>
+            <label>Unprotected well</label>
+          </item>
+          <item>
+            <name>spring</name>
+            <label>Spring</label>
+          </item>
+          <item>
+            <name>rainwater</name>
+            <label>Rainwater</label>
+          </item>
+          <item>
+            <name>surface</name>
+            <label>River, stream, pond or other surface water</label>
+          </item>
+          <item>
+            <name>vendor</name>
+            <label>Water vendor / tanker</label>
+          </item>
+          <item>
+            <name>packaged</name>
+            <label>Bottled or sachet water</label>
+          </item>
+          <item>
+            <name>other</name>
+            <label>Other</label>
+          </item>
+        </root>
+      </instance>
+      <instance id="condition">
+        <root>
+          <item>
+            <name>yes</name>
+            <label>Functioning</label>
+          </item>
+          <item>
+            <name>partial</name>
+            <label>Partly functioning / intermittent</label>
+          </item>
+          <item>
+            <name>no</name>
+            <label>Not functioning</label>
+          </item>
+          <item>
+            <name>unknown</name>
+            <label>Unknown</label>
+          </item>
+        </root>
+      </instance>
+      <instance id="sanitation">
+        <root>
+          <item>
+            <name>flush</name>
+            <label>Flush or pour-flush toilet</label>
+          </item>
+          <item>
+            <name>pit_slab</name>
+            <label>Pit latrine with slab</label>
+          </item>
+          <item>
+            <name>pit_no_slab</name>
+            <label>Pit latrine without slab</label>
+          </item>
+          <item>
+            <name>shared</name>
+            <label>Shared / communal facility</label>
+          </item>
+          <item>
+            <name>none</name>
+            <label>No facility</label>
+          </item>
+          <item>
+            <name>other</name>
+            <label>Other / unknown</label>
+          </item>
+        </root>
+      </instance>
+      <instance id="needs">
+        <root>
+          <item>
+            <name>repair</name>
+            <label>Repair the water point</label>
+          </item>
+          <item>
+            <name>reliability</name>
+            <label>Improve reliability / seasonal access</label>
+          </item>
+          <item>
+            <name>distance</name>
+            <label>Reduce collection distance or waiting time</label>
+          </item>
+          <item>
+            <name>storage</name>
+            <label>Improve storage</label>
+          </item>
+          <item>
+            <name>sanitation</name>
+            <label>Improve sanitation</label>
+          </item>
+          <item>
+            <name>handwashing</name>
+            <label>Improve handwashing facilities</label>
+          </item>
+          <item>
+            <name>other</name>
+            <label>Other</label>
+          </item>
+          <item>
+            <name>none</name>
+            <label>None reported</label>
+          </item>
+        </root>
+      </instance>
+      <bind nodeset="/data/start" jr:preload="timestamp" type="dateTime" jr:preloadParams="start"/>
+      <bind nodeset="/data/end" jr:preload="timestamp" type="dateTime" jr:preloadParams="end"/>
+      <bind nodeset="/data/intro" readonly="true()" type="string"/>
+      <bind nodeset="/data/consent" type="string" required="true()"/>
+      <bind nodeset="/data/declined" readonly="true()" type="string" relevant=" /data/consent  = 'no'"/>
+      <bind nodeset="/data/visit" relevant=" /data/consent  = 'yes'"/>
+      <bind nodeset="/data/visit/interview_unit" type="string" required="true()"/>
+      <bind nodeset="/data/visit/visit_date" type="date" required="true()"/>
+      <setvalue ref="/data/visit/visit_date" event="odk-instance-first-load" value="today()"/>
+      <bind nodeset="/data/visit/district" type="string" required="true()"/>
+      <bind nodeset="/data/visit/community" type="string" required="true()" constraint="string-length(.) &lt;= 150" jr:constraintMsg="Use at most 150 characters."/>
+      <bind nodeset="/data/visit/site_code" type="string" required="true()" constraint="regex(., '^[A-Za-z0-9_-]{3,40}$')" jr:constraintMsg="Use 3–40 letters, numbers, underscores or hyphens."/>
+      <bind nodeset="/data/visit/water_source" type="string" required="true()"/>
+      <bind nodeset="/data/visit/other_source" type="string" required="true()" relevant=" /data/visit/water_source  = 'other'"/>
+      <bind nodeset="/data/visit/functioning" type="string" required="true()"/>
+      <bind nodeset="/data/visit/round_trip_minutes" type="int" constraint=". &gt;= 0 and . &lt;= 1440" jr:constraintMsg="Enter 0–1,440 minutes."/>
+      <bind nodeset="/data/visit/year_round" type="string" required="true()"/>
+      <bind nodeset="/data/visit/safe_storage" type="string" required="true()"/>
+      <bind nodeset="/data/visit/sanitation" type="string" required="true()"/>
+      <bind nodeset="/data/visit/handwashing" type="string" required="true()"/>
+      <bind nodeset="/data/visit/priority_needs" type="string" required="true()" constraint="not(selected(., 'none') and count-selected(.) &gt; 1)" jr:constraintMsg="Select None on its own."/>
+      <bind nodeset="/data/visit/other_need" type="string" required="true()" relevant="selected( /data/visit/priority_needs , 'other')"/>
+      <bind nodeset="/data/visit/location_consent" type="string" required="true()"/>
+      <bind nodeset="/data/visit/water_point_location" type="geopoint" relevant=" /data/visit/location_consent  = 'yes'"/>
+      <bind nodeset="/data/visit/water_point_photo" type="binary" orx:max-pixels="1600"/>
+      <bind nodeset="/data/visit/notes" type="string" constraint="string-length(.) &lt;= 1000" jr:constraintMsg="Use at most 1,000 characters."/>
+      <bind nodeset="/data/visit/interpretation" readonly="true()" type="string"/>
+      <bind nodeset="/data/meta/instanceID" type="string" readonly="true()" jr:preload="uid"/>
+      <bind nodeset="/data/meta/instanceName" type="string" calculate="if( /data/consent  = 'yes', concat( /data/visit/site_code , ' - ',  /data/visit/community ), 'Participation declined')"/>
+    </model>
+  </h:head>
+  <h:body>
+    <input ref="/data/intro">
+      <label>Sierra Leone community water and sanitation pilot. Explain the purpose and voluntary participation. Do not collect names, phone numbers or personal documents.</label>
+    </input>
+    <select1 ref="/data/consent">
+      <label>Has the respondent agreed to participate?</label>
+      <itemset nodeset="instance('yes_no')/root/item">
+        <value ref="name"/>
+        <label ref="label"/>
+      </itemset>
+    </select1>
+    <input ref="/data/declined">
+      <label>Thank the respondent and end the interview.</label>
+    </input>
+    <group ref="/data/visit">
+      <label>Community water service</label>
+      <select1 ref="/data/visit/interview_unit">
+        <label>Reporting unit</label>
+        <hint>Keep household reports separate from community-representative reports in analysis.</hint>
+        <itemset nodeset="instance('interview_unit')/root/item">
+          <value ref="name"/>
+          <label ref="label"/>
+        </itemset>
+      </select1>
+      <input ref="/data/visit/visit_date">
+        <label>Visit date</label>
+      </input>
+      <select1 ref="/data/visit/district">
+        <label>District</label>
+        <itemset nodeset="instance('district')/root/item">
+          <value ref="name"/>
+          <label ref="label"/>
+        </itemset>
+      </select1>
+      <input ref="/data/visit/community">
+        <label>Town, village or community</label>
+      </input>
+      <input ref="/data/visit/site_code">
+        <label>Water point or community reference</label>
+        <hint>Use your project reference, for example WASH-0001. Do not use a person's name.</hint>
+      </input>
+      <select1 ref="/data/visit/water_source">
+        <label>Main drinking-water source</label>
+        <itemset nodeset="instance('water_source')/root/item">
+          <value ref="name"/>
+          <label ref="label"/>
+        </itemset>
+      </select1>
+      <input ref="/data/visit/other_source">
+        <label>Specify the other source</label>
+      </input>
+      <select1 ref="/data/visit/functioning">
+        <label>Is the main water source functioning today?</label>
+        <itemset nodeset="instance('condition')/root/item">
+          <value ref="name"/>
+          <label ref="label"/>
+        </itemset>
+      </select1>
+      <input ref="/data/visit/round_trip_minutes">
+        <label>Reported round-trip time to collect water (minutes)</label>
+        <hint>Include waiting time. Leave blank if unknown.</hint>
+      </input>
+      <select1 ref="/data/visit/year_round">
+        <label>Is water reportedly available throughout the year?</label>
+        <itemset nodeset="instance('yes_no_unknown')/root/item">
+          <value ref="name"/>
+          <label ref="label"/>
+        </itemset>
+      </select1>
+      <select1 ref="/data/visit/safe_storage">
+        <label>Does the respondent report using a covered water-storage container?</label>
+        <itemset nodeset="instance('yes_no_unknown')/root/item">
+          <value ref="name"/>
+          <label ref="label"/>
+        </itemset>
+      </select1>
+      <select1 ref="/data/visit/sanitation">
+        <label>Main sanitation facility used by the community/household interviewed</label>
+        <itemset nodeset="instance('sanitation')/root/item">
+          <value ref="name"/>
+          <label ref="label"/>
+        </itemset>
+      </select1>
+      <select1 ref="/data/visit/handwashing">
+        <label>Is a handwashing place with water and soap available?</label>
+        <itemset nodeset="instance('yes_no_unknown')/root/item">
+          <value ref="name"/>
+          <label ref="label"/>
+        </itemset>
+      </select1>
+      <select ref="/data/visit/priority_needs">
+        <label>Reported priority service needs</label>
+        <itemset nodeset="instance('needs')/root/item">
+          <value ref="name"/>
+          <label ref="label"/>
+        </itemset>
+      </select>
+      <input ref="/data/visit/other_need">
+        <label>Specify another service need</label>
+      </input>
+      <select1 ref="/data/visit/location_consent">
+        <label>May the water-point location be recorded?</label>
+        <hint>Explain that authorized project reviewers can view this location. Refusal does not end the interview.</hint>
+        <itemset nodeset="instance('yes_no')/root/item">
+          <value ref="name"/>
+          <label ref="label"/>
+        </itemset>
+      </select1>
+      <input ref="/data/visit/water_point_location">
+        <label>Optional water-point location</label>
+        <hint>Record the water point, not a private home. Location accuracy is device-reported.</hint>
+      </input>
+      <upload ref="/data/visit/water_point_photo" mediatype="image/*">
+        <label>Optional water-point photo</label>
+        <hint>Obtain permission. Avoid people and personal documents. Leave blank if inappropriate.</hint>
+      </upload>
+      <input ref="/data/visit/notes" appearance="multiline">
+        <label>Observations and limitations</label>
+      </input>
+      <input ref="/data/visit/interpretation">
+        <label>This pilot records observations and respondent reports. It does not test water quality or certify safety. Follow your organization's referral procedure for reported service problems.</label>
+      </input>
+    </group>
+  </h:body>
+</h:html>

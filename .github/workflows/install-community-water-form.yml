@@ -1,0 +1,20 @@
+name: Install requested Sierra Leone water survey
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  install:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Create and verify the requested project's survey
+        env:
+          SYSADMIN_EMAIL: ${{ vars.SYSADMIN_EMAIL || 'admin@fielddata.quantixsl.com' }}
+          FIELD_DATA_ADMIN_PASSWORD: ${{ secrets.FIELD_DATA_ADMIN_PASSWORD }}
+        run: node cloudflare/install-community-water-form.mjs

@@ -7,6 +7,8 @@
 // or a missing Java cannot pass unnoticed in CI.
 const { strict: assert } = require('assert');
 const http = require('http');
+const { readFileSync } = require('node:fs');
+const path = require('node:path');
 const ExcelJS = require('exceljs');
 const xlsform = require('../../../lib/external/xlsform');
 const { testServiceWith } = require('../setup');
@@ -79,6 +81,17 @@ describe('api: XLSForm and XForms XML upload pipeline', () => {
     });
 
     const withCompiler = (test) => testServiceWith({ xlsform: (...args) => real(...args) }, test);
+
+    it('publishes the requested Sierra Leone water survey with editable source and correct metadata', withCompiler(async service => {
+      const alice = await service.login('alice');
+      const source = readFileSync(path.resolve(__dirname, '../../../../../forms/community-water/sl_community_water_service.xlsx'));
+      await upload(alice, '/v1/projects/1/forms?publish=true', source, XLSX).expect(200);
+      const form = (await alice.get('/v1/projects/1/forms/sl_community_water_service').expect(200)).body;
+      assert.equal(form.name, 'Sierra Leone: Community Water and Sanitation'); assert.equal(form.version, '2026101401'); assert.ok(form.publishedAt);
+      const compiled = (await alice.get('/v1/projects/1/forms/sl_community_water_service.xml').expect(200)).text;
+      assert.match(compiled, /location_consent/); assert.match(compiled, /count-selected/); assert.match(compiled, /Participation declined/);
+      await alice.get('/v1/projects/1/forms/sl_community_water_service.xlsx').expect(200);
+    }));
 
     it('compiles, publishes and accepts submissions for a form with skip logic, constraints, a repeat and GPS',
       withCompiler(async (service) => {

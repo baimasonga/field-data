@@ -323,3 +323,14 @@ absent location remains a valid workflow. This records a client assertion rather
 than proving presence or GPS authenticity. Hardware attestation, stronger sensor
 corroboration, native Collect integration, offline challenge packages and real-device
 acceptance remain pending. See [T4-device-reported-capture-location.md](T4-device-reported-capture-location.md).
+
+## R4 encrypted challenged-photo recovery
+
+The companion queue can prepare unfinished photos/files for explicit encryption.
+Version-two packages preserve challenge nonce/deadline and optional location context
+across reload and file transport, while retaining version-one compatibility. Explicit
+reconnect, unlock and upload remain required; no credentials or transport sessions
+are persisted. Expired challenges remain archived but cannot be restored for upload,
+and the server's original deadline remains authoritative. Native Collect queues,
+background sync, delegated custody and real-device acceptance remain pending.
+See [R4-offline-challenged-media.md](R4-offline-challenged-media.md).
