@@ -8,7 +8,7 @@ const pushId = '22222222-2222-4222-8222-222222222222';
 const key = 'fixture-app-user-key';
 const visitFixture = { id: '88888888-8888-4888-8888-888888888888', assetName: 'Water point', externalId: 'WP-01', assetType: 'water-point',
   predicate: 'condition', instruction: 'Check the pump handle. <img src=x onerror=alert(1)>', xmlFormId: 'verification',
-  formName: 'Independent verification', visitBy: '2026-10-20T00:00:00Z', dispatchedAt: '2026-10-09T10:00:00Z', actionable: true };
+  formName: 'Independent verification', plannedVisitDate: '2026-10-19', visitBy: '2026-10-20T00:00:00Z', dispatchedAt: '2026-10-09T10:00:00Z', actionable: true };
 const setup = async (page, { push = false, denied = false, fail = false, delayed = false, failDelete = false, offline = false, offlineOrigin = null, visits = [], failVisits = false, receipts = [], failReceipts = false, itineraries = [], failItineraries = false, offlineItineraries } = {}) => {
   const state = { inboxReads: 0, seen: false, registered: false, deleted: false, failures: fail ? 1 : 0, requests: [] };
   const errors = [];
@@ -342,6 +342,7 @@ test('inbox lists re-verification visits as plain text', async ({ page }) => {
   await expect(visits.locator('img')).toHaveCount(0);
   await expect(visits).toContainText('Independent verification');
   await expect(page.getByRole('button', { name: /complete|submit|acknowledge visit/i })).toHaveCount(0);
+  await expect(page.getByText('Planned visit: 2026-10-19 (UTC)')).toBeVisible();
   expect(state.requests.filter(request => request.url.endsWith('/reverification'))
     .every(request => request.authorization === `Bearer ${key}` && request.method === 'GET')).toBe(true);
   await page.getByRole('button', { name: 'Disconnect' }).click();

@@ -4,6 +4,7 @@ const { sql } = require('slonik');
 const { generateKeyPairSync } = require('node:crypto');
 const { testService, testServiceFullTrx } = require('../setup');
 const testData = require('../../data/xml');
+const { generateReverification } = require('../../../lib/worker/field-data-reverification');
 const { runAllocations } = require('../../../lib/worker/field-data-backcheck-allocation');
 /* eslint-disable no-await-in-loop */
 const root = '/v1/projects/1';
@@ -272,4 +273,29 @@ describe('api: calendar availability and route planning', () => {
     assert.equal((await get(users[1])).body.items[0].stops.length, 0);
   }));
 
+});
+
+describe('api: backchecks share capacity with re-verification', () => {
+  it('does not allocate the slot reserved by another task type, and reuses a cancelled slot', testService(async (service, c) => {
+    const { alice, users } = await setup(service, false, 1);
+    const date = new Date().toISOString().slice(0, 10);
+    const at = new Date();
+    const claim = (await alice.get(`${root}/forms/simple/submissions/visit0/claim`).expect(200)).body.currentVersionId;
+    const assets = '/v1/field-data/projects/1/assets';
+    const asset = await alice.post(assets).send({ requestId: '99999999-1111-4111-8111-111111111111',
+      name: 'Shared visit', externalId: 'SHARED-01', assetType: 'water-point', xmlFormId: 'simple' }).expect(201);
+    await alice.post(`${assets}/${asset.body.id}/observations`).set('If-Match', asset.headers.etag).send({ requestId: '99999999-2222-4222-8222-222222222222', claimVersionId: claim, predicate: 'condition', state: 'known',
+      value: 'working', validFrom: '2026-01-01T00:00:00Z', validityDays: 1, graceDays: 0, note: 'Observed.' }).expect(201);
+    await generateReverification(c.db);
+    const taskRoot = '/v1/field-data/projects/1/reverification-tasks';
+    const task = (await alice.get(taskRoot).expect(200)).body.items[0];
+    await calendar(alice, users[1], [0, 0, 0, 0, 0, 0, 0], [{ date, maxVisits: 1 }]);
+    await alice.post(`${taskRoot}/${task.id}/dispatch`).set('If-Match', '"task-1"').send({ requestId: '99999999-3333-4333-8333-333333333333', assigneeId: users[1].id, plannedVisitDate: date,
+      visitBy: new Date(at.getTime() + 2 * 86400000).toISOString(), note: 'Check condition.' }).expect(200);
+    await runAllocations(c.db, at);
+    assert.equal((await checks(c)).length, 0);
+    await alice.post(`${taskRoot}/${task.id}/cancel`).set('If-Match', '"task-2"').send({ requestId: '99999999-4444-4444-8444-444444444444', reasonCode: 'duplicate', note: 'One visit suffices.' }).expect(200);
+    await runAllocations(c.db, at);
+    assert.equal((await checks(c)).length, 1);
+  }));
 });

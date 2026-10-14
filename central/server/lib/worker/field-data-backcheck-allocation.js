@@ -6,6 +6,7 @@ const { Form } = require('../model/frames');
 const { assigneesFor } = require('../resources/field-data-backchecks');
 const { requestBackcheck, ALLOCATION_LOCK } = require('../util/backcheck-request');
 const { choose } = require('../util/automatic-backchecks');
+const { visitUsage } = require('../util/visit-capacity');
 const { chooseDated } = require('../util/backcheck-calendar');
 const { hashReviewAssignment } = require('../util/idempotency');
 const { runRequestId } = require('../util/backcheck-sample');
@@ -32,10 +33,7 @@ const runPolicy = (db, formId, projectId, now) => db.transaction(async trx => {
   const report = { at: now.toISOString(), examined: 0, assigned: 0, noIndependentCollector: 0, atCapacity: 0, noCalendarSlot: 0, failure: null };
   const calendars = new Map((await trx.any(sql`SELECT "actorId", settings FROM field_data_backcheck_calendars
     WHERE "projectId" = ${projectId}`)).map(row => [row.actorId, row.settings]));
-  const used = new Map((await trx.any(sql`SELECT b."assignedTo", to_char(b."plannedVisitDate", 'YYYY-MM-DD') AS date, count(*)::integer AS used
-    FROM field_data_backchecks b JOIN field_keys fk ON fk."actorId" = b."assignedTo" AND fk."projectId" = ${projectId}
-    WHERE b.status IN ('requested', 'linked') AND b."plannedVisitDate" IS NOT NULL GROUP BY b."assignedTo", b."plannedVisitDate"`))
-    .map(row => [`${row.assignedTo}|${row.date}`, row.used]));
+  const used = await visitUsage(trx, projectId);
   const dueAt = new Date(now.getTime() + policy.settings.dueDays * 86400000);
   const queue = async cursor => trx.any(sql`SELECT c.id FROM field_data_backcheck_sample_items i
     JOIN field_data_review_cases c ON c.id = i."caseId"

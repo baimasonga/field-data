@@ -7,6 +7,10 @@ const { getOrNotFound } = require('../util/promise');
 const Problem = require('../util/problem');
 const { timestamp } = require('../util/asset-freshness');
 
+const { ALLOCATION_LOCK } = require('../util/backcheck-request');
+const { visitUsage } = require('../util/visit-capacity');
+const { validDate, slotFor } = require('../util/backcheck-calendar');
+
 const STATUSES = ['queued', 'dispatched', 'closed', 'cancelled', 'superseded'];
 const REASON_CODES = ['access-blocked', 'safety', 'asset-removed', 'duplicate', 'other'];
 const invalid = () => Problem.user.assetInvalid();
@@ -50,6 +54,7 @@ const taskJoins = sql`FROM field_data_reverification_tasks t
 
 const present = (row, now = new Date()) => ({
   id: row.id, status: row.status, revision: row.revision, reason: row.reason,
+  plannedVisitDate: row.plannedVisitDate == null ? null : new Date(row.plannedVisitDate).toISOString().slice(0, 10),
   dueAt: row.dueAt, visitBy: row.visitBy, dispatchedAt: row.dispatchedAt, closedAt: row.closedAt,
   createdAt: row.createdAt, supersededAt: row.supersededAt,
   closureObservationId: row.closureObservationId,
@@ -205,7 +210,7 @@ module.exports = (service, endpoint) => {
     const project = await scope(container, auth, params);
     const task = await taskFor(container, auth, params);
     const events = await container.db.any(sql`SELECT e.id, e.sequence, e.action, e."actorId", e."assigneeId",
-      asg."displayName" AS "assigneeName", e."observationId", e."reasonCode", e."visitBy", e.note, e."recordedAt"
+      asg."displayName" AS "assigneeName", e."observationId", e."reasonCode", e."visitBy", to_char(e."plannedVisitDate", 'YYYY-MM-DD') AS "plannedVisitDate", e.note, e."recordedAt"
       FROM field_data_reverification_task_events e LEFT JOIN actors asg ON asg.id = e."assigneeId"
       WHERE e."taskId" = ${task.id} ORDER BY e.sequence LIMIT 500`);
     const candidates = task.status !== 'dispatched' ? [] : await container.db.any(sql`SELECT cv.id AS "claimVersionId",
@@ -231,9 +236,13 @@ module.exports = (service, endpoint) => {
       || !text(body.note, 2000)) throw invalid();
     const data = validate(body);
     const { requestId } = body;
-    const requestHash = hash({ action, ...data, note: body.note.trim() });
+    const hashData = { ...data };
+    // Preserve replay of requests written before optional calendar dates existed.
+    if (!Object.hasOwn(body, 'plannedVisitDate')) delete hashData.plannedVisitDate;
+    const requestHash = hash({ action, ...hashData, note: body.note.trim() });
     const actorId = auth.actor.map(actor => actor.id).orNull();
     const result = await container.transacting(async (tx) => {
+      await tx.db.query(sql`SELECT pg_advisory_xact_lock(${ALLOCATION_LOCK}, ${task.projectId})`);
       const locked = await tx.db.one(sql`SELECT * FROM field_data_reverification_tasks WHERE id = ${task.id} FOR UPDATE`);
       const [existing] = await tx.db.any(sql`SELECT "requestHash" FROM field_data_reverification_task_events
         WHERE "taskId" = ${task.id} AND "requestId" = ${requestId}`);
@@ -245,14 +254,14 @@ module.exports = (service, endpoint) => {
       const change = await apply({ tx, task: { ...task, ...locked }, data });
       const event = { taskId: task.id, sequence: locked.revision, action: change.event, actorId,
         assigneeId: change.assigneeId ?? null, observationId: change.observationId ?? null,
-        reasonCode: change.reasonCode ?? null, visitBy: change.visitBy ?? null };
+        reasonCode: change.reasonCode ?? null, visitBy: change.visitBy ?? null, plannedVisitDate: change.plannedVisitDate ?? null };
       await tx.db.query(sql`INSERT INTO field_data_reverification_task_events
-        ("taskId", sequence, action, "actorId", "assigneeId", "observationId", "reasonCode", "visitBy", note, "requestId", "requestHash")
+        ("taskId", sequence, action, "actorId", "assigneeId", "observationId", "reasonCode", "visitBy", "plannedVisitDate", note, "requestId", "requestHash")
         VALUES (${event.taskId}, ${event.sequence}, ${event.action}, ${event.actorId}, ${event.assigneeId},
-          ${event.observationId}, ${event.reasonCode}, ${event.visitBy}, ${body.note.trim()}, ${requestId}, ${requestHash})`);
+          ${event.observationId}, ${event.reasonCode}, ${event.visitBy}, ${event.plannedVisitDate}::date, ${body.note.trim()}, ${requestId}, ${requestHash})`);
       await audit(tx, actorId, task.formId, `field_data.asset.task.${change.event}`,
         { taskId: task.id, assetId: task.assetId, observationId: change.observationId ?? null,
-          assigneeId: change.assigneeId ?? null, reasonCode: change.reasonCode ?? null });
+          assigneeId: change.assigneeId ?? null, reasonCode: change.reasonCode ?? null, plannedVisitDate: change.plannedVisitDate ?? null });
       return { id: task.id, status: change.status, revision: locked.revision + 1, replayed: false };
     });
     response.set('Cache-Control', 'private, no-store');
@@ -261,10 +270,11 @@ module.exports = (service, endpoint) => {
     return result;
   });
 
-  service.post(`${root}/:taskId/dispatch`, transition('dispatch', ['assigneeId', 'visitBy'], (body) => {
+  service.post(`${root}/:taskId/dispatch`, transition('dispatch', ['assigneeId', 'visitBy', 'plannedVisitDate'], (body) => {
     if (!Number.isSafeInteger(body.assigneeId) || body.assigneeId < 1 || body.assigneeId > MAX_ID) throw invalid();
     if (body.visitBy != null && (!timestamp(body.visitBy) || new Date(body.visitBy) <= new Date())) throw invalid();
-    return { assigneeId: body.assigneeId, visitBy: body.visitBy == null ? null : new Date(body.visitBy).toISOString() };
+    if (body.plannedVisitDate != null && (!validDate(body.plannedVisitDate) || body.visitBy == null)) throw invalid();
+    return { plannedVisitDate: body.plannedVisitDate ?? null, assigneeId: body.assigneeId, visitBy: body.visitBy == null ? null : new Date(body.visitBy).toISOString() };
   }, async ({ tx, task, data }) => {
     if (!['queued', 'dispatched'].includes(task.status)) throw Problem.user.reverificationTaskState();
     // The collector must be an App User of this project who can submit to the asset's form.
@@ -275,15 +285,30 @@ module.exports = (service, endpoint) => {
         AND EXISTS (SELECT 1 FROM assignments ass JOIN roles r ON r.id = ass."roleId"
           WHERE ass."actorId" = fk."actorId" AND ass."acteeId" = f."acteeId" AND r.verbs ? 'submission.create')`);
     if (assignee == null) throw Problem.user.reverificationAssigneeInvalid();
+    if (data.plannedVisitDate != null) {
+      const active = await tx.db.oneFirst(sql`SELECT EXISTS (SELECT 1 FROM projects p JOIN forms f ON f."projectId" = p.id
+        WHERE p.id = ${task.projectId} AND p."deletedAt" IS NULL AND p.archived IS NOT TRUE
+          AND f.id = ${task.formId} AND f."deletedAt" IS NULL AND f.state = 'open')`);
+      if (!active) throw invalid();
+      const now = new Date();
+      const today = now.toISOString().slice(0, 10);
+      if (data.plannedVisitDate < today || data.plannedVisitDate > new Date(now.getTime() + 90 * 86400000).toISOString().slice(0, 10)
+        || data.plannedVisitDate > data.visitBy.slice(0, 10)) throw invalid();
+      const calendar = await tx.db.maybeOne(sql`SELECT settings FROM field_data_backcheck_calendars
+        WHERE "actorId" = ${data.assigneeId} AND "projectId" = ${task.projectId}`);
+      const used = await visitUsage(tx.db, task.projectId, task.id);
+      const start = new Date(Math.max(now.getTime(), Date.parse(`${data.plannedVisitDate}T00:00:00Z`)));
+      if (slotFor(data.assigneeId, calendar?.settings, used, start, new Date(data.visitBy)) !== data.plannedVisitDate) throw invalid();
+    }
     // Only a different collector restarts the evidence clock; changing the
     // deadline for the same collector keeps work already received.
     const sameCollector = task.status === 'dispatched' && task.assigneeId === data.assigneeId;
     await tx.db.query(sql`UPDATE field_data_reverification_tasks SET status = 'dispatched',
-      "assigneeId" = ${data.assigneeId}, "visitBy" = ${data.visitBy},
+      "assigneeId" = ${data.assigneeId}, "visitBy" = ${data.visitBy}, "plannedVisitDate" = ${data.plannedVisitDate}::date,
       "dispatchedAt" = ${sameCollector ? sql`${new Date(task.dispatchedAt).toISOString()}::timestamptz` : sql`clock_timestamp()`},
       revision = revision + 1 WHERE id = ${task.id}`);
     return { event: task.status === 'queued' ? 'dispatch' : 'reassign', status: 'dispatched',
-      assigneeId: data.assigneeId, visitBy: data.visitBy };
+      assigneeId: data.assigneeId, visitBy: data.visitBy, plannedVisitDate: data.plannedVisitDate };
   }));
 
   service.post(`${root}/:taskId/close`, transition('close', ['observationId'], (body) => {
@@ -332,7 +357,7 @@ module.exports = (service, endpoint) => {
   // visit needs: never the earlier value, history, review state or other people's tasks.
   service.get('/field-data/app-user/reverification', endpoint(async (container, { auth }, request, response) => {
     const user = await appUser(container, auth);
-    const rows = await container.db.any(sql`SELECT t.id, t."visitBy", t."dispatchedAt",
+    const rows = await container.db.any(sql`SELECT t.id, t."visitBy", t."dispatchedAt", to_char(t."plannedVisitDate", 'YYYY-MM-DD') AS "plannedVisitDate",
       a.name AS "assetName", a."externalId", a."assetType", o.predicate, f."xmlFormId", fd.name AS "formName",
       (f.state = 'open') AS actionable,
       (SELECT e.note FROM field_data_reverification_task_events e WHERE e."taskId" = t.id

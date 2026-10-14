@@ -68,6 +68,7 @@ Acknowledge request
           <h3>{{ visit.assetName }} · {{ visit.externalId }}</h3>
           <p>{{ visit.assetType }} · Check: {{ visit.predicate }}</p>
           <p v-if="visit.instruction" class="question">{{ visit.instruction }}</p>
+          <p v-if="visit.plannedVisitDate">Planned visit: {{ visit.plannedVisitDate }} (UTC)</p>
           <p>Form: {{ visit.formName || visit.xmlFormId }} ({{ visit.xmlFormId }}) · Visit by: {{ visit.visitBy || 'Not set' }}</p>
           <p v-if="!visit.actionable">This form is closed for collection. Check with your supervisor before continuing.</p>
         </li>

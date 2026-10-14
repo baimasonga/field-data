@@ -1,3 +1,4 @@
+/* global document */
 import { expect, test } from '@playwright/test';
 
 const appUrl = process.env.ODK_URL || 'http://127.0.0.1:8989';
@@ -134,7 +135,7 @@ const setup = async (page, { comparisonUnavailable = false, failComparison = fal
         assigneeName: task.assignee?.displayName ?? null, reasonCode: data.reasonCode ?? null });
       if (path.endsWith('/dispatch')) {
         Object.assign(task, { status: 'dispatched', assignee: { id: data.assigneeId, displayName: 'Collector' },
-          dispatchedAt: '2026-10-09T10:00:00Z', visitBy: data.visitBy ?? null, revision: task.revision + 1 });
+          dispatchedAt: '2026-10-09T10:00:00Z', plannedVisitDate: data.plannedVisitDate ?? null, visitBy: data.visitBy ?? null, revision: task.revision + 1 });
         event('dispatch');
         return reply();
       }
@@ -938,12 +939,16 @@ test('supervisors dispatch a task, see why a closure is refused, and close it on
   const assets = await openTask(page, state);
   await expect(assets.getByRole('group', { name: 'Dispatch to a collector' })).toBeVisible();
   await assets.getByLabel('App User').selectOption('42');
+  await assets.getByLabel('Planned visit date (optional, UTC)').fill('2026-10-19');
+  await assets.getByLabel('Visit by (optional)').fill('2026-10-20T17:00');
   await assets.getByLabel('Instruction shown to the collector').fill('Check the pump handle. <img src=x onerror=alert(1)>');
   await assets.getByRole('button', { name: 'Dispatch task' }).click();
   await expect(assets).toContainText('Assignment saved');
   expect(state.taskWrites[0].path).toMatch(/\/dispatch$/);
   expect(state.taskWrites[0].headers['if-match']).toBe('"task-1"');
   expect(state.taskWrites[0].data.assigneeId).toBe(42);
+  expect(state.taskWrites[0].data.plannedVisitDate).toBe('2026-10-19');
+  await expect(assets).toContainText('Planned visit 2026-10-19 (UTC)');
   await expect(assets).toContainText('Assigned to Collector');
   await expect(assets.locator('img')).toHaveCount(0);
   await expect(assets).toContainText('visit-1');
