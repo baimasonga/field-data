@@ -253,6 +253,8 @@ describe('api: calendar availability and route planning', () => {
     }
 
     assert.equal(received.stops.length, 2); assert.equal(received.withheld, 0);
+    assert.equal(received.stops[0].xmlFormId, 'simple'); assert.equal(typeof received.stops[0].formVersion, 'string');
+    assert.equal(typeof received.stops[0].dueAt, 'string'); assert.notEqual(received.stops[0].xmlFormId, 'route_survey');
     assert.equal(Object.hasOwn(received.stops[0], 'instanceId'), false); assert.equal(Object.hasOwn(received.stops[0], 'claimVersionId'), false);
     const pinned = preview.route.stops[0].claimVersionId;
     const provenance = await c.one(sql`SELECT p.* FROM field_data_submission_provenance p JOIN field_data_claim_versions v ON v."submissionDefId" = p."submissionDefId" WHERE v.id = ${pinned}`);

@@ -55,12 +55,7 @@ Acknowledge request
           <p v-if="itinerary.needsReview">The supervisor approved this itinerary with review warnings. Confirm access and travel time before starting.</p>
           <p v-if="itinerary.withheld" role="status">{{ itinerary.withheld }} stops are no longer available. Refresh and contact your supervisor.</p>
           <p>Start: {{ itinerary.start.latitude }}, {{ itinerary.start.longitude }}. Return to this start after the visits.</p>
-          <ol>
-<li v-for="stop of itinerary.stops" :key="stop.id">
-<strong>Stop {{ stop.order }}</strong> · {{ stop.question }}<br>
-            {{ stop.location.latitude }}, {{ stop.location.longitude }} · accuracy {{ stop.location.accuracy ?? 'unknown' }} m<br>Request: {{ stop.id }}
-</li>
-</ol>
+          <field-data-itinerary-stops :stops="itinerary.stops"/>
           <p>This is an approved stop order, not turn-by-turn navigation. Road access and conditions may change.</p>
         </li>
       </ul>
@@ -103,6 +98,7 @@ Acknowledge request
 </template>
 <script setup>
 import { onBeforeUnmount, onMounted, ref } from 'vue';
+import FieldDataItineraryStops from './itinerary-stops.vue';
 import FieldDataOfflinePage from './offline-page.vue';
 import FieldDataOfflineAssignments from './offline-assignments.vue';
 
