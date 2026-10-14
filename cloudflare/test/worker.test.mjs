@@ -93,3 +93,10 @@ test('push, imagery and optional routing settings reach the container, and are o
     for (const key of ['FIELD_DATA_PUSH_ENABLED', 'FIELD_DATA_PUSH_SUBJECT', 'FIELD_DATA_PUSH_PUBLIC_KEY', 'FIELD_DATA_PUSH_PRIVATE_KEY', 'FIELD_DATA_IMAGERY_ENABLED', 'FIELD_DATA_OSRM_URL', 'FIELD_DATA_OFFLINE_ORIGIN', 'FIELD_DATA_OFFLINE_SIGNING_KEY']) delete globalThis.__env[key];
   }
 });
+
+
+test('public release identity is uncached and available without starting the container', async () => {
+  const response = await worker.fetch(new Request('https://field.example.test/field-data-build.json'), { CONTAINER_BUILD_ID: 'release-1' });
+  assert.equal(response.status, 200); assert.equal(response.headers.get('cache-control'), 'no-store');
+  assert.deepEqual(await response.json(), { deploymentId: 'release-1' });
+});

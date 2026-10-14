@@ -217,7 +217,14 @@ See [O14-fieldwork-offline-page.md](O14-fieldwork-offline-page.md). Upload queue
 
 ### S5 screen recodes
 
-Approved version-bound recodes are implemented locally for analysis rows,
+Approved version-bound recodes are merged in PR #101 for analysis rows,
 charts and full-selection maps, with stored-filter semantics, repeat preservation,
 fixed rule IDs and delegated-path restrictions shared with exports. See
 [S5-screen-recodes.md](S5-screen-recodes.md). Native Central exports/OData and adaptive policy/evolution remain pending.
+
+### O15 production signing readiness
+
+Missing Worker signing bindings can be prepared atomically during deployment,
+and a custom-domain release/signature check cleans up its own empty fixture.
+Implemented locally with 15 Worker/readiness checks; live verification follows
+release. See [O15-signing-readiness.md](O15-signing-readiness.md). Existing invalid bindings and provider/device acceptance remain operator checks.

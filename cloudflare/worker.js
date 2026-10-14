@@ -269,6 +269,8 @@ export default {
   // that moment fail with an exception rather than a response. Left uncaught
   // that is a 1101 crash page; it is the same "not ready yet" as any other.
   async fetch(request, env) {
+    if (request.method === 'GET' && new URL(request.url).pathname === '/field-data-build.json')
+      return Response.json({ deploymentId: env.CONTAINER_BUILD_ID || '' }, { headers: { 'Cache-Control': 'no-store' } });
     try {
       return await primary(env).fetch(request);
     } catch (error) {
