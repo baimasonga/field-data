@@ -12,6 +12,7 @@ concurrency:
 
 permissions:
   contents: read
+  checks: read
 
 jobs:
   deploy:
@@ -31,6 +32,14 @@ jobs:
 
       - name: Install deployment dependencies
         run: npm ci --no-audit --no-fund
+
+      # Workers Builds also publishes main with repository defaults. Wait until
+      # it is terminal so it cannot overwrite the release ID/feature settings
+      # after this workflow's explicit, verified deployment.
+      - name: Wait for automatic Cloudflare build to finish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node cloudflare/wait-for-workers-build.mjs
 
       - name: Validate Cloudflare configuration
         run: npm run check

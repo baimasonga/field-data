@@ -11,16 +11,18 @@ export const verifyOfflineSigning = async ({ base, workerBase, deploymentId, aud
   const get = async (url, options = {}, allowedStatuses = []) => {
     // Only idempotent operations may be retried: a failed creation response
     // can conceal a successful POST and must never create duplicate fixtures.
-    const retryable = ['GET', 'DELETE'].includes(options.method ?? 'GET');
+    const method = options.method ?? 'GET';
+    const stage = `${method} ${new URL(url).pathname}`;
+    const retryable = ['GET', 'DELETE'].includes(method);
     for (let attempt = 0; ; attempt += 1) {
       let response;
       try { response = await fetcher(url, { ...options, redirect: 'error', signal: AbortSignal.timeout(20000) }); }
       catch {
-        if (!retryable || attempt >= 4) throw new ReadinessError('Signing verification could not reach the deployed site.');
+        if (!retryable || attempt >= 4) throw new ReadinessError(`Signing verification could not reach the deployed site (${stage}).`);
       }
       if (response?.ok || allowedStatuses.includes(response?.status)) return response;
       if (response && (!retryable || ![502, 503, 504].includes(response.status) || attempt >= 4))
-        throw new ReadinessError(`Signing verification received HTTP ${response.status}.`);
+        throw new ReadinessError(`Signing verification received HTTP ${response.status} (${stage}).`);
       await response?.body?.cancel();
       await pause(5000 * (attempt + 1));
     }
