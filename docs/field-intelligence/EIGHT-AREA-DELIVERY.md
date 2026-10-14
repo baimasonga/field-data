@@ -290,3 +290,14 @@ attachment reference, with scene review explicitly not assessed. This adds a
 challenge binding, not proof of device, location or capture time. Signed witnessing,
 sensors, visual similarity, challenge-aware offline packages and device acceptance
 remain pending. See [T1-capture-challenges.md](T1-capture-challenges.md).
+
+## T2 human capture assessments
+
+Reviewers can record matching-code visibility and scene support, with original-image
+attestation, notes, identity and timestamp. Immutable assessment revisions, safe
+retries, current-attachment checks and outdated warnings preserve the distinction
+between a historical review and a current image. Exact originally bound bytes are
+available through a scoped integrity-checked download, and earlier decisions have
+paged history. This does not automatically accept the field claim or certify
+presence. Signed witnesses, sensors and device acceptance remain pending.
+See [T2-human-capture-assessments.md](T2-human-capture-assessments.md).

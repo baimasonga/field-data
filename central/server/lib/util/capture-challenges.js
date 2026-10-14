@@ -8,7 +8,7 @@ const present = (row, includeNonce = false) => ({
   id: row.id, xmlFormId: row.xmlFormId, instanceId: row.instanceId, name: row.name,
   code: row.nonce.slice(0, 8).toUpperCase(), ...(includeNonce ? { nonce: row.nonce } : {}),
   status: row.status, issuedAt: row.issuedAt, expiresAt: row.expiresAt, boundAt: row.boundAt,
-  contentHash: row.contentHash, sceneReview: 'not-assessed'
+  contentHash: row.contentHash, sceneReview: row.assessmentRevision > 0 ? 'assessed' : 'not-assessed'
 });
 const bindCapture = async (tx, actor, upload, source, bytes, blobId) => {
   const row = await tx.db.maybeOne(sql`SELECT * FROM field_data_capture_challenges WHERE id = ${upload.manifest.challengeId} AND "actorId" = ${actor.id} FOR UPDATE`);

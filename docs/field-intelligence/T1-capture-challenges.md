@@ -43,7 +43,7 @@ or inaccessible submissions are unavailable. Reviewer responses omit the full no
 and use private/no-store caching. Panel failures have independent retry controls.
 
 **Interpretation:** status bound means an authorized client linked the server
-challenge to stored bytes before expiry. Scene review is always not-assessed.
+challenge to stored bytes before expiry. T1 alone marks scene review not-assessed; [T2](T2-human-capture-assessments.md) adds explicit human assessment and outdated status.
 A human must open the original image and assess the paper code and scene. The
 server does not read that code from pixels, certify a live camera/device, infer
 location, or verify capture time. An authorized custom client can submit selected
