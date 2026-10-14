@@ -4,7 +4,7 @@ const crypto = require('node:crypto');
 const { isDeepStrictEqual } = require('node:util');
 const { getOrNotFound } = require('../util/promise');
 const Problem = require('../util/problem');
-const { analysisFields, invalid, authorizeSource, normalizeAnalysis, analysisRows, analysisSummary, mapFeatures } = require('../util/analysis-data');
+const { analysisFields, invalid, authorizeSource, normalizeAnalysis, prepareScreenRecodes, analysisRows, analysisSummary, mapFeatures } = require('../util/analysis-data');
 const { exportSelection } = require('../util/analysis-export');
 const actorId = auth => auth.actor.map(a => a.id).orNull();
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -38,15 +38,16 @@ module.exports = (service, endpoint) => {
     const offset = body?.offset == null ? 0 : Number(body.offset);
     if (!Number.isSafeInteger(limit) || limit < 1 || limit > 500 || !Number.isSafeInteger(offset) || offset < 0)
       throw invalid('pagination', { limit, offset }, 'Use a limit from 1 to 500 and a nonnegative offset.');
-    const summary = await analysisSummary(container.db, source, definition);
-    const rows = await analysisRows(container.db, source, definition, limit, offset);
+    const { effective, metadata } = await prepareScreenRecodes(container.db, source, definition);
+    const summary = await analysisSummary(container.db, source, effective);
+    const rows = await analysisRows(container.db, source, effective, limit, offset);
     let mapped = null;
     if (definition.geometry) {
       if (summary.total > 100000) throw invalid('map', null, 'Filter the map to at most 100,000 records.');
-      mapped = mapFeatures(await analysisRows(container.db, source, { ...definition, columns: [definition.geometry] }, 100000), definition.geometry);
+      mapped = mapFeatures(await analysisRows(container.db, source, { ...effective, columns: [definition.geometry] }, 100000), definition.geometry);
     }
     response.set('Cache-Control', 'private, no-store');
-    return { ...summary, definition, repeatPaths: source.repeatPaths, availableFields: analysisFields(source, definition.repeatPath), fields: source.fields.filter(f => definition.columns.includes(f.path)),
+    return { ...summary, definition, recodes: metadata, repeatPaths: source.repeatPaths, availableFields: analysisFields(source, definition.repeatPath), fields: source.fields.filter(f => definition.columns.includes(f.path)),
       rows, limit, offset, nextOffset: offset + rows.length < summary.total ? offset + rows.length : null,
       map: mapped,
       mapScope: 'full-selection', sourceName: source.name };

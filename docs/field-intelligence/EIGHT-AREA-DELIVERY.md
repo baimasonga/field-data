@@ -128,7 +128,7 @@ also exist. Those features must not be re-labelled as full completion of this pr
   path, applied by version in the analysis exports (direct and queued, frozen
   with the job) and listed in each export's manifest, with an option to
   export answers as stored: merged in PR #82. Recodes in
-  Central's own exports and the on-screen analysis, approved policies and
+  Central's own exports, approved policies and
   evolution remain pending.
 - Project findings inbox (F3): integrity findings from every readable form of a
   project in one list on the Review page, with filters and open counts, linking
@@ -212,5 +212,12 @@ and explicit offline freshness limits. See [O13-offline-approved-itineraries.md]
 
 The public companion shell can be prepared explicitly for offline reload, with
 asset allowlists, byte/time limits, expiry and separate encrypted private data.
-Implemented locally and covered by real production-service-worker browser tests.
+Merged in PR #100 and covered by real production-service-worker browser tests.
 See [O14-fieldwork-offline-page.md](O14-fieldwork-offline-page.md). Upload queues, resumable transfers and relays remain pending.
+
+### S5 screen recodes
+
+Approved version-bound recodes are implemented locally for analysis rows,
+charts and full-selection maps, with stored-filter semantics, repeat preservation,
+fixed rule IDs and delegated-path restrictions shared with exports. See
+[S5-screen-recodes.md](S5-screen-recodes.md). Native Central exports/OData and adaptive policy/evolution remain pending.

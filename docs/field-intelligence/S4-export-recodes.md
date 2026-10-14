@@ -51,7 +51,8 @@ and version (409.42).
 - Queued exports freeze the rules with the rows when the job is created, so a
   later rule change does not alter a job in progress.
 - Not applied (stated in the UI): Central's own CSV and OData downloads,
-  filtered-dataset downloads, the analysis table on screen, charts and maps.
+  filtered-dataset downloads. The [S5 extension](S5-screen-recodes.md) adds the
+  analysis table on screen, charts and maps with explicit scope limits.
   Repeat-scope exports apply value rules only.
 
 ## API
@@ -71,8 +72,8 @@ question, the versions and either the old path or old → new values).
 
 ## Not in this slice
 
-Recodes in Central's own exports and OData, the on-screen analysis, merged and
-filtered datasets; recoding labels (only stored values); derived variables;
+Recodes in Central's own exports and OData and version-aware delegated moved
+paths; recoding labels (only stored values); derived variables;
 rules suggested automatically from S3 changes.
 
 ## Acceptance

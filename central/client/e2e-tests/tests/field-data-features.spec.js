@@ -391,3 +391,36 @@ for (const width of [1280, 320]) test(`public landing page supports navigation a
   await expect(page).toHaveURL(/\/login$/); await expect(page.locator('.navbar')).toBeVisible();
   expect(errors).toEqual([]);
 });
+
+
+test('analysis recode preference refreshes the displayed data and is preserved in saved views', async ({ page }) => {
+  const requests = []; let saved;
+  await api(page, async (route, path) => {
+    if (path.endsWith('/sources')) { await route.fulfill({ json: { forms: [{ id: 1, name: 'Survey' }], filtered: [], merged: [] } }); return true; }
+    if (path.endsWith('/views')) {
+      if (route.request().method() === 'POST') { saved = route.request().postDataJSON(); await route.fulfill({ json: saved }); }
+      else await route.fulfill({ json: saved ? [{ ...saved, revision: 1 }] : [] }); return true;
+    }
+    if (path.endsWith('/query')) {
+      const body = route.request().postDataJSON(); requests.push(body);
+      await route.fulfill({ json: { ...result(body.recodes ? 'Aligned answer' : 'Stored answer'), definition: { ...definition, recodes: body.recodes },
+        recodes: { applied: body.recodes === true, rules: body.recodes ? [{ id: 'r1', kind: 'value', path: '/name' }] : [], skippedPathRules: body.recodes ? 1 : 0 } } }); return true;
+    }
+    return false;
+  });
+  await page.goto(`${appUrl}/field-data/analysis?project=1`); await page.getByLabel('Source', { exact: true }).selectOption('form:1');
+  await expect(page.locator('.analysis-table')).toContainText('Aligned answer');
+  await expect(page.locator('#fd-analysis')).toContainText('Filters select stored answers before recoding');
+  await expect(page.locator('#fd-analysis')).toContainText('old source paths are not exposed');
+  const toggle = page.getByLabel("Apply the form's recode rules", { exact: false });
+  await toggle.uncheck(); await expect(page.locator('.analysis-table')).toContainText('Stored answer');
+  await expect(page.locator('#fd-analysis')).toContainText('Showing stored answers; recodes are off.');
+  await page.getByLabel('View title').fill('Stored view'); await page.getByRole('button', { name: 'Save view', exact: true }).click();
+  await expect(page.getByRole('status')).toContainText('View saved'); expect(saved.definition.recodes).toBe(false);
+  await toggle.check(); await expect(page.locator('.analysis-table')).toContainText('Aligned answer');
+  await page.getByLabel('Saved view').selectOption(saved.id);
+  await expect(page.locator('.analysis-table')).toContainText('Stored answer'); await expect(toggle).not.toBeChecked();
+  expect(requests.some(body => body.recodes === true)).toBe(true); expect(requests.some(body => body.recodes === false)).toBe(true);
+  await page.setViewportSize({ width: 320, height: 700 });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+});

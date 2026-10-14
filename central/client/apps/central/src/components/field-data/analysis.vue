@@ -21,7 +21,10 @@
         <button type="button" class="btn btn-default" :disabled="!selectedColumns.length || loading" @click="refresh">Apply column selection</button>
       </details>
       <label><input v-model="includeRepeats" type="checkbox"> Include all authorized repeat fields in separate export tables</label>
-      <label class="analysis-recodes"><input v-model="applyRecodes" type="checkbox"> Apply the form's recode rules to answers from earlier versions (see the form's Versions tab)</label>
+      <label class="analysis-recodes"><input v-model="applyRecodes" type="checkbox" @change="refresh"> Apply the form's recode rules to answers from earlier versions (see the form's Versions tab)</label>
+      <p v-if="result.recodes?.applied">Active recodes enabled for table, chart and map: {{ result.recodes.rules.length }} rules in this scope. Filters select stored answers before recoding; submissions remain unchanged.</p>
+      <p v-else-if="result.recodes">Showing stored answers; recodes are off.</p>
+      <p v-if="result.recodes?.skippedPathRules" role="status">{{ result.recodes.skippedPathRules }} moved-question rules are unavailable in this delegated scope; old source paths are not exposed.</p>
       <fieldset class="analysis-controls">
 <legend>Filter selection</legend>
         <label>Field<select v-model="filterField" class="form-control"><option value="">No additional filter</option>
@@ -139,7 +142,7 @@ const otherFields = computed(() => fields.value.filter(f => f.type !== 'geopoint
 let generation = 0; let scopeGeneration = 0; let saveId = null; let saveFingerprint = null;
 const source = computed(() => { const [kind, id] = sourceKey.value.split(':'); return { kind, id: Number(id) }; });
 const definition = () => ({
-  version: 1, source: source.value, repeatPath: repeatPath.value || null, ...(selectedColumns.value.length ? { columns: selectedColumns.value } : {}), query: query.value, tab: tab.value,
+  version: 1, recodes: applyRecodes.value, source: source.value, repeatPath: repeatPath.value || null, ...(selectedColumns.value.length ? { columns: selectedColumns.value } : {}), query: query.value, tab: tab.value,
   chart: chartField.value ? { column: chartField.value, groupBy: groupField.value || null, aggregation: aggregation.value } : null,
   geometry: geometry.value || null
 });
@@ -190,7 +193,7 @@ const removeView = async () => {
 const restore = id => {
   const view = views.value.find(v => v.id === id); if (!view) return;
   window.history.replaceState(null, '', `${window.location.pathname}?project=${encodeURIComponent(projectId.value)}&view=${encodeURIComponent(id)}`);
-  const d = view.definition; sourceKey.value = `${d.source.kind}:${d.source.id}`;
+  const d = view.definition; applyRecodes.value = d.recodes === true; sourceKey.value = `${d.source.kind}:${d.source.id}`;
   queueMicrotask(() => {
     activeViewId.value = id; viewVisibility.value = view.visibility || 'private'; repeatPath.value = d.repeatPath || ''; selectedColumns.value = d.columns;
     query.value = d.query; chartField.value = d.chart?.column || ''; groupField.value = d.chart?.groupBy || '';

@@ -210,4 +210,77 @@ describe('api: S4 recode rules for exports', () => {
     payloads[0].rows.map((r) => [r.instanceId, r.formVersion]).sort().should.eql([['uuid:new', '2'], ['uuid:old', '1']]);
     should.exist(objects.get(`exports/${job.id}.zip`));
   }));
+  it('recodes screen rows, numeric charts and repeat rows once while filters keep stored semantics', testService(async (service, c) => {
+    const alice = await service.login('alice'); await twoVersions(alice); const id = await formId(c);
+    await submit(alice, 'both', '1', '<water>borehole</water><age>55</age><old_age>40</old_age>');
+    const rule = body => alice.post(`${base}/recodes`).send({ reason: 'Approved version alignment', versions: ['1'], ...body }).expect(201);
+    const water = (await rule({ kind: 'value', path: '/water', values: { borehole: 'bh', bh: 'different' } })).body;
+    await rule({ kind: 'value', path: '/lights', values: { torch: 'battery_torch' } });
+    await rule({ kind: 'path', path: '/age', fromPath: '/old_age' }); await rule({ kind: 'value', path: '/age', values: { 40: '41' } });
+    await rule({ kind: 'value', path: '/kids/kid_water', values: { borehole: 'bh' } });
+    const definition = { source: { kind: 'form', id }, columns: ['/water', '/lights', '/age'], recodes: true,
+      chart: { column: '/age', groupBy: '/water', aggregation: 'sum' } };
+    const query = body => alice.post('/v1/projects/1/analysis/query').send(body).expect(200);
+    const screen = (await query(definition)).body; const rows = Object.fromEntries(screen.rows.map(row => [row.instanceId, row.data]));
+    rows['uuid:old'].should.containEql({ '/water': 'bh', '/lights': 'solar battery_torch', '/age': '41' });
+    rows['uuid:both']['/age'].should.equal('55'); rows['uuid:new']['/age'].should.equal('31');
+    screen.chart.rows.should.eql([{ key: 'bh', count: 3, value: 127 }]); screen.recodes.applied.should.equal(true);
+    screen.recodes.rules.length.should.equal(4); should.not.exist(screen.definition._recodeRuleIds);
+    const stored = (await query({ ...definition, recodes: false })).body;
+    should(stored.rows.find(row => row.instanceId === 'uuid:old').data['/age']).equal(null);
+    stored.recodes.applied.should.equal(false);
+    const filtered = (await query({ ...definition, query: [{ column: '/water', filter: '=', value: 'borehole' }] })).body;
+    filtered.total.should.equal(2); filtered.chart.rows.should.eql([{ key: 'bh', count: 2, value: 96 }]);
+    const repeat = (await query({ ...definition, columns: ['/kids/kid_water'], repeatPath: '/kids', chart: { column: '/kids/kid_water', aggregation: 'count' } })).body;
+    repeat.rows[0].data['/kids/kid_water'].should.equal('bh'); repeat.rows[0].repeatIndex.should.equal(1);
+    const csv = await unzip((await binary(alice.post('/v1/projects/1/analysis/export/csv').send(definition)).expect(200)).body);
+    table(csv['submissions.csv']).find(row => row.instance_id === 'uuid:old')['/water'].should.equal('bh');
+    await alice.post(`${base}/recodes/${water.id}/retire`).send({ reason: 'Retire test rule' }).expect(200);
+    (await query(definition)).body.rows.find(row => row.instanceId === 'uuid:old').data['/water'].should.equal('borehole');
+    await alice.post('/v1/projects/1/analysis/query').send({ ...definition, recodes: 'yes' }).expect(400);
+  }));
+
+  it('keeps moved source paths outside delegated datasets while recoding visible values', testService(async (service, c) => {
+    const alice = await service.login('alice'); await twoVersions(alice); const id = await formId(c);
+    await alice.post(`${base}/recodes`).send({ kind: 'value', path: '/water', versions: ['1'], values: { borehole: 'bh' }, reason: 'Code alignment' }).expect(201);
+    await alice.post(`${base}/recodes`).send({ kind: 'path', path: '/age', fromPath: '/old_age', versions: ['1'], reason: 'Moved question' }).expect(201);
+    const dataset = await c.db.one(sql`INSERT INTO field_data_filtered_datasets (name, "projectId", "formId", columns, query)
+      VALUES ('Delegated current questions', 1, ${id}, '["/water", "/age"]', '[]') RETURNING id`);
+    const screen = (await alice.post('/v1/projects/1/analysis/query').send({ source: { kind: 'filtered', id: dataset.id }, columns: ['/water', '/age'], recodes: true }).expect(200)).body;
+    const old = screen.rows.find(row => row.instanceId === 'uuid:old'); old.data['/water'].should.equal('bh'); should(old.data['/age']).equal(null);
+    screen.recodes.skippedPathRules.should.equal(1); screen.recodes.rules.length.should.equal(1);
+    JSON.stringify(screen).should.not.containEql('/old_age');
+    const files = await unzip((await binary(alice.post('/v1/projects/1/analysis/export/csv').send({ source: { kind: 'filtered', id: dataset.id }, columns: ['/water', '/age'], recodes: true })).expect(200)).body);
+    const exported = table(files['submissions.csv']).find(row => row.instance_id === 'uuid:old');
+    exported['/water'].should.equal('bh'); exported['/age'].should.equal('');
+    JSON.stringify(JSON.parse(files['manifest.json'])).should.not.containEql('/old_age');
+
+  }));
+
+  it('recodes moved locations for the full map selection without requiring a visible geometry column', testService(async (service, c) => {
+    const alice = await service.login('alice');
+    const geo = v => form(v).replace(v === '1' ? '<old_age/>' : '<age/>', `${v === '1' ? '<old_age/>' : '<age/>'}<${v === '1' ? 'old_point' : 'point'}/>`)
+      .replace('<bind nodeset="/data/lights"', `<bind nodeset="/data/${v === '1' ? 'old_point' : 'point'}" type="geopoint"/><bind nodeset="/data/lights"`);
+    await xml(alice.post('/v1/projects/1/forms?publish=true'), geo('1')).expect(200);
+    await submit(alice, 'oldgeo', '1', '<water>borehole</water><old_point>8.4 -13.2 0 4</old_point>');
+    await xml(alice.post(`${base}/draft?ignoreWarnings=true`), geo('2')).expect(200); await alice.post(`${base}/draft/publish`).expect(200);
+    await submit(alice, 'newgeo', '2', '<water>bh</water><point>8.5 -13.1 0 4</point>');
+    await alice.post(`${base}/recodes`).send({ kind: 'path', path: '/point', fromPath: '/old_point', versions: ['1'], reason: 'Location moved' }).expect(201);
+    const definition = { source: { kind: 'form', id: await formId(c) }, columns: ['/water'], geometry: '/point', recodes: true };
+    const mapped = (await alice.post('/v1/projects/1/analysis/query').send(definition).expect(200)).body;
+    mapped.map.features.length.should.equal(2); mapped.map.features.find(f => f.properties.instanceId === 'uuid:oldgeo').geometry.coordinates.should.eql([-13.2, 8.4]);
+    mapped.rows[0].data.should.not.have.property('/point');
+    (await alice.post('/v1/projects/1/analysis/query').send({ ...definition, recodes: false }).expect(200)).body.map.features.length.should.equal(1);
+  }));
+
+  it('reads XML text as plain stored answers so entity-containing codes and filters align with exports', testService(async (service, c) => {
+    const alice = await service.login('alice'); await twoVersions(alice); const id = await formId(c);
+    await submit(alice, 'entities', '1', '<water>a&amp;b</water><lights>torch</lights>');
+    await alice.post(`${base}/recodes`).send({ kind: 'value', path: '/water', versions: ['1'], values: { 'a&b': 'bh' }, reason: 'Align entity-containing code' }).expect(201);
+    const definition = { source: { kind: 'form', id }, columns: ['/water'], query: [{ column: '/water', filter: '=', value: 'a&b' }] };
+    const stored = (await alice.post('/v1/projects/1/analysis/query').send(definition).expect(200)).body;
+    stored.total.should.equal(1); stored.rows[0].data['/water'].should.equal('a&b');
+    (await alice.post('/v1/projects/1/analysis/query').send({ ...definition, recodes: true }).expect(200)).body.rows[0].data['/water'].should.equal('bh');
+  }));
+
 });

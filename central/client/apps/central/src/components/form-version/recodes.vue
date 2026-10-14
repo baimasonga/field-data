@@ -1,7 +1,7 @@
 <!-- Copyright 2026 Field Data Developers. Licensed under the Apache License, Version 2.0.
 
 Recode rules for exports (S4): how answers from earlier versions of this form
-line up with the current one. Applied by the analysis exports; submissions are
+line up with the current one. Applied by the analysis workspace and exports; submissions are
 never changed. Contract: docs/field-intelligence/S4-export-recodes.md -->
 <template>
   <section id="form-version-recodes" class="panel panel-simple">
@@ -9,10 +9,11 @@ never changed. Contract: docs/field-intelligence/S4-export-recodes.md -->
     <div class="panel-body">
       <p class="recodes-intro">
         When a question's codes or place changed between versions, a rule makes exports that span versions use one set of codes.
-        Rules apply to the analysis exports (CSV, Excel, SPSS, Stata) and are listed in each export's manifest.
+        Rules can apply to the analysis table, charts and map, as well as analysis exports (CSV, Excel, SPSS, Stata), and are listed in each export's manifest.
         They do not change submissions, and Central's own CSV and OData downloads are not recoded.
       </p>
       <p v-if="error" role="alert" class="recodes-error">{{ error }}</p>
+      <button v-if="error" type="button" class="btn btn-default" :disabled="busy" @click="load">Reload rules</button>
       <p v-if="data == null && !error" class="recodes-loading">Loading…</p>
       <template v-else-if="data != null">
         <p v-if="data.active.length === 0" class="recodes-none">No active rules.</p>
@@ -29,7 +30,7 @@ never changed. Contract: docs/field-intelligence/S4-export-recodes.md -->
             <p class="recodes-reason">{{ rule.reason }} · {{ rule.actorName ?? 'unknown' }} · {{ rule.createdAt.slice(0, 10) }}</p>
             <form v-if="allowed" class="recodes-retire" @submit.prevent="retire(rule)">
               <label>Reason to retire <input v-model="retireReasons[rule.id]" class="form-control" required maxlength="2000"></label>
-              <button type="submit" class="btn btn-default" :aria-disabled="busy">Retire</button>
+              <button type="submit" class="btn btn-default" :disabled="busy">Retire</button>
             </form>
           </li>
         </ul>
@@ -43,7 +44,7 @@ never changed. Contract: docs/field-intelligence/S4-export-recodes.md -->
         </details>
 
         <p v-if="earlier.length === 0" class="recodes-single">This form has one published version, so there is nothing to recode yet.</p>
-        <details v-else-if="allowed" class="recodes-add" :open="data.active.length === 0">
+        <details v-else-if="allowed" class="recodes-add" :open="addOpen ?? data.active.length === 0" @toggle="addOpen = $event.target.open">
           <summary>Add a rule</summary>
           <form @submit.prevent="add">
             <fieldset>
@@ -70,7 +71,7 @@ never changed. Contract: docs/field-intelligence/S4-export-recodes.md -->
               <input v-model="form.fromPath" class="form-control" required placeholder="/old_age">
             </label>
             <label>Reason <textarea v-model="form.reason" class="form-control" required maxlength="2000"></textarea></label>
-            <button type="submit" class="btn btn-primary" :aria-disabled="busy">Add rule</button>
+            <button type="submit" class="btn btn-primary" :disabled="busy">Add rule</button>
           </form>
         </details>
       </template>
@@ -92,19 +93,31 @@ const props = defineProps({
 });
 const { request, awaitingResponse: busy } = useRequest();
 const root = () => `${apiPaths.form(props.projectId, props.xmlFormId)}/recodes`;
+const addOpen = ref(null); let loadGeneration = 0;
 const data = ref(null); const fields = ref([]); const error = ref('');
 const retireReasons = reactive({});
 const blank = () => ({ kind: 'value', path: '', versions: [], values: '', fromPath: '', reason: '' });
 const form = reactive(blank());
 
 const message = (e, fallback) => e?.response?.data?.message ?? fallback;
-const load = () => Promise.all([
-  request({ method: 'GET', url: root(), alert: false }),
-  request({ method: 'GET', url: `${apiPaths.form(props.projectId, props.xmlFormId)}/fields?odata=false`, alert: false })
-])
-  .then(([rules, schema]) => { data.value = rules.data; fields.value = schema.data; error.value = ''; })
-  .catch((e) => { error.value = message(e, 'The recode rules could not be loaded.'); });
-watch(() => [props.projectId, props.xmlFormId], load, { immediate: true });
+const load = () => {
+  loadGeneration += 1; const generation = loadGeneration;
+  return Promise.all([
+    request({ method: 'GET', url: root(), alert: false }),
+    request({ method: 'GET', url: `${apiPaths.form(props.projectId, props.xmlFormId)}/fields?odata=false`, alert: false })
+  ])
+    .then(([rules, schema]) => {
+      if (generation !== loadGeneration) return;
+      if (!Array.isArray(rules.data?.active) || !Array.isArray(rules.data?.retired) || !Array.isArray(rules.data?.versions) || !Array.isArray(schema.data)) throw new Error('Invalid rule response');
+      data.value = rules.data; fields.value = schema.data; error.value = '';
+    })
+    .catch((e) => { if (generation === loadGeneration) error.value = message(e, 'The recode rules could not be loaded.'); });
+};
+watch(() => [props.projectId, props.xmlFormId], () => {
+  data.value = null; fields.value = []; error.value = ''; addOpen.value = null; Object.assign(form, blank());
+  for (const id of Object.keys(retireReasons)) delete retireReasons[id];
+  load();
+}, { immediate: true });
 
 const earlier = computed(() => (data.value?.versions ?? []).filter((v) => !v.current));
 const repeats = computed(() => fields.value.filter((f) => f.type === 'repeat').map((f) => f.path));
@@ -114,7 +127,8 @@ const questions = computed(() => fields.value.filter((f) => !['structure', 'repe
 const versionsLabel = (versions) => `version${versions.length === 1 ? '' : 's'} ${versions.map((v) => (v === '' ? '(none)' : v)).join(', ')}`;
 
 const add = () => {
-  error.value = '';
+  if (busy.value) return Promise.resolve();
+  const scope = root(); error.value = '';
   const body = { kind: form.kind, path: form.path, versions: [...form.versions], reason: form.reason };
   if (form.kind === 'value') {
     const values = {};
@@ -128,14 +142,15 @@ const add = () => {
     body.fromPath = form.fromPath.trim();
   }
   return request({ method: 'POST', url: root(), data: body, alert: false })
-    .then(() => { Object.assign(form, blank()); return load(); })
-    .catch((e) => { error.value = message(e, 'The rule could not be saved.'); });
+    .then(() => { if (root() !== scope) return undefined; Object.assign(form, blank()); return load(); })
+    .catch((e) => { if (root() === scope) error.value = message(e, 'The rule could not be saved.'); });
 };
 const retire = (rule) => {
-  error.value = '';
+  if (busy.value) return Promise.resolve();
+  const scope = root(); error.value = '';
   return request({ method: 'POST', url: `${root()}/${rule.id}/retire`, data: { reason: retireReasons[rule.id] }, alert: false })
-    .then(() => { delete retireReasons[rule.id]; return load(); })
-    .catch((e) => { error.value = message(e, 'The rule could not be retired.'); });
+    .then(() => { if (root() !== scope) return undefined; delete retireReasons[rule.id]; return load(); })
+    .catch((e) => { if (root() === scope) error.value = message(e, 'The rule could not be retired.'); });
 };
 </script>
 
