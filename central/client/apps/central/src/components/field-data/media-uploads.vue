@@ -127,6 +127,7 @@ const run = async () => {
       if (existing == null && rows.some(r => sameTarget(r) && r.status === 'pending')) {
         const failure = new Error('Original file changed'); failure.code = 'SOURCE_CHANGED'; throw failure;
       }
+      if (existing != null && (existing.challengeId !== row.challengeId || existing.challengeNonce !== row.challengeNonce)) throw new Error('Capture challenge changed');
       if (existing != null) { row.id = existing.id; row.priority = existing.priority; } else row.id ??= crypto.randomUUID();
       jobs.push({ row, sha256, existing });
     }
@@ -135,13 +136,14 @@ const run = async () => {
       if (paused.value || current !== generation) break;
       let status = existing != null && existing.id === row.id ? existing : accept(await props.send('', 'POST', {
         id: row.id, xmlFormId: row.xmlFormId, instanceId: row.instanceId, name: row.file.name, size: row.file.size, sha256,
-        contentType: /^(image|audio|video)\//.test(row.file.type) ? row.file.type : 'application/octet-stream', priority: row.priority
+        contentType: /^(image|audio|video)\//.test(row.file.type) ? row.file.type : 'application/octet-stream', priority: row.priority,
+        ...(row.challengeId == null ? {} : { challengeId: row.challengeId, challengeNonce: row.challengeNonce })
       }));
       if (current !== generation) return;
       const checked = value => {
         const response = accept(value);
         if (response.id !== row.id || response.sha256 !== sha256 || response.size !== row.file.size || response.name !== row.file.name ||
-          response.xmlFormId !== row.xmlFormId || response.instanceId !== row.instanceId) throw new Error('Upload identity changed');
+          response.xmlFormId !== row.xmlFormId || response.instanceId !== row.instanceId || response.challengeId !== row.challengeId || response.challengeNonce !== row.challengeNonce) throw new Error('Upload identity changed');
         return response;
       };
       status = checked(status); row.priority = status.priority; row.offset = status.offset;

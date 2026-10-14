@@ -376,6 +376,7 @@ test('form navigation and submission pagination are readable at desktop and mobi
 });
 
 test('submission records show compact details, exact dates and honest evidence with accessible disclosures', async ({ page: p }) => {
+  let captureReads = 0;
   const record = { __id: 'uuid:one', meta: { instanceName: 'sl2601 – Fonima' }, __system: {
     submissionDate: '2026-10-09T22:18:39Z', submitterId: 1, submitterName: 'Mohamed Bangura',
     reviewState: null, edits: 0, attachmentsPresent: 0, attachmentsExpected: 0,
@@ -390,6 +391,13 @@ test('submission records show compact details, exact dates and honest evidence w
     if (path.includes('/versions/')) { await route.fulfill({ json: { userAgent: 'Very long browser metadata '.repeat(15) } }); return true; }
     if (path.endsWith('/diffs')) { await route.fulfill({ json: {} }); return true; }
     if (path.endsWith('/audits')) { await route.fulfill({ json: [{ action: 'submission.create', loggedAt: record.__system.submissionDate, actor: { id: 1, displayName: 'Mohamed Bangura' } }] }); return true; }
+    if (path.endsWith('/capture-challenges')) {
+      captureReads += 1;
+      if (captureReads === 1) { await route.fulfill({ status: 503, json: {} }); return true; }
+      await route.fulfill({ json: { items: [{ id: '11111111-1111-4111-8111-111111111111', name: 'scene.jpg', code: 'ABCDEF01', status: 'bound',
+        issuedAt: '2026-10-09T22:12:00Z', expiresAt: '2026-10-09T22:32:00Z', boundAt: '2026-10-09T22:18:39Z',
+        contentHash: 'b'.repeat(64), bindingCurrent: true, sceneReview: 'not-assessed' }] } }); return true;
+    }
     if (path.endsWith('/claim')) { await route.fulfill({ json: { currentVersionId: 'v1', versions: [{ id: 'v1', ordinal: 1, current: true,
       provenance: { origin: 'collected', degraded: 'inferred', receivedAt: record.__system.submissionDate, integrityHash: 'a'.repeat(64) } }] } }); return true; }
     if (path.endsWith('/evidence')) { await route.fulfill({ json: { items: [{ id: 'e1', name: 'submission-xml', sourceKind: 'submission-xml', integrityStatus: 'verified', downloadUrl: '/v1/evidence-original' }] } }); return true; }
@@ -405,6 +413,15 @@ test('submission records show compact details, exact dates and honest evidence w
   const evidence = p.locator('.claim-evidence');
   await expect(evidence).toContainText('Stored bytes: verified');
   await expect(evidence).toContainText('does not verify the field claim');
+  const captureHistory = p.getByRole('region', { name: 'Capture challenges', exact: true });
+  await expect(captureHistory.getByRole('alert')).toContainText('could not be loaded');
+  await captureHistory.getByRole('button', { name: 'Retry capture challenges' }).click();
+  await expect(captureHistory).toContainText('Challenge linked; scene review required');
+  await expect(captureHistory).toContainText('References the current attachment');
+  await expect(captureHistory).toContainText('Code ABCDEF01');
+  await captureHistory.locator('summary').click();
+  await expect(captureHistory.locator('code')).toHaveText('b'.repeat(64));
+
   await evidence.getByText('Integrity details', { exact: true }).click();
   await expect(evidence.locator('code')).toHaveText('a'.repeat(64));
   await details.getByText('Technical details', { exact: true }).click();

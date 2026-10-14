@@ -279,3 +279,14 @@ upload remain required, with R2's live authorization checks. This implements a
 bounded file relay; delegated courier authority, signed custody, native Collect
 queues, background sync and real-device acceptance remain pending.
 See [R3-encrypted-media-packages.md](R3-encrypted-media-packages.md).
+
+## T1 capture challenges and exact-image replay checks
+
+Collectors can issue a 20-minute server challenge, include the code physically in
+a camera photo, and explicitly upload it through the resumable queue. Atomic
+completion consumes the scoped nonce and rejects repeated challenged-image hashes
+within a project. Reviewers see the code, timestamps, fingerprint and current
+attachment reference, with scene review explicitly not assessed. This adds a
+challenge binding, not proof of device, location or capture time. Signed witnessing,
+sensors, visual similarity, challenge-aware offline packages and device acceptance
+remain pending. See [T1-capture-challenges.md](T1-capture-challenges.md).
