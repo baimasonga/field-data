@@ -27,9 +27,17 @@ export const verifyOfflineSigning = async ({ base, workerBase, deploymentId, aud
   const api = async (path, token, method = 'GET', body) => {
     const response = await get(new URL(`/v1${path}`, root), { method, headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
       ...(body === undefined ? {} : { body: JSON.stringify(body) }) });
-    return response.status === 204 ? null : response.json();
+    return method === 'DELETE' || response.status === 204 ? null : response.json();
   };
-  let project; let projectId; let appUser; let appUserId; let primaryError; let cleanupFailed = false;
+  const remove = async path => {
+    // Successful DELETE responses can legitimately be empty. Confirm removal
+    // through the real read route instead of relying on a JSON success body.
+    await api(path, sessionToken, 'DELETE');
+    const response = await fetcher(new URL(`/v1${path}`, root), { headers: { Authorization: `Bearer ${sessionToken}` },
+      cache: 'no-store', redirect: 'error', signal: AbortSignal.timeout(20000) });
+    if (response.status !== 404) throw new ReadinessError(`Removed fixture is still readable (HTTP ${response.status}).`);
+  };
+  let project; let projectId; let appUser; let appUserId; let primaryError; const cleanupErrors = [];
   try {
     const name = `Offline readiness check ${randomUUID()}`;
     project = await api('/projects', sessionToken, 'POST', { name });
@@ -58,13 +66,13 @@ export const verifyOfflineSigning = async ({ base, workerBase, deploymentId, aud
   } catch (error) { primaryError = error; }
   finally {
     if (appUserId != null && projectId != null) {
-      try { await api(`/projects/${projectId}/app-users/${appUserId}`, sessionToken, 'DELETE'); } catch { cleanupFailed = true; }
+      try { await remove(`/projects/${projectId}/app-users/${appUserId}`); } catch (error) { cleanupErrors.push(error instanceof ReadinessError ? error.message : 'Unexpected cleanup response.'); }
     }
     if (projectId != null) {
-      try { await api(`/projects/${projectId}`, sessionToken, 'DELETE'); } catch { cleanupFailed = true; }
+      try { await remove(`/projects/${projectId}`); } catch (error) { cleanupErrors.push(error instanceof ReadinessError ? error.message : 'Unexpected cleanup response.'); }
     }
   }
-  if (cleanupFailed) throw new ReadinessError('Verification fixture cleanup could not be confirmed; check the readiness-check project.');
+  if (cleanupErrors.length > 0) throw new ReadinessError(`Verification fixture cleanup could not be confirmed (project ${projectId}): ${cleanupErrors.join(' ')} ${primaryError instanceof ReadinessError ? primaryError.message : primaryError ? 'Verification also failed.' : ''}`);
   if (primaryError) throw primaryError;
   return { verified: true, customDomain: true, fixtureRemoved: true };
 };
