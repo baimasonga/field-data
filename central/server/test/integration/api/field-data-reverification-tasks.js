@@ -101,7 +101,7 @@ describe('api: re-verification dispatch and field closure', () => {
       const mine = (await asApp(collector).expect(200)).body;
       assert.equal(mine.items.length, 1);
       assert.deepEqual(Object.keys(mine.items[0]).sort(), ['actionable', 'assetName', 'assetType', 'dispatchedAt',
-        'externalId', 'formName', 'id', 'instruction', 'predicate', 'visitBy', 'xmlFormId']);
+        'externalId', 'formName', 'id', 'instruction', 'plannedVisitDate', 'predicate', 'visitBy', 'xmlFormId']);
       assert.equal(mine.items[0].instruction, 'Check the pump handle.');
       assert.equal(mine.items[0].actionable, true);
       assert.equal(JSON.stringify(mine).includes('operating'), false, 'the earlier value must not reach the collector');
@@ -389,5 +389,75 @@ describe('api: re-verification dispatch and field closure', () => {
       error => /append-only/.test(error.message));
     await assert.rejects(container.db.query(sql`UPDATE field_data_reverification_tasks SET status = 'closed' WHERE id = ${ctx.task.id}`),
       error => /state_check/.test(error.message));
+  }));
+});
+
+describe('api: shared re-verification visit capacity', () => {
+  it('reserves a calendar slot, preserves retry/history, rejects closed dates, and releases cancellation', testService(async (service, container) => {
+    const ctx = await setup(service, container);
+    const date = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
+    await ctx.alice.put(`/v1/projects/1/backcheck-calendars/${ctx.collector.id}`)
+      .send({ weeklyCapacity: [1, 1, 1, 1, 1, 1, 1] }).expect(200);
+    await dispatch(ctx, 1, ctx.collector, { plannedVisitDate: '2026-02-30', visitBy: future() }).expect(400);
+    await dispatch(ctx, 1, ctx.collector, { plannedVisitDate: date }).expect(400);
+    await dispatch(ctx, 1, ctx.other, { plannedVisitDate: date, visitBy: future() }).expect(400);
+    await dispatch(ctx, 1, ctx.collector, { plannedVisitDate: date, visitBy: future() }).expect(200);
+    const detail = (await ctx.alice.get(ctx.path).expect(200)).body;
+    assert.equal(detail.task.plannedVisitDate, date);
+    assert.equal(detail.events[0].plannedVisitDate, date);
+    const inbox = (await service.get('/v1/field-data/app-user/reverification')
+      .set('Authorization', `Bearer ${ctx.collector.token}`).expect(200)).body;
+    assert.equal(inbox.items[0].plannedVisitDate, date);
+    const preview = `/v1/projects/1/backcheck-route?actorId=${ctx.collector.id}&date=${date}&startLat=8&startLon=-13`;
+    const route = (await ctx.alice.get(preview).expect(200)).body;
+    assert.equal(route.used, 1); assert.equal(route.otherVisits, 1); assert.equal(route.needsReview, true);
+    await ctx.observe(await ctx.submitAs(ctx.alice, 'two'), { predicate: 'pressure' });
+    await generateReverification(container.db);
+    const another = (await ctx.alice.get(tasks).expect(200)).body.items.find(item => item.predicate === 'pressure');
+    await act(ctx.alice, `${tasks}/${another.id}`, 'dispatch', 1,
+      { assigneeId: ctx.collector.id, plannedVisitDate: date, visitBy: future() }).expect(400);
+    // Keeping an assignment on its own sole slot must succeed.
+    await dispatch(ctx, 2, ctx.collector, { plannedVisitDate: date, visitBy: future() }).expect(200);
+    await ctx.alice.put(`/v1/projects/1/backcheck-calendars/${ctx.collector.id}`)
+      .send({ weeklyCapacity: [1, 1, 1, 1, 1, 1, 1], exceptions: [{ date, maxVisits: 0 }] }).expect(200);
+    await dispatch(ctx, 3, ctx.collector, { plannedVisitDate: date, visitBy: future() }).expect(400);
+    await act(ctx.alice, ctx.path, 'cancel', 3, { reasonCode: 'safety' }).expect(200);
+    assert.equal((await ctx.alice.get(preview).expect(200)).body.used, 0);
+    assert.equal((await container.db.one(sql`SELECT count(*)::integer AS n FROM field_data_reverification_task_events
+      WHERE "taskId" = ${ctx.task.id} AND "plannedVisitDate" = ${date}::date`)).n, 2);
+  }));
+});
+
+describe('api: completed shared reservations', () => {
+  it('retains the dated reservation after closure by fresh evidence', testService(async (service, container) => {
+    const ctx = await setup(service, container);
+    const date = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
+    await ctx.alice.put(`/v1/projects/1/backcheck-calendars/${ctx.collector.id}`)
+      .send({ weeklyCapacity: [1, 1, 1, 1, 1, 1, 1] }).expect(200);
+    await dispatch(ctx, 1, ctx.collector, { plannedVisitDate: date, visitBy: future() }).expect(200);
+    const evidence = await ctx.observe(await ctx.submitAs(ctx.collector, 'two'));
+    await act(ctx.alice, ctx.path, 'close', 2, { observationId: evidence }).expect(200);
+    const result = await ctx.alice.get(`/v1/projects/1/backcheck-route?actorId=${ctx.collector.id}&date=${date}&startLat=8&startLon=-13`).expect(200);
+    assert.equal(result.body.used, 1); assert.equal(result.body.otherVisits, 1);
+  }));
+});
+
+describe('api: concurrent shared reservations', () => {
+  it('allows only one of two simultaneous tasks to reserve the last slot', testServiceFullTrx(async (service, container) => {
+    const ctx = await setup(service, container);
+    await ctx.observe(await ctx.submitAs(ctx.alice, 'two'), { predicate: 'pressure' });
+    await generateReverification(container.db);
+    const another = (await ctx.alice.get(tasks).expect(200)).body.items.find(item => item.predicate === 'pressure');
+    const date = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
+    await ctx.alice.put(`/v1/projects/1/backcheck-calendars/${ctx.collector.id}`)
+      .send({ weeklyCapacity: [1, 1, 1, 1, 1, 1, 1] }).expect(200);
+    const body = { assigneeId: ctx.collector.id, plannedVisitDate: date, visitBy: future() };
+    const responses = await Promise.all([
+      dispatch(ctx, 1, ctx.collector, body),
+      act(ctx.alice, `${tasks}/${another.id}`, 'dispatch', 1, body)
+    ]);
+    assert.deepEqual(responses.map(response => response.status).sort(), [200, 400]);
+    const result = await ctx.alice.get(`/v1/projects/1/backcheck-route?actorId=${ctx.collector.id}&date=${date}&startLat=8&startLon=-13`).expect(200);
+    assert.equal(result.body.used, 1);
   }));
 });

@@ -235,3 +235,18 @@ Approved stop cards identify the response form/version and deadline in online
 and signed offline views, preserving legacy snapshots and hiding technical
 references by default. Implemented locally with 13 database and 23 browser
 checks. See [O16-collector-form-guidance.md](O16-collector-form-guidance.md). Collect form availability and device acceptance remain field checks.
+
+### O17 shared visit capacity
+
+Dated re-verification assignments share collector quotas and UTC shifts with
+backchecks, with serialized allocation, retained completed reservations, event
+history and collector-visible dates. See [O17-shared-visit-capacity.md](O17-shared-visit-capacity.md).
+Unified routes, offline re-verification snapshots and device acceptance remain pending.
+
+### Release reconciliation
+
+O15 production signing verification passed after the cleanup fixes in PRs #104
+and #105. O16 collector form guidance was merged in PR #103 and deployed, with
+live custom-domain assets, signed snapshot identity/expiry and fixture cleanup
+verified. Earlier pending statements about itinerary dispatch, encrypted itinerary
+snapshots and public companion-page caching are superseded by O12–O14 above.

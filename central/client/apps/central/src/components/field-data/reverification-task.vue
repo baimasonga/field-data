@@ -14,6 +14,7 @@
         <p>
           Status: <b>{{ detail.task.status }}</b>
           <template v-if="detail.task.assignee"> · Assigned to {{ detail.task.assignee.displayName }}</template>
+          <template v-if="detail.task.plannedVisitDate"> · Planned visit {{ detail.task.plannedVisitDate }} (UTC)</template>
           <template v-if="detail.task.visitBy"> · Visit by {{ detail.task.visitBy }}</template>
           <b v-if="detail.task.overdue"> · Overdue</b>
         </p>
@@ -25,6 +26,7 @@
             <li v-for="event of detail.events" :key="event.id">
               {{ event.action }} · {{ event.recordedAt }}
               <template v-if="event.assigneeName"> · {{ event.assigneeName }}</template>
+              <template v-if="event.plannedVisitDate"> · Planned {{ event.plannedVisitDate }} (UTC)</template>
               <template v-if="event.reasonCode"> · {{ event.reasonCode }}</template>
               <p>{{ event.note }}</p>
             </li>
@@ -40,7 +42,10 @@
                   <option v-for="user of appUsers" :key="user.id" :value="user.id">{{ user.displayName }}</option>
                 </select>
               </label>
+              <label>Planned visit date (optional, UTC) <input v-model="plannedVisitDate" class="form-control" type="date"></label>
+              <p>A planned date requires a visit deadline and a saved collector calendar. It reserves capacity shared with backchecks. Leaving it empty keeps this task unplanned.</p>
               <label>Visit by (optional) <input v-model="visitBy" class="form-control" type="datetime-local"></label>
+              <p>The visit deadline uses your browser’s local time; the planned date uses UTC.</p>
               <label>Instruction shown to the collector
                 <textarea v-model="dispatchNote" class="form-control" required maxlength="2000"></textarea>
               </label>
@@ -115,6 +120,7 @@ const notice = ref('');
 const detail = ref(null);
 const appUsers = ref([]);
 const assigneeId = ref(0);
+const plannedVisitDate = ref('');
 const visitBy = ref('');
 const dispatchNote = ref('');
 const observationId = ref('');
@@ -137,6 +143,9 @@ const read = async (current) => {
   const { data } = await request({ method: 'GET', url: root, alert: false });
   if (current !== generation) return;
   detail.value = data;
+  plannedVisitDate.value = data.task.plannedVisitDate ?? '';
+  const deadline = data.task.visitBy == null ? null : new Date(data.task.visitBy);
+  visitBy.value = deadline == null ? '' : new Date(deadline.getTime() - deadline.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
   if (data.task.assignee != null) assigneeId.value = data.task.assignee.id;
 };
 const perform = async (work) => {
@@ -154,7 +163,7 @@ const perform = async (work) => {
     } else if (status === 409) {
       error.value = failure.response?.data?.message ?? 'The task is not in a state that allows that change.';
     } else {
-      error.value = 'The task request failed. Check the assignee, dates and note, then retry.';
+      error.value = 'The task request failed. Check the assignee, dates and note. Planned dates also need an open form, a saved calendar and available quota/shift time. Then retry.';
     }
   } finally { if (current === generation) busy.value = false; }
 };
@@ -186,7 +195,7 @@ const finish = async (current, message) => {
 };
 const dispatch = () => perform(async (current) => {
   await write('dispatch', {
-    assigneeId: assigneeId.value, note: dispatchNote.value,
+    assigneeId: assigneeId.value, note: dispatchNote.value, plannedVisitDate: plannedVisitDate.value || null,
     ...(visitBy.value ? { visitBy: new Date(visitBy.value).toISOString() } : {})
   });
   await finish(current, 'Assignment saved. The collector sees it in their fieldwork inbox.');

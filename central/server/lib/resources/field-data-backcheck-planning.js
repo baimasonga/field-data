@@ -1,5 +1,6 @@
 // Copyright 2026 Field Data Developers. Licensed under the Apache License, Version 2.0.
 const { sql } = require('slonik');
+const { visitUsage } = require('../util/visit-capacity');
 const { createHash } = require('node:crypto');
 const { isDeepStrictEqual } = require('node:util');
 const { UUID_PATTERN } = require('../util/claim-versioning');
@@ -105,10 +106,11 @@ module.exports = (service, endpoint) => {
     }
     const calendar = await container.db.maybeOne(sql`SELECT settings FROM field_data_backcheck_calendars
       WHERE "actorId" = ${actor.id} AND "projectId" = ${project.id}`);
-    const used = await container.db.oneFirst(sql`SELECT count(*)::integer FROM field_data_backchecks
-      WHERE "assignedTo" = ${actor.id} AND "plannedVisitDate" = ${query.date}::date AND status IN ('requested', 'linked')`);
+    const used = (await visitUsage(container.db, project.id)).get(`${actor.id}|${query.date}`) ?? 0;
     const unplanned = await container.db.oneFirst(sql`SELECT count(*)::integer FROM field_data_backchecks
       WHERE "assignedTo" = ${actor.id} AND "plannedVisitDate" IS NULL AND status = 'requested'`);
+    const otherVisits = await container.db.oneFirst(sql`SELECT count(*)::integer FROM field_data_reverification_tasks
+      WHERE "assigneeId" = ${actor.id} AND "plannedVisitDate" = ${query.date}::date AND status IN ('dispatched', 'closed')`);
     const capacity = quotaOn(calendar?.settings, query.date);
     const truncated = rows.length > 0 && Number(rows[0].total) > rows.length;
     const omitted = Object.values(excluded).reduce((sum, n) => sum + n, 0);
@@ -126,12 +128,12 @@ module.exports = (service, endpoint) => {
     const totalMinutes = road.status === 'ok' ? Math.ceil(road.travelMinutes + visits.length * visitMinutes) : null;
     const timing = { visitMinutes, dayMinutes, shiftBudgetMinutes, totalMinutes, shift: shift ?? null, shiftUnavailable: shift === null, expiredShift,
       previewOverrides: visitOverride != null || dayOverride != null, overBudget: totalMinutes == null ? null : totalMinutes > dayMinutes };
-    const result = { actor, date: query.date, start, capacity, used, unplanned, excluded, uncertainLocations, truncated,
-      needsReview: project.archived === true || unplanned > 0 || omitted > 0 || truncated || capacity == null || used > capacity || uncertainLocations > 0
+    const result = { actor, date: query.date, start, capacity, used, otherVisits, unplanned, excluded, uncertainLocations, truncated,
+      needsReview: project.archived === true || otherVisits > 0 || unplanned > 0 || omitted > 0 || truncated || capacity == null || used > capacity || uncertainLocations > 0
         || shift === null || expiredShift || road.status !== 'ok' || road.maxSnapMeters > 100 || timing.overBudget === true,
       method: optimization?.status === 'ok' ? 'OSRM road trip suggestion, return to start; not a guarantee of optimality' : 'nearest-next-stop, great-circle distance, return to start',
       ordering: { requested: query.order ?? 'straight', applied: optimization?.status === 'ok' ? 'road' : 'straight', status: optimization?.status ?? 'notRequested' }, route, road, timing };
-    result.reviewToken = createHash('sha256').update(JSON.stringify({ actor: actor.id, date: result.date, start, capacity, used,
+    result.reviewToken = createHash('sha256').update(JSON.stringify({ actor: actor.id, date: result.date, start, capacity, used, otherVisits,
       excluded, truncated, shift: timing.shift, ordering: result.ordering, stops: route.stops })).digest('hex');
     return result;
   };

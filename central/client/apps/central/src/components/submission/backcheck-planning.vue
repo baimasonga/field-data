@@ -18,6 +18,7 @@
       <form v-if="canManage" class="calendar-form" @submit.prevent="saveCalendar">
         <fieldset>
           <legend>Weekly visit capacity (UTC)</legend>
+          <p>This calendar is shared by dated backchecks and re-verification visits.</p>
           <label v-for="(day, index) in weekdays" :key="day">{{ day }} visits
             <input v-model.number="weeklyCapacity[index]" type="number" min="0" max="100" required class="form-control">
           </label>
@@ -87,6 +88,7 @@ Review required: {{ plan.truncated ? 'the task list was truncated; ' : '' }}{{ o
 </p>
         <p v-if="plan.ordering?.applied === 'road'">Road-aware order suggested by the approved routing service. This is a heuristic, not guaranteed optimal; review access and safety.</p>
         <p v-else-if="plan.ordering?.requested === 'road'" role="status">Road-aware ordering unavailable ({{ plan.ordering.status }}). Showing the straight-line suggestion; driving time remains unknown.</p>
+        <p v-if="plan.otherVisits">{{ plan.otherVisits }} re-verification visits also reserve this day. Their stops and travel are not included in this backcheck preview; review the combined workload.</p>
         <p v-if="plan.capacity != null && plan.used > plan.capacity">This day is over capacity. Calendar edits do not reschedule existing visits.</p>
         <p v-if="plan.timing?.shift">Saved UTC shift: {{ plan.timing.shift.start }}–{{ plan.timing.shift.end }} · {{ plan.timing.dayMinutes }} minutes budget.</p>
         <p v-if="plan.timing?.shiftUnavailable" role="status">This date has no available shift. Reschedule before fieldwork.</p>
@@ -233,7 +235,7 @@ const download = () => {
     ['Shift unavailable', plan.value.timing?.shiftUnavailable], ['Shift ended', plan.value.timing?.expiredShift], ['Preview time overrides', plan.value.timing?.previewOverrides],
     ['Minutes per visit', plan.value.timing?.visitMinutes], ['Available minutes', plan.value.timing?.dayMinutes],
     ['Total estimated minutes', plan.value.timing?.totalMinutes], ['Over time budget', plan.value.timing?.overBudget],
-    ['Daily capacity', plan.value.capacity], ['Reserved or completed', plan.value.used], ['Unplanned pending', plan.value.unplanned],
+    ['Daily capacity', plan.value.capacity], ['Reserved or completed', plan.value.used], ['Re-verification reservations (stops and travel excluded)', plan.value.otherVisits ?? 0], ['Unplanned pending', plan.value.unplanned],
     ['Review required', plan.value.needsReview], ['Truncated', plan.value.truncated], ['Uncertain locations', plan.value.uncertainLocations],
     ...Object.entries(plan.value.excluded).map(([reason, count]) => [reasons[reason], count])];
   const url = URL.createObjectURL(new Blob([rows.map(r => r.map(text).join(',')).join('\r\n')], { type: 'text/csv;charset=utf-8' }));
