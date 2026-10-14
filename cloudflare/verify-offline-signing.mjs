@@ -2,27 +2,28 @@
 import { createHash, createPublicKey, randomUUID, verify } from 'node:crypto';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+class ReadinessError extends Error {}
 const entryAssets = html => [...html.matchAll(/(?:src|href)=["'](\/assets\/[^"']+\.(?:js|css))["']/g)].map(match => match[1]).sort();
 export const verifyOfflineSigning = async ({ base, workerBase, deploymentId, audience, sessionToken, fetcher = fetch }) => {
   const root = new URL(base); const worker = new URL(workerBase);
   if (root.protocol !== 'https:' || worker.protocol !== 'https:' || root.href !== `${root.origin}/` || worker.href !== `${worker.origin}/`
-    || root.username || root.password || worker.username || worker.password || !deploymentId || !sessionToken) throw new Error('Signing verification requires the deployed site and authenticated session.');
+    || root.username || root.password || worker.username || worker.password || !deploymentId || !sessionToken) throw new ReadinessError('Signing verification requires the deployed site and authenticated session.');
   const get = async (url, options = {}) => {
     let response;
     try { response = await fetcher(url, { ...options, redirect: 'error', signal: AbortSignal.timeout(20000) }); }
-    catch { throw new Error('Signing verification could not reach the deployed site.'); }
-    if (!response.ok) throw new Error(`Signing verification received HTTP ${response.status}.`);
+    catch { throw new ReadinessError('Signing verification could not reach the deployed site.'); }
+    if (!response.ok) throw new ReadinessError(`Signing verification received HTTP ${response.status}.`);
     return response;
   };
   // Validate the actual user-facing origin before sending credentials or
   // creating a fixture. A working workers.dev site does not prove this site
   // is serving the release.
   const build = await (await get(new URL(`/field-data-build.json?check=${encodeURIComponent(deploymentId)}`, root))).json();
-  if (build.deploymentId !== deploymentId) throw new Error('The custom-domain site is not serving this deployment.');
+  if (build.deploymentId !== deploymentId) throw new ReadinessError('The custom-domain site is not serving this deployment.');
   const siteHtml = await (await get(new URL(`/?check=${encodeURIComponent(deploymentId)}`, root))).text();
   const workerHtml = await (await get(new URL(`/?check=${encodeURIComponent(deploymentId)}`, worker))).text();
   const siteAssets = entryAssets(siteHtml); const workerAssets = entryAssets(workerHtml);
-  if (siteAssets.length === 0 || JSON.stringify(siteAssets) !== JSON.stringify(workerAssets)) throw new Error('The custom domain and Worker are serving different frontend assets.');
+  if (siteAssets.length === 0 || JSON.stringify(siteAssets) !== JSON.stringify(workerAssets)) throw new ReadinessError('The custom domain and Worker are serving different frontend assets.');
   const api = async (path, token, method = 'GET', body) => {
     const response = await get(new URL(`/v1${path}`, root), { method, headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
       ...(body === undefined ? {} : { body: JSON.stringify(body) }) });
@@ -32,28 +33,28 @@ export const verifyOfflineSigning = async ({ base, workerBase, deploymentId, aud
   try {
     const name = `Offline readiness check ${randomUUID()}`;
     project = await api('/projects', sessionToken, 'POST', { name });
-    if (!Number.isSafeInteger(project?.id) || project.id < 1 || project.name !== name) throw new Error('The temporary verification project was not confirmed.');
+    if (!Number.isSafeInteger(project?.id) || project.id < 1 || project.name !== name) throw new ReadinessError('The temporary verification project was not confirmed.');
     projectId = project.id;
     const displayName = `Offline readiness check ${randomUUID()}`;
     appUser = await api(`/projects/${projectId}/app-users`, sessionToken, 'POST', { displayName });
-    if (!Number.isSafeInteger(appUser?.id) || appUser.id < 1 || appUser.displayName !== displayName) throw new Error('The temporary App User was not confirmed.');
+    if (!Number.isSafeInteger(appUser?.id) || appUser.id < 1 || appUser.displayName !== displayName) throw new ReadinessError('The temporary App User was not confirmed.');
     appUserId = appUser.id;
-    if (typeof appUser.token !== 'string' || !appUser.token) throw new Error('The temporary App User access was not confirmed.');
+    if (typeof appUser.token !== 'string' || !appUser.token) throw new ReadinessError('The temporary App User access was not confirmed.');
     const issued = await api('/field-data/app-user/offline-assignments', appUser.token);
-    if (issued.enabled !== true || issued.bundle?.algorithm !== 'ES256') throw new Error('Live offline snapshot signing is not enabled.');
+    if (issued.enabled !== true || issued.bundle?.algorithm !== 'ES256') throw new ReadinessError('Live offline snapshot signing is not enabled.');
     const bundle = issued.bundle;
-    if (Object.hasOwn(bundle.publicKey ?? {}, 'd')) throw new Error('The snapshot returned a private key.');
+    if (Object.hasOwn(bundle.publicKey ?? {}, 'd')) throw new ReadinessError('The snapshot returned a private key.');
     const key = createPublicKey({ key: bundle.publicKey, format: 'jwk' });
     const keyId = createHash('sha256').update(key.export({ type: 'spki', format: 'der' })).digest('hex');
     const bytes = Buffer.from(bundle.payload, 'base64url');
     if (bytes.length > 262144 || key.asymmetricKeyType !== 'ec' || key.asymmetricKeyDetails.namedCurve !== 'prime256v1' || keyId !== bundle.keyId
-      || !verify('sha256', bytes, { key, dsaEncoding: 'ieee-p1363' }, Buffer.from(bundle.signature, 'base64url'))) throw new Error('The deployed snapshot signature could not be verified.');
+      || !verify('sha256', bytes, { key, dsaEncoding: 'ieee-p1363' }, Buffer.from(bundle.signature, 'base64url'))) throw new ReadinessError('The deployed snapshot signature could not be verified.');
     const data = JSON.parse(bytes.toString('utf8'));
     if (data.schemaVersion !== 'offline-assignments@2' || data.audience !== new URL(audience).origin || data.actorId !== appUser.id || data.projectId !== project.id
       || data.complete !== true || !Array.isArray(data.items) || data.items.length !== 0 || !Array.isArray(data.itineraries?.items) || data.itineraries.items.length !== 0
       || data.itineraries.complete !== true || data.itineraries.omitted !== 0 || Date.parse(data.issuedAt) > Date.now() + 5 * 60000
       || Date.parse(data.expiresAt) <= Date.now() || Date.parse(data.expiresAt) - Date.parse(data.issuedAt) !== 8 * 3600000)
-      throw new Error('The deployed snapshot audience, identity or expiry is incorrect.');
+      throw new ReadinessError('The deployed snapshot audience, identity or expiry is incorrect.');
   } catch (error) { primaryError = error; }
   finally {
     if (appUserId != null && projectId != null) {
@@ -63,7 +64,7 @@ export const verifyOfflineSigning = async ({ base, workerBase, deploymentId, aud
       try { await api(`/projects/${projectId}`, sessionToken, 'DELETE'); } catch { cleanupFailed = true; }
     }
   }
-  if (cleanupFailed) throw new Error('Verification fixture cleanup could not be confirmed; check the readiness-check project.');
+  if (cleanupFailed) throw new ReadinessError('Verification fixture cleanup could not be confirmed; check the readiness-check project.');
   if (primaryError) throw primaryError;
   return { verified: true, customDomain: true, fixtureRemoved: true };
 };
@@ -73,5 +74,5 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
     await verifyOfflineSigning({ base: process.env.BASE, workerBase: process.env.WORKER_BASE, deploymentId: process.env.EXPECTED_DEPLOYMENT_ID,
       audience: process.env.FIELD_DATA_OFFLINE_ORIGIN, sessionToken: process.env.FIELD_DATA_SESSION_TOKEN });
     console.log('Custom-domain assets and live offline signatures verified; temporary fixture removed.');
-  } catch { console.error('Custom-domain or offline-signing verification failed. Check routing, signing configuration and readiness-check fixture cleanup.'); process.exitCode = 1; }
+  } catch (error) { console.error(error instanceof ReadinessError ? error.message : 'Offline signing verification failed with an unexpected response; inspect configuration and fixture cleanup.'); process.exitCode = 1; }
 }
