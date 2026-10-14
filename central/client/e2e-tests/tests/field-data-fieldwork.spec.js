@@ -9,7 +9,7 @@ const key = 'fixture-app-user-key';
 const visitFixture = { id: '88888888-8888-4888-8888-888888888888', assetName: 'Water point', externalId: 'WP-01', assetType: 'water-point',
   predicate: 'condition', instruction: 'Check the pump handle. <img src=x onerror=alert(1)>', xmlFormId: 'verification',
   formName: 'Independent verification', plannedVisitDate: '2026-10-19', visitBy: '2026-10-20T00:00:00Z', dispatchedAt: '2026-10-09T10:00:00Z', actionable: true };
-const setup = async (page, { push = false, denied = false, fail = false, delayed = false, failDelete = false, offline = false, offlineOrigin = null, visits = [], failVisits = false, receipts = [], failReceipts = false, itineraries = [], failItineraries = false, offlineItineraries } = {}) => {
+const setup = async (page, { push = false, denied = false, fail = false, delayed = false, failDelete = false, offline = false, offlineOrigin = null, visits = [], failVisits = false, receipts = [], failReceipts = false, itineraries = [], failItineraries = false, offlineItineraries, offlineVisits } = {}) => {
   const state = { inboxReads: 0, seen: false, registered: false, deleted: false, failures: fail ? 1 : 0, requests: [] };
   const errors = [];
   if (offline) {
@@ -20,7 +20,7 @@ const setup = async (page, { push = false, denied = false, fail = false, delayed
       origin: offlineOrigin ?? new URL(appUrl).origin },
     { actorId: 42, projectId: 7, displayName: 'Checker', projectName: 'Project' },
     [{ id: taskId, question: '<img src=x onerror=alert(1)> Verify the visit.', xmlFormId: 'verification',
-      formName: 'Independent verification', dueAt: null, plannedVisitDate: '2026-10-14', status: 'requested', actionable: true, seenAt: null }], new Date(), offlineItineraries);
+      formName: 'Independent verification', dueAt: null, plannedVisitDate: '2026-10-14', status: 'requested', actionable: true, seenAt: null }], new Date(), offlineItineraries, offlineVisits);
   }
   page.on('pageerror', error => errors.push(error.message));
   let release;
@@ -195,7 +195,7 @@ const vault = (page, replacement = null) => page.evaluate(value => new Promise((
 }), replacement);
 
 test('encrypted assignments survive reload and unlock offline without persisted credentials', async ({ page, context }) => {
-  const { state, errors } = await setup(page, { offline: true });
+  const { state, errors } = await setup(page, { offline: true, offlineVisits: { items: [visitFixture], complete: true, omitted: 0 } });
   await connect(page);
   await saveOffline(page);
   const panel = offlinePanel(page);
@@ -204,6 +204,8 @@ test('encrypted assignments survive reload and unlock offline without persisted 
   expect(raw).not.toContain(key);
   expect(raw).not.toContain(passphrase);
   expect(raw).not.toContain('Verify the visit');
+  expect(raw).not.toContain('Water point');
+  expect(raw).not.toContain('Check the pump handle');
   await page.reload();
   await expect(panel.getByLabel('Saved snapshot passphrase')).toBeVisible();
   // The app downloads some cosmetic components (such as the hover cards) just after load. Let
@@ -215,6 +217,10 @@ test('encrypted assignments survive reload and unlock offline without persisted 
   await expect(panel.getByRole('alert')).toContainText('could not be unlocked');
   await unlockOffline(page);
   await expect(panel).toContainText('Read-only snapshot from');
+  await expect(panel.getByRole('heading', { name: 'Offline re-verification visits' })).toBeVisible();
+  await expect(panel).toContainText('Water point · WP-01');
+  await expect(panel).toContainText('Planned visit: 2026-10-19 (UTC)');
+  await expect(panel).toContainText('Check the pump handle.');
   await expect(panel).toContainText('Planned visit: 2026-10-14 (UTC date)');
   await expect(panel).toContainText('<img src=x onerror=alert(1)> Verify the visit.');
   await expect(panel.locator('img')).toHaveCount(0);
@@ -452,3 +458,16 @@ test('a signed itinerary with malformed collection metadata is rejected before s
   await connect(page); await saveOffline(page);
   await expect(offlinePanel(page).getByRole('alert')).toBeVisible(); expect(await vault(page)).toBeNull();
 });
+
+for (const [name, invalid] of [
+  ['impossible visit date', { plannedVisitDate: '2026-02-30' }],
+  ['unexpected source answer', { value: 'Earlier answer must never be stored' }]
+]) {
+  test(`signed offline visits reject ${name} before storage`, async ({ page }) => {
+    await setup(page, { offline: true, offlineVisits: { items: [{ ...visitFixture, ...invalid }], complete: true, omitted: 0 } });
+    await connect(page);
+    await saveOffline(page);
+    await expect(offlinePanel(page).getByRole('alert')).toBeVisible();
+    expect(await vault(page)).toBeNull();
+  });
+}

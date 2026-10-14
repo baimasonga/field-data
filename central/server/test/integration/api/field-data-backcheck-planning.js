@@ -244,7 +244,7 @@ describe('api: calendar availability and route planning', () => {
       process.env.FIELD_DATA_OFFLINE_ORIGIN = 'https://field.example.test';
       const { bundle } = (await service.get('/v1/field-data/app-user/offline-assignments').set('Authorization', `Bearer ${users[1].token}`).expect(200)).body;
       const issued = JSON.parse(Buffer.from(bundle.payload, 'base64url'));
-      assert.equal(issued.schemaVersion, 'offline-assignments@2'); assert.equal(issued.itineraries.items.length, 1);
+      assert.equal(issued.schemaVersion, 'offline-assignments@3'); assert.equal(issued.itineraries.items.length, 1);
       assert.deepEqual(issued.itineraries.items[0].stops, received.stops);
       const otherBundle = (await service.get('/v1/field-data/app-user/offline-assignments').set('Authorization', `Bearer ${users[2].token}`).expect(200)).body.bundle;
       assert.equal(JSON.parse(Buffer.from(otherBundle.payload, 'base64url')).itineraries.items.length, 0);

@@ -250,3 +250,12 @@ and #105. O16 collector form guidance was merged in PR #103 and deployed, with
 live custom-domain assets, signed snapshot identity/expiry and fixture cleanup
 verified. Earlier pending statements about itinerary dispatch, encrypted itinerary
 snapshots and public companion-page caching are superseded by O12–O14 above.
+
+### O18 offline re-verification instructions
+
+Version-3 signed encrypted snapshots add collector-scoped re-verification
+instructions and planned visit dates, shared live/offline permission checks,
+explicit omissions and strict pre-storage validation. See
+[O18-offline-reverification.md](O18-offline-reverification.md).
+This supersedes earlier pending statements about snapshot inclusion for these
+tasks. Collect device acceptance, uploads, relays and unified routes remain pending.

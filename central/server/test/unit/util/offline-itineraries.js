@@ -30,3 +30,20 @@ describe('(util) bounded signed offline itineraries', () => {
 
   });
 });
+
+describe('(util) bounded signed offline visits', () => {
+  it('retains backchecks and reports visits omitted by the row and byte limits', () => {
+    const { privateKey } = generateKeyPairSync('ec', { namedCurve: 'prime256v1' });
+    const settings = { key: privateKey, origin: 'https://field.example.test' };
+    const user = { actorId: 5, projectId: 1, displayName: 'Checker', projectName: 'Project' };
+    const visits = { items: Array.from({ length: 51 }, (_, i) => ({ id: String(i), instruction: 'v'.repeat(6000) })), omitted: 2, complete: false };
+    const rows = Array.from({ length: 50 }, () => ({ question: 'q'.repeat(2000) }));
+    const bundle = issue(settings, user, rows, new Date(), [], visits);
+    const bytes = Buffer.from(bundle.payload, 'base64url'); const data = JSON.parse(bytes);
+    data.schemaVersion.should.equal('offline-assignments@3'); data.items.length.should.equal(50);
+    bytes.length.should.be.belowOrEqual(262144); data.reverification.items.length.should.be.below(50);
+    data.reverification.omitted.should.equal(53 - data.reverification.items.length); data.reverification.complete.should.be.false();
+    const empty = JSON.parse(Buffer.from(issue(settings, user, [], new Date(), [], { items: [], omitted: 0, complete: true }).payload, 'base64url'));
+    empty.reverification.should.eql({ items: [], omitted: 0, complete: true });
+  });
+});

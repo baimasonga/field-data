@@ -8,6 +8,7 @@ const Problem = require('../util/problem');
 const { timestamp } = require('../util/asset-freshness');
 
 const { ALLOCATION_LOCK } = require('../util/backcheck-request');
+const { reverificationVisits } = require('../util/reverification-visits');
 const { visitUsage } = require('../util/visit-capacity');
 const { validDate, slotFor } = require('../util/backcheck-calendar');
 
@@ -357,24 +358,10 @@ module.exports = (service, endpoint) => {
   // visit needs: never the earlier value, history, review state or other people's tasks.
   service.get('/field-data/app-user/reverification', endpoint(async (container, { auth }, request, response) => {
     const user = await appUser(container, auth);
-    const rows = await container.db.any(sql`SELECT t.id, t."visitBy", t."dispatchedAt", to_char(t."plannedVisitDate", 'YYYY-MM-DD') AS "plannedVisitDate",
-      a.name AS "assetName", a."externalId", a."assetType", o.predicate, f."xmlFormId", fd.name AS "formName",
-      (f.state = 'open') AS actionable,
-      (SELECT e.note FROM field_data_reverification_task_events e WHERE e."taskId" = t.id
-        AND e.action IN ('dispatch', 'reassign') ORDER BY e.sequence DESC LIMIT 1) AS instruction
-      FROM field_data_reverification_tasks t
-      JOIN field_data_asset_observations o ON o.id = t."observationId"
-      JOIN field_data_observation_owners owner ON owner."observationId" = o.id
-      JOIN field_data_assets a ON a.id = owner."assetId"
-      JOIN forms f ON f.id = a."formId" AND f."projectId" = ${user.projectId} AND f."deletedAt" IS NULL
-      JOIN form_defs fd ON fd.id = f."currentDefId"
-      WHERE t.status = 'dispatched' AND t."assigneeId" = ${user.actorId}
-        AND EXISTS (SELECT 1 FROM assignments ass JOIN roles r ON r.id = ass."roleId"
-          WHERE ass."actorId" = ${user.actorId} AND ass."acteeId" = f."acteeId" AND r.verbs ? 'submission.create')
-      ORDER BY t."dispatchedAt" DESC, t.id DESC LIMIT 51`);
+    const visits = await reverificationVisits(container, user);
     response.set('Cache-Control', 'private, no-store');
     return { appUser: { name: user.displayName, projectName: user.projectName },
-      items: rows.slice(0, 50), complete: rows.length <= 50 };
+      items: visits.items, complete: visits.complete };
   }));
 };
 module.exports.proofFailure = proofFailure;

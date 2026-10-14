@@ -28,16 +28,21 @@ const boundItineraries = (itineraries, now = new Date()) => {
   }
   return { items, complete: items.length === itineraries.length, omitted: itineraries.length - items.length };
 };
-const issue = (settings, user, rows, now = new Date(), itineraries) => {
-  const data = { schemaVersion: itineraries === undefined ? 'offline-assignments@1' : 'offline-assignments@2', id: randomUUID(),
+const issue = (settings, user, rows, now = new Date(), itineraries, visits) => {
+  const data = { schemaVersion: visits !== undefined ? 'offline-assignments@3' : itineraries === undefined ? 'offline-assignments@1' : 'offline-assignments@2', id: randomUUID(),
     audience: settings.origin, actorId: user.actorId, projectId: user.projectId,
     appUser: { name: user.displayName ?? 'App User', projectName: user.projectName },
     issuedAt: now.toISOString(), expiresAt: new Date(now.getTime() + 8 * 3600000).toISOString(),
     complete: rows.length <= 50, items: rows.slice(0, 50),
-    ...(itineraries === undefined ? {} : { itineraries: boundItineraries(itineraries, now) }) };
+    ...(visits === undefined ? {} : { reverification: { items: visits.items.slice(0, 50), omitted: visits.omitted + Math.max(0, visits.items.length - 50), complete: visits.complete && visits.items.length <= 50 } }),
+    ...(itineraries === undefined && visits === undefined ? {} : { itineraries: boundItineraries(itineraries ?? [], now) }) };
   let bytes = Buffer.from(JSON.stringify(data));
   while (bytes.length > 262144 && data.itineraries?.items.length > 0) {
     data.itineraries.items.pop(); data.itineraries.omitted += 1; data.itineraries.complete = false;
+    bytes = Buffer.from(JSON.stringify(data));
+  }
+  while (bytes.length > 262144 && data.reverification?.items.length > 0) {
+    data.reverification.items.pop(); data.reverification.omitted += 1; data.reverification.complete = false;
     bytes = Buffer.from(JSON.stringify(data));
   }
   if (bytes.length > 262144) throw Object.assign(new Error('Offline snapshot exceeds the payload limit.'),

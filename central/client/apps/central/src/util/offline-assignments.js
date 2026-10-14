@@ -42,7 +42,7 @@ export const verifySnapshot = async (bundle, origin = window.location.origin) =>
   if (signature.length !== 64 || !await crypto.subtle.verify({ name: 'ECDSA', hash: 'SHA-256' }, publicKey, signature, bytes))
     throw new Error('Invalid signature');
   const data = JSON.parse(decoder.decode(bytes));
-  if (!['offline-assignments@1', 'offline-assignments@2'].includes(data.schemaVersion) || data.audience !== origin || !uuid(data.id) ||
+  if (!['offline-assignments@1', 'offline-assignments@2', 'offline-assignments@3'].includes(data.schemaVersion) || data.audience !== origin || !uuid(data.id) ||
     !Number.isSafeInteger(data.actorId) || data.actorId <= 0 ||
     !Number.isSafeInteger(data.projectId) || data.projectId <= 0 ||
     !text(data.appUser?.name, 2000) || !text(data.appUser?.projectName, 2000) ||
@@ -51,7 +51,7 @@ export const verifySnapshot = async (bundle, origin = window.location.origin) =>
       !text(item.xmlFormId, 1000) || (item.formName != null && !text(item.formName, 2000)) ||
       !['requested', 'linked', 'cancelled'].includes(item.status) || typeof item.actionable !== 'boolean'))
     throw new Error('Invalid snapshot');
-  if (data.schemaVersion === 'offline-assignments@2') {
+  if (['offline-assignments@2', 'offline-assignments@3'].includes(data.schemaVersion)) {
     const routes = data.itineraries;
     const location = value => value != null && typeof value.latitude === 'number' && Number.isFinite(value.latitude) && Math.abs(value.latitude) <= 90 &&
       typeof value.longitude === 'number' && Number.isFinite(value.longitude) && Math.abs(value.longitude) <= 180;
@@ -70,6 +70,22 @@ export const verifySnapshot = async (bundle, origin = window.location.origin) =>
       routes.items.reduce((n, route) => n + route.stops.length, 0) > 100 ||
       new Set(routes.items.map(route => route.date)).size !== routes.items.length)
       throw new Error('Invalid itinerary snapshot');
+  }
+  if (data.schemaVersion !== 'offline-assignments@3' && data.reverification !== undefined) throw new Error('Unexpected re-verification snapshot version');
+  if (data.schemaVersion === 'offline-assignments@3') {
+    const visits = data.reverification;
+    const date = value => typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value) &&
+      Number.isFinite(Date.parse(`${value}T00:00:00Z`)) && new Date(`${value}T00:00:00Z`).toISOString().slice(0, 10) === value;
+    const timestamp = value => typeof value === 'string' && Number.isFinite(Date.parse(value));
+    const keys = ['id', 'assetName', 'externalId', 'assetType', 'predicate', 'instruction', 'xmlFormId', 'formName', 'visitBy', 'dispatchedAt', 'plannedVisitDate', 'actionable'];
+    if (visits == null || typeof visits.complete !== 'boolean' || !Number.isSafeInteger(visits.omitted) || visits.omitted < 0 ||
+      visits.complete !== (visits.omitted === 0) || !Array.isArray(visits.items) || visits.items.length > 50 ||
+      visits.items.some(v => v == null || Object.keys(v).some(key => !keys.includes(key)) || !uuid(v.id) ||
+        !text(v.assetName, 2000) || !text(v.externalId, 2000) || !text(v.assetType, 2000) || !text(v.predicate, 100) ||
+        !text(v.instruction, 2000) || !text(v.xmlFormId, 1000) || (v.formName != null && !text(v.formName, 2000)) ||
+        typeof v.actionable !== 'boolean' || !timestamp(v.dispatchedAt) || (v.visitBy != null && !timestamp(v.visitBy)) ||
+        (v.plannedVisitDate != null && !date(v.plannedVisitDate))) || new Set(visits.items.map(v => v.id)).size !== visits.items.length)
+      throw new Error('Invalid re-verification snapshot');
   }
   validateTime(data);
   return data;
