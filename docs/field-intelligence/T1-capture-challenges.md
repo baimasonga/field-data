@@ -52,9 +52,11 @@ replay checks cover previously challenged bytes in this project, not all histori
 native media, visually similar images, transformed crops, or cross-project reuse.
 No fraud score or proof-of-presence badge is produced.
 
-Signed witnesses, hardware attestation, sensor corroboration, visual similarity
-checks, challenge-aware offline media packages and real Android/Collect camera
-acceptance remain pending. Encrypted R3 packages do not preserve challenge metadata;
+Signed web User statements are available in [T3](T3-signed-capture-witnesses.md),
+and optional browser location context in [T4](T4-device-reported-capture-location.md).
+Certified witness identity, hardware attestation, stronger sensor corroboration,
+visual similarity checks, challenge-aware offline media packages and real
+Android/Collect camera acceptance remain pending. Encrypted R3 packages do not preserve challenge metadata;
 this initial challenge camera workflow requires connectivity and tab memory.
 
 Validation includes binding and audit idempotency, ownership and reviewer scoping,

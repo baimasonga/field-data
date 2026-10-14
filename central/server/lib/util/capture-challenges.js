@@ -8,7 +8,7 @@ const present = (row, includeNonce = false) => ({
   id: row.id, xmlFormId: row.xmlFormId, instanceId: row.instanceId, name: row.name,
   code: row.nonce.slice(0, 8).toUpperCase(), ...(includeNonce ? { nonce: row.nonce } : {}),
   status: row.status, issuedAt: row.issuedAt, expiresAt: row.expiresAt, boundAt: row.boundAt,
-  contentHash: row.contentHash, sceneReview: row.assessmentRevision > 0 ? 'assessed' : 'not-assessed'
+  contentHash: row.contentHash, captureLocation: row.captureLocation ?? null, sceneReview: row.assessmentRevision > 0 ? 'assessed' : 'not-assessed'
 });
 const bindCapture = async (tx, actor, upload, source, bytes, blobId) => {
   const row = await tx.db.maybeOne(sql`SELECT * FROM field_data_capture_challenges WHERE id = ${upload.manifest.challengeId} AND "actorId" = ${actor.id} FOR UPDATE`);
@@ -24,7 +24,8 @@ const bindCapture = async (tx, actor, upload, source, bytes, blobId) => {
   const digest = createHash('sha256').update(bytes).digest('hex');
   if (await tx.db.maybeOne(sql`SELECT id FROM field_data_capture_challenges WHERE "projectId" = ${source.projectId} AND status = 'bound' AND "contentHash" = ${digest}`)) throw fail();
   const updated = await tx.db.maybeOne(sql`UPDATE field_data_capture_challenges SET status = 'bound', "boundAt" = clock_timestamp(),
-    "contentHash" = ${digest}, "blobId" = ${blobId}, "uploadId" = ${upload.id}
+    "contentHash" = ${digest}, "blobId" = ${blobId}, "uploadId" = ${upload.id},
+    "captureLocation" = ${upload.manifest.captureLocation == null ? null : sql.json(upload.manifest.captureLocation)}
     WHERE id = ${row.id} AND "expiresAt" > clock_timestamp() RETURNING id`);
   if (updated == null) throw fail();
   await tx.Audits.log(actor, 'field_data.capture.bound', new Form({ id: source.formId, acteeId: source.acteeId }),

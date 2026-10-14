@@ -58,7 +58,9 @@ corrupt bytes, archive rules, concurrent saves and replacement, lost acknowledge
 read-only controls, changed-attachment refresh and 320px layout. Native and resumable
 media regressions remain in the required PostgreSQL gate.
 
-Remaining trust work includes signed witness attestations, sensor corroboration,
-visual similarity/capture attestation and real-device acceptance. This workflow
+[T3](T3-signed-capture-witnesses.md) adds signed web User witness statements and
+[T4](T4-device-reported-capture-location.md) adds optional browser location context.
+Remaining trust work includes certified witness identity, stronger sensor
+corroboration, visual similarity/capture attestation and real-device acceptance. This workflow
 records a reviewer's assertion; it cannot establish whether the person actually
 examined the photograph or whether the scene was staged.

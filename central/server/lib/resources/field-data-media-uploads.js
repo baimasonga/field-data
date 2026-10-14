@@ -8,6 +8,7 @@ const Problem = require('../util/problem');
 const { UUID_PATTERN } = require('../util/claim-versioning');
 const target = require('../util/media-upload-target');
 const { bindCapture } = require('../util/capture-challenges');
+const { checkedLocation } = require('../util/capture-location');
 const CHUNK = 262144; const MAX_FILE = 20 * 1024 * 1024;
 const hash = bytes => createHash('sha256').update(bytes).digest('hex');
 const invalid = () => Problem.user.mediaUploadInvalid();
@@ -18,13 +19,17 @@ const manifestFor = body => {
     if (!UUID_PATTERN.test(body.challengeId ?? '') || !/^[0-9a-f]{64}$/.test(body.challengeNonce ?? '') || !['image/jpeg', 'image/png'].includes(body.contentType) || body.size > 5 * 1024 * 1024) throw invalid();
     keys.push('challengeId', 'challengeNonce');
   }
+  if (Object.hasOwn(body ?? {}, 'captureLocation')) {
+    if (!keys.includes('challengeId')) throw invalid();
+    checkedLocation(body.captureLocation); keys.push('captureLocation');
+  }
   const text = (s, max) => typeof s === 'string' && s.length > 0 && s.length <= max && !Array.from(s).some(c => c.charCodeAt(0) < 32);
   if (body == null || Object.keys(body).some(k => !keys.includes(k)) || !UUID_PATTERN.test(body.id ?? '')
     || !text(body.xmlFormId, 1000) || !text(body.instanceId, 1000) || !text(body.name, 255) || /[/\\]/.test(body.name)
     || !Number.isSafeInteger(body.size) || body.size < 1 || body.size > MAX_FILE || !/^[a-f0-9]{64}$/.test(body.sha256 ?? '')
     || !text(body.contentType, 150) || !/^(?:image|audio|video)\/[a-zA-Z0-9.+-]+$|^application\/octet-stream$/.test(body.contentType)
     || ![1, 2, 3].includes(body.priority)) throw invalid();
-  return Object.fromEntries(keys.map(k => [k, body[k]]));
+  return Object.fromEntries(keys.map(k => [k, k === 'captureLocation' ? checkedLocation(body[k]) : body[k]]));
 };
 const identity = async auth => {
   const actor = auth.actor.orNull();

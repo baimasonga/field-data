@@ -384,3 +384,51 @@ describe('api: capture witness lifecycle and bounds', () => {
     const view = (await alice.get(url).expect(200)).body; assert.equal(view.bindingCurrent, false); assert.equal(view.canWitness, false);
   }));
 });
+
+const captureLocation = patch => ({ source: 'browser-geolocation', latitude: 8.48, longitude: -13.23, accuracy: 15,
+  sampledAt: '2026-10-14T11:00:00.000Z', capturedAt: '2026-10-14T11:00:05.000Z', ...patch });
+describe('api: optional device-reported capture location', () => {
+  it('atomically binds optional context to original bytes, retries unchanged manifests, and retains historical readings after replacement', testService(async (service, c) => {
+    const { alice, collector, other, as, manifest, stage, complete } = await setup(service);
+    const challenge = (await as(collector, 'post').send(manifest).expect(200)).body;
+    const location = captureLocation(); const body = await stage(challenge, png, { captureLocation: location });
+    const retry = await service.post(uploads).set('Authorization', `Bearer ${collector.token}`).send({ ...body, captureLocation: Object.fromEntries(Object.entries(location).reverse()) }).expect(200);
+    assert.deepEqual(retry.body.captureLocation, location);
+    await service.post(uploads).set('Authorization', `Bearer ${collector.token}`).send({ ...body, captureLocation: captureLocation({ latitude: 9 }) }).expect(409);
+    await complete(body).expect(200); await complete(body).expect(200);
+    const path = '/v1/projects/1/forms/binaryType/submissions/both/capture-challenges';
+    const item = (await alice.get(path).expect(200)).body.items[0]; assert.deepEqual(item.captureLocation, location); assert.equal(item.bindingCurrent, true);
+    assert.equal(item.contentHash, hash(png)); assert.deepEqual((await as(collector, 'get').expect(200)).body.items[0].captureLocation, location);
+    await service.get(path).set('Authorization', `Bearer ${other.token}`).expect(404);
+    const audits = await c.db.any(sql`SELECT details FROM audits WHERE action LIKE 'field_data.capture.%' OR action LIKE 'field_data.media.%'`);
+    assert.equal(JSON.stringify(audits).includes('latitude'), false); assert.equal(JSON.stringify(audits).includes('sampledAt'), false);
+    await alice.post('/v1/projects/1/forms/binaryType/submissions/both/attachments/here_is_file2.jpg').set('Content-Type', 'image/png').send(Buffer.concat([png, Buffer.from('replacement')])).expect(200);
+    const old = (await alice.get(path).expect(200)).body.items[0]; assert.deepEqual(old.captureLocation, location); assert.equal(old.bindingCurrent, false);
+  }));
+  it('rejects malformed, stale or expanded readings and prevents location metadata on unchallenged uploads', testService(async service => {
+    const { collector, as, manifest } = await setup(service); const challenge = (await as(collector, 'post').send(manifest).expect(200)).body;
+    const body = { id: randomUUID(), xmlFormId: 'binaryType', instanceId: 'both', name: manifest.name, size: png.length, sha256: hash(png), contentType: 'image/png', priority: 1,
+      challengeId: challenge.id, challengeNonce: challenge.nonce };
+    for (const location of [null, {}, captureLocation({ source: 'verified-gps' }), captureLocation({ latitude: '8.48' }), captureLocation({ latitude: 91 }),
+      captureLocation({ longitude: -181 }), captureLocation({ accuracy: -1 }), captureLocation({ accuracy: 100001 }), captureLocation({ altitude: 12 }),
+      captureLocation({ sampledAt: '2026-02-30T11:00:00.000Z' }), captureLocation({ capturedAt: '2026-10-14T11:01:00.001Z' }), captureLocation({ capturedAt: '2026-10-14T10:59:59.999Z' })]) {
+      await service.post(uploads).set('Authorization', `Bearer ${collector.token}`).send({ ...body, captureLocation: location }).expect(400);
+    }
+    const { challengeId, challengeNonce, ...ordinary } = body;
+    await service.post(uploads).set('Authorization', `Bearer ${collector.token}`).send({ ...ordinary, captureLocation: captureLocation() }).expect(400);
+  }));
+  it('allows challenged photos with no location and labels absent context honestly', testService(async service => {
+    const { alice, collector, as, manifest, stage, complete } = await setup(service);
+    const challenge = (await as(collector, 'post').send(manifest).expect(200)).body; await complete(await stage(challenge)).expect(200);
+    const item = (await alice.get('/v1/projects/1/forms/binaryType/submissions/both/capture-challenges').expect(200)).body.items[0];
+    assert.equal(item.captureLocation, null); assert.equal(item.sceneReview, 'not-assessed');
+  }));
+  it('never binds sensor context when challenge or attachment validation fails', testService(async (service, c) => {
+    const { collector, as, manifest, stage, complete } = await setup(service);
+    const challenge = (await as(collector, 'post').send(manifest).expect(200)).body;
+    const body = await stage(challenge, png, { challengeNonce: '0'.repeat(64), captureLocation: captureLocation() });
+    await complete(body).expect(409);
+    const row = await c.db.one(sql`SELECT status, "captureLocation" FROM field_data_capture_challenges WHERE id = ${challenge.id}`);
+    assert.equal(row.status, 'issued'); assert.equal(row.captureLocation, null);
+  }));
+});

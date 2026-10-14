@@ -61,3 +61,7 @@ projects, image replacement, supersession and replacement races. Browser tests
 use actual Web Crypto, reject tampered signatures, replay identical envelopes,
 verify exports in Node and check the layout at 320 pixels. The standalone verifier
 has an enforced CI test. Real-device/field acceptance remains pending.
+
+[T4](T4-device-reported-capture-location.md) adds optional device-reported location
+context to the challenged image. It remains an unverified client assertion and is
+not covered by a certified witness identity or hardware-backed sensor signature.

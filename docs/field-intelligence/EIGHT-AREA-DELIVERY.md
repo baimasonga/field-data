@@ -312,3 +312,14 @@ and outdated warnings preserve historical meaning. Distinct accounts do not prov
 independent people, presence or claim truth. Certified witness identity, delegated
 fieldworker witnessing, sensors, correction/withdrawal and device acceptance remain
 pending. See [T3-signed-capture-witnesses.md](T3-signed-capture-witnesses.md).
+
+## T4 optional device-reported capture location
+
+The companion camera can include one explicitly requested browser location reading
+with a challenged photo. Coordinates, reported accuracy and client timestamps are
+shown before upload, removable before transfer starts and atomically linked to the
+original challenged image. Reviewers see historical context after replacement;
+absent location remains a valid workflow. This records a client assertion rather
+than proving presence or GPS authenticity. Hardware attestation, stronger sensor
+corroboration, native Collect integration, offline challenge packages and real-device
+acceptance remain pending. See [T4-device-reported-capture-location.md](T4-device-reported-capture-location.md).

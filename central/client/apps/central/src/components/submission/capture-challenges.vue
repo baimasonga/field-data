@@ -15,6 +15,13 @@
           <p>{{ item.status === 'bound' ? item.sceneReview === 'assessed' ? 'Challenge linked; human assessment recorded' : item.sceneReview === 'outdated' ? 'Challenge linked; assessment outdated' : 'Challenge linked; scene review required' : item.status === 'cancelled' ? 'Cancelled' : 'Awaiting upload or expired' }}</p>
           <p>Issued <record-date-time :iso="item.issuedAt"/> · Expires <record-date-time :iso="item.expiresAt"/></p>
           <p v-if="item.boundAt">Linked <record-date-time :iso="item.boundAt"/> · {{ item.bindingCurrent ? 'References the current attachment' : 'Current attachment changed or is unavailable' }}</p>
+          <div v-if="item.captureLocation" class="capture-location">
+            <h4>Device-reported location</h4>
+            <p>{{ item.captureLocation.latitude.toFixed(6) }}, {{ item.captureLocation.longitude.toFixed(6) }} · Reported accuracy ±{{ Math.ceil(item.captureLocation.accuracy) }} m</p>
+            <p>Reading <record-date-time :iso="item.captureLocation.sampledAt"/> · Photo timestamp <record-date-time :iso="item.captureLocation.capturedAt"/></p>
+            <p>{{ item.bindingCurrent ? 'Linked to the currently referenced challenged image.' : 'Historical reading: the image or submission version changed.' }} Coordinates, accuracy and timestamps were supplied by the client. This does not establish presence or independently verify location.</p>
+          </div>
+          <p v-else-if="item.status === 'bound'">No location reading was included with this challenged image.</p>
           <submission-capture-assessment :item="item" :project-id="projectId" :xml-form-id="xmlFormId" :instance-id="instanceId" @saved="reload('Photo assessment saved.')" @refresh="reload('The attachment or assessment changed. Review the refreshed history before saving again.')"/>
           <submission-capture-witness v-if="item.status === 'bound'" :item="item" :project-id="projectId" :xml-form-id="xmlFormId" :instance-id="instanceId"/>
           <details v-if="item.contentHash"><summary>Bound image fingerprint</summary><code>{{ item.contentHash }}</code></details>
@@ -31,6 +38,7 @@ import SubmissionCaptureWitness from './capture-witness.vue';
 import useRequest from '../../composables/request';
 import { apiPaths } from '../../util/request';
 import { validHistory } from '../../util/capture-assessment';
+import { checkedLocation } from '../../util/capture-location';
 
 defineOptions({ name: 'SubmissionCaptureChallenges' });
 const props = defineProps({ projectId: { type: String, required: true }, xmlFormId: { type: String, required: true }, instanceId: { type: String, required: true } });
@@ -45,6 +53,7 @@ const load = async () => {
       !/^[0-9A-F]{8}$/.test(item.code ?? '') || typeof item.name !== 'string' || !Number.isFinite(Date.parse(item.issuedAt)) || !Number.isFinite(Date.parse(item.expiresAt)) ||
       typeof item.bindingCurrent !== 'boolean' || !['not-assessed', 'assessed', 'outdated'].includes(item.sceneReview) || (item.contentHash != null && !/^[0-9a-f]{64}$/.test(item.contentHash)) || (item.revision != null && (!Number.isInteger(item.revision) || item.revision < 0)) ||
       (item.canAssess != null && typeof item.canAssess !== 'boolean') || (item.assessments != null && !validHistory(item.assessments)))) throw new Error('Invalid capture history');
+    for (const item of response.data.items) if (item.captureLocation != null) checkedLocation(item.captureLocation);
     if (current === generation) items.value = response.data.items;
   } catch { if (current === generation) error.value = true; } finally { if (current === generation) loading.value = false; }
 };
@@ -52,6 +61,7 @@ const reload = async text => { const current = generation + 1; await load(); if 
 watch(() => [props.projectId, props.xmlFormId, props.instanceId], () => { notice.value = ''; load(); }, { immediate: true });
 </script>
 <style scoped>
+.capture-location { background: #f6f9fa; border-radius: 8px; padding: 12px; margin-top: 12px; } h4 { font-size: 14px; font-weight: 700; }
 .capture-history { margin-top: 20px; } .panel-body { padding: 20px; font-size: 14px; }
 ul { list-style: none; padding: 0; } li { padding: 16px 0; border-top: 1px solid #e8eef0; } h3 { font-size: 16px; font-weight: 700; }
 p, h3, code { overflow-wrap: anywhere; } code { white-space: normal; } summary { cursor: pointer; padding: 8px 0; }
