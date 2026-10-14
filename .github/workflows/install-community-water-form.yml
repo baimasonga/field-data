@@ -1,4 +1,4 @@
-name: Install requested Sierra Leone water survey
+name: Install requested Bo town water survey
 on:
   workflow_dispatch:
 permissions:
@@ -13,7 +13,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Create and verify the requested project's survey
+      - name: Publish and verify the requested project's survey
         env:
           SYSADMIN_EMAIL: ${{ vars.SYSADMIN_EMAIL || 'admin@fielddata.quantixsl.com' }}
           FIELD_DATA_ADMIN_PASSWORD: ${{ secrets.FIELD_DATA_ADMIN_PASSWORD }}

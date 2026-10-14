@@ -60,8 +60,8 @@ const submission = (instanceId) => `<data id="household"><meta><instanceID>${ins
   + '<children><child_name>Bo</child_name></children><children><child_name>Cy</child_name></children>'
   + '<location>7.5 -11.7 0 5</location></data>';
 
-const upload = (alice, path, body, type, headers = {}) => {
-  let request = alice.post(path).set('Content-Type', type);
+const upload = (alice, endpoint, body, type, headers = {}) => {
+  let request = alice.post(endpoint).set('Content-Type', type);
   for (const [name, value] of Object.entries(headers)) request = request.set(name, value);
   return request.send(body);
 };
@@ -82,15 +82,34 @@ describe('api: XLSForm and XForms XML upload pipeline', () => {
 
     const withCompiler = (test) => testServiceWith({ xlsform: (...args) => real(...args) }, test);
 
-    it('publishes the requested Sierra Leone water survey with editable source and correct metadata', withCompiler(async service => {
+    it('publishes the requested Bo town water survey with editable source and correct metadata', withCompiler(async service => {
       const alice = await service.login('alice');
       const source = readFileSync(path.resolve(__dirname, '../../../../../forms/community-water/sl_community_water_service.xlsx'));
       await upload(alice, '/v1/projects/1/forms?publish=true', source, XLSX).expect(200);
       const form = (await alice.get('/v1/projects/1/forms/sl_community_water_service').expect(200)).body;
-      assert.equal(form.name, 'Sierra Leone: Community Water and Sanitation'); assert.equal(form.version, '2026101401'); assert.ok(form.publishedAt);
+      assert.equal(form.name, 'Bo Town: Water and Sanitation'); assert.equal(form.version, '2026101402'); assert.ok(form.publishedAt);
       const compiled = (await alice.get('/v1/projects/1/forms/sl_community_water_service.xml').expect(200)).text;
+      assert.match(compiled, /in_bo_town/); assert.match(compiled, /Outside Bo town/); assert.match(compiled, /readonly="true\(\)"/);
       assert.match(compiled, /location_consent/); assert.match(compiled, /count-selected/); assert.match(compiled, /Participation declined/);
       await alice.get('/v1/projects/1/forms/sl_community_water_service.xlsx').expect(200);
+    }));
+
+    it('publishes the Bo revision while retaining the previous version and its submission', withCompiler(async service => {
+      const alice = await service.login('alice');
+      const id = 'sl_community_water_service';
+      const base = `/v1/projects/1/forms/${id}`;
+      const old = `<data id="${id}" version="2026101401"><visit><district>bo</district><community>Previous community</community></visit><meta><instanceID>uuid:previous-water</instanceID></meta></data>`;
+      const definition = `<h:html xmlns:h="http://www.w3.org/1999/xhtml" xmlns="http://www.w3.org/2002/xforms"><h:head><h:title>Sierra Leone: Community Water and Sanitation</h:title><model><instance>${old}</instance></model></h:head><h:body/></h:html>`;
+      await upload(alice, '/v1/projects/1/forms?publish=true', definition, 'application/xml').expect(200);
+      await upload(alice, `${base}/submissions`, old, 'application/xml').expect(200);
+      await alice.get(`${base}/draft`).expect(404);
+      const source = readFileSync(path.resolve(__dirname, '../../../../../forms/community-water/sl_community_water_service.xlsx'));
+      await upload(alice, `${base}/draft`, source, XLSX).expect(200);
+      await alice.post(`${base}/draft/publish`).expect(200);
+      assert.equal((await alice.get(base).expect(200)).body.version, '2026101402');
+      assert.equal((await alice.get(`${base}/versions/2026101401`).expect(200)).body.version, '2026101401');
+      await alice.get(`${base}/submissions/uuid:previous-water.xml`).expect(200);
+      await alice.get(`${base}/draft`).expect(404);
     }));
 
     it('compiles, publishes and accepts submissions for a form with skip logic, constraints, a repeat and GPS',

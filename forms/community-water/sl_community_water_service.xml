@@ -1,19 +1,22 @@
 <?xml version="1.0"?>
 <h:html xmlns="http://www.w3.org/2002/xforms" xmlns:h="http://www.w3.org/1999/xhtml" xmlns:ev="http://www.w3.org/2001/xml-events" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:jr="http://openrosa.org/javarosa" xmlns:orx="http://openrosa.org/xforms" xmlns:odk="http://www.opendatakit.org/xforms">
   <h:head>
-    <h:title>Sierra Leone: Community Water and Sanitation</h:title>
+    <h:title>Bo Town: Water and Sanitation</h:title>
     <model odk:xforms-version="1.0.0">
       <instance>
-        <data id="sl_community_water_service" version="2026101401">
+        <data id="sl_community_water_service" version="2026101402">
           <start/>
           <end/>
           <intro/>
           <consent/>
           <declined/>
+          <in_bo_town/>
+          <outside_scope/>
           <visit>
             <interview_unit/>
             <visit_date/>
-            <district/>
+            <district>bo</district>
+            <town>Bo</town>
             <community/>
             <site_code/>
             <water_source/>
@@ -83,66 +86,6 @@
           <item>
             <name>bo</name>
             <label>Bo</label>
-          </item>
-          <item>
-            <name>bombali</name>
-            <label>Bombali</label>
-          </item>
-          <item>
-            <name>bonthe</name>
-            <label>Bonthe</label>
-          </item>
-          <item>
-            <name>falaba</name>
-            <label>Falaba</label>
-          </item>
-          <item>
-            <name>kailahun</name>
-            <label>Kailahun</label>
-          </item>
-          <item>
-            <name>kambia</name>
-            <label>Kambia</label>
-          </item>
-          <item>
-            <name>karene</name>
-            <label>Karene</label>
-          </item>
-          <item>
-            <name>kenema</name>
-            <label>Kenema</label>
-          </item>
-          <item>
-            <name>koinadugu</name>
-            <label>Koinadugu</label>
-          </item>
-          <item>
-            <name>kono</name>
-            <label>Kono</label>
-          </item>
-          <item>
-            <name>moyamba</name>
-            <label>Moyamba</label>
-          </item>
-          <item>
-            <name>port_loko</name>
-            <label>Port Loko</label>
-          </item>
-          <item>
-            <name>pujehun</name>
-            <label>Pujehun</label>
-          </item>
-          <item>
-            <name>tonkolili</name>
-            <label>Tonkolili</label>
-          </item>
-          <item>
-            <name>western_rural</name>
-            <label>Western Area Rural</label>
-          </item>
-          <item>
-            <name>western_urban</name>
-            <label>Western Area Urban</label>
           </item>
         </root>
       </instance>
@@ -279,11 +222,14 @@
       <bind nodeset="/data/intro" readonly="true()" type="string"/>
       <bind nodeset="/data/consent" type="string" required="true()"/>
       <bind nodeset="/data/declined" readonly="true()" type="string" relevant=" /data/consent  = 'no'"/>
-      <bind nodeset="/data/visit" relevant=" /data/consent  = 'yes'"/>
+      <bind nodeset="/data/in_bo_town" type="string" required="true()" relevant=" /data/consent  = 'yes'"/>
+      <bind nodeset="/data/outside_scope" readonly="true()" type="string" relevant=" /data/consent  = 'yes' and  /data/in_bo_town  = 'no'"/>
+      <bind nodeset="/data/visit" relevant=" /data/consent  = 'yes' and  /data/in_bo_town  = 'yes'"/>
       <bind nodeset="/data/visit/interview_unit" type="string" required="true()"/>
       <bind nodeset="/data/visit/visit_date" type="date" required="true()"/>
       <setvalue ref="/data/visit/visit_date" event="odk-instance-first-load" value="today()"/>
-      <bind nodeset="/data/visit/district" type="string" required="true()"/>
+      <bind nodeset="/data/visit/district" type="string" required="true()" readonly="true()"/>
+      <bind nodeset="/data/visit/town" type="string" readonly="true()"/>
       <bind nodeset="/data/visit/community" type="string" required="true()" constraint="string-length(.) &lt;= 150" jr:constraintMsg="Use at most 150 characters."/>
       <bind nodeset="/data/visit/site_code" type="string" required="true()" constraint="regex(., '^[A-Za-z0-9_-]{3,40}$')" jr:constraintMsg="Use 3–40 letters, numbers, underscores or hyphens."/>
       <bind nodeset="/data/visit/water_source" type="string" required="true()"/>
@@ -302,12 +248,12 @@
       <bind nodeset="/data/visit/notes" type="string" constraint="string-length(.) &lt;= 1000" jr:constraintMsg="Use at most 1,000 characters."/>
       <bind nodeset="/data/visit/interpretation" readonly="true()" type="string"/>
       <bind nodeset="/data/meta/instanceID" type="string" readonly="true()" jr:preload="uid"/>
-      <bind nodeset="/data/meta/instanceName" type="string" calculate="if( /data/consent  = 'yes', concat( /data/visit/site_code , ' - ',  /data/visit/community ), 'Participation declined')"/>
+      <bind nodeset="/data/meta/instanceName" type="string" calculate="if( /data/consent  = 'yes', if( /data/in_bo_town  = 'yes', concat( /data/visit/site_code , ' - ',  /data/visit/community , ' - Bo'), 'Outside Bo town'), 'Participation declined')"/>
     </model>
   </h:head>
   <h:body>
     <input ref="/data/intro">
-      <label>Sierra Leone community water and sanitation pilot. Explain the purpose and voluntary participation. Do not collect names, phone numbers or personal documents.</label>
+      <label>Bo town water and sanitation pilot. This survey covers Bo town only, not the rest of Bo District. Explain the purpose and voluntary participation. Do not collect names, phone numbers or personal documents.</label>
     </input>
     <select1 ref="/data/consent">
       <label>Has the respondent agreed to participate?</label>
@@ -319,8 +265,19 @@
     <input ref="/data/declined">
       <label>Thank the respondent and end the interview.</label>
     </input>
+    <select1 ref="/data/in_bo_town">
+      <label>Is this interview site within Bo town?</label>
+      <hint>Confirm with the respondent or local supervisor. Do not include other towns or villages in Bo District.</hint>
+      <itemset nodeset="instance('yes_no')/root/item">
+        <value ref="name"/>
+        <label ref="label"/>
+      </itemset>
+    </select1>
+    <input ref="/data/outside_scope">
+      <label>This site is outside the Bo town survey area. End this interview; do not collect water-service details.</label>
+    </input>
     <group ref="/data/visit">
-      <label>Community water service</label>
+      <label>Bo town water service</label>
       <select1 ref="/data/visit/interview_unit">
         <label>Reporting unit</label>
         <hint>Keep household reports separate from community-representative reports in analysis.</hint>
@@ -339,12 +296,16 @@
           <label ref="label"/>
         </itemset>
       </select1>
+      <input ref="/data/visit/town">
+        <label>Town</label>
+      </input>
       <input ref="/data/visit/community">
-        <label>Town, village or community</label>
+        <label>Neighbourhood / section in Bo town</label>
+        <hint>Use the locally recognized name. Ask the supervisor if uncertain; do not guess a ward number.</hint>
       </input>
       <input ref="/data/visit/site_code">
-        <label>Water point or community reference</label>
-        <hint>Use your project reference, for example WASH-0001. Do not use a person's name.</hint>
+        <label>Water point or site reference</label>
+        <hint>Use your project reference, for example BO-WASH-0001. Do not use a person's name.</hint>
       </input>
       <select1 ref="/data/visit/water_source">
         <label>Main drinking-water source</label>
