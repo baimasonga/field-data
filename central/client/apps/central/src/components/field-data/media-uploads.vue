@@ -18,8 +18,7 @@
       <button type="button" class="btn btn-default" :disabled="!busy" @click="paused = true">Pause after current chunk</button>
       <button type="button" class="btn btn-default" :disabled="busy" @click="refresh">Refresh saved transfers</button>
     </div>
-    <p v-if="busy" role="status">Working on transfers. Keep this tab open.</p>
-    <p v-if="message" role="status">{{ message }}</p>
+    <p v-if="busy || message" role="status">{{ busy ? 'Working on transfers. Keep this tab open.' : message }}</p>
     <p v-if="error" role="alert">{{ error }}</p>
     <ul class="upload-queue">
       <li v-for="row of queue" :key="row.localId">
