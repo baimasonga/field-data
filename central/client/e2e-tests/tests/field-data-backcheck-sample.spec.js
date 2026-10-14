@@ -654,3 +654,95 @@ test('a manager explicitly approves a preview with instructions and retains its 
   await expect(section.getByRole('button', { name: 'Approve and send itinerary' })).toBeDisabled();
   expect(errors).toEqual([]);
 });
+
+const captureAssessmentRecord = { __id: 'uuid:one', meta: { instanceName: 'Challenged scene' }, __system: {
+  submissionDate: '2026-10-09T22:18:39Z', submitterId: 5, submitterName: 'Collector', reviewState: null, edits: 0,
+  attachmentsPresent: 1, attachmentsExpected: 1, formVersion: 'v1', deviceId: null, status: null } };
+const reviewCapture = { id: sampleId, name: 'scene.jpg', code: 'ABCDEF01', status: 'bound', issuedAt: '2026-10-09T22:12:00Z',
+  expiresAt: '2026-10-09T22:32:00Z', boundAt: '2026-10-09T22:18:39Z', contentHash: 'b'.repeat(64), bindingCurrent: true, sceneReview: 'not-assessed', revision: 0,
+  canAssess: true, assessments: { items: [], omitted: 0, nextBefore: null } };
+const assessmentEntry = (sequence, body = {}) => ({ id: `11111111-1111-4111-8111-${String(sequence).padStart(12, '0')}`, sequence, reviewerId: 1,
+  reviewerName: 'Reviewer', reviewedAt: '2026-10-14T11:00:00Z', codeAssessment: 'visible', sceneAssessment: 'supports', note: 'Paper and subject are clear.',
+  reviewedOriginal: true, contentHash: 'b'.repeat(64), ...body });
+const setupAssessmentRecord = async (p, custom, verbs = managerVerbs) => {
+  const errors = await api(p, verbs, async (route, path) => {
+    if (await custom(route, path)) return true;
+    if (path.includes('.svc/Submissions(')) { await route.fulfill({ json: { value: [captureAssessmentRecord] } }); return true; }
+    if (path.includes('/versions/')) { await route.fulfill({ json: { userAgent: 'Fixture' } }); return true; }
+    if (path.endsWith('/diffs')) { await route.fulfill({ json: {} }); return true; }
+    if (path.endsWith('/audits')) { await route.fulfill({ json: [] }); return true; }
+    if (path.endsWith('/claim')) { await route.fulfill({ json: { currentVersionId: null, versions: [] } }); return true; }
+    return false;
+  });
+  await p.goto(`${appUrl}/projects/1/forms/household/submissions/uuid%3Aone`);
+  return errors;
+};
+
+test('a reviewer assesses the original image and safely retries a lost acknowledgement', async ({ page: p }) => {
+  let saved = null; const posts = []; let lost = false;
+  const errors = await setupAssessmentRecord(p, async (route, path) => {
+    if (path.endsWith('/capture-challenges')) { await route.fulfill({ json: { items: [{ ...reviewCapture, sceneReview: saved ? 'assessed' : 'not-assessed', revision: saved ? 1 : 0,
+      assessments: { items: saved ? [saved] : [], omitted: 0, nextBefore: null } }] } }); return true; }
+    if (path.endsWith('/assessments') && route.request().method() === 'POST') {
+      const body = route.request().postDataJSON(); posts.push(body);
+      expect(route.request().headers()['if-match']).toBe('"capture-0"');
+      saved ??= assessmentEntry(1, body);
+      if (!lost) { lost = true; await route.abort('failed'); return true; }
+      await route.fulfill({ json: { assessment: saved, revision: 1, bindingCurrent: true, replayed: true } }); return true;
+    }
+    return false;
+  });
+  const panel = p.getByRole('region', { name: 'Capture challenges', exact: true });
+  await expect(panel.getByRole('link', { name: 'Download originally challenged image' })).toHaveAttribute('href', /capture-challenges\/11111111-1111-4111-8111-111111111111\/image$/);
+  await panel.getByLabel('Code visibility').selectOption('visible');
+  await panel.getByLabel('Scene supports the claim').selectOption('supports');
+  await panel.getByLabel('Assessment notes').fill('Paper and subject are clear.');
+  await expect(panel.getByRole('button', { name: 'Save photo assessment' })).toBeDisabled();
+  await panel.getByLabel('I reviewed the originally challenged image for this code and scene.').check();
+  await panel.getByRole('button', { name: 'Save photo assessment' }).click();
+  await expect(panel.getByRole('alert')).toContainText('Retry the same decision');
+  await panel.getByRole('button', { name: 'Save photo assessment' }).click();
+  await expect(panel).toContainText('Photo assessment saved.');
+  await expect(panel).toContainText('Human assessment recorded');
+  await expect(panel).toContainText('Code: Visible · Scene: Supports the claim');
+  expect(posts).toHaveLength(2); expect(posts[0].requestId).toBe(posts[1].requestId); expect(posts[0].reviewedOriginal).toBe(true);
+  await expect(panel.getByLabel('Code visibility')).toHaveValue('');
+  await p.setViewportSize({ width: 320, height: 700 });
+  expect(await p.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  expect(errors).toEqual([]);
+});
+
+test('replacement refresh removes assessment controls and preserves decisions as outdated history', async ({ page: p }) => {
+  let changed = false; let posts = 0;
+  await setupAssessmentRecord(p, async (route, path) => {
+    if (path.endsWith('/capture-challenges')) { await route.fulfill({ json: { items: [{ ...reviewCapture, revision: 1, sceneReview: changed ? 'outdated' : 'assessed',
+      canAssess: !changed, bindingCurrent: !changed, assessments: { items: [assessmentEntry(1)], omitted: 0, nextBefore: null } }] } }); return true; }
+    if (path.endsWith('/assessments') && route.request().method() === 'POST') { posts += 1; changed = true; await route.fulfill({ status: 409, json: {} }); return true; }
+    return false;
+  });
+  const panel = p.getByRole('region', { name: 'Capture challenges', exact: true });
+  await panel.getByLabel('Code visibility').selectOption('unclear');
+  await panel.getByLabel('Scene supports the claim').selectOption('unclear');
+  await panel.getByLabel('Assessment notes').fill('The image was replaced while reviewing.');
+  await panel.getByLabel('I reviewed the originally challenged image for this code and scene.').check();
+  await panel.getByRole('button', { name: 'Save photo assessment' }).click();
+  await expect(panel).toContainText('Assessment outdated');
+  await expect(panel).toContainText('Paper and subject are clear.');
+  await expect(panel.getByRole('button', { name: 'Save photo assessment' })).toHaveCount(0);
+  expect(posts).toBe(1);
+});
+
+test('a viewer reads and pages assessment history without decision controls', async ({ page: p }) => {
+  await setupAssessmentRecord(p, async (route, path) => {
+    if (path.endsWith('/capture-challenges')) { await route.fulfill({ json: { items: [{ ...reviewCapture, revision: 12, canAssess: false, sceneReview: 'assessed',
+      assessments: { items: Array.from({ length: 10 }, (_, index) => assessmentEntry(12 - index)), omitted: 2, nextBefore: 3 } }] } }); return true; }
+    if (path.endsWith('/assessments')) { await route.fulfill({ json: { items: [assessmentEntry(2), assessmentEntry(1)], omitted: 0, nextBefore: null, bindingCurrent: true, revision: 12 } }); return true; }
+    return false;
+  }, viewerVerbs);
+  const panel = p.getByRole('region', { name: 'Capture challenges', exact: true });
+  await expect(panel.getByLabel('Code visibility')).toHaveCount(0);
+  await expect(panel.locator('.assessment-history > li')).toHaveCount(10);
+  await panel.getByRole('button', { name: 'Load earlier assessments' }).click();
+  await expect(panel.locator('.assessment-history > li')).toHaveCount(12);
+  await expect(panel.getByRole('button', { name: 'Load earlier assessments' })).toHaveCount(0);
+});

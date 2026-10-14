@@ -152,3 +152,117 @@ describe('api: capture challenge lifecycle and concurrency', () => {
     assert.deepEqual(results.map(r => r.status).sort(), [200, 409]);
   }));
 });
+
+const assessmentBody = overrides => ({ requestId: randomUUID(), codeAssessment: 'visible', sceneAssessment: 'supports', note: 'Paper code and pump are clear.', reviewedOriginal: true, ...overrides });
+const assessedSetup = async service => {
+  const fixture = await setup(service);
+  const challenge = (await fixture.as(fixture.collector, 'post').send(fixture.manifest).expect(200)).body;
+  await fixture.complete(await fixture.stage(challenge)).expect(200);
+  const path = `/v1/projects/1/forms/binaryType/submissions/both/capture-challenges/${challenge.id}`;
+  const save = (body, revision = 0) => fixture.alice.post(`${path}/assessments`).set('If-Match', `"capture-${revision}"`).send(body);
+  return { ...fixture, challenge, path, save };
+};
+describe('api: human capture assessments', () => {
+  it('records identity, original-byte fingerprint, decisions and append-only revisions with idempotent retries', testService(async (service, c) => {
+    const { alice, challenge, path, save } = await assessedSetup(service); const body = assessmentBody();
+    const first = await save(body).expect(200);
+    assert.equal(first.body.assessment.codeAssessment, 'visible'); assert.equal(first.body.assessment.contentHash, hash(png));
+    assert.equal(first.body.assessment.reviewedOriginal, true); assert.ok(first.body.assessment.reviewerId); assert.ok(first.body.assessment.reviewerName);
+    const retry = await save(body).expect(200); assert.equal(retry.headers['idempotency-status'], 'replayed'); assert.equal(retry.body.assessment.id, first.body.assessment.id);
+    await save({ ...body, note: 'Changed under the same retry ID' }).expect(400);
+    await save(assessmentBody({ sceneAssessment: 'does-not-support', note: 'Wrong subject.' }), 1).expect(200);
+    await save(assessmentBody(), 0).expect(412);
+    const records = (await alice.get(`${path}/assessments`).expect(200)).body;
+    assert.deepEqual(records.items.map(r => r.sequence), [2, 1]); assert.equal(records.items[1].note, body.note);
+    await c.db.query(sql`UPDATE actors SET "displayName" = 'Renamed reviewer' WHERE id = ${first.body.assessment.reviewerId}`);
+    assert.equal((await alice.get(`${path}/assessments`).expect(200)).body.items[1].reviewerName, first.body.assessment.reviewerName);
+    assert.equal(await c.db.oneFirst(sql`SELECT count(*)::integer FROM audits WHERE action = 'field_data.capture.assessed' AND details->>'challengeId' = ${challenge.id}`), 2);
+    const list = (await alice.get('/v1/projects/1/forms/binaryType/submissions/both/capture-challenges').expect(200)).body.items[0];
+    assert.equal(list.sceneReview, 'assessed'); assert.equal(list.revision, 2); assert.equal(list.canAssess, true);
+    const original = await alice.get(`${path}/image`).expect(200); assert.equal(hash(original.body), hash(png)); assert.equal(original.headers['cache-control'], 'private, no-store');
+  }));
+  it('marks replacement assessments outdated, preserves original bytes and forbids new saves against replaced attachments', testService(async (service, c) => {
+    const { alice, path, save } = await assessedSetup(service); const body = assessmentBody();
+    await save(body).expect(200);
+    await alice.post('/v1/projects/1/forms/binaryType/submissions/both/attachments/here_is_file2.jpg').set('Content-Type', 'image/png').send(Buffer.concat([png, Buffer.from('replacement')])).expect(200);
+    const item = (await alice.get('/v1/projects/1/forms/binaryType/submissions/both/capture-challenges').expect(200)).body.items[0];
+    assert.equal(item.sceneReview, 'outdated'); assert.equal(item.canAssess, false); assert.equal(item.assessments.items.length, 1);
+    // Retention must not depend on a later evidence-worker audit pass.
+    await c.Blobs.purgeUnattached();
+    assert.equal(hash((await alice.get(`${path}/image`).expect(200)).body), hash(png));
+    await save(assessmentBody(), 1).expect(409);
+    const replay = await save(body).expect(200); assert.equal(replay.body.bindingCurrent, false);
+  }));
+  it('keeps superseded submission assessments available as outdated history', testService(async service => {
+    const { alice, path, save } = await assessedSetup(service);
+    await save(assessmentBody()).expect(200);
+    await alice.post('/v1/projects/1/submission').set('X-OpenRosa-Version', '1.0')
+      .attach('xml_submission_file', Buffer.from(xml.instances.binaryType.both.replace('<instanceID>both', '<deprecatedID>both</deprecatedID><instanceID>both2')), { filename: 'data.xml' }).expect(201);
+    const item = (await alice.get('/v1/projects/1/forms/binaryType/submissions/both/capture-challenges').expect(200)).body.items[0];
+    assert.equal(item.sceneReview, 'outdated'); assert.equal(item.canAssess, false);
+    assert.equal((await alice.get(`${path}/assessments`).expect(200)).body.items.length, 1);
+    await save(assessmentBody(), 1).expect(409);
+  }));
+  it('enforces reviewer permissions, attestation and explanatory notes, and isolates submissions', testService(async service => {
+    const { alice, collector, other, path, save } = await assessedSetup(service);
+    await service.post(`${path}/assessments`).send(assessmentBody()).expect(401);
+    await service.post(`${path}/assessments`).set('Authorization', `Bearer ${collector.token}`).set('If-Match', '"capture-0"').send(assessmentBody())
+      .expect(404);
+    await service.get(`${path}/image`).set('Authorization', `Bearer ${other.token}`).expect(404);
+    await alice.post(`${path}/assessments`).send(assessmentBody()).expect(428);
+    for (const body of [assessmentBody({ reviewedOriginal: false }), assessmentBody({ note: 'x'.repeat(2001) }), assessmentBody({ codeAssessment: 'unclear', note: ' ' }), assessmentBody({ sceneAssessment: 'does-not-support', note: '' }), assessmentBody({ score: 99 })]) await save(body).expect(400);
+    await alice.get(path.replace('/both/', '/missing/') + '/assessments').expect(404);
+    await alice.get(`${path}/assessments?before=invalid`).expect(400);
+  }));
+  it('paginates immutable history without duplicating or hiding the latest review', testService(async service => {
+    const { alice, path, save } = await assessedSetup(service);
+    for (let i = 0; i < 12; i += 1) await save(assessmentBody({ note: `Review ${i + 1}` }), i).expect(200);
+    const first = (await alice.get(`${path}/assessments`).expect(200)).body;
+    assert.equal(first.items.length, 10); assert.equal(first.nextBefore, 3); assert.equal(first.omitted, 2);
+    const second = (await alice.get(`${path}/assessments?before=${first.nextBefore}`).expect(200)).body;
+    assert.deepEqual(second.items.map(r => r.sequence), [2, 1]); assert.equal(second.nextBefore, null);
+  }));
+  it('serializes simultaneous reviewers at one revision and simultaneous retries of one decision', testServiceFullTrx(async service => {
+    const { save } = await assessedSetup(service); const body = assessmentBody();
+    const retried = await Promise.all([save(body), save(body)]); assert.deepEqual(retried.map(r => r.status), [200, 200]);
+    const competing = await Promise.all([save(assessmentBody(), 1), save(assessmentBody({ note: 'Other judgment' }), 1)]);
+    assert.deepEqual(competing.map(r => r.status).sort(), [200, 412]);
+  }));
+  it('rejects corrupted stored bytes and archived-project writes while retaining readable history', testService(async (service, c) => {
+    const { alice, path, challenge, save } = await assessedSetup(service);
+    await save(assessmentBody()).expect(200);
+    await alice.patch('/v1/projects/1').send({ archived: true }).expect(200);
+    await save(assessmentBody(), 1).expect(409);
+    assert.equal((await alice.get(`${path}/assessments`).expect(200)).body.items.length, 1);
+    await alice.patch('/v1/projects/1').send({ archived: false }).expect(200);
+    await c.db.query(sql`UPDATE blobs SET content = ${sql.binary(Buffer.from('corrupt'))} WHERE id = (SELECT "blobId" FROM field_data_capture_challenges WHERE id = ${challenge.id})`);
+    await alice.get(`${path}/image`).expect(409); await save(assessmentBody(), 1).expect(409);
+  }));
+});
+
+describe('api: capture assessment read-only and deletion boundaries', () => {
+  it('allows viewers to read the history and original image, but denies decisions and deleted sources', testService(async service => {
+    const { alice, path, save } = await assessedSetup(service);
+    await save(assessmentBody()).expect(200);
+    const viewer = await service.login('chelsea'); const { id } = (await viewer.get('/v1/users/current').expect(200)).body;
+    await alice.post(`/v1/projects/1/assignments/viewer/${id}`).expect(200);
+    assert.equal((await viewer.get('/v1/projects/1/forms/binaryType/submissions/both/capture-challenges').expect(200)).body.items[0].canAssess, false);
+    await viewer.get(`${path}/image`).expect(200); await viewer.get(`${path}/assessments`).expect(200);
+    await viewer.post(`${path}/assessments`).set('If-Match', '"capture-1"').send(assessmentBody()).expect(404);
+    await alice.delete('/v1/projects/1/forms/binaryType/submissions/both').expect(200);
+    await alice.get(`${path}/image`).expect(404); await alice.get(`${path}/assessments`).expect(404);
+    await save(assessmentBody(), 1).expect(404);
+  }));
+});
+
+describe('api: assessment and attachment replacement race', () => {
+  it('never commits a current assessment for a concurrently replaced image', testServiceFullTrx(async service => {
+    const { alice, save } = await assessedSetup(service);
+    const results = await Promise.all([save(assessmentBody()), alice.post('/v1/projects/1/forms/binaryType/submissions/both/attachments/here_is_file2.jpg')
+      .set('Content-Type', 'image/png').send(Buffer.concat([png, Buffer.from('concurrent replacement')]))]);
+    assert.ok([200, 409].includes(results[0].status)); assert.equal(results[1].status, 200);
+    const item = (await alice.get('/v1/projects/1/forms/binaryType/submissions/both/capture-challenges').expect(200)).body.items[0];
+    assert.equal(item.canAssess, false); assert.equal(item.bindingCurrent, false);
+    assert.equal(item.sceneReview, results[0].status === 200 ? 'outdated' : 'not-assessed');
+  }));
+});

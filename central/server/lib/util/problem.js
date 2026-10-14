@@ -192,6 +192,7 @@ const problems = {
 
     mediaUploadInvalid: problem(400.65, () => 'Upload manifest, chunk length or content hash is invalid.'),
     captureChallengeInvalid: problem(400.66, () => 'Capture challenge or image details are invalid.'),
+    captureAssessmentInvalid: problem(400.67, () => 'Capture assessment decisions, notes or retry identity are invalid.'),
 
     // no detail information for security reasons.
     authenticationFailed: problem(401.2, () => 'Could not authenticate with the provided credentials.'),
@@ -323,12 +324,14 @@ const problems = {
     mediaUploadConflict: problem(409.43, () => 'Upload offset, identity or target has changed. Refresh upload status and retry.'),
     mediaUploadQuota: problem(409.44, () => 'Temporary upload capacity is full. Finish or cancel pending uploads, or retry after expiry.'),
     captureChallengeConflict: problem(409.45, () => 'Capture challenge expired, was consumed, or the same image was already challenged. Start a new capture.'),
+    captureAssessmentTargetChanged: problem(409.46, () => 'The challenged attachment changed or is no longer current. Its assessment is outdated.'),
     reviewRevisionStale: problem(412.1, () => 'The review case has changed. Refresh and retry.'),
     assetRevisionStale: problem(412.2, () => 'The asset has changed. Reload its history before saving.'),
     reverificationRevisionStale: problem(412.3, () => 'The re-verification task has changed. Reload it before saving.'),
     contradictionRuleRevisionStale: problem(412.4, () => 'The contradiction rule has changed. Reload it before saving.'),
     identityKeyRevisionStale: problem(412.5, () => 'The identity key has changed. Reload it before saving.'),
     investigationRevisionStale: problem(412.6, () => 'The investigation has changed. Reload it before saving.'),
+    captureAssessmentRevisionStale: problem(412.7, () => 'The capture assessment has changed. Reload it before saving.'),
     evidenceScopeInvalid: problem(422.1, () =>
       'The evidence link must refer to this claim version and a valid predecessor.'),
     reviewAcceptanceBlocked: problem(422.2, () =>
@@ -339,6 +342,7 @@ const problems = {
     contradictionRuleRevisionRequired: problem(428.4, () => 'If-Match is required for contradiction rule changes.'),
     identityKeyRevisionRequired: problem(428.5, () => 'If-Match is required for identity key changes.'),
     investigationRevisionRequired: problem(428.6, () => 'If-Match is required for investigation changes.'),
+    captureAssessmentRevisionRequired: problem(428.7, () => 'If-Match is required for capture assessments.'),
   },
   internal: {
     // no detail information, as this is only called when we don't know what happened.

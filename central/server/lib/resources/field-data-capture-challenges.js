@@ -6,6 +6,7 @@ const { Form } = require('../model/frames');
 const { getOrNotFound } = require('../util/promise');
 const { UUID_PATTERN } = require('../util/claim-versioning');
 const { present } = require('../util/capture-challenges');
+const { history } = require('../util/capture-assessments');
 const target = require('../util/media-upload-target');
 const Problem = require('../util/problem');
 const actorFor = auth => {
@@ -83,12 +84,19 @@ module.exports = (service, endpoint) => {
       throw error;
     }
     const submission = await container.Submissions.getByIds(params.projectId, params.xmlFormId, params.instanceId, false).then(getOrNotFound);
-    const rows = await container.db.any(sql`SELECT c.*, (c.status = 'bound' AND c."blobId" IS NOT NULL AND sa."blobId" = c."blobId") AS "bindingCurrent"
-      FROM field_data_capture_challenges c JOIN submission_defs sd ON sd.id = c."submissionDefId" AND sd.current
+    const rows = await container.db.any(sql`SELECT c.*, p.archived, (sd.current AND c.status = 'bound' AND c."blobId" IS NOT NULL AND sa."blobId" = c."blobId") AS "bindingCurrent"
+      FROM field_data_capture_challenges c JOIN projects p ON p.id = c."projectId" JOIN submission_defs sd ON sd.id = c."submissionDefId"
       LEFT JOIN submission_attachments sa ON sa."submissionDefId" = sd.id AND sa.name = c.name
       WHERE sd."submissionId" = ${submission.id} ORDER BY c."issuedAt" DESC LIMIT 20`);
     await container.Audits.log(auth.actor, 'field_data.capture.read', form, { submissionId: submission.id });
     response.set('Cache-Control', 'private, no-store');
-    return { items: rows.map(row => ({ ...present(row), bindingCurrent: row.bindingCurrent === true })) };
+    const canReview = auth.actor.orNull()?.type === 'user' && await auth.can('submission.update', form);
+    const items = [];
+    for (const row of rows) {
+      const assessments = await history(container.db, row.id);
+      items.push({ ...present(row), revision: row.assessmentRevision, bindingCurrent: row.bindingCurrent === true, assessments, canAssess: canReview && row.bindingCurrent === true && row.archived !== true,
+        sceneReview: assessments.items.length === 0 ? 'not-assessed' : row.bindingCurrent === true ? 'assessed' : 'outdated' });
+    }
+    return { items };
   }));
 };
