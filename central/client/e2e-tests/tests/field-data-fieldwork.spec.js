@@ -442,3 +442,12 @@ test('a valid signature cannot make malformed itinerary coordinates acceptable',
   await connect(page); await saveOffline(page);
   await expect(offlinePanel(page).getByRole('alert')).toBeVisible(); expect(await vault(page)).toBeNull();
 });
+
+
+test('a signed itinerary with malformed collection metadata is rejected before storage', async ({ page }) => {
+  await setup(page, { offline: true, offlineItineraries: [{ id: taskId, date: '2026-10-14', note: 'Instructions', needsReview: false,
+    withheld: 0, method: 'road suggestion', start: { latitude: 8.48, longitude: -13.23 },
+    stops: [{ id: pushId, order: 1, question: 'Visit', xmlFormId: 'verify', formVersion: {}, dueAt: 'not-a-date', location: { latitude: 8.49, longitude: -13.22 } }] }] });
+  await connect(page); await saveOffline(page);
+  await expect(offlinePanel(page).getByRole('alert')).toBeVisible(); expect(await vault(page)).toBeNull();
+});

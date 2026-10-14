@@ -233,5 +233,5 @@ deployment. See [O15-signing-readiness.md](O15-signing-readiness.md). Existing i
 
 Approved stop cards identify the response form/version and deadline in online
 and signed offline views, preserving legacy snapshots and hiding technical
-references by default. Implemented locally with 13 database and 22 browser
+references by default. Implemented locally with 13 database and 23 browser
 checks. See [O16-collector-form-guidance.md](O16-collector-form-guidance.md). Collect form availability and device acceptance remain field checks.
