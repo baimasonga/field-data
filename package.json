@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "check": "wrangler deploy --dry-run",
+    "check": "FIELD_DATA_DEPLOY_DRY_RUN=true wrangler deploy --dry-run",
     "deploy": "wrangler deploy",
     "types": "wrangler types"
   },

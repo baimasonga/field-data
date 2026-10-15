@@ -54,7 +54,7 @@ module.exports = (service, endpoint) => {
   service.get(root, endpoint(async (container, { auth }, _, response) => {
     const actor = actorFor(auth);
     const rows = await container.db.any(sql`SELECT * FROM field_data_capture_challenges WHERE "actorId" = ${actor.id}
-      AND (status = 'bound' OR (status = 'issued' AND "expiresAt" > clock_timestamp())) ORDER BY "issuedAt" DESC LIMIT 20`);
+      AND (status = 'bound' OR (status = 'issued' AND "expiresAt" > clock_timestamp())) ORDER BY (status = 'issued') DESC, "issuedAt" DESC LIMIT 20`);
     const items = [];
     for (const row of rows) {
       try { await container.transacting(tx => sourceFor(tx, actor, row)); items.push(present(row, true)); } catch (error) {

@@ -104,8 +104,8 @@ describe('api: XLSForm and XForms XML upload pipeline', () => {
       await upload(alice, `${base}/submissions`, old, 'application/xml').expect(200);
       await alice.get(`${base}/draft`).expect(404);
       const source = readFileSync(path.resolve(__dirname, '../../../../../forms/community-water/sl_community_water_service.xlsx'));
-      await upload(alice, `${base}/draft`, source, XLSX).expect(200);
-      await alice.post(`${base}/draft/publish`).expect(200);
+      const previous = (await alice.get(base).expect(200)).body;
+      await upload(alice, `${base}/versions`, source, XLSX, { 'If-Match': `"sha256:${previous.sha256}"` }).expect(200);
       assert.equal((await alice.get(base).expect(200)).body.version, '2026101402');
       assert.equal((await alice.get(`${base}/versions/2026101401`).expect(200)).body.version, '2026101401');
       await alice.get(`${base}/submissions/uuid:previous-water.xml`).expect(200);

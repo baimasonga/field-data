@@ -2,6 +2,7 @@
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "field-data",
   "main": "cloudflare/worker.js",
+  "build": { "command": "node cloudflare/authorize-deployment.mjs" },
   "compatibility_date": "2026-07-24",
   "compatibility_flags": ["nodejs_compat"],
   "observability": {

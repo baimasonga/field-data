@@ -78,6 +78,15 @@ const streamAttachment = async (container, attachment, filterActorId, response) 
   }
 };
 
+// All draft writes load their definition only after taking the same form-row
+// lock. An automated revision must not race a normal editor or publisher.
+const writableVersion = async (Forms, auth, params, version, includeXml = Form.WithoutXml) => {
+  const form = await Forms.getByProjectAndXmlFormId(params.projectId, params.xmlFormId, Form.WithoutDef).then(getOrNotFound);
+  await auth.canOrReject('form.update', form);
+  await Forms.getByActeeIdForUpdate(form.acteeId, Form.WithoutDef).then(getOrNotFound);
+  return Forms.getByProjectAndXmlFormId(params.projectId, params.xmlFormId, version, includeXml).then(getOrNotFound);
+};
+
 module.exports = (service, endpoint, anonymousEndpoint) => {
   // This forms list can also be used to get a list of just the soft-deleted forms by adding ?deleted=true
   // TODO: paging.
@@ -138,11 +147,30 @@ module.exports = (service, endpoint, anonymousEndpoint) => {
           ? Forms.publish(newForm, true)
           : newForm)))));
 
+  // One-step publication for automation. Older servers have no POST /versions
+  // route, so callers fail closed rather than falling back to unsafe draft writes.
+  service.post('/projects/:projectId/forms/:xmlFormId/versions', endpoint(async ({ Forms, Keys, Projects }, { params, auth, headers }, request) => {
+    const form = await writableVersion(Forms, auth, params, Form.PublishedVersion);
+    const expected = headers['if-match'];
+    if (expected == null) throw Problem.user.formRevisionRequired();
+    if (form.draftDefId != null || form.def == null || expected !== `"sha256:${form.def.sha256}"`)
+      throw Problem.user.formRevisionStale();
+    if (request.is('*/*') === false) throw Problem.user.missingParameter({ field: 'xml' });
+    const project = await Projects.getById(params.projectId).then(getOrNotFound);
+    if (project.archived) throw Problem.user.formRevisionStale();
+    const partial = await getPartial(Forms, request, project, Keys);
+    await Forms.createVersion(partial, form, false);
+    const draft = await Forms.getByProjectAndXmlFormId(params.projectId, params.xmlFormId, Form.DraftVersion, Form.IncludeXml).then(getOrNotFound);
+    const published = await Forms.publish(draft);
+    await Forms.clearUnneededDrafts(published);
+    return published;
+  }));
+
   // can POST empty body to copy the current def to draft.
   service.post('/projects/:projectId/forms/:xmlFormId/draft', endpoint(({ Forms, Keys, Projects, Submissions }, { params, auth }, request) =>
     Promise.all([
       Projects.getById(params.projectId).then(getOrNotFound),
-      Forms.getByProjectAndXmlFormId(params.projectId, params.xmlFormId, Form.DraftVersion).then(getOrNotFound)
+      writableVersion(Forms, auth, params, Form.DraftVersion)
     ])
       .then(([ project, form ]) => auth.canOrReject('form.update', form)
         .then(() => ((request.is('*/*') === false) // false only if no request body.
@@ -162,9 +190,7 @@ module.exports = (service, endpoint, anonymousEndpoint) => {
       .then(success)));
 
   service.post('/projects/:projectId/forms/:xmlFormId/draft/publish', endpoint(({ Forms, Submissions }, { params, auth, query }) =>
-    Forms.getByProjectAndXmlFormId(params.projectId, params.xmlFormId, Form.DraftVersion, Form.IncludeXml)
-      .then(getOrNotFound)
-      .then((form) => auth.canOrReject('form.update', form))
+    writableVersion(Forms, auth, params, Form.DraftVersion, Form.IncludeXml)
       .then(ensureDef)
       .then((form) => (isPresent(query.version)
         // we've been asked to change the form def version before publish.

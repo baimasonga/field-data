@@ -111,6 +111,23 @@ describe('api: capture challenges', () => {
     assert.equal(await c.db.oneFirst(sql`SELECT count(*)::integer FROM field_data_capture_challenges WHERE status = 'bound'`), 1);
     assert.equal(await c.db.oneFirst(sql`SELECT count(*)::integer FROM submission_attachments WHERE name = 'my_file1.mp4' AND "blobId" IS NOT NULL`), 0);
   }));
+  it('keeps a live challenge recoverable after twenty newer completed challenges', testService(async (service, c) => {
+    const { collector, as, manifest, stage, complete } = await setup(service);
+    const live = (await as(collector, 'post').send(manifest).expect(200)).body;
+    for (let i = 0; i < 20; i += 1) {
+      const instanceId = `later-${i}`;
+      await service.post('/v1/projects/1/forms/binaryType/submissions').set('Authorization', `Bearer ${collector.token}`)
+        .set('Content-Type', 'application/xml').send(xml.instances.binaryType.both.replace('<instanceID>both</instanceID>', `<instanceID>${instanceId}</instanceID>`))
+        .expect(200);
+      const later = (await as(collector, 'post').send({ ...manifest, id: randomUUID(), instanceId }).expect(200)).body;
+      await complete(await stage(later, Buffer.concat([png, Buffer.from(String(i))]))).expect(200);
+    }
+    // Keep ordering deterministic even on databases with millisecond timestamp ties.
+    await c.db.query(sql`UPDATE field_data_capture_challenges SET "issuedAt" = "issuedAt" - interval '1 minute', "expiresAt" = "expiresAt" - interval '1 minute' WHERE id = ${live.id}`);
+    const rows = (await as(collector, 'get').expect(200)).body.items;
+    assert.equal(rows.length, 20); assert.equal(rows[0].id, live.id); assert.equal(rows[0].nonce, live.nonce);
+    await as(collector, 'delete', `/${live.id}`).expect(200);
+  }));
   it('serializes concurrent retries and competing challenge issuance', testServiceFullTrx(async service => {
     const { collector, as, manifest, stage, complete } = await setup(service);
     const requests = await Promise.all([as(collector, 'post').send(manifest), as(collector, 'post').send({ ...manifest, id: randomUUID() })]);

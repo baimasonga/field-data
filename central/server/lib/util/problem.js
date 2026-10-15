@@ -333,6 +333,7 @@ const problems = {
     contradictionRuleRevisionStale: problem(412.4, () => 'The contradiction rule has changed. Reload it before saving.'),
     identityKeyRevisionStale: problem(412.5, () => 'The identity key has changed. Reload it before saving.'),
     investigationRevisionStale: problem(412.6, () => 'The investigation has changed. Reload it before saving.'),
+    formRevisionStale: problem(412.8, () => 'The published form changed or a draft exists. Reload and preserve the current editor work before revising.'),
     captureAssessmentRevisionStale: problem(412.7, () => 'The capture assessment has changed. Reload it before saving.'),
     evidenceScopeInvalid: problem(422.1, () =>
       'The evidence link must refer to this claim version and a valid predecessor.'),
@@ -344,6 +345,7 @@ const problems = {
     contradictionRuleRevisionRequired: problem(428.4, () => 'If-Match is required for contradiction rule changes.'),
     identityKeyRevisionRequired: problem(428.5, () => 'If-Match is required for identity key changes.'),
     investigationRevisionRequired: problem(428.6, () => 'If-Match is required for investigation changes.'),
+    formRevisionRequired: problem(428.8, () => 'If-Match with the published form SHA-256 is required for atomic revision.'),
     captureAssessmentRevisionRequired: problem(428.7, () => 'If-Match is required for capture assessments.'),
   },
   internal: {

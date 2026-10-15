@@ -25,3 +25,13 @@ publication, retaining the form ID, versions and submissions. Other settlements
 in Bo District are excluded: outside-town interviews end without service details.
 Eligibility is collector-confirmed, not a GPS boundary validation. Historical
 records are not retroactively classified as Bo town observations.
+
+## Concurrent editing protection
+
+Revising the known previous version uses a single `POST /forms/:id/versions`
+request with `If-Match: "sha256:…"` from the published form. The server locks the
+form, refuses any existing draft or changed publication, compiles and publishes
+inside one transaction. Normal draft creation and publication use the same lock.
+An older server returns 404 for this endpoint; the installer never falls back to
+separate draft writes. An uncertain response is read back, not blindly retried.
+Existing user drafts and their draft submissions are not deleted by this path.

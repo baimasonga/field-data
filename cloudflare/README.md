@@ -97,10 +97,16 @@ Docker must be running and building Linux AMD64 images.
 ```bash
 npm clean-install
 npm run check
-npm run deploy
+# Publish by pushing main, or run Deploy Field Data in GitHub Actions on main.
 npx wrangler containers list
 npx wrangler tail
 ```
+
+Production publication is restricted to the serialized **Deploy Field Data**
+GitHub workflow. Configure Cloudflare Workers Builds for validation only
+(`npm run check`) or disable automatic deployments; its direct deploy command is
+blocked by the Wrangler hook. Local `npm run deploy` is intentionally refused.
+See [publishing authority](../docs/field-intelligence/DEPLOYMENT-ORDER.md).
 
 After first deployment, wait for provisioning and verify `/healthz`.
 

@@ -1,36 +1,34 @@
-# Production publishing order
+# One production publishing authority
 
-This repository has two publishing paths: Cloudflare Workers Builds runs for the
-commit, while Deploy Field Data applies the explicit release ID, configured feature
-flags and existing secrets, then verifies production. They can overlap even though
-GitHub deployments themselves use a concurrency group. The final custom-domain
-check must observe this workflow's exact commit/run/attempt marker.
+Production publication goes through the GitHub **Deploy Field Data** workflow on
+`main`, serialized by its `field-data-production` concurrency group. The Wrangler
+custom build hook (`cloudflare/authorize-deployment.mjs`) rejects other publishing
+contexts, including Cloudflare Workers Builds. This applies to automatic builds
+of the same commit and of different newer commits; waiting on one commit's check
+runs cannot provide that guarantee.
 
-Deploy Field Data now waits for the matching automatic Workers Builds check on the
-exact commit to reach a terminal state before deploying. It checks the Cloudflare
-app identity and field-data worker name, waits for pending registration and all
-matching builds, follows pagination and fails closed if status/read access cannot
-be confirmed within twenty minutes. Cloudflare can publish a terminal result in a newer check run while leaving an
-older in-progress check unchanged. The guard groups only checks for the same
-external Cloudflare build ID and uses the latest check-run ID; distinct active
-builds still block publishing. An automatic-build failure is terminal: this
-workflow can still perform its independently validated deployment. Unrelated checks
-never unblock it. GitHub's existing workflow token needs only checks:read in addition
-to contents:read; no new user credential is required.
+The deployment step supplies `FIELD_DATA_PUBLISH_AUTHORITY=github-actions`; the
+hook also checks the workflow, repository, branch and GitHub run identity.
+`npm run check` supplies a separate dry-run marker together with Wrangler's
+`--dry-run`. That marker is not set on publication. This is a guard against
+accidental competing publishers, not a security boundary against an operator
+who controls the repository or Cloudflare account.
 
-This guard relies on the installed Cloudflare integration reporting its check. If
-the integration or worker name changes, update the guard explicitly; missing checks
-stop production publication rather than pretending the competing publisher finished.
-It serializes normal publishing for this commit. An operator deliberately retrying
-an older automatic build later can still publish over a newer release, and requires
-separate operational control.
+Configure Cloudflare Workers Builds for validation only (`npm run check`) or
+disable its automatic production deployments. Until that setting is updated, its
+automatic deploy command will fail explicitly at the hook, before publishing;
+the GitHub deployment does not depend on that blocked automatic check. Remove
+that check from required branch checks if it was previously required. No extra
+API token or Cloudflare permission is needed by the guard.
+
+The hook is versioned repository code. A deliberate rollback or manual rerun of
+an old commit from before the hook can bypass it; restrict those actions in
+Cloudflare and perform supported rollbacks through the current workflow. Before
+the first release with this guard, let any already-running old automatic builds
+finish; older builds do not contain the new guard.
 
 The existing health, login, critical-path, custom-domain asset/build and offline
-signature checks remain mandatory. Offline verification errors now identify the
-method and controlled request path, while omitting credentials, query strings and
-response bodies. Readiness retries remain limited to idempotent GET/DELETE requests;
-POST creation is never retried automatically. Fixture creation/cleanup is unchanged.
-
-Validation includes registration delay, queued/in-progress states, multiple builds,
-pagination, terminal failure, unrelated publishers/commits, API failure, timeout and
-incomplete pagination. Guard tests are enforced in the feature-capability CI job.
+signature checks remain mandatory. The guard does not weaken or skip readiness.
+Regression checks verify authorized GitHub publication, blocked automatic builds
+for different commits, missing identity, non-main branches, dry-run validation,
+and actual Wrangler/workflow wiring.
