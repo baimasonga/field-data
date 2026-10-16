@@ -35,7 +35,9 @@ also exist. Those features must not be re-labelled as full completion of this pr
   Asset status by area (K6): the same table grouped by another recorded
   fact chosen as the area (for example `district`), with the assets placed by
   an area fact no longer current counted: merged in PR #85.
-  Several predicates, maps and areas from locations remain pending.
+  K7 adds several predicates in one historical projection, independent freshness
+  summaries, area counts and pinned sources; see [K7-multi-fact-projections.md](K7-multi-fact-projections.md).
+  Maps, areas from locations and broader decision projections remain pending.
 - Reversible asset merges and splits (K4, first correction/merge/split
   history slice): a duplicate asset merged into another, or chosen
   observations split into a new asset, without changing any observation; an
@@ -347,3 +349,25 @@ assignments, observation ownership, task revisions and unavailable evidence
 withhold stale re-verification stops. See [O19-unified-visit-itineraries.md](O19-unified-visit-itineraries.md).
 Navigation, other task types, overnight shifts, live road-provider and real-device
 acceptance remain pending.
+
+### Product implementation priorities after the reliability work
+
+All eight areas remain partial. The maintenance releases (#117–#122) establish
+validation gates; they are not counted as completion of any area. The device
+pilot is a separate acceptance activity. Product work resumes with K7 above.
+
+| Area | Current delivery | Further implementation required |
+| --- | --- | --- |
+| Knowledge | Asset facts, ownership history, freshness, cited search and multi-fact historical projections | Location/photo identity comparisons, asset maps/location areas, broader decision projections, answer/semantic retrieval, causal contracts and diagnostics |
+| Evidence/trust | Evidence graph, challenges/replay checks, signed witnesses, human assessments and device-reported location | Witness correction/revocation and delegation, independent sensor/hardware corroboration, calibrated presence limitations |
+| Offline resilience | Signed encrypted assignments/itineraries, recoverable media, encrypted relay packages and receipts | Durable XML submission queues, Collect integration, background sync and delegated courier/custody transport |
+| Operations | Sampling, allocation, shared capacity, UTC shifts, combined approved itineraries and agreement counts | Overnight shifts, additional task types, navigation, sampling strata and calibrated estimates |
+| Geospatial | Location integrity checks and imagery scene availability | Reviewed temporal verification/change candidates, imagery analysis and evaluated change detection |
+| Fraud intelligence | Contradictions, identity reuse, similarity, collector links and investigations/outcomes | Review-case linking, calibrated triage and false-positive evaluation; targeted instruments remain deferred |
+| Adaptive surveys | Doctor, simulations, version-change analysis and recodes | Approved bounded policies, reviewed evolution/draft generation, answer uncertainty, conversational multilingual support and native-export recodes |
+| Multimodal | Provenance-preserving camera capture and manual evidence review | Reviewed photo/voice extraction and correction, asset/module suggestions, guided capture, source-grounded drafts, offline models and evaluation |
+
+Each implementation needs its actual API and user workflow, permission and
+failure coverage, and passing CI. Hardware, language/model evaluation, live
+providers and physical transport acceptance must be recorded separately rather
+than being claimed from fixture tests.

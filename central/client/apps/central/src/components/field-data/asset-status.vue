@@ -9,7 +9,7 @@ docs/field-intelligence/K6-asset-status-by-area.md -->
   <section class="asset-status" aria-labelledby="asset-status-title">
     <h2 id="asset-status-title">Asset status across the project</h2>
     <p class="section-lead">
-      One recorded fact for every asset, chosen as its passport chooses it. Only facts that are still fresh or due for
+      Up to five recorded facts for every asset, chosen as its passport chooses it. Only facts that are still fresh or due for
       review count towards each value; expired, unknown and unverified facts are counted separately, so stale knowledge
       is never counted as current.
     </p>
@@ -20,10 +20,16 @@ docs/field-intelligence/K6-asset-status-by-area.md -->
           <option v-for="p of predicates" :key="p" :value="p">{{ p }}</option>
         </select>
       </label>
+      <fieldset class="asset-status-compare">
+        <legend>Compare facts (optional, up to four more)</legend>
+        <label v-for="name of predicates.filter(p => p !== predicate)" :key="name">
+          <input v-model="compare" type="checkbox" :value="name" :disabled="compare.length >= 4 && !compare.includes(name)">{{ name }}
+        </label>
+      </fieldset>
       <label>By area (optional)
         <select v-model="areaPredicate" class="form-control">
           <option value="">No grouping</option>
-          <option v-for="p of predicates.filter((x) => x !== predicate)" :key="p" :value="p">{{ p }}</option>
+          <option v-for="p of predicates.filter((x) => x !== predicate && !compare.includes(x))" :key="p" :value="p">{{ p }}</option>
         </select>
       </label>
       <label>Asset type (optional)
@@ -31,6 +37,9 @@ docs/field-intelligence/K6-asset-status-by-area.md -->
       </label>
       <label>As of (optional)
         <input v-model="asOf" type="date" class="form-control">
+      </label>
+      <label>Known by (optional)
+        <input v-model="knownBy" type="date" class="form-control">
       </label>
       <button type="submit" class="btn btn-primary" :aria-disabled="busy">Show <spinner :state="busy"/></button>
     </form>
@@ -44,6 +53,32 @@ docs/field-intelligence/K6-asset-status-by-area.md -->
         <template v-else>No asset has a current “{{ result.predicate }}”.</template>
         {{ statusLine }}
       </p>
+      <template v-if="result.columns">
+        <p>Facts valid as of {{ result.at }}; evidence recorded by {{ result.knownAt }}. Each fact has its own freshness and source.</p>
+        <table class="table asset-status-comparisons">
+          <caption>Current knowledge by fact</caption>
+          <thead><tr><th scope="col">Fact</th><th scope="col">Current values</th><th scope="col">Other statuses</th></tr></thead>
+          <tbody>
+<tr v-for="column of result.columns" :key="column.predicate">
+            <th scope="row">{{ column.predicate }}</th>
+            <td>{{ column.summary.byValue.map(v => `${v.count} ${v.value}`).join(', ') || 'No current values' }}</td>
+            <td>{{ statusText(column.summary.byStatus) || (result.assets.length === 0 ? 'No assets' : 'All facts fresh') }}</td>
+          </tr>
+</tbody>
+        </table>
+        <template v-if="result.areaPredicate">
+          <table v-for="column of result.columns.slice(1)" :key="column.predicate" class="table asset-status-comparison-areas">
+            <caption>{{ column.predicate }} by {{ result.areaPredicate }}</caption>
+            <thead><tr><th scope="col">{{ result.areaPredicate }}</th><th scope="col">Assets</th><th scope="col">Current values</th><th scope="col">Not current</th></tr></thead>
+            <tbody>
+<tr v-for="group of column.byArea" :key="group.area ?? ''">
+              <th scope="row">{{ group.area ?? `No ${result.areaPredicate} recorded` }}</th><td>{{ group.assets }}</td>
+              <td>{{ group.byValue.map(v => `${v.count} ${v.value}`).join(', ') || '—' }}</td><td>{{ notCurrent(group) }}</td>
+            </tr>
+</tbody>
+          </table>
+        </template>
+      </template>
       <p v-if="excludedLine" class="asset-status-excluded">{{ excludedLine }}</p>
       <template v-if="result.byArea != null">
         <table class="table asset-status-areas">
@@ -67,6 +102,26 @@ docs/field-intelligence/K6-asset-status-by-area.md -->
         </p>
       </template>
       <p v-if="result.assets.length === 0" class="asset-status-empty">No asset matches.</p>
+      <table v-else-if="result.columns" class="table asset-status-matrix">
+        <caption>Asset facts side by side</caption>
+        <thead><tr><th scope="col">Asset</th><th v-for="column of result.columns" :key="column.predicate" scope="col">{{ column.predicate }}</th><th scope="col">Open</th></tr></thead>
+        <tbody>
+<tr v-for="asset of result.assets" :key="asset.id">
+          <th scope="row">{{ asset.name }} <span class="asset-status-id">{{ asset.externalId }} · {{ asset.assetType }}</span></th>
+          <td v-for="column of result.columns" :key="column.predicate">
+            <template v-if="factFor(asset, column.predicate)">
+              <span>{{ factFor(asset, column.predicate).state === 'known' ? factFor(asset, column.predicate).value : factFor(asset, column.predicate).state }}</span><br>
+              <span>{{ STATUS[factFor(asset, column.predicate).freshness.status] }}</span><br>
+              <span>Valid from {{ factFor(asset, column.predicate).validFrom.slice(0, 10) }}</span><br>
+              <a :href="`/v1/field-data/claim-versions/${encodeURIComponent(factFor(asset, column.predicate).claimVersionId)}`"
+                :aria-label="`${column.predicate} source for ${asset.name}`">Pinned source</a>
+            </template>
+            <span v-else>No fact</span>
+          </td>
+          <td><button type="button" class="btn btn-link" @click="$emit('open', { assetId: asset.id, xmlFormId: asset.xmlFormId })">Open asset</button></td>
+        </tr>
+</tbody>
+      </table>
       <table v-else class="table asset-status-table">
         <thead><tr><th>Asset</th><th>{{ result.predicate }}</th><th>Status</th><th>Valid from</th><th><span class="sr-only">Open</span></th></tr></thead>
         <tbody>
@@ -95,13 +150,21 @@ const props = defineProps({ projectId: { type: [String, Number], required: true 
 defineEmits(['open']);
 const { request, awaitingResponse: busy } = useRequest();
 
+// Fact names are literal data, including names used internally by Vue proxies.
+const factFor = (asset, name) => Object.getOwnPropertyDescriptor(asset.facts, name)?.value ?? null;
+
 const STATUS = {
   fresh: 'Fresh', 'review-due': 'Review due', expired: 'Expired', unknown: 'Unknown',
   'source-unverified': 'Source unverified', 'not-yet-valid': 'Not yet valid', none: 'No fact'
 };
+const compare = ref([]); const knownBy = ref('');
 const predicates = ref(null); const predicate = ref(''); const areaPredicate = ref(''); const assetType = ref(''); const asOf = ref('');
 // The fact shown cannot be its own area: choosing it clears the grouping.
-watch(predicate, (value) => { if (value === areaPredicate.value) areaPredicate.value = ''; });
+watch(predicate, (value) => {
+  compare.value = compare.value.filter(name => name !== value);
+  if (value === areaPredicate.value) areaPredicate.value = '';
+});
+watch(compare, names => { if (names.includes(areaPredicate.value)) areaPredicate.value = ''; });
 const result = ref(null); const error = ref('');
 const url = (params) => `/v1/field-data/projects/${props.projectId}/assets/projection${params.toString() === '' ? '' : `?${params}`}`;
 
@@ -116,10 +179,12 @@ const get = (params) => request({ method: 'GET', url: url(params), alert: false 
 const load = () => {
   error.value = '';
   const params = new URLSearchParams({ predicate: predicate.value });
+  for (const name of compare.value) params.append('compare', name);
   if (areaPredicate.value !== '' && areaPredicate.value !== predicate.value) params.set('areaPredicate', areaPredicate.value);
   if (assetType.value.trim() !== '') params.set('assetType', assetType.value.trim());
   // The end of the chosen day.
   if (asOf.value !== '') params.set('at', `${asOf.value}T23:59:59Z`);
+  if (knownBy.value !== '') params.set('knownAt', `${knownBy.value}T23:59:59Z`);
   return get(params).then((data) => { result.value = data; })
     .catch(() => { result.value = null; error.value = 'Asset status could not be loaded. Try again.'; });
 };
@@ -127,13 +192,13 @@ get(new URLSearchParams())
   .then(() => (predicate.value === '' ? null : load()))
   .catch(() => { error.value = 'Asset status could not be loaded. Try again.'; });
 
-const statusLine = computed(() => {
-  const s = result.value.summary.byStatus;
+const statusText = (s) => {
   const parts = [['review-due', 'due for review'], ['expired', 'expired'], ['unknown', 'unknown'],
-    ['source-unverified', 'with an unverified source'], ['none', 'with no fact']]
+    ['source-unverified', 'with an unverified source'], ['not-yet-valid', 'not yet valid'], ['none', 'with no fact']]
     .filter(([key]) => s[key] > 0).map(([key, label]) => `${s[key]} ${label}`);
   return parts.length === 0 ? '' : `Also: ${parts.join(', ')}.`;
-});
+};
+const statusLine = computed(() => statusText(result.value.summary.byStatus));
 // K6: per area, the assets not counted by value (no current fact).
 const notCurrent = (g) => g.assets - g.byValue.reduce((n, v) => n + v.count, 0);
 const areaNotCurrent = computed(() => result.value.byArea.reduce((n, g) => n + g.areaNotCurrent, 0));
@@ -154,6 +219,9 @@ const excludedLine = computed(() => {
   overflow-wrap: anywhere;
   .asset-status-form { align-items: flex-end; display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px;
     label { display: flex; flex-direction: column; font-weight: normal; max-width: 240px; } }
+  .asset-status-compare { flex-basis: 100%; border: 0; padding: 0; margin: 0;
+    legend { font-size: 14px; margin-bottom: 6px; }
+    label { display: inline-flex; flex-direction: row; gap: 6px; margin-right: 12px; } }
   .asset-status-empty, .asset-status-id, .asset-status-excluded, .asset-status-more, .asset-status-area-note { color: $color-text-secondary; }
   caption { color: $color-text; font-weight: bold; }
   .asset-status-error { color: $color-danger; }

@@ -206,9 +206,11 @@ const setup = async (page, { comparisonUnavailable = false, failComparison = fal
       if (state.projectionFailures-- > 0) return route.fulfill({ status: 500, json: { message: 'Failed' } });
       const p = state.projection ?? { predicates: [], assets: [], summary: { byValue: [], byStatus: {} }, excluded: { notReadable: 0, sourceDeleted: 0 }, truncated: false };
       const areaPredicate = url.searchParams.get('areaPredicate');
-      const { byArea, ...plain } = p;
+      const { byArea, columns, ...plain } = p;
+      const compared = url.searchParams.getAll('compare');
       return respond({ ...plain, predicate, areaPredicate, at: '2026-10-10T00:00:00.000Z', knownAt: '2026-10-10T00:00:00.000Z',
         ...(areaPredicate == null ? {} : { byArea }),
+        ...(compared.length === 0 ? {} : { columns: columns.filter(column => [predicate, ...compared].includes(column.predicate)) }),
         assets: predicate == null ? [] : p.assets.filter((a) => !url.searchParams.get('assetType') || a.assetType === url.searchParams.get('assetType')) });
     }
     // K5 suggested duplicates.
@@ -1725,5 +1727,59 @@ test('possible duplicates cannot be dismissed by those who may not manage the pr
   await expect(section.locator('.duplicate-pair')).toContainText('Same name and type');
   await expect(section).toContainText('There are more possible duplicates than could be checked at once');
   await expect(section.getByRole('button', { name: 'Not the same' })).toHaveCount(0);
+  expect(errors).toEqual([]);
+});
+
+
+test('asset status compares several facts with independent summaries, citations and historical cutoffs', async ({ page }) => {
+  const { state, errors } = await setup(page);
+  const assetId = '55555555-5555-4555-8555-555555555555';
+  const source = '77777777-7777-4777-8777-777777777777';
+  const statuses = patch => ({ fresh: 0, 'review-due': 0, expired: 0, unknown: 0, 'source-unverified': 0, 'not-yet-valid': 0, none: 0, ...patch });
+  const summary = { byValue: [{ value: 'broken', count: 1 }], byStatus: statuses({ fresh: 1 }) };
+  const depth = { byValue: [], byStatus: statuses({ expired: 1 }) };
+  const fact = (value, status = 'fresh') => ({ value, state: 'known', validFrom: '2026-09-01T00:00:00Z',
+    claimVersionId: source, integrityStatus: 'verified', freshness: { status } });
+  const area = summary => [{ area: 'Bo', assets: 1, areaNotCurrent: 0, ...summary }];
+  state.projection = { predicates: ['condition', 'depth', 'district', 'operator', 'yield', 'quality', 'extra', '__v_raw'],
+    summary, byArea: area(summary), excluded: { notReadable: 0, sourceDeleted: 0 }, truncated: false,
+    columns: [{ predicate: 'condition', summary, byArea: area(summary) }, { predicate: 'depth', summary: depth, byArea: area(depth) },
+      { predicate: 'operator', summary: { byValue: [], byStatus: statuses({ none: 1 }) }, byArea: area({ byValue: [], byStatus: statuses({ none: 1 }) }) },
+      { predicate: '__v_raw', summary, byArea: area(summary) }],
+    assets: [{ id: assetId, name: 'Kissy water point', externalId: 'WP-01', assetType: 'water-point', xmlFormId: 'health',
+      fact: fact('broken'), facts: { condition: fact('broken'), depth: fact('<img src=x onerror=alert(1)>', 'expired'), operator: null, __v_raw: fact('Literal metadata name') } }] };
+  await page.reload();
+  const section = page.getByRole('region', { name: 'Asset status across the project' });
+  await expect(section.locator('.asset-status-table')).toBeVisible();
+  await section.getByLabel('depth', { exact: true }).check();
+  await section.getByLabel('operator', { exact: true }).check();
+  await section.getByLabel('__v_raw', { exact: true }).check();
+  await expect(section.getByLabel('By area (optional)').getByRole('option', { name: 'depth', exact: true })).toHaveCount(0);
+  await expect(section.getByLabel('By area (optional)').getByRole('option', { name: 'operator', exact: true })).toHaveCount(0);
+  await section.getByLabel('By area (optional)').selectOption('district');
+  await section.getByLabel('As of (optional)').fill('2026-09-30');
+  await section.getByLabel('Known by (optional)').fill('2026-10-01');
+  await section.getByRole('button', { name: 'Show' }).click();
+  const query = new URLSearchParams(state.projectionCalls.at(-1));
+  expect(query.getAll('compare')).toEqual(['depth', 'operator', '__v_raw']);
+  expect(query.get('at')).toBe('2026-09-30T23:59:59Z'); expect(query.get('knownAt')).toBe('2026-10-01T23:59:59Z');
+  const table = section.getByRole('table', { name: 'Asset facts side by side' });
+  await expect(table.getByRole('columnheader')).toHaveText(['Asset', 'condition', 'depth', 'operator', '__v_raw', 'Open']);
+  await expect(table).toContainText('Literal metadata name');
+  await expect(table).toContainText('Expired'); await expect(table).toContainText('No fact');
+  await expect(table.getByRole('link', { name: 'depth source for Kissy water point' })).toHaveAttribute('href', `/v1/field-data/claim-versions/${source}`);
+  await expect(table.locator('img')).toHaveCount(0);
+  await expect(section.getByRole('table', { name: 'Current knowledge by fact' })).toContainText('1 expired');
+  await expect(section.getByRole('table', { name: 'depth by district' })).toContainText('Bo');
+  await page.setViewportSize({ width: 360, height: 800 });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= globalThis.innerWidth)).toBe(true);
+  await section.getByLabel('yield', { exact: true }).check();
+  await expect(section.getByLabel('extra', { exact: true })).toBeDisabled();
+  await section.getByLabel('yield', { exact: true }).uncheck();
+  await section.getByLabel('__v_raw', { exact: true }).uncheck();
+  await section.getByLabel('depth', { exact: true }).uncheck(); await section.getByLabel('operator', { exact: true }).uncheck();
+  await section.getByLabel('By area (optional)').selectOption('');
+  await section.getByRole('button', { name: 'Show' }).click();
+  await expect(section.locator('.asset-status-matrix')).toHaveCount(0); await expect(section.locator('.asset-status-table')).toBeVisible();
   expect(errors).toEqual([]);
 });

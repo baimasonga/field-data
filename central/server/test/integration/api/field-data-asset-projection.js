@@ -33,6 +33,64 @@ const setup = async (service) => {
 const byName = (body) => Object.fromEntries(body.assets.map((a) => [a.name, a]));
 
 describe('api: asset status across a project (K3)', () => {
+  it('compares independently fresh and missing facts with shared historical and area selection', testService(async (service, { run }) => {
+    const { alice, submit, claimOf, register, observe } = await setup(service);
+    await submit('simple', testData.instances.simple.one);
+    await submit('simple', testData.instances.simple.two);
+    const first = await claimOf('simple', 'one'); const second = await claimOf('simple', 'two');
+    const a = await register('A'); const b = await register('B');
+    await observe(a, first, 'condition', 'operating', '2026-01-01T00:00:00Z');
+    await observe(a, second, 'depth', '8', '2025-06-01T00:00:00Z', 30, 10);
+    await observe(a, first, 'district', 'Bo', '2025-06-01T00:00:00Z', 30, 10);
+    await new Promise(resolve => { setTimeout(resolve, 20); });
+    const knownAt = new Date().toISOString();
+    await new Promise(resolve => { setTimeout(resolve, 20); });
+    await observe(a, first, 'condition', 'broken', '2026-02-01T00:00:00Z');
+    await observe(a, first, 'operator', null, '2026-02-01T00:00:00Z');
+    await observe(b, first, 'depth', '12', '2026-02-01T00:00:00Z');
+    const query = { predicate: 'condition', compare: ['depth', 'operator'], areaPredicate: 'district', at: AT };
+    const { body } = await alice.get(projection).query(query).expect(200);
+    assert.deepEqual(body.columns.map(column => column.predicate), ['condition', 'depth', 'operator']);
+    await alice.get(`/v1/field-data/claim-versions/${second}`).expect(200);
+    const empty = (await alice.get(projection).query({ ...query, assetType: 'absent' }).expect(200)).body;
+    assert.equal(empty.assets.length, 0); assert.equal(empty.columns.length, 3);
+    assert.deepEqual(empty.columns[1].summary.byValue, []);
+    const assets = byName(body);
+    assert.deepEqual(assets.A.facts.condition, assets.A.fact);
+    assert.equal(assets.A.facts.condition.value, 'broken'); assert.equal(assets.A.facts.condition.claimVersionId, first);
+    assert.equal(assets.A.facts.depth.freshness.status, 'expired'); assert.equal(assets.A.facts.depth.claimVersionId, second);
+    assert.equal(assets.A.facts.operator.freshness.status, 'unknown'); assert.equal(assets.B.facts.condition, null);
+    assert.equal(assets.B.facts.operator, null); assert.equal(assets.B.facts.depth.value, '12');
+    assert.deepEqual(body.columns[1].summary.byValue, [{ value: '12', count: 1 }]);
+    assert.equal(body.columns[1].summary.byStatus.expired, 1);
+    assert.deepEqual(body.columns[1].byArea.map(group => [group.area, group.assets, group.areaNotCurrent]), [['Bo', 1, 1], [null, 1, 0]]);
+    assert.deepEqual(body.columns[1].byArea[0].byValue, []);
+    const earlier = (await alice.get(projection).query({ ...query, knownAt }).expect(200)).body;
+    assert.equal(byName(earlier).A.facts.condition.value, 'operating'); assert.equal(byName(earlier).A.facts.operator, null);
+    const passport = (await alice.get(`${root}/${a}`).query({ at: AT, knownAt }).expect(200)).body;
+    for (const fact of passport.facts) {
+      if (Object.hasOwn(byName(earlier).A.facts, fact.predicate))
+        assert.equal(byName(earlier).A.facts[fact.predicate].value, fact.value);
+    }
+    const plain = (await alice.get(projection).query({ predicate: 'condition', at: AT }).expect(200)).body;
+    assert.equal(Object.hasOwn(plain, 'columns'), false); assert.equal(Object.hasOwn(plain.assets[0], 'facts'), false);
+    await Promise.all([
+      { compare: 'depth' }, { predicate: 'condition', compare: 'condition' },
+      { predicate: 'condition', compare: ['depth', 'depth'] }, { predicate: 'condition', compare: ['a', 'b', 'c', 'd', 'e'] },
+      { predicate: 'condition', compare: '' }, { predicate: 'condition', compare: 'x'.repeat(101) },
+      { predicate: 'condition', compare: 'district', areaPredicate: 'district' }
+    ].map(params => alice.get(projection).query(params).expect(400)));
+    const maximum = (await alice.get(projection).query({ predicate: 'condition', compare: ['depth', 'operator', 'missing', '__proto__'], at: AT }).expect(200)).body;
+    assert.equal(maximum.columns.length, 5); assert.equal(Object.hasOwn(maximum.assets[0].facts, '__proto__'), true);
+    assert.equal(Object.getOwnPropertyDescriptor(maximum.assets[0].facts, '__proto__').value, null);
+    await run(sql`UPDATE submission_defs SET xml = xml || ' ' WHERE "instanceId" = 'two'`);
+    const altered = byName((await alice.get(projection).query(query).expect(200)).body);
+    assert.equal(altered.A.facts.condition.freshness.status, 'fresh');
+    assert.equal(altered.A.facts.depth.freshness.status, 'source-unverified');
+    assert.equal(altered.B.facts.depth.freshness.status, 'fresh');
+
+  }));
+
   it('shows each asset\'s current fact as the passport chooses it, counting only current values', testService(async (service) => {
     const { alice, submit, claimOf, register, observe } = await setup(service);
     await submit('simple', testData.instances.simple.one);
@@ -103,7 +161,7 @@ describe('api: asset status across a project (K3)', () => {
     await run(sql`UPDATE submission_defs SET xml = replace(xml, '<age>', '<age>1') WHERE "instanceId" = 'three'`);
     await alice.delete('/v1/projects/1/forms/simple/submissions/two').expect(200);
 
-    const { body } = await alice.get(projection).query({ predicate: 'condition', at: AT }).expect(200);
+    const { body } = await alice.get(projection).query({ predicate: 'condition', compare: 'unrecorded', at: AT }).expect(200);
     assert.deepEqual(body.assets.map((a) => a.name), ['Altered source', 'From another form', 'Kept']);
     assert.equal(byName(body)['Altered source'].fact.freshness.status, 'source-unverified');
     assert.equal(byName(body)['Altered source'].fact.integrityStatus, 'unverified');
@@ -117,7 +175,7 @@ describe('api: asset status across a project (K3)', () => {
     await alice.post(`/v1/projects/1/assignments/formfill/${chelseaId}`).expect(200);
     assert.deepEqual((await chelsea.get(projection).query({ predicate: 'condition' }).expect(200)).body.assets, []);
     await alice.post(`/v1/projects/1/forms/simple/assignments/viewer/${chelseaId}`).expect(200);
-    const limited = (await chelsea.get(projection).query({ predicate: 'condition', at: AT }).expect(200)).body;
+    const limited = (await chelsea.get(projection).query({ predicate: 'condition', compare: 'unrecorded', at: AT }).expect(200)).body;
     assert.deepEqual(limited.assets.map((a) => a.name), ['Altered source', 'Kept']);
     assert.deepEqual(limited.excluded, { notReadable: 1, sourceDeleted: 1 });
 
