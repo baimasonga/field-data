@@ -22,7 +22,8 @@
   "packageManager": "npm@11.6.1",
   "workspaces": [
     "apps/*",
-    "packages/*"
+    "packages/*",
+    "design/gradient"
   ],
   "dependencies": {
     "@sentry/vue": "10.55",

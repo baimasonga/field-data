@@ -47,7 +47,7 @@ jobs:
       - name: Install server dependencies
         run: npm install --include=dev --no-audit --no-fund --ignore-scripts --engine-strict=false --force
       - name: Unit tests
-        run: NODE_CONFIG_ENV=test BCRYPT=insecure npx mocha --recursive test/unit
+        run: NODE_CONFIG_ENV=test BCRYPT=insecure npx mocha --forbid-pending --recursive test/unit
       - name: Field data hardening suite
         run: NODE_CONFIG_ENV=test npx mocha test/field-data/hardening.cjs
       - name: Lint
@@ -69,18 +69,9 @@ jobs:
           cache-dependency-path: central/client/package-lock.json
       - name: Install client dependencies
         run: npm ci --no-audit --no-fund
-      # src/styles.js and src/components/landing-photos.js carry 20 lint errors
-      # inherited from the rebranding work. styles.js needs @fontsource moved
-      # out of devDependencies and two cross-package imports rewritten, which
-      # is a build change and not this gate's business. They are excluded by
-      # name so that everything else is linted; clear them and drop the
-      # exclusions.
       - name: Lint
         working-directory: central/client/apps/central
-        run: |
-          ESLINT_USE_FLAT_CONFIG=false npx eslint src \
-            --ignore-pattern src/styles.js \
-            --ignore-pattern src/components/landing-photos.js
+        run: ESLINT_USE_FLAT_CONFIG=false npx eslint src
       - name: Run client suite
         id: client
         run: |
@@ -91,7 +82,7 @@ jobs:
             NODE_ENV=test npx karma start karma.nosandbox.js 2>&1 \
             | tee ../../client-karma.log
           sed -r 's/\x1b\[[0-9;]*m//g' ../../client-karma.log \
-            | grep -Eq 'Executed [1-9][0-9]* of [1-9][0-9]* (\(skipped [0-9]+\) )?SUCCESS'
+            | grep -Eq 'Executed [1-9][0-9]* of [1-9][0-9]* SUCCESS'
       - name: Require encrypted media integrity tests to pass
         run: |
           set -o pipefail

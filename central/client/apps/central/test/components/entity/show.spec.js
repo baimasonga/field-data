@@ -1,4 +1,5 @@
 import EntityConflictSummary from '../../../src/components/entity/conflict-summary.vue';
+import EntityFeedEntry from '../../../src/components/entity/feed-entry.vue';
 import EntityDelete from '../../../src/components/entity/delete.vue';
 import EntityUpdate from '../../../src/components/entity/update.vue';
 import NotFound from '../../../src/components/not-found.vue';
@@ -128,7 +129,13 @@ describe('EntityShow', () => {
       component.get('#entity-data dd').text().should.equal('2');
     });
 
-    it('updates the number of entries in the feed');
+    it('updates the number of entries in the feed', async () => {
+      const component = await submit();
+      const entries = component.findAllComponents(EntityFeedEntry);
+      entries.length.should.equal(1);
+      entries[0].props().entry.action.should.equal('entity.update.version');
+      component.get('#entity-activity [data-version="2"]').exists().should.be.true;
+    });
 
     it('updates the conflict status', () => {
       testData.extendedEntities.createPast(1, {

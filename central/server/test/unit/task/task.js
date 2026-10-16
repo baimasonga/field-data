@@ -1,3 +1,4 @@
+const assert = require('node:assert/strict');
 const appRoot = require('app-root-path');
 const should = require('should');
 const { resolve } = require(appRoot + '/lib/util/promise');
@@ -31,15 +32,15 @@ describe('task harness', () => {
           return resolve(true);
         })())());
 
-    it.skip('should teardown containers after completion', () => {
+    it('should teardown containers after completion', () => {
       let torndown = false;
       const outer = task.withContainer((container) => () => {
-        // hijack the destroy func:
-        const origDestroy = container.db.destroy;
+        // Observe teardown of the outer task pool:
+        const originalEnd = container.db.end;
         // eslint-disable-next-line no-param-reassign
-        container.db.destroy = () => {
+        container.db.end = () => {
           torndown = true;
-          origDestroy.call(container.db);
+          return originalEnd.call(container.db);
         };
         return task.withContainer(() => () => {
           torndown.should.equal(false);
@@ -47,6 +48,23 @@ describe('task harness', () => {
         })().then(() => torndown.should.equal(false));
       });
       return outer().then(() => torndown.should.equal(true));
+    });
+
+    it('tears down the outer container when a nested task fails', async () => {
+      let ended = false;
+      const failure = new Error('nested task failed');
+      const outer = task.withContainer((container) => async () => {
+        const originalEnd = container.db.end;
+        // eslint-disable-next-line no-param-reassign
+        container.db.end = async () => {
+          await originalEnd.call(container.db);
+          ended = true;
+        };
+        await task.withContainer(() => () => Promise.reject(failure))();
+      });
+      await assert.rejects(outer(), error => error === failure);
+      ended.should.equal(true);
+      should.not.exist(task._container);
     });
   });
 });

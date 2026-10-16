@@ -21,30 +21,30 @@ photograph of an identifiable person.
 export const landingPhotos = [
   {
     file: 'health-facility-survey.webp',
-    alt: 'Two enumerators interview a nurse on the veranda of a health '
-      + 'facility, one entering facility type and available services on a '
-      + 'phone, the other taking notes on a tablet.',
+    alt: 'Two enumerators interview a nurse on the veranda of a health ' +
+      'facility, one entering facility type and available services on a ' +
+      'phone, the other taking notes on a tablet.',
     caption: 'Health facility readiness'
   },
   {
     file: 'school-survey.webp',
-    alt: 'An enumerator with a tablet records a school name, respondent type '
-      + 'and teacher count while a headteacher answers, seated outside a '
-      + 'classroom block.',
+    alt: 'An enumerator with a tablet records a school name, respondent type ' +
+      'and teacher count while a headteacher answers, seated outside a ' +
+      'classroom block.',
     caption: 'School staffing and facilities'
   },
   {
     file: 'rice-farm-survey.webp',
-    alt: 'An enumerator holds a tablet showing a household form with rice '
-      + 'area, variety and irrigation access, talking with a farmer at the '
-      + 'edge of a rice paddy.',
+    alt: 'An enumerator holds a tablet showing a household form with rice ' +
+      'area, variety and irrigation access, talking with a farmer at the ' +
+      'edge of a rice paddy.',
     caption: 'Smallholder rice production'
   },
   {
     file: 'market-trader-survey.webp',
-    alt: 'An enumerator enters household type, main products and daily sales '
-      + 'on a phone while a trader answers from behind a stall of vegetables '
-      + 'at a coastal market.',
+    alt: 'An enumerator enters household type, main products and daily sales ' +
+      'on a phone while a trader answers from behind a stall of vegetables ' +
+      'at a coastal market.',
     caption: 'Market trader livelihoods'
   }
 ];

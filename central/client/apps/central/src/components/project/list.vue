@@ -69,7 +69,7 @@ except according to the terms contained in the LICENSE file.
 </template>
 
 <script>
-import { computed, ref, watchEffect } from 'vue';
+import { computed, ref, watch, watchEffect } from 'vue';
 import { sum } from 'ramda';
 
 import DocLink from '../doc-link.vue';
@@ -122,7 +122,21 @@ export default {
     });
     watchEffect(() => { activeProjects.value.sort(sortFunction.value); });
     const search = ref('');
-    const filteredProjects = computed(() => activeProjects.value.filter(p => p.name.toLocaleLowerCase().includes(search.value.trim().toLocaleLowerCase())));
+    const filteredProjects = ref([]);
+    watch(
+      () => activeProjects.value.filter(p => p.name.toLocaleLowerCase().includes(search.value.trim().toLocaleLowerCase())),
+      next => {
+        const previous = new Set(filteredProjects.value);
+        if (next.length === previous.size && next.every(project => previous.has(project))) {
+          // Sorting the same projects should preserve how many cards are already
+          // rendered. Search results or a changed membership start fresh chunks.
+          filteredProjects.value.splice(0, filteredProjects.value.length, ...next);
+        } else {
+          filteredProjects.value = next;
+        }
+      },
+      { immediate: true }
+    );
     const chunkyProjects = useChunkyArray(filteredProjects);
 
     const { projectPath } = useRoutes();
