@@ -14,10 +14,16 @@ consolidated into native provisioning and worker-stability checks.
 The feature-capabilities CI job now runs the draft suite with its custom
 assertions explicitly loaded. Other legacy suites are not declared repaired.
 
+CI also exposed a wall-clock dependency in the saved-shift planning test: its
+October 15 fixture became expired while it still expected a full shift budget.
+That test now fixes only the JavaScript Date clock to the allocator's fixture
+time and restores it in `finally`; production expiry behavior is unchanged.
+
 Local validation with Node 24.16.0 and PostgreSQL 16:
 
 - Full server unit suite: 1,889 passing, one pending, zero failing.
 - Draft, atomic revision and real XLSForm pipeline suites: 142 passing.
+- Calendar availability and route planning suite: 10 passing.
 - Full server source lint and changed-test lint: passed.
 - Field Data hardening and native-link unit checks: passed.
 
