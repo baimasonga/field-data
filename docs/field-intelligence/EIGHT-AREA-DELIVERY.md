@@ -51,8 +51,11 @@ also exist. Those features must not be re-labelled as full completion of this pr
 - Cited search (K2, first cited-retrieval slice): one search across a
   project's assets, asset facts, integrity findings and review decisions on
   the Review page, each result citing the submission it rests on, limited to
-  forms the caller may read: merged in PR #74. Ranking,
-  searching answers and model-based retrieval remain pending.
+  forms the caller may read: merged in PR #74. K2a adds literal relevance
+  ordering (exact field, prefix, substring, then recency) before pagination,
+  with strongest-field excerpts and existing source checks; see
+  [K2a-search-relevance.md](K2a-search-relevance.md). Searching submission answers
+  and semantic/model-based retrieval remain pending.
 - Automatic expiry task generation and reviewer queue: implemented and locally validated;
   automatic batches require the explicit operator flag.
 - Dispatch of freshness tasks to App Users and field closure by fresh collected evidence

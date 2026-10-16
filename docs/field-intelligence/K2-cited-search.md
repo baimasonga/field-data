@@ -10,7 +10,8 @@ review decisions each live on their own page. K2 is one search across them,
 where **every result cites the submission it rests on**, so an answer can be
 checked rather than trusted. It is the "cited retrieval" deliverable of the
 knowledge row, first slice: plain text matching, no model, no ranking beyond
-recency.
+recency. [K2a](K2a-search-relevance.md) adds exact/prefix/substring ordering before
+the result limit; the original description below records the first slice.
 
 ## What it searches
 

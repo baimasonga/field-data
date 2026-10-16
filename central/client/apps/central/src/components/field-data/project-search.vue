@@ -20,6 +20,7 @@ rests on. Contract: docs/field-intelligence/K2-cited-search.md -->
     <p v-if="error" role="alert" class="project-search-error">{{ error }}</p>
 
     <template v-if="result != null">
+      <p v-if="ranked" class="project-search-order">Within each group: exact matches first, then starts with, then contains. Ties show newest first.</p>
       <p v-if="total === 0" class="project-search-empty">Nothing in this project's records matches “{{ result.q }}”.</p>
       <template v-else>
         <section v-for="kind of KINDS" v-show="result.results[kind.key].length > 0" :key="kind.key"
@@ -54,7 +55,7 @@ rests on. Contract: docs/field-intelligence/K2-cited-search.md -->
             </li>
           </ul>
           <p v-if="result.more[kind.key] > 0" class="project-search-more">
-            {{ result.more[kind.key] }} more not shown, newest first. Add words to narrow the search.
+            {{ result.more[kind.key] }} more not shown{{ ranked ? ' in this order' : ', newest first' }}. Add words to narrow the search.
           </p>
         </section>
       </template>
@@ -79,9 +80,12 @@ const KINDS = [
   { key: 'findings', title: 'Findings' },
   { key: 'decisions', title: 'Review decisions' }
 ];
-const FIELDS = { name: 'name', externalId: 'external ID', assetType: 'type', predicate: 'fact', value: 'value',
-  title: 'title', explanation: 'explanation', note: 'note', reasonCode: 'reason' };
+const FIELDS = {
+  name: 'name', externalId: 'external ID', assetType: 'type', predicate: 'fact', value: 'value',
+  title: 'title', explanation: 'explanation', note: 'note', reasonCode: 'reason'
+};
 const query = ref(''); const result = ref(null); const error = ref('');
+const ranked = computed(() => result.value?.ordering === 'literal-relevance@1');
 const total = computed(() => KINDS.reduce((n, { key }) => n + result.value.results[key].length, 0));
 
 const search = () => {
