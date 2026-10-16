@@ -359,7 +359,7 @@ pilot is a separate acceptance activity. Product work resumes with K7 above.
 | Area | Current delivery | Further implementation required |
 | --- | --- | --- |
 | Knowledge | Asset facts, ownership history, freshness, cited search and multi-fact historical projections | Location/photo identity comparisons, asset maps/location areas, broader decision projections, answer/semantic retrieval, causal contracts and diagnostics |
-| Evidence/trust | Evidence graph, challenges/replay checks, signed witnesses, human assessments and device-reported location | Witness correction/revocation and delegation, independent sensor/hardware corroboration, calibrated presence limitations |
+| Evidence/trust | Evidence graph, challenges/replay checks, signed witnesses with correction/withdrawal history, human assessments and device-reported location | Delegation, certified key revocation, independent sensor/hardware corroboration, calibrated presence limitations |
 | Offline resilience | Signed encrypted assignments/itineraries, recoverable media, encrypted relay packages and receipts | Durable XML submission queues, Collect integration, background sync and delegated courier/custody transport |
 | Operations | Sampling, allocation, shared capacity, UTC shifts, combined approved itineraries and agreement counts | Overnight shifts, additional task types, navigation, sampling strata and calibrated estimates |
 | Geospatial | Location integrity checks and imagery scene availability | Reviewed temporal verification/change candidates, imagery analysis and evaluated change detection |
@@ -371,3 +371,15 @@ Each implementation needs its actual API and user workflow, permission and
 failure coverage, and passing CI. Hardware, language/model evaluation, live
 providers and physical transport acceptance must be recorded separately rather
 than being claimed from fixture tests.
+
+### T5 witness correction and withdrawal
+
+The original web witness can append signed corrections or terminal withdrawal,
+with current permission checks, linked payload hashes and sequential retry-safe
+history. Original signatures remain immutable; withdrawn statements do not count
+as active corroboration. Reviewer UI and independent export verification expose
+the effective state and full included history. Historical image/version changes
+and archival do not block an authorized owner from withdrawing. See
+[T5-witness-corrections-withdrawals.md](T5-witness-corrections-withdrawals.md).
+This advances Evidence and Trust; delegation, certified revocation, sensor/device
+corroboration and field acceptance remain pending.
