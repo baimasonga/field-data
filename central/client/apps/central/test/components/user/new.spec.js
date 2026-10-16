@@ -35,7 +35,7 @@ describe('UserNew', () => {
         }
       });
       const text = modal.get('.modal-introduction').text();
-      text.should.startWith('Users on your login server must have a Central account to log in to Central.');
+      text.should.startWith('Users on your login server must have a Field Data account to log in to Field Data.');
     });
   });
 

@@ -298,7 +298,7 @@ addAsyncMethod('textTooltip', async function textTooltip() {
         throw new Error('Could not prevent the element that sets text-overflow from itself overflowing. You may need to mount a parent component, for example, a table instead of a row.');
     }
 
-    await element.should.have.tooltip(element.textContent);
+    await element.should.have.tooltip(element.innerText);
     element.textContent = 'aaaaaa';
     await element.should.not.have.tooltip();
   } finally {

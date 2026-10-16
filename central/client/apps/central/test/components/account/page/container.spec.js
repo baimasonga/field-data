@@ -18,7 +18,7 @@ describe('AccountPageContainer', () => {
       img.length.should.equal(1);
       // Asserting on `alt` rather than `src` because `src` ends up being a data
       // URL. Probably from Vite, maybe because the logo is small.
-      img[0].attributes().alt.should.equal('ODK logo');
+      img[0].attributes().alt.should.equal('Field Data logo');
     });
 
     it('shows a custom logo', () => {
@@ -34,16 +34,14 @@ describe('AccountPageContainer', () => {
     it('shows a custom hero image', () => {
       testData.standardConfigs.createPast(1, { key: 'hero-image', blobExists: true });
       const component = mountComponent();
-      const img = component.findAll('#account-page-container-hero img');
-      img.length.should.equal(1);
-      const { alt, src } = img[0].attributes();
-      alt.should.equal('Login image');
-      src.should.startWith('/v1/config/public/hero-image?');
+      const { backgroundImage } = component.get('#account-page-container-brand').element.style;
+      backgroundImage.should.contain('linear-gradient(');
+      backgroundImage.should.contain('/v1/config/public/hero-image?');
     });
 
     it('does not show a hero image if one has not been configured', () => {
       const component = mountComponent();
-      component.find('#account-page-container-hero').exists().should.be.false;
+      component.get('#account-page-container-brand').element.style.backgroundImage.should.equal('');
     });
   });
 
@@ -54,8 +52,8 @@ describe('AccountPageContainer', () => {
       setAt: '1970-01-01T00:00:00.123Z'
     });
     const component = mountComponent();
-    const img = component.get('#account-page-container-hero img');
-    img.attributes().src.should.equal('/v1/config/public/hero-image?ts=123');
+    component.get('#account-page-container-brand').element.style.backgroundImage
+      .should.contain('url("/v1/config/public/hero-image?ts=123")');
   });
 
   it('is inert during preview', () => {

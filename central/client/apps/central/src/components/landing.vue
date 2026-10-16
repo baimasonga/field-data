@@ -155,6 +155,7 @@
 <script setup>
 import { computed } from 'vue';
 import { useI18n } from 'vue-i18n';
+import fieldPhotoUrl from '../assets/images/landing/rice-farm-survey.webp';
 import { landingPhotos } from './landing-photos';
 
 defineOptions({ name: 'Landing' });
@@ -167,10 +168,8 @@ const faqs = pairs('faq', ['a', 'b', 'c', 'd', 'e']);
 const strings = key => computed(() => tm(key).map(m => rt(m)));
 const standards = strings('standards.items');
 const fieldItems = strings('field.items');
-const files = import.meta.glob('../assets/images/landing/*.{jpg,jpeg,png,webp}', { eager: true, query: '?url', import: 'default' });
 const sourcePhoto = landingPhotos.find(photo => photo.file === 'rice-farm-survey.webp');
-const fieldPhoto = sourcePhoto && files[`../assets/images/landing/${sourcePhoto.file}`]
-  ? { ...sourcePhoto, src: files[`../assets/images/landing/${sourcePhoto.file}`] } : null;
+const fieldPhoto = sourcePhoto ? { ...sourcePhoto, src: fieldPhotoUrl } : null;
 const featureIcons = [
   'M4 3h12l4 4v14H4z M8 9h8 M8 13h8 M8 17h4 M16 3v4h4',
   'M7 2h10v20H7z M10 18h4 M9 6h6 M9 10h6',

@@ -84,7 +84,7 @@ describe('AccountLogin', () => {
 
   it('shows the hostname', () => {
     const component = mountComponent();
-    const text = component.get('#account-login-footer span').text();
+    const text = component.get('#account-login-footer .host').text();
     text.should.equal('localhost');
   });
 

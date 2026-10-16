@@ -68,6 +68,7 @@ const componentResponses = (map) => Object.entries(map)
 
 const responsesByComponent = {
   ClientConfigError: [],
+  Landing: [],
 
   AccountPage: componentResponses({
     serverConfig: true
@@ -79,7 +80,12 @@ const responsesByComponent = {
   // The dashboard asks for summaries only while Home remains mounted. Match
   // them by URL so navigation tests do not expect requests after leaving Home.
   Home: [
-    ...componentResponses({ projects: () => testData.extendedProjects.sorted() }),
+    ...componentResponses({
+      projects: [
+        ({ url }) => url === '/v1/projects?forms=true&datasets=true',
+        () => testData.extendedProjects.sorted()
+      ]
+    }),
     // HomeSummary asks for users only when the actor has user.list.
     ...componentResponses({ users: [({ url }) => url === '/v1/users', responseDefaults.users] }),
     ['projectSummary', [({ url }) => /^\/v1\/projects\/\d+\/summary$/.test(url), () => ({
@@ -272,6 +278,10 @@ const responsesByComponent = {
     ],
     evidence: [
       ({ url }) => matchesApiPath(apiPaths.claimEvidence, url),
+      () => ({ items: [] })
+    ],
+    captureChallenges: [
+      ({ url }) => /^\/v1\/projects\/\d+\/forms\/[^/]+\/submissions\/[^/]+\/capture-challenges$/.test(url),
       () => ({ items: [] })
     ]
   }),

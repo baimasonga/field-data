@@ -11,7 +11,7 @@ const forms = [
   {
     projectId: 1, projectName: 'Housing Survey 2026', xmlFormId: 'roster',
     name: 'Household Roster', state: 'open', version: '1', published: true,
-    hasDraft: false, submissions: 214, lastSubmission: '2026-09-20T09:00:00.000Z'
+    hasDraft: false, submissions: 214, lastSubmission: new Date().toISOString()
   },
   {
     projectId: 1, projectName: 'Housing Survey 2026', xmlFormId: 'water-points',

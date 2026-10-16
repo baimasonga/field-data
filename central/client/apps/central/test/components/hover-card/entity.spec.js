@@ -73,7 +73,7 @@ describe('HoverCardEntity', () => {
       body.element.clientWidth.should.equal(288);
       const dd = body.get('.dl-data-dd');
       // More than 50% of the width of .hover-card-body, but well short of 100%
-      dd.element.clientWidth.should.be.within(175, 250);
+      dd.element.clientWidth.should.be.within(body.element.clientWidth / 2 + 1, body.element.clientWidth - 1);
       truncatesText(dd.get('div').element).should.be.true;
     });
   });

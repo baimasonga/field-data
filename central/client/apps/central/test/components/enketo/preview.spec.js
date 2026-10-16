@@ -46,7 +46,7 @@ describe('EnketoPreview', () => {
       });
       const button = component.get('.enketo-preview');
       button.element.tagName.should.equal('BUTTON');
-      button.should.have.ariaDescription('In this version of ODK Central, preview is only available for Forms in the Open state.');
+      button.should.have.ariaDescription('In this version of Field Data, preview is only available for Forms in the Open state.');
       await button.should.have.tooltip();
     });
 

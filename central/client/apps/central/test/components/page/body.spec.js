@@ -9,7 +9,7 @@ describe('PageBody', () => {
 
   describe('fullWidth route meta field', () => {
     it('does not add full-width class if meta field is false', async () => {
-      const app = await load('/');
+      const app = await load('/account/edit');
       app.vm.$route.meta.fullWidth.should.be.false;
       app.getComponent(PageBody).classes('full-width').should.be.false;
     });

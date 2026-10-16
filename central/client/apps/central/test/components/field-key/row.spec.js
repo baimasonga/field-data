@@ -68,7 +68,8 @@ describe('FieldKeyRow', () => {
       const app = await load('/projects/1/app-users', { attachTo: document.body });
       await app.get('.field-key-row-popover-link').trigger('click');
       should.exist(document.querySelector('.popover .field-key-qr-panel'));
-      await document.querySelector('.popover button').click();
+      document.querySelector('.popover [data-closes-popover]').click();
+      await app.vm.$nextTick();
       should.not.exist(document.querySelector('.popover'));
     });
 
