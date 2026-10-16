@@ -2,7 +2,7 @@
 // O3 random backcheck sample in the browser: docs/field-intelligence/O3-backcheck-sample.md
 import { expect, test } from '@playwright/test';
 import { readFile } from 'node:fs/promises';
-import { createPublicKey, verify } from 'node:crypto';
+import { createHash, createPublicKey, generateKeyPairSync, randomUUID, sign, verify } from 'node:crypto';
 
 const appUrl = process.env.ODK_URL || 'http://127.0.0.1:8989';
 const managerVerbs = ['project.read', 'project.update', 'form.read', 'form.list', 'submission.list', 'submission.read', 'submission.update'];
@@ -806,4 +806,106 @@ test('reviewers see device-reported location limits and historical context after
   await expect(panel).toContainText('Reported accuracy ±15 m'); await expect(panel).toContainText('Historical reading');
   await expect(panel).toContainText('This does not establish presence');
   await p.setViewportSize({ width: 320, height: 700 }); expect(await p.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+});
+
+
+const witnessHash = record => createHash('sha256').update(Buffer.from(record.payload, 'base64url')).digest('hex');
+const witnessChangeContext = record => ({ ...witnessContext, purpose: 'field-data.capture-witness-change@1', witnessRecordId: record.id,
+  originalPayloadHash: witnessHash(record), sequence: record.events.length + 1, previousPayloadHash: witnessHash(record.events.at(-1) ?? record) });
+const signedWitnessFixture = data => {
+  const { publicKey, privateKey } = generateKeyPairSync('ec', { namedCurve: 'prime256v1' });
+  const payload = Buffer.from(JSON.stringify(data)).toString('base64url');
+  return { algorithm: 'ES256', payload, publicKey: publicKey.export({ format: 'jwk' }),
+    signature: sign('sha256', Buffer.from(payload, 'base64url'), { key: privateKey, dsaEncoding: 'ieee-p1363' }).toString('base64url') };
+};
+test('a witness corrects and withdraws through signed retryable history while the original remains verifiable', async ({ page: p }) => {
+  let stored = null; let bindingCurrent = true; const changes = [];
+  const errors = await setupAssessmentRecord(p, async (route, path) => {
+    if (path.endsWith('/capture-challenges')) { await route.fulfill({ json: { items: [reviewCapture] } }); return true; }
+    if (path.endsWith('/witnesses')) {
+      if (route.request().method() === 'GET') {
+        await route.fulfill({ json: { items: stored ? [{ ...stored, canCorrect: true,
+          changeContext: stored.status === 'active' ? witnessChangeContext(stored) : null }] : [],
+        bindingCurrent, canWitness: !stored, context: stored ? null : witnessContext } });
+      } else {
+        const body = route.request().postDataJSON();
+        stored = { id: sampleId, witnessId: 1, witnessName: 'Witness', receivedAt: new Date().toISOString(), algorithm: 'ES256',
+          payload: body.payload, publicKey: body.publicKey, signature: body.signature, events: [], status: 'active', revision: 0 };
+        await route.fulfill({ json: { witness: stored, bindingCurrent: true } });
+      }
+      return true;
+    }
+    if (path.endsWith(`/witnesses/${sampleId}/events`)) {
+      const body = route.request().postDataJSON(); changes.push(body);
+      expect(verify('sha256', Buffer.from(body.payload, 'base64url'), { key: createPublicKey({ key: body.publicKey, format: 'jwk' }), dsaEncoding: 'ieee-p1363' }, Buffer.from(body.signature, 'base64url'))).toBe(true);
+      const data = JSON.parse(Buffer.from(body.payload, 'base64url').toString());
+      if (!stored.events.some(event => JSON.parse(Buffer.from(event.payload, 'base64url').toString()).requestId === body.requestId)) {
+        stored.events.push({ id: randomUUID(), actorId: 1, actorName: 'Witness', sequence: data.sequence, action: body.action,
+          receivedAt: new Date().toISOString(), algorithm: 'ES256', payload: body.payload, publicKey: body.publicKey, signature: body.signature });
+        stored.status = body.action === 'withdraw' ? 'withdrawn' : 'active'; stored.revision = stored.events.length;
+      }
+      if (changes.length === 1) await route.abort('failed'); else await route.fulfill({ json: { witness: stored, bindingCurrent, replayed: changes.length === 2 } });
+      return true;
+    }
+    return false;
+  });
+  const section = p.getByRole('region', { name: 'Signed witness statements' });
+  const originalText = 'I personally observed the pump and paper code.';
+  await section.getByLabel('Describe what you personally observed').fill(originalText);
+  await section.getByLabel('I reviewed the original challenged image and am signing my own statement for this photo.').check();
+  await section.getByRole('button', { name: 'Sign and submit witness statement' }).click();
+  await expect(section).toContainText('1 active statements for the current image');
+  const originalPayload = stored.payload;
+  await section.getByRole('button', { name: 'Correct or withdraw your statement' }).click();
+  await section.getByLabel('Corrected statement').fill('I could confirm the paper code but not the pump operation.');
+  const reason = 'I need to clarify the limitations of the observation.';
+  await section.getByLabel('Reason for this change').fill(reason);
+  await section.getByLabel('I am signing this change to my own witness statement.').check();
+  await section.getByRole('button', { name: 'Sign and submit correction' }).click();
+  await expect(section.getByRole('alert')).toContainText('Retry the same change');
+  await section.getByLabel('Reason for this change').fill('Trying to change the interrupted signed request.');
+  await section.getByRole('button', { name: 'Sign and submit correction' }).click();
+  await expect(section.getByRole('alert')).toContainText('Retry that exact change'); expect(changes).toHaveLength(1);
+  await section.getByLabel('Reason for this change').fill(reason);
+  await section.getByRole('button', { name: 'Sign and submit correction' }).click();
+  await expect(section).toContainText('I could confirm the paper code but not the pump operation.');
+  expect(changes[1]).toEqual(changes[0]); expect(stored.events).toHaveLength(1); expect(stored.payload).toBe(originalPayload);
+  bindingCurrent = false;
+  await section.getByRole('button', { name: 'Correct or withdraw your statement' }).click();
+  await section.getByLabel('Change type').selectOption('withdraw');
+  await section.getByLabel('Reason for this change').fill('I can no longer stand behind this witness statement.');
+  await section.getByLabel('I am signing this change to my own witness statement.').check();
+  await section.getByRole('button', { name: 'Sign and withdraw statement' }).click();
+  await expect(section).toContainText('Withdrawn — not active corroboration.');
+  await expect(section).toContainText('0 active statements for the current image');
+  await expect(section.getByRole('button', { name: 'Correct or withdraw your statement' })).toHaveCount(0);
+  await section.getByText('Original statement and signed change history', { exact: true }).click();
+  await expect(section).toContainText(originalText); await expect(section).toContainText(reason);
+  const [download] = await Promise.all([p.waitForEvent('download'), section.getByRole('button', { name: 'Download signed statement' }).click()]);
+  const exported = JSON.parse(await readFile(await download.path(), 'utf8'));
+  const { verifyCaptureWitness } = await import('../../../../cloudflare/verify-capture-witness.mjs');
+  expect(verifyCaptureWitness(exported, reviewCapture.contentHash).lifecycle.status).toBe('withdrawn');
+  expect(exported.payload).toBe(originalPayload); expect(exported.events).toHaveLength(2);
+  await p.setViewportSize({ width: 320, height: 700 });
+  expect(await p.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true); expect(errors).toEqual([]);
+});
+
+test('viewers see verified corrected history without change controls and a tampered change hides active corroboration', async ({ page: p }) => {
+  const original = signedWitnessFixture({ ...witnessContext, requestId: randomUUID(), signedAt: new Date().toISOString(), statement: 'I personally observed the pump and matching code.' });
+  const stored = { ...original, id: sampleId, witnessId: 1, witnessName: 'Witness', events: [], revision: 0, status: 'active', receivedAt: new Date().toISOString() };
+  stored.events.push({ ...signedWitnessFixture({ ...witnessChangeContext(stored), requestId: randomUUID(), signedAt: new Date().toISOString(), action: 'correct',
+    statement: 'I saw the code but could not confirm the pump operation.', reason: 'The original statement overstated the scope of observation.' }),
+  id: randomUUID(), sequence: 1, action: 'correct', actorId: 1, actorName: 'Witness', receivedAt: new Date().toISOString() });
+  stored.revision = 1;
+  await setupAssessmentRecord(p, async (route, path) => {
+    if (path.endsWith('/capture-challenges')) { await route.fulfill({ json: { items: [reviewCapture] } }); return true; }
+    if (path.endsWith('/witnesses')) { await route.fulfill({ json: { items: [stored], bindingCurrent: true, canWitness: false, context: null } }); return true; }
+    return false;
+  });
+  const section = p.getByRole('region', { name: 'Signed witness statements' });
+  await expect(section).toContainText('I saw the code but could not confirm the pump operation.');
+  await expect(section.getByRole('button', { name: 'Correct or withdraw your statement' })).toHaveCount(0);
+  stored.events[0].signature = 'a'.repeat(86);
+  await p.reload(); await expect(section.getByRole('alert')).toContainText('could not be loaded or verified');
+  await expect(section).not.toContainText('Signature verified'); await expect(section).not.toContainText('1 active statements');
 });

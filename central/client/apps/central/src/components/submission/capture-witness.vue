@@ -6,12 +6,40 @@
     <p v-if="loading" role="status">Loading witness statements…</p>
     <template v-else>
       <p v-if="records.length && !bindingCurrent" class="outdated" role="status">These statements refer to an earlier image or submission version.</p>
+      <p v-if="records.length" role="status">{{ activeCount }} active statements for the current image. This is not a count of supporting votes or independent people.</p>
       <ol v-if="records.length">
         <li v-for="record of records" :key="record.id">
           <strong>{{ record.witnessName }}</strong> · Signature verified
-          <p>{{ record.statement }}</p>
+          <p v-if="record.status === 'withdrawn'" role="status">Withdrawn — not active corroboration.</p>
+          <p v-else-if="record.status === 'unknown'" role="status">Lifecycle history unavailable. Refresh before relying on this statement as active.</p>
+          <p v-else role="status">{{ bindingCurrent ? 'Active statement for this image.' : 'Historical statement for an earlier image or version.' }}</p>
+          <p v-if="record.effectiveStatement">{{ record.effectiveStatement }}</p>
+          <details v-if="record.verifiedEvents.length">
+            <summary>Original statement and signed change history</summary>
+            <p><strong>Original:</strong> {{ record.statement }}</p>
+            <ol>
+<li v-for="event of record.verifiedEvents" :key="event.id">
+              <strong>{{ event.action === 'withdraw' ? 'Withdrawal' : 'Correction' }} {{ event.sequence }}</strong> · Signature verified
+              <p v-if="event.statement">{{ event.statement }}</p><p>Reason: {{ event.reason }}</p>
+              <p>{{ event.actorName }} · Recorded <record-date-time :iso="event.receivedAt"/></p>
+            </li>
+</ol>
+          </details>
           <p>Recorded <record-date-time :iso="record.receivedAt"/></p>
           <button type="button" class="btn btn-default" @click="download(record)">Download signed statement</button>
+          <button v-if="record.changeContext" type="button" class="btn btn-link" :disabled="busy" @click="edit(record)">Correct or withdraw your statement</button>
+          <form v-if="editing === record.id" @submit.prevent="saveChange(record)">
+            <h5>Change your witness statement</h5>
+            <p>The original signature remains in history. Withdrawal is final. Changes refer to the original image, including when it has been replaced.</p>
+            <fieldset :disabled="busy">
+              <label>Change type <select v-model="action" class="form-control"><option value="correct" :disabled="!record.canCorrect">Correction</option><option value="withdraw">Withdrawal</option></select></label>
+              <label v-if="action === 'correct'">Corrected statement <textarea v-model="replacement" class="form-control" rows="3" minlength="10" maxlength="2000" required></textarea></label>
+              <label>Reason for this change <textarea v-model="reason" class="form-control" rows="2" minlength="10" maxlength="2000" required></textarea></label>
+              <label class="confirmation"><input v-model="changeConfirmed" type="checkbox" required> I am signing this change to my own witness statement.</label>
+              <button type="submit" class="btn btn-primary" :disabled="!changeConfirmed || reason.trim().length < 10 || (action === 'correct' && replacement.trim().length < 10)">{{ action === 'withdraw' ? 'Sign and withdraw statement' : 'Sign and submit correction' }}</button>
+              <button type="button" class="btn btn-default" @click="cancelEdit">Cancel change</button>
+            </fieldset>
+          </form>
         </li>
       </ol>
       <p v-else-if="!error">No witness statements recorded.</p>
@@ -35,17 +63,26 @@ import { computed, onBeforeUnmount, ref, watch } from 'vue';
 import RecordDateTime from '../record-date-time.vue';
 import useRequest from '../../composables/request';
 import { apiPaths } from '../../util/request';
-import { signWitness, verifyWitness } from '../../util/capture-witness';
+import { signWitness, signWitnessChange, verifyWitness } from '../../util/capture-witness';
 
 defineOptions({ name: 'SubmissionCaptureWitness' });
 const props = defineProps({ item: { type: Object, required: true }, projectId: { type: String, required: true }, xmlFormId: { type: String, required: true }, instanceId: { type: String, required: true } });
 const { request } = useRequest(); const loading = ref(false); const busy = ref(false); const error = ref('');
 const records = ref([]); const context = ref(null); const bindingCurrent = ref(false); const statement = ref(''); const confirmed = ref(false);
 const base = computed(() => `${apiPaths.submission(props.projectId, props.xmlFormId, props.instanceId)}/capture-challenges/${encodeURIComponent(props.item.id)}/witnesses`);
+const editing = ref(null); const action = ref('correct'); const replacement = ref(''); const reason = ref(''); const changeConfirmed = ref(false);
+const activeCount = computed(() => (bindingCurrent.value ? records.value.filter(record => record.status === 'active').length : 0));
+let pendingChange = null;
+const cancelEdit = () => { editing.value = null; pendingChange = null; replacement.value = ''; reason.value = ''; changeConfirmed.value = false; };
+const edit = record => {
+  if (pendingChange) { error.value = 'Retry the interrupted change or refresh its history before starting another change.'; return; }
+  editing.value = record.id; action.value = record.canCorrect ? 'correct' : 'withdraw'; replacement.value = record.effectiveStatement ?? '';
+  reason.value = ''; changeConfirmed.value = false; error.value = '';
+};
 let generation = 0; let pending = null;
-onBeforeUnmount(() => { generation += 1; pending = null; });
+onBeforeUnmount(() => { generation += 1; pending = null; cancelEdit(); });
 const load = async () => {
-  generation += 1; const current = generation; pending = null; statement.value = ''; confirmed.value = false; records.value = []; context.value = null; busy.value = false; loading.value = true; error.value = '';
+  generation += 1; const current = generation; pending = null; cancelEdit(); statement.value = ''; confirmed.value = false; records.value = []; context.value = null; busy.value = false; loading.value = true; error.value = '';
   try {
     const response = await request({ method: 'GET', url: base.value, alert: false });
     const { data } = response;
@@ -73,8 +110,33 @@ const save = async () => {
     error.value = [400, 409].includes(failure.response?.status) ? 'The signing context expired, the image changed, or a statement already exists. Refresh before signing again.' : 'Submission could not be confirmed. Retry the same statement or refresh to check its history.';
   } finally { if (current === generation) busy.value = false; }
 };
+const saveChange = async record => {
+  if (busy.value || !record.changeContext || !changeConfirmed.value || reason.value.trim().length < 10 ||
+    (action.value === 'correct' && replacement.value.trim().length < 10)) return;
+  const fields = { action: action.value, statement: action.value === 'withdraw' ? null : replacement.value.trim(), reason: reason.value.trim() };
+  if (pendingChange && (pendingChange.recordId !== record.id || Object.keys(fields).some(key => fields[key] !== pendingChange.envelope[key]))) {
+    error.value = 'An earlier change was interrupted. Retry that exact change or refresh its history before changing it.'; return;
+  }
+  const current = generation; busy.value = true; error.value = '';
+  try {
+    const envelope = pendingChange?.envelope ?? await signWitnessChange(record.changeContext, fields.action, fields.statement, fields.reason);
+    if (current !== generation) return;
+    pendingChange = { recordId: record.id, envelope };
+    const response = await request({ method: 'POST', url: `${base.value}/${encodeURIComponent(record.id)}/events`, data: envelope, alert: false });
+    await verifyWitness(response.data.witness, props.item);
+    if (current === generation) await load();
+  } catch (failure) {
+    if (current !== generation) return;
+    error.value = [400, 409].includes(failure.response?.status) ? 'The statement history changed or the signing context expired. Refresh before signing again.'
+      : 'Change could not be confirmed. Retry the same change or refresh to check its history.';
+  } finally { if (current === generation) busy.value = false; }
+};
 const download = record => {
-  const { statement: text, signedAt, ...envelope } = record;
+  const { id, witnessId, witnessName, receivedAt, algorithm, payload, publicKey, signature, events, status, revision } = record;
+  const envelope = {
+    id, witnessId, witnessName, receivedAt, algorithm, payload, publicKey, signature,
+    ...(events === undefined ? {} : { events, status, revision })
+  };
   const url = URL.createObjectURL(new Blob([JSON.stringify(envelope, null, 2)], { type: 'application/json' }));
   const link = document.createElement('a'); link.href = url; link.download = `witness-${record.id}.json`; link.click(); URL.revokeObjectURL(url);
 };

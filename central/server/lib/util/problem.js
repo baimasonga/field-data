@@ -327,6 +327,7 @@ const problems = {
     captureChallengeConflict: problem(409.45, () => 'Capture challenge expired, was consumed, or the same image was already challenged. Start a new capture.'),
     captureAssessmentTargetChanged: problem(409.46, () => 'The challenged attachment changed or is no longer current. Its assessment is outdated.'),
     captureWitnessConflict: problem(409.47, () => 'A witness statement already exists for this account, or the witness limit was reached.'),
+    captureWitnessChangeConflict: problem(409.48, () => 'The witness statement was withdrawn or its correction limit was reached. Refresh its history.'),
     reviewRevisionStale: problem(412.1, () => 'The review case has changed. Refresh and retry.'),
     assetRevisionStale: problem(412.2, () => 'The asset has changed. Reload its history before saving.'),
     reverificationRevisionStale: problem(412.3, () => 'The re-verification task has changed. Reload it before saving.'),

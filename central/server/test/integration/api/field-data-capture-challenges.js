@@ -356,6 +356,106 @@ describe('api: signed capture witness statements', () => {
   }));
 });
 
+const witnessChangeBody = (context, action = 'correct', changes = {}) => {
+  const { privateKey, publicKey } = generateKeyPairSync('ec', { namedCurve: 'prime256v1' });
+  const fields = { requestId: randomUUID(), signedAt: new Date().toISOString(), action,
+    statement: action === 'withdraw' ? null : 'I saw the paper code but could not verify the pump operation.',
+    reason: 'I need to clarify the limits of my original observation.', ...changes };
+  const payload = Buffer.from(JSON.stringify({ ...context, ...fields })).toString('base64url');
+  return { ...fields, payload, publicKey: publicKey.export({ format: 'jwk' }),
+    signature: sign('sha256', Buffer.from(payload, 'base64url'), { key: privateKey, dsaEncoding: 'ieee-p1363' }).toString('base64url') };
+};
+describe('api: signed witness corrections and withdrawals', () => {
+  it('retains the original, signs a correction and terminal withdrawal, and safely replays older changes', testService(async (service, c) => {
+    const { alice, challenge, path } = await assessedSetup(service); const url = `${path}/witnesses`;
+    const original = witnessBody((await alice.get(url).expect(200)).body.context);
+    const record = (await alice.post(url).send(original).expect(200)).body.witness;
+    const eventUrl = `${url}/${record.id}/events`;
+    let view = (await alice.get(url).expect(200)).body;
+    assert.equal(view.activeCount, 1); assert.equal(view.items[0].revision, 0);
+    const correction = witnessChangeBody(view.items[0].changeContext);
+    await alice.post(eventUrl).send(witnessChangeBody(view.items[0].changeContext, 'correct', { signedAt: new Date(Date.now() - 11 * 60000).toISOString() })).expect(400);
+    await alice.post(eventUrl).send({ ...correction, extra: true }).expect(400);
+    await alice.post(eventUrl).send({ ...correction, reason: 'An altered unsigned reason' }).expect(400);
+    await alice.post(eventUrl).send(witnessChangeBody({ ...view.items[0].changeContext, originalPayloadHash: '0'.repeat(64) })).expect(400);
+    const corrected = (await alice.post(eventUrl).send(correction).expect(200)).body.witness;
+    assert.equal(corrected.payload, original.payload); assert.equal(corrected.events.length, 1); assert.equal(corrected.status, 'active');
+    view = (await alice.get(url).expect(200)).body; assert.equal(view.activeCount, 1);
+    const withdrawal = witnessChangeBody(view.items[0].changeContext, 'withdraw');
+    const withdrawn = (await alice.post(eventUrl).send(withdrawal).expect(200)).body.witness;
+    assert.equal(withdrawn.status, 'withdrawn'); assert.equal(withdrawn.revision, 2); assert.equal(withdrawn.payload, original.payload);
+    view = (await alice.get(url).expect(200)).body;
+    assert.equal(view.activeCount, 0); assert.equal(view.items[0].canCorrect, false); assert.equal(view.items[0].changeContext, null); assert.equal(view.canWitness, false);
+    const replay = await alice.post(eventUrl).send(correction).expect(200);
+    assert.equal(replay.headers['idempotency-status'], 'replayed'); assert.equal(replay.body.witness.status, 'withdrawn');
+    await alice.post(eventUrl).send(withdrawal).expect(200);
+    assert.equal((await alice.post(url).send(original).expect(200)).body.witness.status, 'withdrawn');
+    assert.equal(await c.db.oneFirst(sql`SELECT count(*)::integer FROM audits WHERE action LIKE 'field_data.capture.witness.%'`), 2);
+    for (const statement of [sql`UPDATE field_data_capture_witnesses SET payload = 'tampered' WHERE id = ${record.id}`,
+      sql`DELETE FROM field_data_capture_witnesses WHERE id = ${record.id}`,
+      sql`UPDATE field_data_capture_witness_events SET payload = 'tampered' WHERE "witnessRecordId" = ${record.id}`,
+      sql`DELETE FROM field_data_capture_witness_events WHERE "witnessRecordId" = ${record.id}`]) {
+      await c.run(sql`SAVEPOINT witness_guard`);
+      await assert.rejects(c.run(statement), /immutable|append-only/);
+      await c.run(sql`ROLLBACK TO SAVEPOINT witness_guard`);
+      await c.run(sql`RELEASE SAVEPOINT witness_guard`);
+    }
+    // Source purge remains compatible with the pre-existing cascading retention policy.
+    await c.run(sql`DELETE FROM field_data_capture_challenges WHERE id = ${challenge.id}`);
+    assert.equal(await c.db.oneFirst(sql`SELECT count(*)::integer FROM field_data_capture_witness_events`), 0);
+  }));
+  it('only accepts the owning web account with current grants and allows historical withdrawal after replacement and archival', testService(async service => {
+    const { alice, collector, path } = await assessedSetup(service); const url = `${path}/witnesses`;
+    const owner = await service.login('chelsea'); const ownerId = (await owner.get('/v1/users/current').expect(200)).body.id;
+    await alice.post(`/v1/projects/1/assignments/manager/${ownerId}`).expect(200);
+    const record = (await owner.post(url).send(witnessBody((await owner.get(url).expect(200)).body.context)).expect(200)).body.witness;
+    const change = witnessChangeBody((await owner.get(url).expect(200)).body.items[0].changeContext, 'withdraw');
+    const eventUrl = `${url}/${record.id}/events`;
+    await alice.post(eventUrl).send(change).expect(404);
+    await service.post(eventUrl).set('Authorization', `Bearer ${collector.token}`).send(change).expect(404);
+    await alice.delete(`/v1/projects/1/assignments/manager/${ownerId}`).expect(200);
+    await alice.post(`/v1/projects/1/assignments/viewer/${ownerId}`).expect(200);
+    assert.equal((await owner.get(url).expect(200)).body.items[0].changeContext, null);
+    await owner.post(eventUrl).send(change).expect(404);
+    await alice.post(`/v1/projects/1/assignments/manager/${ownerId}`).expect(200);
+    await alice.post('/v1/projects/1/forms/binaryType/submissions/both/attachments/here_is_file2.jpg').set('Content-Type', 'image/png').send(Buffer.concat([png, Buffer.from('new')])).expect(200);
+    await alice.patch('/v1/projects/1').send({ archived: true }).expect(200);
+    const result = (await owner.post(eventUrl).send(change).expect(200)).body;
+    assert.equal(result.bindingCurrent, false); assert.equal(result.witness.status, 'withdrawn');
+    await alice.delete('/v1/projects/1/forms/binaryType/submissions/both').expect(200);
+    await owner.post(eventUrl).send(change).expect(404);
+  }));
+  it('serializes identical retries and competing signed changes without overwriting history', testServiceFullTrx(async service => {
+    const { alice, path } = await assessedSetup(service); const url = `${path}/witnesses`;
+    const record = (await alice.post(url).send(witnessBody((await alice.get(url).expect(200)).body.context)).expect(200)).body.witness;
+    const eventUrl = `${url}/${record.id}/events`;
+    const change = witnessChangeBody((await alice.get(url).expect(200)).body.items[0].changeContext);
+    const duplicate = await Promise.all([alice.post(eventUrl).send(change), alice.post(eventUrl).send(change)]);
+    assert.deepEqual(duplicate.map(result => result.status), [200, 200]);
+    assert.equal(duplicate[0].body.witness.events[0].id, duplicate[1].body.witness.events[0].id);
+    const context = (await alice.get(url).expect(200)).body.items[0].changeContext;
+    const competing = await Promise.all([alice.post(eventUrl).send(witnessChangeBody(context)), alice.post(eventUrl).send(witnessChangeBody(context, 'withdraw'))]);
+    assert.deepEqual(competing.map(result => result.status).sort(), [200, 400]);
+    assert.equal((await alice.get(url).expect(200)).body.items[0].events.length, 2);
+  }));
+  it('caps corrections while retaining a withdrawal slot and preserves signed history on rollback', testServiceFullTrx(async service => {
+    const { alice, path } = await assessedSetup(service); const url = `${path}/witnesses`;
+    const record = (await alice.post(url).send(witnessBody((await alice.get(url).expect(200)).body.context)).expect(200)).body.witness;
+    const eventUrl = `${url}/${record.id}/events`;
+    for (let n = 0; n < 20; n += 1) {
+      const context = (await alice.get(url).expect(200)).body.items[0].changeContext;
+      await alice.post(eventUrl).send(witnessChangeBody(context)).expect(200);
+    }
+    const view = (await alice.get(url).expect(200)).body.items[0]; assert.equal(view.canCorrect, false);
+    await alice.post(eventUrl).send(witnessChangeBody(view.changeContext)).expect(409);
+    await alice.post(eventUrl).send(witnessChangeBody(view.changeContext, 'withdraw')).expect(200);
+    const { knexConnect } = require('../../../lib/model/knex-migrator');
+    const migration = require('../../../lib/model/migrations/20261016-01-capture-witness-events');
+    const db = knexConnect(require('config').get('test.database'));
+    try { await db.transaction(async tx => { await migration.down(tx); await migration.up(tx); }); } finally { await db.destroy(); }
+    assert.equal((await alice.get(url).expect(200)).body.items[0].events.length, 21);
+  }));
+});
 describe('api: capture witness lifecycle and bounds', () => {
   it('rechecks witness grants after context loading and retains read-only history after revocation', testService(async service => {
     const { alice, path } = await assessedSetup(service); const url = `${path}/witnesses`;

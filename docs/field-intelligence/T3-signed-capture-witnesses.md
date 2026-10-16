@@ -26,8 +26,10 @@ capture-time proof. Complete retries reuse the same signed envelope and request
 UUID, even after image replacement or expiry, after current authorization is
 rechecked. Altered envelopes under the same request ID are rejected. Browser
 refresh clears unsigned drafts and retry state; a lost response can be recovered
-from history. A statement cannot be amended or withdrawn in this slice. Reviewers
-must retain any dispute separately rather than treating signatures as consensus.
+from history. The original T3 slice did not allow amendments or withdrawal.
+[T5](T5-witness-corrections-withdrawals.md) now adds signed corrections and terminal
+withdrawal while retaining the original. Signatures are never consensus or proof
+of scene truth.
 
 Transactions lock the live inherited write grant and actor, source submission and
 project, attachment, then challenge in native upload order. New statements require
@@ -65,3 +67,8 @@ has an enforced CI test. Real-device/field acceptance remains pending.
 [T4](T4-device-reported-capture-location.md) adds optional device-reported location
 context to the challenged image. It remains an unverified client assertion and is
 not covered by a certified witness identity or hardware-backed sensor signature.
+
+T5 also extends JSON downloads and the standalone verifier with signed lifecycle
+history. A legacy export without that history establishes only its original
+signature, with unknown active status. Even a verified history requires a current
+authenticated server read to establish that no later event has been omitted.
