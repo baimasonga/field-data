@@ -125,9 +125,16 @@ module.exports = (service, endpoint) => {
     const project = await scope(container, auth, params);
     for (const key of ['at', 'knownAt']) if (query[key] != null && !timestamp(query[key])) throw invalid();
     for (const key of ['predicate', 'assetType', 'areaPredicate']) if (query[key] != null && !text(query[key], 100)) throw invalid();
+    // K7: up to four comparisons alongside the primary fact, without changing
+    // the response of existing single-fact clients.
+    const compare = query.compare == null ? [] : Array.isArray(query.compare) ? query.compare : [query.compare];
+    if (compare.length > 4 || compare.some(value => !text(value, 100))
+      || (compare.length > 0 && query.predicate == null)) throw invalid();
+    const selected = [query.predicate?.trim(), ...compare.map(value => value.trim())].filter(value => value != null);
+    if (new Set(selected).size !== selected.length) throw invalid();
     // K6: an area is the value of another predicate.
     const areaPredicate = query.areaPredicate?.trim() ?? null;
-    if (areaPredicate != null && (query.predicate == null || areaPredicate === query.predicate.trim())) throw invalid();
+    if (areaPredicate != null && (query.predicate == null || selected.includes(areaPredicate))) throw invalid();
     const now = new Date();
     const at = query.at == null ? now : new Date(query.at);
     const knownAt = query.knownAt == null ? now : new Date(query.knownAt);
@@ -177,7 +184,7 @@ module.exports = (service, endpoint) => {
       LEFT JOIN field_data_submission_provenance p ON p."submissionDefId" = sd.id
       JOIN field_data_observation_owners owner ON owner."observationId" = o.id
       WHERE owner."assetId" = ANY(${sql.array(shown.map(row => row.id), 'uuid')})
-        AND o.predicate = ANY(${sql.array([result.predicate, ...(areaPredicate == null ? [] : [areaPredicate])], 'text')})`);
+        AND o.predicate = ANY(${sql.array([...selected, ...(areaPredicate == null ? [] : [areaPredicate])], 'text')})`);
     const byAsset = new Map();
     for (const { requestId, requestHash, verified, ownerId, ...row } of observations) {
       if (!byAsset.has(ownerId)) byAsset.set(ownerId, []);
@@ -189,10 +196,15 @@ module.exports = (service, endpoint) => {
       const facts = selectFacts(byAsset.get(asset.id) ?? [], at, knownAt);
       const fact = facts.find(f => f.predicate === result.predicate);
       const shaped = { ...asset, fact: shape(fact) };
+      if (compare.length > 0) shaped.facts = Object.fromEntries(selected.map(name => [name, shape(facts.find(f => f.predicate === name))]));
       if (areaPredicate != null) shaped.area = shape(facts.find(f => f.predicate === areaPredicate));
       return shaped;
     });
-    return { ...result, assets, summary: summarize(assets), ...(areaPredicate == null ? {} : { byArea: summarizeByArea(assets) }),
+    const columns = compare.length === 0 ? null : selected.map(predicate => {
+      const members = assets.map(asset => ({ fact: asset.facts[predicate], area: asset.area }));
+      return { predicate, summary: summarize(members), ...(areaPredicate == null ? {} : { byArea: summarizeByArea(members) }) };
+    });
+    return { ...result, ...(columns == null ? {} : { columns }), assets, summary: summarize(assets), ...(areaPredicate == null ? {} : { byArea: summarizeByArea(assets) }),
       excluded: { notReadable: rows.filter(row => row.notReadable).length, sourceDeleted: rows.filter(row => row.sourceDeleted && !row.notReadable).length },
       truncated: rows.length > 0 && Number(rows[0].total) > rows.length };
   }));
