@@ -280,6 +280,10 @@ const responsesByComponent = {
       ({ url }) => matchesApiPath(apiPaths.claimEvidence, url),
       () => ({ items: [] })
     ],
+    mediaExtractions: [
+      ({ url }) => /^\/v1\/projects\/\d+\/forms\/[^/]+\/submissions\/[^/]+\/media-extractions$/.test(url),
+      () => ({ enabled: false, canRequest: false, canReview: false, media: [], mediaOmitted: 0, items: [] })
+    ],
     captureChallenges: [
       ({ url }) => /^\/v1\/projects\/\d+\/forms\/[^/]+\/submissions\/[^/]+\/capture-challenges$/.test(url),
       () => ({ items: [] })
