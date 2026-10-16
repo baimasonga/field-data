@@ -63,7 +63,7 @@
       <p v-if="saved" role="status">Calendar saved.</p>
       <form v-if="canManage" class="route-form" @submit.prevent="preview">
         <h4>Visit itinerary preview</h4>
-        <p>Suggested stop order and straight-line distance, returning to the start. Review roads, travel time, access and safety separately.</p>
+        <p>Backchecks and re-verification visits share one suggested stop order, returning to the start. Review roads, travel time, access and safety separately.</p>
         <label>Stop order <select v-model="stopOrder" aria-label="Stop order" class="form-control"><option value="straight">Straight-line suggestion</option><option value="road">Road-aware suggestion</option></select></label>
         <label>Route date (UTC) <input v-model="date" type="date" required class="form-control"></label>
         <label>Start latitude <input v-model.number="startLat" type="number" min="-90" max="90" step="any" required class="form-control"></label>
@@ -88,7 +88,8 @@ Review required: {{ plan.truncated ? 'the task list was truncated; ' : '' }}{{ o
 </p>
         <p v-if="plan.ordering?.applied === 'road'">Road-aware order suggested by the approved routing service. This is a heuristic, not guaranteed optimal; review access and safety.</p>
         <p v-else-if="plan.ordering?.requested === 'road'" role="status">Road-aware ordering unavailable ({{ plan.ordering.status }}). Showing the straight-line suggestion; driving time remains unknown.</p>
-        <p v-if="plan.otherVisits">{{ plan.otherVisits }} re-verification visits also reserve this day. Their stops and travel are not included in this backcheck preview; review the combined workload.</p>
+        <p v-if="plan.scope === 'combined-visits@1'">Backchecks and re-verification stops are included together. Time estimates allow for all reserved or completed visits.</p>
+        <p v-else-if="plan.otherVisits">{{ plan.otherVisits }} re-verification visits also reserve this day. Their stops and travel are not included in this backcheck preview; review the combined workload.</p>
         <p v-if="plan.capacity != null && plan.used > plan.capacity">This day is over capacity. Calendar edits do not reschedule existing visits.</p>
         <p v-if="plan.timing?.shift">Saved UTC shift: {{ plan.timing.shift.start }}–{{ plan.timing.shift.end }} · {{ plan.timing.dayMinutes }} minutes budget.</p>
         <p v-if="plan.timing?.shiftUnavailable" role="status">This date has no available shift. Reschedule before fieldwork.</p>
@@ -107,10 +108,10 @@ Review required: {{ plan.truncated ? 'the task list was truncated; ' : '' }}{{ o
         <div class="itinerary-table">
           <table class="table">
             <caption>Suggested itinerary for {{ plan.actor.name }} on {{ plan.date }}</caption>
-            <thead><tr><th scope="col">Stop</th><th scope="col">Source Submission</th><th scope="col">Latitude</th><th scope="col">Longitude</th><th scope="col">Accuracy (m)</th><th scope="col">Straight-line leg (km)</th><th scope="col">Road leg (km)</th><th scope="col">Driving leg (minutes)</th></tr></thead>
+            <thead><tr><th scope="col">Stop</th><th scope="col">Visit type</th><th scope="col">Source Submission</th><th scope="col">Latitude</th><th scope="col">Longitude</th><th scope="col">Accuracy (m)</th><th scope="col">Straight-line leg (km)</th><th scope="col">Road leg (km)</th><th scope="col">Driving leg (minutes)</th></tr></thead>
             <tbody>
-<tr v-for="stop in plan.route.stops" :key="stop.id">
-<th scope="row">{{ stop.order }}</th><td>{{ stop.instanceId }}</td>
+<tr v-for="stop in plan.route.stops" :key="`${stop.kind || 'backcheck'}:${stop.id}`">
+<th scope="row">{{ stop.order }}</th><td>{{ stop.kind === 'reverification' ? 'Re-verification' : 'Backcheck' }}</td><td>{{ stop.instanceId }}</td>
               <td>{{ stop.location.latitude }}</td><td>{{ stop.location.longitude }}</td><td>{{ stop.location.accuracy ?? 'unknown' }}{{ stop.uncertain ? ' · review' : '' }}</td><td>{{ stop.legKm }}</td>
               <td>{{ plan.road?.legs?.[stop.order - 1]?.distanceKm ?? 'unknown' }}</td><td>{{ plan.road?.legs?.[stop.order - 1]?.travelMinutes ?? 'unknown' }}</td>
 </tr>
@@ -223,8 +224,8 @@ const download = () => {
     return `"${s.replaceAll('"', '""')}"`;
   };
   const rows = [['Preview only: straight-line distances; review excluded tasks, accuracy and capacity before fieldwork'],
-    ['Date', 'Collector', 'Stop', 'Source Submission', 'Latitude', 'Longitude', 'Accuracy (m)', 'Straight-line leg (km)', 'Road leg (km)', 'Driving leg (minutes)'],
-    ...plan.value.route.stops.map(s => [plan.value.date, plan.value.actor.name, s.order, s.instanceId, s.location.latitude, s.location.longitude, s.location.accuracy, s.legKm,
+    ['Date', 'Collector', 'Stop', 'Visit type', 'Source Submission', 'Latitude', 'Longitude', 'Accuracy (m)', 'Straight-line leg (km)', 'Road leg (km)', 'Driving leg (minutes)'],
+    ...plan.value.route.stops.map(s => [plan.value.date, plan.value.actor.name, s.order, s.kind === 'reverification' ? 'Re-verification' : 'Backcheck', s.instanceId, s.location.latitude, s.location.longitude, s.location.accuracy, s.legKm,
       plan.value.road?.legs?.[s.order - 1]?.distanceKm, plan.value.road?.legs?.[s.order - 1]?.travelMinutes]),
     ['Starting latitude', plan.value.start?.latitude ?? startLat.value], ['Starting longitude', plan.value.start?.longitude ?? startLon.value],
     ['Return to start (km)', plan.value.route.returnKm], ['Total straight-line km', plan.value.route.distanceKm],
@@ -235,7 +236,7 @@ const download = () => {
     ['Shift unavailable', plan.value.timing?.shiftUnavailable], ['Shift ended', plan.value.timing?.expiredShift], ['Preview time overrides', plan.value.timing?.previewOverrides],
     ['Minutes per visit', plan.value.timing?.visitMinutes], ['Available minutes', plan.value.timing?.dayMinutes],
     ['Total estimated minutes', plan.value.timing?.totalMinutes], ['Over time budget', plan.value.timing?.overBudget],
-    ['Daily capacity', plan.value.capacity], ['Reserved or completed', plan.value.used], ['Re-verification reservations (stops and travel excluded)', plan.value.otherVisits ?? 0], ['Unplanned pending', plan.value.unplanned],
+    ['Daily capacity', plan.value.capacity], ['Reserved or completed', plan.value.used], [plan.value.scope === 'combined-visits@1' ? 'Re-verification reservations (included in combined workload)' : 'Re-verification reservations (stops and travel excluded)', plan.value.otherVisits ?? 0], ['Unplanned pending', plan.value.unplanned],
     ['Review required', plan.value.needsReview], ['Truncated', plan.value.truncated], ['Uncertain locations', plan.value.uncertainLocations],
     ...Object.entries(plan.value.excluded).map(([reason, count]) => [reasons[reason], count])];
   const url = URL.createObjectURL(new Blob([rows.map(r => r.map(text).join(',')).join('\r\n')], { type: 'text/csv;charset=utf-8' }));

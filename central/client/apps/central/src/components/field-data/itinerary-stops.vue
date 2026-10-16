@@ -1,8 +1,10 @@
 <!-- Copyright 2026 Field Data Developers. Licensed under the Apache License, Version 2.0. -->
 <template>
   <ol class="itinerary-stops">
-    <li v-for="stop of stops" :key="stop.id">
+    <li v-for="stop of stops" :key="`${stop.kind || 'backcheck'}:${stop.id}`">
       <h4>Stop {{ stop.order }}</h4>
+      <p>{{ stop.kind === 'reverification' ? 'Re-verification visit' : 'Backcheck visit' }}</p>
+      <p v-if="stop.assetName">{{ stop.assetName }}<span v-if="stop.predicate"> · {{ stop.predicate }}</span></p>
       <p class="question">{{ stop.question }}</p>
       <p v-if="stop.xmlFormId">
 <strong>Collect form:</strong> {{ stop.formName || stop.xmlFormId }} ({{ stop.xmlFormId }})<br>

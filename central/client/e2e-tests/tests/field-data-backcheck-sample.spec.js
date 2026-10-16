@@ -268,11 +268,11 @@ test('a viewer reads automatic allocation failure without configuration controls
 
 test('a manager saves calendar exceptions and exports an itinerary with capacity and exclusion warnings', async ({ page: p }) => {
   let settings = null; const saves = []; const routes = [];
-  const plan = { actor: { id: 5, name: 'Checker' }, date: '2026-10-14', capacity: 1, used: 2, unplanned: 1, uncertainLocations: 1,
+  const plan = { scope: 'combined-visits@1', actor: { id: 5, name: 'Checker' }, date: '2026-10-14', capacity: 1, used: 2, unplanned: 1, uncertainLocations: 1,
     truncated: true, needsReview: true, excluded: { permission: 0, inactive: 0, collectorUnavailable: 0, encryptedSource: 0, sourceUnverified: 1, missingLocation: 1 },
     road: { status: 'ok', distanceKm: 3, travelMinutes: 60, maxSnapMeters: 150, legs: [{ distanceKm: 1.5, travelMinutes: 30 }, { distanceKm: 1.5, travelMinutes: 30 }] },
     timing: { totalMinutes: 90, visitMinutes: 30, dayMinutes: 60, overBudget: true },
-    route: { distanceKm: 2.2, returnKm: 1.1, stops: [{ id: 'task', instanceId: '=unsafe', order: 1, legKm: 1.1,
+    route: { distanceKm: 2.2, returnKm: 1.1, stops: [{ kind: 'reverification', id: 'task', instanceId: '=unsafe', order: 1, legKm: 1.1,
       location: { latitude: 8.49, longitude: -13.23, accuracy: null }, uncertain: true }] } };
   const errors = await api(p, managerVerbs, async (route, path) => {
     if (path.endsWith('/backcheck-allocation')) { await route.fulfill({ json: { policy: null, forms: [], collectors: [] } }); return true; }
@@ -317,6 +317,9 @@ test('a manager saves calendar exceptions and exports an itinerary with capacity
   await section.getByRole('button', { name: 'Download itinerary CSV' }).click();
   const download = await downloaded;
   const csv = await readFile(await download.path(), 'utf8');
+  expect(csv).toContain('Visit type'); expect(csv).toContain('Re-verification');
+  await expect(section).toContainText('Backchecks and re-verification stops are included together.');
+  await expect(section.getByRole('cell', { name: 'Re-verification', exact: true })).toBeVisible();
   expect(csv).toContain('Driving leg (minutes)'); expect(csv).toContain('Road estimate status');
   expect(csv).toContain("'=" + 'unsafe'); expect(csv).toContain('Review required'); expect(csv).toContain('Truncated'); expect(csv).toContain('"-13.23"');
   await p.setViewportSize({ width: 390, height: 844 });
