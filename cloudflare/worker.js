@@ -119,6 +119,10 @@ export class FieldDataContainer extends Container {
     // Satellite imagery availability (G1b): off unless an operator sets it.
     FIELD_DATA_IMAGERY_ENABLED: env.FIELD_DATA_IMAGERY_ENABLED || 'false',
     FIELD_DATA_STAC_URL: env.FIELD_DATA_STAC_URL,
+    FIELD_DATA_EXTRACTION_ENABLED: env.FIELD_DATA_EXTRACTION_ENABLED || 'false',
+    FIELD_DATA_OPENAI_API_KEY: env.FIELD_DATA_OPENAI_API_KEY,
+    FIELD_DATA_EXTRACTION_PHOTO_MODEL: env.FIELD_DATA_EXTRACTION_PHOTO_MODEL,
+    FIELD_DATA_EXTRACTION_AUDIO_MODEL: env.FIELD_DATA_EXTRACTION_AUDIO_MODEL,
     // Optional operator-approved driving route service; no public default.
     FIELD_DATA_OSRM_URL: env.FIELD_DATA_OSRM_URL,
     FIELD_DATA_OFFLINE_ORIGIN: env.FIELD_DATA_OFFLINE_ORIGIN ?? '',

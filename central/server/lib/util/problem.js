@@ -195,6 +195,8 @@ const problems = {
     captureAssessmentInvalid: problem(400.67, () => 'Capture assessment decisions, notes or retry identity are invalid.'),
     captureWitnessInvalid: problem(400.68, () => 'Witness statement, signature or signing context is invalid.'),
 
+    mediaExtractionInvalid: problem(400.71, () => 'Media extraction request, original-media attestation or review text is invalid.'),
+
     // no detail information for security reasons.
     authenticationFailed: problem(401.2, () => 'Could not authenticate with the provided credentials.'),
 
@@ -328,6 +330,7 @@ const problems = {
     captureAssessmentTargetChanged: problem(409.46, () => 'The challenged attachment changed or is no longer current. Its assessment is outdated.'),
     captureWitnessConflict: problem(409.47, () => 'A witness statement already exists for this account, or the witness limit was reached.'),
     captureWitnessChangeConflict: problem(409.48, () => 'The witness statement was withdrawn or its correction limit was reached. Refresh its history.'),
+    mediaExtractionConflict: problem(409.49, () => 'Media extraction source, revision, retry identity or limit changed. Refresh the record.'),
     reviewRevisionStale: problem(412.1, () => 'The review case has changed. Refresh and retry.'),
     assetRevisionStale: problem(412.2, () => 'The asset has changed. Reload its history before saving.'),
     reverificationRevisionStale: problem(412.3, () => 'The re-verification task has changed. Reload it before saving.'),
@@ -401,6 +404,8 @@ const problems = {
 
     unsupportedODataSelectExpand: problem(501.11, (() => 'This server doesn\'t support $select query parameter with $expand.')),
     imageryNotConfigured: problem(501.12, () => 'Satellite imagery checks are not turned on for this server. An operator can turn them on (FIELD_DATA_IMAGERY_ENABLED).'),
+
+    mediaExtractionNotConfigured: problem(501.13, () => 'External media extraction is not configured on this server.'),
 
     // used internally when a task fails to complete in a reasonable length of time.
     timeout: problem(502.1, () => 'The task took too long to run.'),
