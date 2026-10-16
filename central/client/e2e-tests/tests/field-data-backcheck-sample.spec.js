@@ -997,3 +997,93 @@ test('media extraction displays provider readiness and rejects malformed history
   invalid = true; await section.getByRole('button', { name: 'Refresh extraction history' }).click(); await expect(section.getByRole('alert')).toContainText('could not be loaded');
   await expect(section.locator('.media-extraction-record')).toHaveCount(0);
 });
+
+const geoSource = () => ({ submissionDefId: 1, versionId: 'uuid:one', formDefId: 1, xmlHash: 'c'.repeat(64), attachmentsHash: 'd'.repeat(64),
+  fingerprint: 'a'.repeat(64), geopointField: '/location', location: { latitude: 8.4801, longitude: -13.2344, accuracy: 5 }, visitAt: '2026-09-20T10:30:00Z', visitBasis: 'receipt', encrypted: false });
+const geoScene = { id: 'scene-1', at: '2026-09-18T12:00:00Z', cloud: 41.7, fingerprint: 'b'.repeat(64), metadataUrl: 'https://catalogue.example.test/v1/collections/sentinel-2-l2a/items/scene-1' };
+const geoView = (items = [], extra = {}) => ({ source: geoSource(), revision: items[0]?.sequence ?? 0, canAssess: true, canCheck: true,
+  catalogue: { enabled: true, status: 'complete', scenes: [geoScene], checkedAt: '2026-09-21T10:30:00Z', stale: true, cellDegrees: 0.05, windowDays: 30, omitted: 0 }, items, ...extra });
+const geoRecord = (body, sequence) => ({ id: randomUUID(), sequence, source: geoSource(), sourceFingerprint: body.sourceFingerprint, outcome: body.outcome, claim: body.claim, reason: body.reason,
+  limitations: body.limitations, reviewedImage: body.reviewedImage, reviewedAt: '2026-10-16T13:00:00Z', actorName: 'Reviewer', state: 'current', bindingCurrent: true, sourceCurrent: true,
+  citationStatus: body.citation?.kind === 'catalogue' ? 'catalogue-current' : body.citation ? 'reviewer-reference' : 'none',
+  citation: body.citation?.kind === 'catalogue' ? { ...body.citation, at: geoScene.at, cloud: geoScene.cloud, metadataUrl: geoScene.metadataUrl, staleAtReview: true } : body.citation });
+
+test('geospatial review cites catalogue imagery, retries safely and retains a revised dated-reference assessment', async ({ page: p }) => {
+  const posts = []; const checks = []; let items = [];
+  const errors = await setupAssessmentRecord(p, async (route, path) => {
+    if (path.endsWith('/geo-assessments/catalogue/check')) { checks.push(route.request().postDataJSON()); await route.fulfill({ json: { ok: false, reason: 'catalogue-unavailable' } }); return true; }
+    if (path.endsWith('/geo-assessments')) {
+      if (route.request().method() === 'POST') {
+        const body = route.request().postDataJSON(); posts.push(body);
+        if (posts.length !== 2) { items = items.map(i => ({ ...i, state: 'superseded' })); items.unshift(geoRecord(body, items.length + 1)); }
+        if (posts.length === 1) await route.abort('failed'); else await route.fulfill({ json: { item: items[0], revision: items.length } });
+      } else await route.fulfill({ json: geoView(items) }); return true;
+    }
+    return false;
+  });
+  const section = p.getByRole('region', { name: 'Geospatial verification', exact: true });
+  await expect(section).toContainText('Server receipt time; visit time unavailable'); await expect(section).toContainText('reported accuracy 5 m');
+  await section.getByText('Inspect candidate dates and cloud cover').click(); await expect(section).toContainText('2 days before the receipt'); await expect(section).toContainText('41.7% scene cloud');
+  await expect(section.getByRole('link', { name: 'scene-1 metadata' })).toHaveAttribute('rel', 'noopener noreferrer');
+  await section.getByRole('button', { name: "Check this location's imagery availability" }).click(); await expect(section).toContainText('Catalogue unavailable. No empty imagery result was substituted');
+  expect(checks).toEqual([{ sourceFingerprint: 'a'.repeat(64) }]);
+  await section.getByLabel('Claim being assessed').fill('The claimed structure exists at the reported location.');
+  await section.getByRole('combobox', { name: /^Evidence outcome/ }).selectOption('supports'); await section.getByRole('combobox', { name: /^Imagery citation/ }).selectOption('catalogue');
+  await section.getByRole('combobox', { name: /^Catalogue scene/ }).selectOption('scene-1');
+  await section.getByLabel('Image reference URL').fill('https://images.example.test/scene-1'); await section.getByLabel('I inspected the cited image, its date and the reported location.').check();
+  await section.getByLabel('Assessment reasoning').fill('The cited image shows a structure matching the reported claim.');
+  await section.getByLabel('Evidence limitations').fill('Cloud cover and seasonal appearance limit interpretation; visit time is unknown.');
+  await section.getByRole('button', { name: 'Save geospatial assessment', exact: true }).click(); await expect(section.getByRole('alert')).toContainText('Assessment could not be confirmed');
+  await expect(section.getByLabel('Claim being assessed')).toBeDisabled();
+  await section.getByRole('button', { name: 'Retry same geospatial assessment' }).click(); expect(posts[1]).toEqual(posts[0]);
+  await expect(section).toContainText('Latest assessment for current evidence'); await expect(section).toContainText('cache was older than seven days at review');
+  await section.getByRole('combobox', { name: /^Evidence outcome/ }).selectOption('conflicts');
+  await section.getByRole('combobox', { name: /^Imagery citation/ }).selectOption('reference');
+  await section.getByLabel('Reference title').fill('Second dated imagery inspection'); await section.getByLabel('Image date', { exact: true }).fill('2026-09-19');
+  await section.getByLabel('Image reference URL').fill('https://images.example.test/second'); await section.getByLabel('I inspected the cited image, its date and the reported location.').check();
+  await section.getByLabel('Assessment reasoning').fill('The second reference shows a different feature at that location.');
+  await section.getByLabel('Evidence limitations').fill('Different viewing angle and receipt time prevent a definitive conclusion.');
+  await section.getByRole('button', { name: 'Save geospatial assessment', exact: true }).click();
+  await expect(section).toContainText('Superseded assessment'); await expect(section).toContainText('Conflicts with the claim'); await expect(section).toContainText('external changes are not monitored');
+  const [download] = await Promise.all([p.waitForEvent('download'), section.getByRole('button', { name: 'Download geospatial assessment history' }).click()]);
+  const exported = JSON.parse(await readFile(await download.path(), 'utf8')); expect(exported.items).toHaveLength(2); expect(exported.items[1].citation.sceneFingerprint).toBe('b'.repeat(64)); expect(exported.items[0].citation.date).toBe('2026-09-19');
+  await p.setViewportSize({ width: 320, height: 700 }); expect(await p.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true); expect(errors).toEqual([]);
+});
+
+test('geospatial viewers see outdated source and catalogue history with the original receipt-time citation', async ({ page: p }) => {
+  const item = geoRecord({ sourceFingerprint: 'a'.repeat(64), outcome: 'unclear', claim: 'The structure cannot be distinguished.', reason: 'Cloud obscures the relevant area.', limitations: 'Cloud, season and resolution are limiting.', citation: { kind: 'catalogue', sceneId: geoScene.id, sceneFingerprint: geoScene.fingerprint, url: null }, reviewedImage: false }, 1);
+  item.state = 'outdated'; item.bindingCurrent = false; item.sourceCurrent = false; item.citationStatus = 'catalogue-changed';
+  const errors = await setupAssessmentRecord(p, async (route, path) => {
+    if (path.endsWith('/geo-assessments')) { await route.fulfill({ json: geoView([item], { source: { ...geoSource(), fingerprint: 'e'.repeat(64), visitBasis: 'device-audit-log' }, canAssess: false, canCheck: false }) }); return true; } return false;
+  }, viewerVerbs);
+  const section = p.getByRole('region', { name: 'Geospatial verification', exact: true });
+  await expect(section).toContainText('Latest assessment outdated'); await expect(section).toContainText('Cited catalogue metadata changed');
+  await expect(section).toContainText('Metadata-only assessment'); await expect(section).toContainText('2 days before the receipt');
+  await expect(section.getByRole('button', { name: 'Save geospatial assessment', exact: true })).toHaveCount(0);
+  await expect(section.getByRole('button', { name: "Check this location's imagery availability" })).toHaveCount(0);
+  await p.setViewportSize({ width: 320, height: 700 }); expect(await p.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true); expect(errors).toEqual([]);
+});
+
+test('geospatial review allows unavailable evidence with no location and refreshes after a stale revision', async ({ page: p }) => {
+  let items = []; const posts = []; let stale = false;
+  await setupAssessmentRecord(p, async (route, path) => {
+    if (path.endsWith('/geo-assessments')) {
+      if (route.request().method() === 'POST') {
+        const body = route.request().postDataJSON(); posts.push(body);
+        if (!stale) { stale = true; await route.fulfill({ status: 409, json: { code: 409.51, message: 'Source changed' } }); }
+        else { const item = geoRecord(body, 1); item.source.location = null; items = [item]; await route.fulfill({ json: { item, revision: 1 } }); }
+      } else await route.fulfill({ json: geoView(items, { source: { ...geoSource(), location: null }, canCheck: false, catalogue: { enabled: false, status: 'no-location', scenes: [], cellDegrees: 0.05 } }) }); return true;
+    } return false;
+  });
+  const section = p.getByRole('region', { name: 'Geospatial verification', exact: true }); await expect(section).toContainText('No usable reported location');
+  await expect(section.locator('option[value="supports"]')).toHaveAttribute('disabled', '');
+  const fill = async () => {
+    await section.getByLabel('Claim being assessed').fill('The location claim cannot be assessed with current evidence.');
+    await section.getByRole('combobox', { name: /^Evidence outcome/ }).selectOption('unavailable');
+    await section.getByLabel('Assessment reasoning').fill('There is no usable reported location for this record.');
+    await section.getByLabel('Evidence limitations').fill('Location and visit time are missing; imagery was not inspected.');
+  };
+  await fill(); await section.getByRole('button', { name: 'Save geospatial assessment', exact: true }).click(); await expect(section.getByRole('alert')).toContainText('Source, citation or revision changed');
+  await section.getByRole('button', { name: 'Refresh geospatial history' }).click(); await fill(); await section.getByRole('button', { name: 'Save geospatial assessment', exact: true }).click();
+  await expect(section).toContainText('Unavailable · Latest assessment for current evidence'); expect(posts[1].citation).toBeNull(); expect(posts[1].reviewedImage).toBe(false); expect(posts[1].requestId).not.toBe(posts[0].requestId);
+});

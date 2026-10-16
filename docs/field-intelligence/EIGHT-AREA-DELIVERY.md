@@ -362,7 +362,7 @@ pilot is a separate acceptance activity. Product work resumes with K7 above.
 | Evidence/trust | Evidence graph, challenges/replay checks, signed witnesses with correction/withdrawal history, human assessments and device-reported location | Delegation, certified key revocation, independent sensor/hardware corroboration, calibrated presence limitations |
 | Offline resilience | Signed encrypted assignments/itineraries, recoverable media, encrypted relay packages and receipts | Durable XML submission queues, Collect integration, background sync and delegated courier/custody transport |
 | Operations | Sampling, allocation, shared capacity, UTC shifts, combined approved itineraries and agreement counts | Overnight shifts, additional task types, navigation, sampling strata and calibrated estimates |
-| Geospatial | Location integrity checks and imagery scene availability | Reviewed temporal verification/change candidates, imagery analysis and evaluated change detection |
+| Geospatial | Location integrity, imagery availability and cited human geospatial assessments with temporal context and outdated history | Exact footprint checks, reviewed change candidates, imagery analysis and evaluated automated change detection |
 | Fraud intelligence | Contradictions, identity reuse, similarity, collector links and investigations/outcomes | Review-case linking, calibrated triage and false-positive evaluation; targeted instruments remain deferred |
 | Adaptive surveys | Doctor, simulations, version-change analysis and recodes | Approved bounded policies, reviewed evolution/draft generation, answer uncertainty, conversational multilingual support and native-export recodes |
 | Multimodal | Provenance-preserving capture, manual evidence review and reviewed photo-text/voice extraction with correction history | Live provider/language evaluation, asset/module suggestions, guided capture, source-grounded drafts, offline models and field acceptance |
@@ -396,3 +396,17 @@ bytes retained under existing source-purge policy. See
 This advances Multimodal. Live provider configuration, privacy/retention acceptance,
 photo/voice accuracy, local-language evaluation, broader extraction/suggestions,
 offline models and real-device acceptance remain pending.
+
+### G2 reviewed geospatial verification
+
+Web reviewers can record source-bound supports/conflicts/unclear/unavailable
+assessments with claim, reasoning, explicit limitations and dated imagery citations.
+Cached catalogue references pin scene metadata; manual image references remain
+reviewer assertions. Revised decisions retain history, and changed submission XML,
+attachments, location/time basis or cited catalogue metadata make earlier records
+outdated. Per-source catalogue checks preserve the existing rounded cell/day policy.
+See [G2-reviewed-geospatial-verification.md](G2-reviewed-geospatial-verification.md).
+This advances Geospatial. No imagery pixels are fetched or interpreted, no review
+case or answer changes automatically, and exact footprint/cloud analysis, automated
+change candidates/detection, labelled evaluation and live provider/device acceptance
+remain pending.

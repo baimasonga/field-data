@@ -280,6 +280,13 @@ const responsesByComponent = {
       ({ url }) => matchesApiPath(apiPaths.claimEvidence, url),
       () => ({ items: [] })
     ],
+    geoAssessments: [
+      ({ url }) => /^\/v1\/projects\/\d+\/forms\/[^/]+\/submissions\/[^/]+\/geo-assessments$/.test(url),
+      () => ({
+        source: { fingerprint: 'a'.repeat(64), versionId: 's', location: null, visitAt: '2026-10-16T00:00:00Z', visitBasis: 'receipt' },
+        catalogue: { enabled: false, status: 'no-location', scenes: [], cellDegrees: 0.05 }, canAssess: false, canCheck: false, revision: 0, items: []
+      })
+    ],
     mediaExtractions: [
       ({ url }) => /^\/v1\/projects\/\d+\/forms\/[^/]+\/submissions\/[^/]+\/media-extractions$/.test(url),
       () => ({ enabled: false, canRequest: false, canReview: false, media: [], mediaOmitted: 0, items: [] })

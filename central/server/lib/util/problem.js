@@ -197,6 +197,8 @@ const problems = {
 
     mediaExtractionInvalid: problem(400.71, () => 'Media extraction request, original-media attestation or review text is invalid.'),
 
+    geoAssessmentInvalid: problem(400.72, () => 'Geospatial assessment, imagery citation or reviewer attestation is invalid.'),
+
     // no detail information for security reasons.
     authenticationFailed: problem(401.2, () => 'Could not authenticate with the provided credentials.'),
 
@@ -331,6 +333,7 @@ const problems = {
     captureWitnessConflict: problem(409.47, () => 'A witness statement already exists for this account, or the witness limit was reached.'),
     captureWitnessChangeConflict: problem(409.48, () => 'The witness statement was withdrawn or its correction limit was reached. Refresh its history.'),
     mediaExtractionConflict: problem(409.49, () => 'Media extraction source, revision, retry identity or limit changed. Refresh the record.'),
+    geoAssessmentConflict: problem(409.51, () => 'The geospatial source, citation, revision or limit changed. Refresh assessment history.'),
     reviewRevisionStale: problem(412.1, () => 'The review case has changed. Refresh and retry.'),
     assetRevisionStale: problem(412.2, () => 'The asset has changed. Reload its history before saving.'),
     reverificationRevisionStale: problem(412.3, () => 'The re-verification task has changed. Reload it before saving.'),
