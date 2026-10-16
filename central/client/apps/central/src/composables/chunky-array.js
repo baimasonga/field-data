@@ -9,7 +9,7 @@ https://www.apache.org/licenses/LICENSE-2.0. No part of ODK Central,
 including this file, may be copied, modified, propagated, or distributed
 except according to the terms contained in the LICENSE file.
 */
-import { computed, onUnmounted, ref, watch } from 'vue';
+import { computed, onUnmounted, ref, toRaw, watch } from 'vue';
 
 /*
 useChunkyArray() creates a proxy of an array such that the length of the proxy
@@ -76,7 +76,16 @@ export default (arrayRef, minChunkSize = 25) => {
     // would have a performance cost, because it would cause the `length` ref to
     // become a dependency of more reactive effects. It doesn't seem necessary
     // to restrict access to elements.
-    get: (array, prop) => (prop === 'length' ? proxyLength() : array[prop])
+    get: (array, prop) => {
+      if (prop === 'length') return proxyLength();
+      // Vue's array fast paths unwrap reactive arrays. Unwrapping this view
+      // would bypass its shortened length in both v-for and array methods.
+      if (prop === '__v_raw') return undefined;
+      const value = array[prop];
+      if (typeof value === 'function' && typeof Array.prototype[prop] === 'function' &&
+        !Object.hasOwn(toRaw(array), prop)) return Array.prototype[prop];
+      return value;
+    }
   };
   const result = computed(() => (arrayRef.value != null
     ? new Proxy(arrayRef.value, proxyHandler)

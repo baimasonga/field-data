@@ -13,7 +13,10 @@
     "transifex:lint": "bash -c 'diff transifex/strings_en.json <(node bin/transifex/restructure.js)'"
   },
   "dependencies": {
+    "@field-data/design": "*",
     "@floating-ui/dom": "^1.1.0",
+    "@fontsource/hanken-grotesk": "^5.3.0",
+    "@fontsource/jetbrains-mono": "^5.3.0",
     "axios": "^1.6.2",
     "bootstrap": "~3",
     "chart.js": "^4.5.1",
@@ -36,8 +39,6 @@
   },
   "devDependencies": {
     "@faker-js/faker": "^9.7.0",
-    "@fontsource/hanken-grotesk": "^5.3.0",
-    "@fontsource/jetbrains-mono": "^5.3.0",
     "@intlify/unplugin-vue-i18n": "^6.0.8",
     "@vue/cli-service": "^5.0.8",
     "@vue/compiler-sfc": "~3",

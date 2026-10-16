@@ -259,18 +259,14 @@ describe('FormUpload', () => {
         }));
   });
 
-  // TODO: to be updated in https://github.com/getodk/central/issues/1831
-  describe.skip('after uploading a new definition', () => {
+  describe('after uploading a new definition', () => {
     beforeEach(mockLogin);
 
-    it('hides the modal', () => {
+    it('keeps the inline upload available after success', () => {
       testData.extendedForms.createPast(1, { draft: true });
       return load('/projects/1/forms/f/draft')
         .complete()
-        .request(async (app) => {
-          await app.get('#form-edit-upload-button').trigger('click');
-          return upload(app);
-        })
+        .request(upload)
         .respondWithData(() => {
           testData.extendedFormVersions.createNew({
             version: 'v2',
@@ -278,17 +274,15 @@ describe('FormUpload', () => {
           });
           return { success: true };
         })
-        .respondForComponent('FormEdit');
+        .respondForComponent('FormEdit')
+        .afterResponses(app => { app.get('#form-edit-def #form-upload').exists().should.be.true; });
     });
 
     it('shows a success alert', () => {
       testData.extendedForms.createPast(1, { draft: true });
       return load('/projects/1/forms/f/draft')
         .complete()
-        .request(async (app) => {
-          await app.get('#form-edit-upload-button').trigger('click');
-          return upload(app);
-        })
+        .request(upload)
         .respondWithData(() => {
           testData.extendedFormVersions.createNew({
             version: 'v2',
@@ -309,10 +303,7 @@ describe('FormUpload', () => {
           const { version } = app.getComponent(FormVersionString).props();
           version.should.equal('v1');
         })
-        .request(async (app) => {
-          await app.get('#form-edit-upload-button').trigger('click');
-          return upload(app);
-        })
+        .request(upload)
         .respondWithData(() => {
           testData.extendedFormVersions.createNew({
             version: 'v2',
@@ -334,10 +325,7 @@ describe('FormUpload', () => {
         .afterResponses(app => {
           app.findAll('.form-attachment-row').length.should.equal(1);
         })
-        .request(async (app) => {
-          await app.get('#form-edit-upload-button').trigger('click');
-          return upload(app);
-        })
+        .request(upload)
         .respondWithData(() => {
           testData.extendedFormVersions.createNew({
             version: 'v2',
@@ -393,24 +381,34 @@ describe('FormUpload', () => {
       };
 
       it('blames the spreadsheet when the compiler says the XLSForm is invalid', () =>
-        failsWith(xlsFormProblem('invalid-xlsform'),
-          'There is a problem in your XLSForm that needs to be fixed in the spreadsheet: Could not find the name x'));
+        failsWith(
+          xlsFormProblem('invalid-xlsform'),
+          'There is a problem in your XLSForm that needs to be fixed in the spreadsheet: Could not find the name x'
+        ));
 
       it('says the generated form failed validation when the compiler rejects it', () =>
-        failsWith(xlsFormProblem('compile-failed'),
-          'Your spreadsheet was read, but the form it produces failed validation, so it was not saved: Could not find the name x'));
+        failsWith(
+          xlsFormProblem('compile-failed'),
+          'Your spreadsheet was read, but the form it produces failed validation, so it was not saved: Could not find the name x'
+        ));
 
       it('does not blame the file when the validator is missing on the server', () =>
-        failsWith({ code: 502.4, message: 'Form validation is unavailable', details: { error: 'x' } },
-          'Your file was not rejected. This server cannot validate forms right now because a required component (Java) is missing. This is a server problem, so please contact your administrator. You can upload an XForms XML file in the meantime.'));
+        failsWith(
+          { code: 502.4, message: 'Form validation is unavailable', details: { error: 'x' } },
+          'Your file was not rejected. This server cannot validate forms right now because a required component (Java) is missing. This is a server problem, so please contact your administrator. You can upload an XForms XML file in the meantime.'
+        ));
 
       it('does not blame the file when the converter cannot be reached', () =>
-        failsWith({ code: 502.2, message: 'The XLSForm conversion service could not be contacted.', details: { error: 'x' } },
-          'Your file was not rejected. The server could not reach its XLSForm converter. This is a server problem, so please try again shortly or contact your administrator.'));
+        failsWith(
+          { code: 502.2, message: 'The XLSForm conversion service could not be contacted.', details: { error: 'x' } },
+          'Your file was not rejected. The server could not reach its XLSForm converter. This is a server problem, so please try again shortly or contact your administrator.'
+        ));
 
       it('explains when XLSForm conversion is not enabled', () =>
-        failsWith({ code: 501.3, message: 'not configured', details: {} },
-          'XLSForm conversion is not turned on for this server. Upload an XForms XML file instead, or ask your administrator to enable it.'));
+        failsWith(
+          { code: 501.3, message: 'not configured', details: {} },
+          'XLSForm conversion is not turned on for this server. Upload an XForms XML file instead, or ask your administrator to enable it.'
+        ));
 
       it('explains an unreadable XForms XML file without mentioning spreadsheets', () => {
         testData.extendedProjects.createPast(1);

@@ -14,9 +14,9 @@ describe('NavbarActions', () => {
         text.should.equal('Not logged in');
       }));
 
-  it.skip("shows the user's display name", async () => {
+  it("shows the user's display name", async () => {
     mockLogin({ displayName: 'Alice Allison' });
-    const app = await load('/');
+    const app = await load('/account/edit');
     const a = app.getComponent(NavbarActions).get('a');
     a.text().should.equal('Alice Allison');
     await a.get('span:nth-child(2)').should.have.textTooltip();

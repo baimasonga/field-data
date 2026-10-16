@@ -1,0 +1,12 @@
+{
+  "name": "@field-data/design",
+  "version": "1.0.0",
+  "private": true,
+  "exports": {
+    "./gradient-tokens.css": "./gradient-tokens.css",
+    "./gradient-overrides.css": "./gradient-overrides.css"
+  },
+  "scripts": {
+    "lint": "prettier --check package.json"
+  }
+}
