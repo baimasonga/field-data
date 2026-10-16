@@ -281,6 +281,96 @@ describe('api: calendar availability and route planning', () => {
 });
 
 describe('api: backchecks share capacity with re-verification', () => {
+  it('plans, approves and refreshes mixed visits with pinned evidence and stale revision protection', testService(async (service, c) => {
+    const { alice, users } = await setup(service, true, 1);
+    const date = new Date().toISOString().slice(0, 10);
+    await alice.post(`${root}/forms/route_survey/assignments/app-user/${users[1].id}`).expect(200);
+    await calendar(alice, users[1], [3, 3, 3, 3, 3, 3, 3]);
+    const claim = (await alice.get(`${root}/forms/route_survey/submissions/visit0/claim`).expect(200)).body.currentVersionId;
+    const assets = '/v1/field-data/projects/1/assets';
+    const asset = await alice.post(assets).send({ requestId: '88888888-1111-4111-8111-111111111111',
+      name: 'Mixed route asset', externalId: 'MIXED-01', assetType: 'water-point', xmlFormId: 'route_survey' }).expect(201);
+    await alice.post(`${assets}/${asset.body.id}/observations`).set('If-Match', asset.headers.etag).send({ requestId: '88888888-2222-4222-8222-222222222222', claimVersionId: claim, predicate: 'condition', state: 'known',
+      value: 'working', validFrom: '2026-01-01T00:00:00Z', validityDays: 1, graceDays: 0, note: 'Observed.' }).expect(201);
+    await generateReverification(c.db);
+    const taskRoot = '/v1/field-data/projects/1/reverification-tasks';
+    const task = (await alice.get(taskRoot).expect(200)).body.items[0];
+    const dispatch = { requestId: '88888888-3333-4333-8333-333333333333', assigneeId: users[1].id, plannedVisitDate: date,
+      visitBy: new Date(Date.now() + 2 * 86400000).toISOString(), note: 'Recheck condition.' };
+    await alice.post(`${taskRoot}/${task.id}/dispatch`).set('If-Match', '"task-1"').send(dispatch).expect(200);
+    const query = { actorId: String(users[1].id), date, startLat: '8.48', startLon: '-13.23' };
+    const preview = async () => (await alice.get(`${root}/backcheck-route?${new URLSearchParams(query)}`).expect(200)).body;
+    const single = await preview();
+    assert.equal(single.route.stops.length, 1); assert.equal(single.route.stops[0].kind, 'reverification');
+    await runAllocations(c.db, new Date());
+    const plan = await preview();
+    assert.equal(plan.scope, 'combined-visits@1'); assert.equal(plan.used, 2); assert.equal(plan.otherVisits, 1);
+    assert.deepEqual(plan.route.stops.map(stop => stop.kind).sort(), ['backcheck', 'reverification']);
+    const visit = plan.route.stops.find(stop => stop.kind === 'reverification');
+    assert.equal(visit.assetId, asset.body.id); assert.equal(visit.claimVersionId, claim); assert.equal(visit.revision, 2);
+    assert.equal(visit.question, 'Recheck condition.'); assert.equal(visit.location.latitude, 8.48);
+    const { LIMITS } = require('../../../lib/resources/field-data-backcheck-planning');
+    const savedLimit = LIMITS.maxStops;
+    try {
+      LIMITS.maxStops = 1;
+      const partial = await preview(); assert.equal(partial.truncated, true); assert.equal(partial.route.stops.length, 1);
+    } finally { LIMITS.maxStops = savedLimit; }
+    const originalFetch = global.fetch; const originalUrl = process.env.FIELD_DATA_OSRM_URL;
+    try {
+      process.env.FIELD_DATA_OSRM_URL = 'https://routing.example';
+      global.fetch = async url => {
+        assert.equal(url.pathname.includes(task.id), false); assert.equal(url.pathname.includes(asset.body.id), false);
+        return new Response(JSON.stringify({ code: 'Ok', routes: [{ distance: 3000, duration: 600,
+          legs: Array.from({ length: 3 }, () => ({ distance: 1000, duration: 200 })) }],
+        waypoints: Array.from({ length: 4 }, () => ({ distance: 0 })) }), { status: 200 });
+      };
+      const timed = await preview(); assert.equal(timed.road.status, 'ok'); assert.equal(timed.road.legs.length, 3);
+      assert.equal(timed.timing.totalMinutes, 70); // Both visits, plus ten minutes driving.
+    } finally {
+      global.fetch = originalFetch;
+      if (originalUrl == null) delete process.env.FIELD_DATA_OSRM_URL; else process.env.FIELD_DATA_OSRM_URL = originalUrl;
+    }
+
+    const body = { id: '88888888-4444-4444-8444-444444444444', query, reviewToken: plan.reviewToken, note: 'Visit both assignments.' };
+    await alice.post(`${root}/backcheck-itineraries`).send({ ...body, query: { ...query, visitMinutes: '60' } }).expect(400);
+    await alice.post(`${root}/backcheck-itineraries`).send(body).expect(201);
+    const inbox = async () => (await service.get('/v1/field-data/app-user/itineraries')
+      .set('Authorization', `Bearer ${users[1].token}`).expect(200)).body.items[0];
+    assert.equal((await inbox()).stops.length, 2);
+    assert.equal((await inbox()).stops.find(stop => stop.kind === 'reverification').question, dispatch.note);
+    assert.equal((await inbox()).stops.find(stop => stop.kind === 'reverification').assetName, 'Mixed route asset');
+    const previousKey = process.env.FIELD_DATA_OFFLINE_SIGNING_KEY; const previousOrigin = process.env.FIELD_DATA_OFFLINE_ORIGIN;
+    try {
+      process.env.FIELD_DATA_OFFLINE_SIGNING_KEY = generateKeyPairSync('ec', { namedCurve: 'prime256v1' }).privateKey.export({ type: 'pkcs8', format: 'pem' });
+      process.env.FIELD_DATA_OFFLINE_ORIGIN = 'https://field.example.test';
+      const { bundle } = (await service.get('/v1/field-data/app-user/offline-assignments')
+        .set('Authorization', `Bearer ${users[1].token}`).expect(200)).body;
+      const issued = JSON.parse(Buffer.from(bundle.payload, 'base64url'));
+      assert.deepEqual(issued.itineraries.items[0].stops.map(stop => stop.kind).sort(), ['backcheck', 'reverification']);
+    } finally {
+      if (previousKey == null) delete process.env.FIELD_DATA_OFFLINE_SIGNING_KEY; else process.env.FIELD_DATA_OFFLINE_SIGNING_KEY = previousKey;
+      if (previousOrigin == null) delete process.env.FIELD_DATA_OFFLINE_ORIGIN; else process.env.FIELD_DATA_OFFLINE_ORIGIN = previousOrigin;
+    }
+
+    // Unverified evidence cannot leak a saved coordinate to a collector.
+    const provenance = await c.one(sql`SELECT p.* FROM field_data_submission_provenance p
+      JOIN field_data_claim_versions v ON v."submissionDefId" = p."submissionDefId" WHERE v.id = ${claim}`);
+    await c.run(sql`UPDATE field_data_submission_provenance SET "integrityHash" = ${'0'.repeat(64)} WHERE "submissionDefId" = ${provenance.submissionDefId}`);
+    assert.equal((await inbox()).stops.length, 0); assert.equal((await preview()).excluded.sourceUnverified, 2);
+    await c.run(sql`UPDATE field_data_submission_provenance SET "integrityHash" = ${provenance.integrityHash} WHERE "submissionDefId" = ${provenance.submissionDefId}`);
+    // A changed task invalidates approval and withholds the old instructions.
+    await alice.post(`${taskRoot}/${task.id}/dispatch`).set('If-Match', '"task-2"')
+      .send({ ...dispatch, requestId: '88888888-5555-4555-8555-555555555555', note: 'Use the revised instructions.' }).expect(200);
+    assert.equal((await inbox()).withheld, 1);
+    await alice.post(`${root}/backcheck-itineraries`).send({ ...body, id: '88888888-6666-4666-8666-666666666666' }).expect(400);
+    assert.notEqual((await preview()).reviewToken, plan.reviewToken);
+    await alice.delete(`${root}/forms/route_survey/assignments/app-user/${users[1].id}`).expect(200);
+    assert.equal((await preview()).excluded.collectorUnavailable, 1);
+    await alice.post(`${taskRoot}/${task.id}/cancel`).set('If-Match', '"task-3"')
+      .send({ requestId: '88888888-7777-4777-8777-777777777777', reasonCode: 'duplicate', note: 'No longer needed.' }).expect(200);
+    assert.equal((await preview()).route.stops.length, 1); assert.equal((await preview()).used, 1);
+  }));
+
   it('does not allocate the slot reserved by another task type, and reuses a cancelled slot', testService(async (service, c) => {
     const { alice, users } = await setup(service, false, 1);
     const date = new Date().toISOString().slice(0, 10);

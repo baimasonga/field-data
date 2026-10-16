@@ -244,7 +244,7 @@ checks. See [O16-collector-form-guidance.md](O16-collector-form-guidance.md). Co
 Dated re-verification assignments share collector quotas and UTC shifts with
 backchecks, with serialized allocation, retained completed reservations, event
 history and collector-visible dates. See [O17-shared-visit-capacity.md](O17-shared-visit-capacity.md).
-Unified routes, offline re-verification snapshots and device acceptance remain pending.
+O18 adds offline re-verification snapshots; O19 adds unified backcheck/re-verification routes. Device acceptance remains pending.
 
 ### Release reconciliation
 
@@ -261,7 +261,7 @@ instructions and planned visit dates, shared live/offline permission checks,
 explicit omissions and strict pre-storage validation. See
 [O18-offline-reverification.md](O18-offline-reverification.md).
 This supersedes earlier pending statements about snapshot inclusion for these
-tasks. Collect device acceptance, uploads, relays and unified routes remain pending.
+tasks. O19 adds unified routes. Collect device acceptance, uploads and relays remain pending.
 
 ### R2 companion resumable media uploads
 
@@ -337,3 +337,13 @@ are persisted. Expired challenges remain archived but cannot be restored for upl
 and the server's original deadline remains authoritative. Native Collect queues,
 background sync, delegated custody and real-device acceptance remain pending.
 See [R4-offline-challenged-media.md](R4-offline-challenged-media.md).
+
+### O19 unified visit itineraries
+
+Backchecks and dated dispatched re-verification tasks share one bounded route,
+road estimate, shift budget and approved stop order. Collector inboxes and signed
+encrypted snapshots retain visit type and recheck task instructions. Changed
+assignments, observation ownership, task revisions and unavailable evidence
+withhold stale re-verification stops. See [O19-unified-visit-itineraries.md](O19-unified-visit-itineraries.md).
+Navigation, other task types, overnight shifts, live road-provider and real-device
+acceptance remain pending.

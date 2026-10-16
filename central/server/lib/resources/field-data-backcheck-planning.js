@@ -1,5 +1,6 @@
 // Copyright 2026 Field Data Developers. Licensed under the Apache License, Version 2.0.
 const { sql } = require('slonik');
+const { reverificationRoute } = require('../util/reverification-route');
 const { visitUsage } = require('../util/visit-capacity');
 const { createHash } = require('node:crypto');
 const { isDeepStrictEqual } = require('node:util');
@@ -86,14 +87,17 @@ module.exports = (service, endpoint) => {
       JOIN form_defs fd ON fd.id = sd."formDefId" LEFT JOIN field_data_submission_provenance p ON p."submissionDefId" = sd.id
       WHERE b."assignedTo" = ${actor.id} AND b.status = 'requested' AND b."plannedVisitDate" = ${query.date}::date
       ORDER BY b.id LIMIT ${LIMITS.maxStops}`);
+    const rechecks = await reverificationRoute(container.db, project.id, actor.id, query.date, LIMITS.maxStops, LIMITS.maxSourceBytes);
+    const combined = [...rows.map(row => ({ ...row, kind: 'backcheck' })), ...rechecks.map(row => ({ ...row, kind: 'reverification' }))]
+      .sort((a, b) => a.id.localeCompare(b.id) || a.kind.localeCompare(b.kind)).slice(0, LIMITS.maxStops);
     const excluded = { permission: 0, inactive: 0, collectorUnavailable: 0, encryptedSource: 0, sourceUnverified: 0, missingLocation: 0 };
     const visits = []; let uncertainLocations = 0;
-    for (const row of rows) {
+    for (const row of combined) {
       // eslint-disable-next-line no-await-in-loop
       const readable = await auth.can('submission.read', row.sourceActee) && await auth.can('submission.read', row.responseActee); // eslint-disable-line no-await-in-loop
       let reason = !readable ? 'permission' : !row.current || row.sourceDeleted != null || row.formDeleted != null
-        || row.caseStatus !== 'in-review' ? 'inactive' : !row.eligible || row.responseDeleted != null || row.responseState !== 'open'
-          ? 'collectorUnavailable' : row.keyId != null ? 'encryptedSource' : row.xml == null ? 'sourceUnverified' : null;
+        || (row.kind === 'backcheck' && row.caseStatus !== 'in-review') ? 'inactive' : !row.eligible || row.responseDeleted != null || row.responseState !== 'open'
+          ? 'collectorUnavailable' : row.keyId != null ? 'encryptedSource' : row.xml == null || (row.kind === 'reverification' && row.observationVerified !== true) ? 'sourceUnverified' : null;
       let location = null;
       if (reason == null) {
         try { location = row.geoPath == null ? null : parseGeopoint(answerAt(parseInstance(row.xml), row.geoPath, null)); } catch { location = null; }
@@ -102,17 +106,22 @@ module.exports = (service, endpoint) => {
       if (reason != null) { excluded[reason] += 1; continue; } // eslint-disable-line no-continue
       const uncertain = location.accuracy == null || location.accuracy < 0 || location.accuracy > 100;
       if (uncertain) uncertainLocations += 1;
-      visits.push({ id: row.id, claimVersionId: row.claimVersionId, caseId: row.caseId, instanceId: row.instanceId, xmlFormId: row.xmlFormId, location, uncertain });
+      visits.push({
+        kind: row.kind, ...(row.kind === 'reverification' ? { revision: row.revision, observationId: row.observationId, assetId: row.assetId, assetName: row.assetName, predicate: row.predicate, question: row.question } : {}), id: row.id, claimVersionId: row.claimVersionId, caseId: row.caseId, instanceId: row.instanceId, xmlFormId: row.xmlFormId, location, uncertain
+      });
     }
     const calendar = await container.db.maybeOne(sql`SELECT settings FROM field_data_backcheck_calendars
       WHERE "actorId" = ${actor.id} AND "projectId" = ${project.id}`);
     const used = (await visitUsage(container.db, project.id)).get(`${actor.id}|${query.date}`) ?? 0;
     const unplanned = await container.db.oneFirst(sql`SELECT count(*)::integer FROM field_data_backchecks
-      WHERE "assignedTo" = ${actor.id} AND "plannedVisitDate" IS NULL AND status = 'requested'`);
+      WHERE "assignedTo" = ${actor.id} AND "plannedVisitDate" IS NULL AND status = 'requested'`)
+      + await container.db.oneFirst(sql`SELECT count(*)::integer FROM field_data_reverification_tasks
+        WHERE "assigneeId" = ${actor.id} AND "plannedVisitDate" IS NULL AND status = 'dispatched'`);
     const otherVisits = await container.db.oneFirst(sql`SELECT count(*)::integer FROM field_data_reverification_tasks
       WHERE "assigneeId" = ${actor.id} AND "plannedVisitDate" = ${query.date}::date AND status IN ('dispatched', 'closed')`);
     const capacity = quotaOn(calendar?.settings, query.date);
-    const truncated = rows.length > 0 && Number(rows[0].total) > rows.length;
+    const total = Number(rows[0]?.total ?? 0) + Number(rechecks[0]?.total ?? 0);
+    const truncated = total > combined.length;
     const omitted = Object.values(excluded).reduce((sum, n) => sum + n, 0);
     const shift = shiftOn(calendar?.settings, query.date);
     const visitMinutes = visitOverride ?? calendar?.settings?.visitMinutes ?? 30;
@@ -125,16 +134,16 @@ module.exports = (service, endpoint) => {
     const optimization = query.order === 'road' ? await roadOrder(start, route.stops) : null;
     if (optimization?.status === 'ok') route = orderedItinerary(start, optimization.order.map(i => route.stops[i]));
     const road = optimization ?? await roadEstimate(start, route.stops);
-    const totalMinutes = road.status === 'ok' ? Math.ceil(road.travelMinutes + visits.length * visitMinutes) : null;
+    const totalMinutes = road.status === 'ok' ? Math.ceil(road.travelMinutes + Math.max(used, visits.length) * visitMinutes) : null;
     const timing = { visitMinutes, dayMinutes, shiftBudgetMinutes, totalMinutes, shift: shift ?? null, shiftUnavailable: shift === null, expiredShift,
       previewOverrides: visitOverride != null || dayOverride != null, overBudget: totalMinutes == null ? null : totalMinutes > dayMinutes };
-    const result = { actor, date: query.date, start, capacity, used, otherVisits, unplanned, excluded, uncertainLocations, truncated,
-      needsReview: project.archived === true || otherVisits > 0 || unplanned > 0 || omitted > 0 || truncated || capacity == null || used > capacity || uncertainLocations > 0
+    const result = { actor, date: query.date, start, capacity, used, otherVisits, scope: 'combined-visits@1', unplanned, excluded, uncertainLocations, truncated,
+      needsReview: project.archived === true || unplanned > 0 || omitted > 0 || truncated || capacity == null || used > capacity || uncertainLocations > 0
         || shift === null || expiredShift || road.status !== 'ok' || road.maxSnapMeters > 100 || timing.overBudget === true,
       method: optimization?.status === 'ok' ? 'OSRM road trip suggestion, return to start; not a guarantee of optimality' : 'nearest-next-stop, great-circle distance, return to start',
       ordering: { requested: query.order ?? 'straight', applied: optimization?.status === 'ok' ? 'road' : 'straight', status: optimization?.status ?? 'notRequested' }, route, road, timing };
     result.reviewToken = createHash('sha256').update(JSON.stringify({ actor: actor.id, date: result.date, start, capacity, used, otherVisits,
-      excluded, truncated, shift: timing.shift, ordering: result.ordering, stops: route.stops })).digest('hex');
+      excluded, truncated, visitOverride, dayOverride, visitMinutes, shift: timing.shift, ordering: result.ordering, stops: route.stops })).digest('hex');
     return result;
   };
   service.get('/projects/:projectId/backcheck-route', endpoint(async (container, { params, auth, query }, _, response) => {
