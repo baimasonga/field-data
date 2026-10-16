@@ -909,3 +909,91 @@ test('viewers see verified corrected history without change controls and a tampe
   await p.reload(); await expect(section.getByRole('alert')).toContainText('could not be loaded or verified');
   await expect(section).not.toContainText('Signature verified'); await expect(section).not.toContainText('1 active statements');
 });
+
+const extractedMedia = () => ({ id: sampleId, name: 'scene.jpg', submissionDefId: 1, contentHash: 'b'.repeat(64), contentType: 'image/png', kind: 'photo',
+  provider: 'OpenAI', model: 'fixture-photo-model', actorId: 1, actorName: 'Requester', requestedAt: '2026-10-16T12:00:00Z', finishedAt: '2026-10-16T12:00:01Z',
+  status: 'ready', failure: null, proposal: 'Pump label 12?4', bindingCurrent: true, revision: 0, reviews: [], decision: 'unreviewed' });
+const extractionList = (items, canWrite = true) => ({ enabled: true, canRequest: canWrite, canReview: canWrite,
+  media: [{ name: 'scene.jpg', contentType: 'image/png', kind: 'photo' }, { name: 'voice.wav', contentType: 'audio/wav', kind: 'audio' }], mediaOmitted: 0, items });
+
+test('media extraction requires consent and supports corrected review, safe retries and rejection history', async ({ page: p }) => {
+  let stored = null; const requests = []; const reviews = [];
+  const errors = await setupAssessmentRecord(p, async (route, path) => {
+    if (path.endsWith('/capture-challenges')) { await route.fulfill({ json: { items: [] } }); return true; }
+    if (path.endsWith('/media-extractions')) {
+      if (route.request().method() === 'POST') {
+        requests.push(route.request().postDataJSON()); stored ??= extractedMedia();
+        if (requests.length === 1) await route.abort('failed'); else await route.fulfill({ json: { item: stored, replayed: true } });
+      } else await route.fulfill({ json: extractionList(stored ? [stored] : []) });
+      return true;
+    }
+    if (path.endsWith(`/media-extractions/${sampleId}/source`)) { await route.fulfill({ body: Buffer.from('fixture image'), contentType: 'image/png' }); return true; }
+    if (path.endsWith(`/media-extractions/${sampleId}/reviews`)) {
+      const body = route.request().postDataJSON(); reviews.push(body);
+      if (reviews.length !== 2) {
+        stored.reviews.push({ id: randomUUID(), sequence: stored.revision + 1, action: body.action, text: body.text, reason: body.reason,
+          actorId: 1, actorName: 'Reviewer', reviewedAt: new Date().toISOString() }); stored.revision += 1; stored.decision = body.action;
+      }
+      if (reviews.length === 1) await route.abort('failed'); else await route.fulfill({ json: { item: structuredClone(stored) } }); return true;
+    }
+    return false;
+  });
+  const section = p.getByRole('region', { name: 'Media extraction', exact: true });
+  await expect(section).toContainText('No extraction has been requested');
+  await section.getByLabel('Source media').selectOption('scene.jpg');
+  await expect(section.getByRole('button', { name: 'Request extraction', exact: true })).toBeDisabled();
+  await section.getByLabel('I am authorized to send this media to OpenAI for extraction.').check();
+  await section.getByRole('button', { name: 'Request extraction', exact: true }).click();
+  await expect(section.getByRole('alert')).toContainText('Request could not be confirmed');
+  await expect(section.getByLabel('Source media')).toBeDisabled();
+  await section.getByRole('button', { name: 'Retry same extraction request' }).click(); expect(requests[1]).toEqual(requests[0]);
+  await expect(section).toContainText('Pump label 12?4');
+  const record = section.locator('.media-extraction-record');
+  const confirmed = record.getByLabel('I reviewed the original media and checked this decision. Download the original first.');
+  await expect(confirmed).toBeDisabled();
+  await Promise.all([p.waitForEvent('download'), record.getByRole('button', { name: 'Download original media', exact: true }).click()]);
+  await record.getByLabel('Reviewed text', { exact: true }).fill('Pump label 1234');
+  await record.getByLabel('Review reason').fill('The final digit is clearly 3 on the original label.'); await confirmed.check();
+  await record.getByRole('button', { name: 'Save review decision' }).click();
+  await expect(record.getByRole('alert')).toContainText('Review could not be confirmed');
+  await expect(record.getByLabel('Reviewed text', { exact: true })).toBeDisabled();
+  await record.getByRole('button', { name: 'Retry same review' }).click(); expect(reviews[1]).toEqual(reviews[0]);
+  await expect(record).toContainText('Approved by a reviewer'); await expect(record).toContainText('Pump label 1234');
+  await expect(record).toContainText('Pump label 12?4');
+  await record.getByRole('combobox', { name: /^Decision/ }).selectOption('reject');
+  await Promise.all([p.waitForEvent('download'), record.getByRole('button', { name: 'Download original media', exact: true }).click()]);
+  await record.getByLabel('Review reason').fill('A second review finds the original label is unreadable.'); await confirmed.check();
+  await record.getByRole('button', { name: 'Save review decision' }).click(); await expect(record).toContainText('Rejected by a reviewer');
+  expect(reviews[2].text).toBeNull();
+  await record.getByText('Review history (2)', { exact: true }).click(); await expect(record).toContainText('Pump label 1234');
+  const [download] = await Promise.all([p.waitForEvent('download'), record.getByRole('button', { name: 'Download extraction history' }).click()]);
+  const exported = JSON.parse(await readFile(await download.path(), 'utf8')); expect(exported.proposal).toBe('Pump label 12?4'); expect(exported.reviews).toHaveLength(2);
+  await p.setViewportSize({ width: 320, height: 700 }); expect(await p.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true); expect(errors).toEqual([]);
+});
+
+test('media extraction viewers see historical audio corrections without write controls or current approval', async ({ page: p }) => {
+  const item = { ...extractedMedia(), kind: 'audio', contentType: 'audio/wav', name: 'voice.wav', proposal: 'Original transcript', revision: 1, bindingCurrent: false, decision: 'outdated',
+    reviews: [{ id: randomUUID(), sequence: 1, action: 'approve', text: 'Corrected original-language transcript', reason: 'Listened to the original recording.', actorName: 'Reviewer', reviewedAt: '2026-10-16T12:01:00Z' }] };
+  const errors = await setupAssessmentRecord(p, async (route, path) => {
+    if (path.endsWith('/capture-challenges')) { await route.fulfill({ json: { items: [] } }); return true; }
+    if (path.endsWith('/media-extractions')) { await route.fulfill({ json: extractionList([item], false) }); return true; } return false;
+  }, viewerVerbs);
+  const section = p.getByRole('region', { name: 'Media extraction', exact: true });
+  await expect(section).toContainText('Voice transcript'); await expect(section).toContainText('Outdated source');
+  await expect(section).toContainText('Historical reviewed text'); await expect(section).toContainText('No current approval');
+  await expect(section.getByRole('button', { name: 'Request extraction', exact: true })).toHaveCount(0); await expect(section.getByRole('button', { name: 'Save review decision' })).toHaveCount(0);
+  await p.setViewportSize({ width: 320, height: 700 }); expect(await p.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true); expect(errors).toEqual([]);
+});
+
+test('media extraction displays provider readiness and rejects malformed history on refresh', async ({ page: p }) => {
+  let invalid = false;
+  await setupAssessmentRecord(p, async (route, path) => {
+    if (path.endsWith('/capture-challenges')) { await route.fulfill({ json: { items: [] } }); return true; }
+    if (path.endsWith('/media-extractions')) { await route.fulfill({ json: invalid ? extractionList([{ ...extractedMedia(), revision: 1, reviews: [] }]) : { ...extractionList([]), enabled: false } }); return true; }
+    return false;
+  });
+  const section = p.getByRole('region', { name: 'Media extraction', exact: true });
+  await expect(section).toContainText('External extraction is not configured'); await expect(section.getByRole('button', { name: 'Request extraction', exact: true })).toHaveCount(0);
+  invalid = true; await section.getByRole('button', { name: 'Refresh extraction history' }).click(); await expect(section.getByRole('alert')).toContainText('could not be loaded');
+  await expect(section.locator('.media-extraction-record')).toHaveCount(0);
+});

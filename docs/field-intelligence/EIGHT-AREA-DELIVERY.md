@@ -365,7 +365,7 @@ pilot is a separate acceptance activity. Product work resumes with K7 above.
 | Geospatial | Location integrity checks and imagery scene availability | Reviewed temporal verification/change candidates, imagery analysis and evaluated change detection |
 | Fraud intelligence | Contradictions, identity reuse, similarity, collector links and investigations/outcomes | Review-case linking, calibrated triage and false-positive evaluation; targeted instruments remain deferred |
 | Adaptive surveys | Doctor, simulations, version-change analysis and recodes | Approved bounded policies, reviewed evolution/draft generation, answer uncertainty, conversational multilingual support and native-export recodes |
-| Multimodal | Provenance-preserving camera capture and manual evidence review | Reviewed photo/voice extraction and correction, asset/module suggestions, guided capture, source-grounded drafts, offline models and evaluation |
+| Multimodal | Provenance-preserving capture, manual evidence review and reviewed photo-text/voice extraction with correction history | Live provider/language evaluation, asset/module suggestions, guided capture, source-grounded drafts, offline models and field acceptance |
 
 Each implementation needs its actual API and user workflow, permission and
 failure coverage, and passing CI. Hardware, language/model evaluation, live
@@ -383,3 +383,16 @@ and archival do not block an authorized owner from withdrawing. See
 [T5-witness-corrections-withdrawals.md](T5-witness-corrections-withdrawals.md).
 This advances Evidence and Trust; delegation, certified revocation, sensor/device
 corroboration and field acceptance remain pending.
+
+### M1 reviewed photo text and voice transcription
+
+Submission reviewers can explicitly request visible-text extraction or voice
+transcription through an optional operator-configured OpenAI adapter, inspect the
+fingerprinted original, correct proposed text and approve/reject with append-only
+history. Proposals never overwrite answers. Durable request reservation prevents
+implicit provider resends; historical bindings become outdated, with original
+bytes retained under existing source-purge policy. See
+[M1-reviewed-media-extraction.md](M1-reviewed-media-extraction.md).
+This advances Multimodal. Live provider configuration, privacy/retention acceptance,
+photo/voice accuracy, local-language evaluation, broader extraction/suggestions,
+offline models and real-device acceptance remain pending.

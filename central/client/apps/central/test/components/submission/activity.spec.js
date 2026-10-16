@@ -54,6 +54,7 @@ describe('SubmissionActivity', () => {
       { url: "/v1/projects/1/forms/a%20b/submissions/'c%20d'/diffs" },
       { url: "/v1/projects/1/forms/a%20b/submissions/'c%20d'/claim" },
       { url: ({ pathname }) => pathname.should.match(/capture-challenges$/) },
+      { url: ({ pathname }) => pathname.should.match(/media-extractions$/) },
       { url: ({ pathname }) => pathname.should.match(/claim-versions.*evidence/) }
     ]);
   });

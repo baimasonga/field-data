@@ -113,6 +113,7 @@ const unattachedClause = sql`
   LEFT JOIN field_data_evidence_records AS evidence ON evidence."blobId" = b.id
   LEFT JOIN field_data_capture_challenges AS capture ON capture."blobId" = b.id
   LEFT JOIN field_data_capture_assessments AS assessment ON assessment."blobId" = b.id
+  LEFT JOIN field_data_media_extractions AS extraction ON extraction."blobId" = b.id
   LEFT JOIN form_attachments       AS fa ON fa."blobId" = b.id
   LEFT JOIN form_defs              AS fd ON fd."xlsBlobId" = b.id
   LEFT JOIN config                 AS c  ON c."blobId" = b.id
@@ -121,6 +122,7 @@ const unattachedClause = sql`
     AND evidence."blobId" IS NULL
     AND capture."blobId" IS NULL
     AND assessment."blobId" IS NULL
+    AND extraction."blobId" IS NULL
     AND fa."blobId" IS NULL
     AND fd."xlsBlobId" IS NULL
     AND c."blobId" IS NULL

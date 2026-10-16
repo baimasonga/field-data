@@ -31,6 +31,8 @@ except according to the terms contained in the LICENSE file.
         :xml-form-id="xmlFormId" :instance-id="instanceId"/>
       <submission-capture-challenges v-if="dataExists" :project-id="projectId"
         :xml-form-id="xmlFormId" :instance-id="instanceId"/>
+      <submission-media-extractions v-if="dataExists" :project-id="projectId"
+        :xml-form-id="xmlFormId" :instance-id="instanceId"/>
     </page-body>
     <submission-update-review-state v-bind="reviewModal" :project-id="projectId"
       :xml-form-id="xmlFormId" :submission="submission"
@@ -53,6 +55,7 @@ import SubmissionReviewState from './review-state.vue';
 import SubmissionBasicDetails from './basic-details.vue';
 import SubmissionClaimEvidence from './claim-evidence.vue';
 import SubmissionCaptureChallenges from './capture-challenges.vue';
+import SubmissionMediaExtractions from './media-extractions.vue';
 import SubmissionUpdateReviewState from './update-review-state.vue';
 import SubmissionDelete from './delete.vue';
 
@@ -77,6 +80,7 @@ export default {
     SubmissionBasicDetails,
     SubmissionClaimEvidence,
     SubmissionCaptureChallenges,
+    SubmissionMediaExtractions,
     SubmissionDelete,
     SubmissionUpdateReviewState
   },
