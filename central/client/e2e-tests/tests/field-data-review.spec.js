@@ -56,7 +56,7 @@ const setup = async (page, { comparisonUnavailable = false, failComparison = fal
       state.searchCalls.push(url.searchParams.get('q'));
       if (state.searchFailures-- > 0) return route.fulfill({ status: 500, json: { message: 'Failed' } });
       const empty = { assets: [], facts: [], findings: [], decisions: [] };
-      return respond({ q: url.searchParams.get('q'), results: state.search ?? empty, more: { assets: 0, facts: 0, findings: 0, decisions: 0, ...state.searchMore } });
+      return respond({ q: url.searchParams.get('q'), ordering: state.searchOrdering, results: state.search ?? empty, more: { assets: 0, facts: 0, findings: 0, decisions: 0, ...state.searchMore } });
     }
     // F5 collector groups: those whose strongest connection meets the minimum.
     if (/^\/v1\/projects\/\d+\/findings\/collectors$/.test(path)) {
@@ -1334,6 +1334,7 @@ test('searching the project records shows each kind with its citation', async ({
       match: { field: 'note', excerpt: '…shared phone at Kissy market…' }, source: { xmlFormId: 'health', instanceId: 'uuid:dec', claimVersionId: 'c2' } }]
   };
   state.searchMore = { findings: 3 };
+  state.searchOrdering = 'literal-relevance@1';
   await section.getByLabel('Search for').fill('kissy');
   await section.getByRole('button', { name: 'Search' }).click();
   await expect(section.getByRole('alert')).toHaveCount(0);
@@ -1347,7 +1348,8 @@ test('searching the project records shows each kind with its citation', async ({
   await expect(finding.locator('h3')).toHaveText('Findings (4)');
   await expect(finding.getByRole('link', { name: 'uuid:b' })).toHaveAttribute('href', '/projects/7/forms/health/submissions/uuid%3Ab');
   await expect(finding.getByRole('link', { name: 'Verification' })).toHaveAttribute('href', '/projects/7/forms/health/verification');
-  await expect(finding.locator('.project-search-more')).toHaveText('3 more not shown, newest first. Add words to narrow the search.');
+  await expect(finding.locator('.project-search-more')).toHaveText('3 more not shown in this order. Add words to narrow the search.');
+  await expect(section.locator('.project-search-order')).toHaveText('Within each group: exact matches first, then starts with, then contains. Ties show newest first.');
   const decision = section.locator('.project-search-decisions li');
   await expect(decision).toContainText('needs-evidence · provenance-degraded');
   await expect(decision).toContainText('Matched in note: “…shared phone at Kissy market…”');
@@ -1365,6 +1367,27 @@ test('searching the project records shows each kind with its citation', async ({
   expect(state.searchCalls).toEqual(['nowhere', 'nowhere', 'kissy']);
   await page.setViewportSize({ width: 360, height: 800 });
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= 360)).toBe(true);
+  expect(errors).toEqual([]);
+});
+
+test('cited search keeps server relevance order and supports older responses', async ({ page }) => {
+  const { state, errors } = await setup(page, { canOverride: true });
+  state.searchOrdering = 'literal-relevance@1';
+  state.search = { assets: [
+    { id: 'first', name: 'Pump', externalId: 'P-1', assetType: 'equipment', source: { xmlFormId: 'health' } },
+    { id: 'second', name: 'Pump at Kissy', externalId: 'P-2', assetType: 'equipment', source: { xmlFormId: 'health' } }
+  ], facts: [], findings: [], decisions: [] };
+  state.searchMore = { assets: 1 };
+  const section = page.getByRole('region', { name: "Search the project's records" });
+  await section.getByLabel('Search for').fill('pump');
+  await section.getByRole('button', { name: 'Search' }).click();
+  await expect(section.locator('.project-search-assets li strong')).toHaveText(['Pump', 'Pump at Kissy']);
+  await expect(section.locator('.project-search-order')).toContainText('exact matches first');
+  await expect(section.locator('.project-search-more')).toHaveText('1 more not shown in this order. Add words to narrow the search.');
+  delete state.searchOrdering;
+  await section.getByRole('button', { name: 'Search' }).click();
+  await expect(section.locator('.project-search-order')).toHaveCount(0);
+  await expect(section.locator('.project-search-more')).toHaveText('1 more not shown, newest first. Add words to narrow the search.');
   expect(errors).toEqual([]);
 });
 

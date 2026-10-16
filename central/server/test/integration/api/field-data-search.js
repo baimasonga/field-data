@@ -129,6 +129,69 @@ describe('api: cited search (K2)', () => {
     assert.deepEqual((await search(alice, '\\%').expect(200)).body.results.assets, []);
   }));
 
+  it('ranks exact and prefix matches across fields before limiting results, with stable ties', testService(async (service, { run }) => {
+    const alice = await service.login('alice');
+    await run(sql`INSERT INTO field_data_assets ("projectId", "formId", name, "assetType", "externalId", "requestId", "requestHash", "actorId", "createdAt")
+      SELECT 1, f.id, 'New record about a pump ' || n, 'equipment', 'B-' || n, gen_random_uuid(), repeat('0', 64), a.id, '2026-01-01'::timestamptz
+      FROM forms f, actors a, generate_series(1, 24) n
+      WHERE f."projectId" = 1 AND f."xmlFormId" = 'simple' AND a."displayName" = 'Alice'`);
+    await run(sql`INSERT INTO field_data_assets ("projectId", "formId", name, "assetType", "externalId", "requestId", "requestHash", "actorId", "createdAt")
+      SELECT 1, f.id, v.name, 'equipment', v.external, gen_random_uuid(), repeat('0', 64), a.id, v.created::timestamptz
+      FROM forms f, actors a, (VALUES
+        ('Pump', 'exact-name', '2000-01-01'),
+        ('Pump at Kissy', 'prefix-name', '2001-01-01'),
+        ('Other pump record', 'PUMP', '2002-01-01')) v(name, external, created)
+      WHERE f."projectId" = 1 AND f."xmlFormId" = 'simple' AND a."displayName" = 'Alice'`);
+    const first = (await search(alice, 'pump').expect(200)).body;
+    assert.equal(first.ordering, 'literal-relevance@1');
+    assert.equal(first.results.assets.length, 20);
+    assert.equal(first.more.assets, 7);
+    assert.deepEqual(first.results.assets.slice(0, 3).map(a => [a.name, a.match.field]),
+      [['Other pump record', 'externalId'], ['Pump', 'name'], ['Pump at Kissy', 'name']]);
+    const second = (await search(alice, 'pump').expect(200)).body;
+    assert.deepEqual(first.results.assets.map(a => a.id), second.results.assets.map(a => a.id));
+  }));
+
+  it('orders facts, findings and decisions by their best literal field match while retaining citations', testService(async (service, container) => {
+    const { alice, asset } = await seed(service, container);
+    const actorId = (await alice.get('/v1/users/current').expect(200)).body.id;
+    const root = `/v1/field-data/projects/1/assets/${asset.id}`;
+    const add = async (instanceId, value, n) => {
+      await alice.post('/v1/projects/1/forms/simple/submissions')
+        .send(testData.instances.simple.one.replace('one</instanceID>', `${instanceId}</instanceID>`))
+        .set('Content-Type', 'application/xml').expect(200);
+      const claim = (await alice.get(`/v1/projects/1/forms/simple/submissions/${instanceId}/claim`).expect(200)).body;
+      const current = await alice.get(root).expect(200);
+      await alice.post(`${root}/observations`).set('If-Match', current.headers.etag)
+        .send({ requestId: uuid(n), claimVersionId: claim.currentVersionId, predicate: 'place', state: 'known',
+          value, validFrom: '2026-08-01T00:00:00Z', validityDays: 90, graceDays: 10, note: 'Recorded from original.' }).expect(201);
+      await container.one(sql`INSERT INTO field_data_integrity_flags
+        ("formId", rule, "ruleVersion", "instanceId", outcome, evidence)
+        SELECT id, ${`rank-${instanceId}`}, 1, ${instanceId}, 'inconclusive', ${JSON.stringify({ title: value })}::jsonb
+        FROM forms WHERE "projectId" = 1 AND "xmlFormId" = 'simple' RETURNING id`);
+      const { items } = (await alice.get('/v1/field-data/review-queue?projectId=1&xmlFormId=simple').expect(200)).body;
+      const item = items.find(i => i.claimVersionId === claim.currentVersionId);
+      const assigned = await alice.patch(`/v1/field-data/review-queue/${item.id}/assignment`).set('If-Match', item.etag)
+        .set('Idempotency-Key', `rank-assign-${n}`).send({ assignedTo: actorId, status: 'in-review' })
+        .expect(200);
+      await alice.post(`/v1/field-data/review-queue/${item.id}/decisions`).set('If-Match', assigned.headers.etag)
+        .set('Idempotency-Key', `rank-decision-${n}`)
+        .send({ outcome: 'needs-evidence', override: false, reasonCode: item.reasonCodes[0], note: value,
+          evidenceIds: [], integrityFindingIds: [] })
+        .expect(201);
+      return claim.currentVersionId;
+    };
+    const exact = await add('exact-match', 'KISSY', 101);
+    const prefix = await add('prefix-match', 'Kissy bridge', 102);
+    const result = (await search(alice, 'kissy').expect(200)).body.results;
+    for (const kind of ['facts', 'findings', 'decisions']) {
+      assert.deepEqual(result[kind].slice(0, 2).map(item => item.source.instanceId), ['exact-match', 'prefix-match']);
+      assert.equal(result[kind][0].match.excerpt, 'KISSY');
+    }
+    assert.equal(result.facts[0].source.claimVersionId, exact);
+    assert.equal(result.decisions[1].source.claimVersionId, prefix);
+  }));
+
   it('lets viewers search, gives data collectors nothing, refuses App Users and checks the query', testService(async (service, container) => {
     const { alice } = await seed(service, container);
     const chelsea = await service.login('chelsea');
