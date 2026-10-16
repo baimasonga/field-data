@@ -2,11 +2,8 @@ name: Full stability validation
 
 # Two kinds of job, deliberately separated.
 #
-# The GATE jobs are checks that pass on main today, so a red one means this
-# pull request broke something. The client suite still carries a long tail of
-# failures inherited from the fork, so it is gated on "no more than the
-# baseline" rather than on zero -- a number that ratchets down as the tail is
-# cleared, and that catches a new failure the moment it appears.
+# The GATE jobs require clean server checks and a client suite with zero failures.
+# A successful client run must also report that tests actually executed.
 #
 # The REPORT job is the server integration suite. It cannot pass here yet: it
 # needs Enketo and pyxform, and neither is stood up in this workflow. Running
@@ -29,14 +26,6 @@ permissions:
 concurrency:
   group: stability-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
-
-env:
-  # Measured on main. Lower it whenever the tail gets shorter; it is a ceiling,
-  # never a target. 277 before the detached-scope fix, 80 after it, 60 once the
-  # dashboard's Project summaries were declared. It sits one above the measured
-  # 60 because SubmissionList's paging specs time out intermittently: 7 of 7 on
-  # their own, occasionally one short in a full run.
-  CLIENT_FAILURE_BASELINE: '61'
 
 jobs:
   server-checks:
@@ -100,34 +89,9 @@ jobs:
           cd apps/central
           CHROME_BIN="$(command -v google-chrome || command -v chromium || command -v chromium-browser)" \
             NODE_ENV=test npx karma start karma.nosandbox.js 2>&1 \
-            | tee ../../client-karma.log || true
-      # Karma colours its summary and puts an escape between the count and
-      # "(N FAILED)", and a suite with nothing failing says SUCCESS and gives
-      # no count at all. Match a de-coloured copy, and read both shapes.
-      - name: Compare against the failure baseline
-        run: |
-          plain=$(sed -r 's/\x1b\[[0-9;]*m//g' client-karma.log)
-          line=$(printf '%s\n' "$plain" \
-            | grep -oE 'Executed [0-9]+ of [0-9]+ (\([0-9]+ FAILED\)|SUCCESS)' | tail -1 || true)
-          if [ -z "$line" ]; then
-            echo "::error::The client suite produced no result line; it did not finish."
-            printf '%s\n' "$plain" | tail -40
-            exit 1
-          fi
-          case "$line" in
-            *FAILED*) failed=$(printf '%s' "$line" | grep -oE '[0-9]+ FAILED' | grep -oE '[0-9]+') ;;
-            *)        failed=0 ;;
-          esac
-          echo "$line"
-          echo "baseline is $CLIENT_FAILURE_BASELINE"
-          if [ "$failed" -gt "$CLIENT_FAILURE_BASELINE" ]; then
-            echo "::error::$failed failures, above the baseline of $CLIENT_FAILURE_BASELINE. This pull request added at least one."
-            printf '%s\n' "$plain" | grep -E '✗' | tail -40
-            exit 1
-          fi
-          if [ "$failed" -lt "$CLIENT_FAILURE_BASELINE" ]; then
-            echo "::notice::$failed failures, below the baseline of $CLIENT_FAILURE_BASELINE. Lower CLIENT_FAILURE_BASELINE to $failed to hold the gain."
-          fi
+            | tee ../../client-karma.log
+          sed -r 's/\x1b\[[0-9;]*m//g' ../../client-karma.log \
+            | grep -Eq 'Executed [1-9][0-9]* of [1-9][0-9]* (\(skipped [0-9]+\) )?SUCCESS'
       - name: Require encrypted media integrity tests to pass
         run: |
           set -o pipefail

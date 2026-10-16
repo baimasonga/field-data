@@ -149,8 +149,11 @@ describe('createCentralRouter()', () => {
   });
 
   describe('requireLogin', () => {
+    it('shows the public welcome page to an anonymous visitor at /', () =>
+      load('/', {}, false).restoreSession(false).respondFor('/welcome')
+        .afterResponses(app => { app.vm.$route.path.should.equal('/welcome'); }));
+
     const paths = [
-      '/',
       '/projects/1',
       '/projects/1/users',
       '/projects/1/app-users',
@@ -955,7 +958,7 @@ describe('createCentralRouter()', () => {
     // which are handled in other test files.
     it('shows static homepage title for route /', async () => {
       await load('/');
-      document.title.should.equal('Projects | Field Data');
+      document.title.should.equal('Dashboard | Field Data');
     });
 
     // Project routes

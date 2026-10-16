@@ -11,7 +11,7 @@ except according to the terms contained in the LICENSE file.
 */
 import { START_LOCATION, createRouter, createWebHistory } from 'vue-router';
 import { last } from 'ramda';
-import { watchEffect } from 'vue';
+import { effectScope, getCurrentScope, onScopeDispose, watchEffect } from 'vue';
 
 import createRoutes from './routes';
 import { beforeNextNavigation, canRoute, forceReplace, preservedData, unlessFailure } from './util/router';
@@ -31,6 +31,10 @@ export default (container, {
   const router = createRouter({ history, routes, scrollBehavior });
   const { requestData, toast, redAlert, unsavedChanges, config } = container;
   const { session } = requestData;
+  // Navigation callbacks can run outside the component that created the router.
+  // Own these effects explicitly instead of inheriting an unrelated stopped scope.
+  const validationScope = effectScope(true);
+  if (getCurrentScope() != null) onScopeDispose(() => validationScope.stop());
 
 
 
@@ -195,11 +199,12 @@ reused after a route change, but that shouldn't happen given our use of the
 {
   const stop = [];
   router.afterEach(unlessFailure(to => {
+    if (!validationScope.active) return;
     while (stop.length !== 0)
       stop.pop()();
 
     for (const [resource, validator] of to.meta.validateData) {
-      stop.push(watchEffect(() => {
+      stop.push(validationScope.run(() => watchEffect(() => {
         if (resource.dataExists && !validator()) {
           // TODO/requestData. Update these comments.
           // We are about to navigate to /. That alone should clear any data for
@@ -210,7 +215,7 @@ reused after a route change, but that shouldn't happen given our use of the
           resource.data = null;
           forceReplace(container, '/');
         }
-      }));
+      })));
     }
   }));
 }

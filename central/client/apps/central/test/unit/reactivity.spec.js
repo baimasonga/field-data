@@ -2,6 +2,7 @@ import { nextTick, watch } from 'vue';
 
 import { loadAsync, setLoader } from '../../src/util/load-async';
 import { modalData } from '../../src/util/reactivity';
+import { withSetup } from '../util/lifecycle';
 
 describe('util/reactivity', () => {
   describe('modalData()', () => {
@@ -25,8 +26,10 @@ describe('util/reactivity', () => {
       it('triggers reactive effects', async () => {
         const modal = modalData();
         let count = 0;
-        watch(() => modal.state, () => { count += 1; });
-        watch(() => modal.foo, () => { count += 1; });
+        withSetup(() => {
+          watch(() => modal.state, () => { count += 1; });
+          watch(() => modal.foo, () => { count += 1; });
+        });
         modal.show({ foo: 'bar' });
         await nextTick();
         count.should.equal(2);
@@ -81,8 +84,10 @@ describe('util/reactivity', () => {
         const modal = modalData();
         modal.show({ foo: 'bar' });
         let count = 0;
-        watch(() => modal.state, () => { count += 1; });
-        watch(() => modal.foo, () => { count += 1; });
+        withSetup(() => {
+          watch(() => modal.state, () => { count += 1; });
+          watch(() => modal.foo, () => { count += 1; });
+        });
         modal.hide();
         await nextTick();
         count.should.equal(2);

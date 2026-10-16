@@ -55,6 +55,7 @@ describe('FormShow', () => {
         { url: '/v1/projects/1/forms/a%20b/assignments/app-user' },
         { url: '/v1/projects/1/forms/a%20b/draft/attachments' },
         { url: '/v1/projects/1/forms/a%20b/versions', extended: true },
+        { url: '/v1/projects/1/forms/a%20b/draft/doctor' },
         { url: '/v1/projects/1/forms/a%20b/draft/submissions/keys' },
         { url: '/v1/projects/1/forms/a%20b/draft/fields?odata=true' },
         {

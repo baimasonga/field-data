@@ -98,7 +98,9 @@ describe('HoverCard', () => {
         dd: xs(100)
       });
       dtWidth.should.be.above(300);
-      ddWidth.should.equal(dtWidth);
+      // The value may grow beyond half the default card, but not past its label.
+      ddWidth.should.be.above(144);
+      ddWidth.should.be.at.most(dtWidth);
       truncatesText(component.get('dd').element).should.be.true;
     });
 

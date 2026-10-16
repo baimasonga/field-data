@@ -65,7 +65,7 @@ describe('UserEditPassword', () => {
     });
     component.find('form').exists().should.be.false;
     const text = component.get('p').text();
-    text.should.equal('This Central server does not manage any login passwords.');
+    text.should.equal('This Field Data server does not manage any login passwords.');
   });
 
   it("renders correctly if it is not the current user's own account", () => {
