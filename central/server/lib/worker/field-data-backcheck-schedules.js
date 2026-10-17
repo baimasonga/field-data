@@ -21,6 +21,10 @@ const runSchedule = (db, scheduleId, now) => db.transaction(async (trx) => {
     WHERE b.id = ${scheduleId} AND b.enabled AND b."nextRunAt" <= ${now.toISOString()}
     FOR UPDATE OF b SKIP LOCKED`);
   if (schedule == null || schedule.formDeletedAt != null) return null;
+  // Hold the form too, so it cannot be deleted while its sample is drawn; a
+  // deletion already under way is waited for, then seen.
+  const form = await trx.maybeOne(sql`SELECT "deletedAt" FROM forms WHERE id = ${schedule.formId} FOR SHARE`);
+  if (form == null || form.deletedAt != null) return null;
   const run = dueRun(schedule, now);
   if (run == null) return null;
   const settings = {
