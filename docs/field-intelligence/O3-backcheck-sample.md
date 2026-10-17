@@ -95,3 +95,11 @@ balancing, statistical estimates from backcheck results.
   request and link; migration rollback keeps samples.
 - Browser: draw a sample on the Verification page, see the coverage table and
   links to the review cases.
+
+
+## O21 extension
+
+[O21](O21-grouped-backcheck-sampling.md) adds optional manual grouping by a
+recorded scalar area/answer within each collector, with immutable group values
+and live grouped coverage. The collector-only contract above remains the default;
+O6 schedules retain collector-only sampling.

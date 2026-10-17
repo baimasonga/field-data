@@ -18,10 +18,28 @@ docs/field-intelligence/O6-scheduled-backcheck-samples.md -->
     </p>
 
     <form v-if="canDraw" class="backcheck-sample-form" @submit.prevent="drawSample">
-      <label>Share of each collector's Submissions (%)
+      <label>Group submissions
+        <select v-model="groupMode" class="form-control" @change="loadGroupFields">
+          <option value="collector">By collector</option>
+          <option value="field">By collector and area or answer</option>
+        </select>
+      </label>
+      <template v-if="groupMode === 'field'">
+        <p v-if="fieldsLoading" role="status">Loading grouping questions…</p>
+        <div v-if="fieldsError" role="alert">Grouping questions could not be loaded. <button type="button" class="btn btn-link" @click="loadGroupFields">Retry</button></div>
+        <p v-if="!fieldsLoading && !fieldsError && fields.length === 0" role="status">No grouping questions are available. Use collector-only sampling for encrypted forms or forms without supported questions.</p>
+        <label>Area or answer question
+          <select v-model="groupField" class="form-control" required>
+            <option value="" disabled>Choose a question</option>
+            <option v-for="field of fields" :key="field.path" :value="field.path">{{ field.path }} ({{ field.type }})</option>
+          </select>
+        </label>
+        <p class="backcheck-sample-hint">Uses exact answers within each collector; spaces at the beginning or end are ignored and capitalization stays distinct. Missing answers form a separate group. Choose a recorded area or categorical answer, not a personal identifier. Selected values are retained in the sample history (at most 100 groups, 200 characters per value). Repeat, multi-select, media and encrypted answers are unavailable.</p>
+      </template>
+      <label>{{ groupMode === 'field' ? 'Share of each collector and answer group (%)' : "Share of each collector's Submissions (%)" }}
         <input v-model.number="settings.rate" type="number" min="1" max="100" step="1" required class="form-control">
       </label>
-      <label>At least, per collector
+      <label>{{ groupMode === 'field' ? 'At least, per collector and answer group' : 'At least, per collector' }}
         <input v-model.number="settings.minPerCollector" type="number" min="0" max="20" step="1" required class="form-control">
       </label>
       <label>Received from (optional)
@@ -43,7 +61,7 @@ docs/field-intelligence/O6-scheduled-backcheck-samples.md -->
       <p class="backcheck-schedule-lead">
         With a schedule on, a sample of the Submissions received in each day or week (UTC; weeks start on Monday)
         is drawn when that period ends, with the same rules. Turning it on starts from now: earlier Submissions are
-        only sampled by drawing above.
+        only sampled by drawing above. Scheduled draws group by collector; the optional area/answer grouping above applies to manual draws.
       </p>
       <p v-if="schedule != null" role="status" class="backcheck-schedule-status">
         <template v-if="schedule.enabled">
@@ -100,11 +118,23 @@ docs/field-intelligence/O6-scheduled-backcheck-samples.md -->
         <p role="status" class="backcheck-sample-summary">
           Drawn {{ formatDate(sample.drawnAt) }}<template v-if="sample.scheduled"> on schedule</template><template v-else-if="sample.drawnBy"> by {{ sample.drawnBy.displayName }}</template>:
           {{ sample.sampled }} of {{ sample.eligible }} eligible Submissions
-          ({{ sample.settings.rate }}% per collector, at least {{ sample.settings.minPerCollector }}{{ receivedRange }}){{ sampledBeforeText }}.
+          ({{ sample.settings.rate }}% per {{ sample.settings.groupField ? `collector and answer group for ${sample.settings.groupField}` : 'collector' }}, at least {{ sample.settings.minPerCollector }}{{ receivedRange }}){{ sampledBeforeText }}.
           <template v-if="sample.alreadyDecided > 0">
             {{ sample.alreadyDecided }} already had a review decision and were not reopened.
           </template>
         </p>
+        <div v-if="sample.settings.groupField" class="backcheck-group-coverage">
+          <table class="table">
+            <caption>Coverage by answer group · {{ sample.settings.groupField }}</caption>
+            <thead><tr><th scope="col">Answer group</th><th scope="col">Eligible</th><th scope="col">Sampled</th><th scope="col">Backcheck requested</th><th scope="col">Backcheck linked</th></tr></thead>
+            <tbody>
+<tr v-for="group of sample.groups" :key="JSON.stringify(group.value)">
+              <th scope="row">{{ group.value == null ? 'Missing answer' : group.value }}</th>
+              <td>{{ group.eligible }}</td><td>{{ group.sampled }}</td><td>{{ group.requested }}</td><td>{{ group.linked }}</td>
+            </tr>
+</tbody>
+          </table>
+        </div>
         <table class="table backcheck-sample-coverage">
           <caption>Coverage by collector</caption>
           <thead>
@@ -122,7 +152,7 @@ docs/field-intelligence/O6-scheduled-backcheck-samples.md -->
           <ul>
             <li v-for="item of sample.items" :key="item.instanceId">
               <router-link :to="submissionPath(item.instanceId)">{{ item.instanceId }}</router-link>
-              · {{ item.displayName ?? 'Unknown' }} ·
+              · {{ item.displayName ?? 'Unknown' }}<template v-if="sample.settings.groupField"> · Group: {{ item.groupValue == null ? 'Missing answer' : item.groupValue }}</template> ·
               <template v-if="item.routing === 'already-decided'">already decided, not reopened</template>
               <template v-else-if="item.backcheck">backcheck {{ item.backcheck }}</template>
               <template v-else>in the review queue, no backcheck yet</template>
@@ -131,7 +161,7 @@ docs/field-intelligence/O6-scheduled-backcheck-samples.md -->
         </details>
         <p class="backcheck-sample-seed">
           Seed <code>{{ sample.seed }}</code>. Each Submission's place in the draw is
-          SHA-256 of the seed, a colon and its instance ID, lowest first within each collector,
+          SHA-256 of the seed, a colon and its instance ID, lowest first within each {{ sample.settings.groupField ? 'collector and answer group' : 'collector' }},
           so the draw can be checked from the seed and the list of eligible Submissions.
         </p>
       </div>
@@ -161,6 +191,15 @@ const base = () => `/v1/projects/${props.projectId}/forms/${encodeURIComponent(p
 
 const loadError = ref(false);
 const samples = ref(null); const sample = ref(null); const selectedId = ref(null); const error = ref('');
+const groupMode = ref('collector'); const groupField = ref(''); const fields = ref([]); const fieldsLoading = ref(false); const fieldsError = ref(false);
+const loadGroupFields = () => {
+  if (groupMode.value !== 'field' || fieldsLoading.value) return Promise.resolve();
+  fieldsLoading.value = true; fieldsError.value = false;
+  return request({ method: 'GET', url: `${base()}/fields`, alert: false })
+    .then(({ data }) => { if (!Array.isArray(data?.fields)) throw new Error(); fields.value = data.fields; if (!fields.value.some(field => field.path === groupField.value)) groupField.value = ''; })
+    .catch(() => { fieldsError.value = true; })
+    .finally(() => { fieldsLoading.value = false; });
+};
 const settings = reactive({ rate: 10, minPerCollector: 1, receivedFrom: '', receivedTo: '' });
 const receivedRange = computed(() => {
   const value = sample.value?.settings;
@@ -216,8 +255,10 @@ let requestId = null; let requestFor = null;
 const drawSample = () => {
   if (busy.value) return Promise.resolve();
   error.value = '';
+  if (groupMode.value === 'field' && (!groupField.value || fieldsError.value || fieldsLoading.value)) { error.value = 'Choose an available grouping question before drawing.'; return Promise.resolve(); }
   const data = {
     rate: settings.rate, minPerCollector: settings.minPerCollector,
+    ...(groupMode.value === 'field' ? { groupField: groupField.value } : {}),
     ...(settings.receivedFrom ? { receivedFrom: settings.receivedFrom } : {}),
     ...(settings.receivedTo ? { receivedTo: settings.receivedTo } : {})
   };
@@ -230,7 +271,7 @@ const drawSample = () => {
       emit('drawn');
       return load();
     })
-    .catch((e) => { error.value = e.response?.data?.message || 'The sample could not be drawn.'; });
+    .catch((e) => { error.value = e.response?.data?.message || 'The sample could not be drawn. Check the question, group limits and permissions, then retry.'; });
 };
 
 const showSample = (id) => { selectedId.value = id; return loadSample(); };
@@ -254,6 +295,7 @@ const submissionPath = (instanceId) =>
   .backcheck-sample-error { color: $color-danger; }
   .backcheck-sample-pick { display: block; max-width: 360px; font-weight: normal; }
   .backcheck-sample-coverage { max-width: 720px; caption { color: inherit; font-weight: bold; } }
+  .backcheck-group-coverage { overflow-x: auto; caption { color: inherit; font-weight: bold; } }
   .backcheck-sample-items ul { margin: 6px 0 0; padding-left: 18px; }
   .backcheck-sample-seed code { overflow-wrap: anywhere; }
   .backcheck-schedule { margin: 12px 0 20px; }

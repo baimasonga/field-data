@@ -375,7 +375,7 @@ pilot is a separate acceptance activity. Product work resumes with K7 above.
 | Knowledge | Asset facts, ownership history, freshness, cited search and multi-fact historical projections | Location/photo identity comparisons, asset maps/location areas, broader decision projections, answer/semantic retrieval, causal contracts and diagnostics |
 | Evidence/trust | Evidence graph, challenges/replay checks, signed witnesses with correction/withdrawal history, human assessments and device-reported location | Delegation, certified key revocation, independent sensor/hardware corroboration, calibrated presence limitations |
 | Offline resilience | Signed encrypted assignments/itineraries, recoverable media, encrypted relay packages and receipts | Durable XML submission queues, Collect integration, background sync and delegated courier/custody transport |
-| Operations | Sampling, allocation, shared capacity, same-day/overnight UTC shifts, combined approved itineraries and agreement counts | Additional task types, navigation, sampling strata and calibrated estimates |
+| Operations | Sampling, allocation, shared capacity, same-day/overnight UTC shifts, combined approved itineraries, manual collector/answer sampling and agreement counts | Additional task types, navigation, scheduled field strata, weighting and calibrated estimates |
 | Geospatial | Location integrity, imagery availability and cited human geospatial assessments with temporal context and outdated history | Exact footprint checks, reviewed change candidates, imagery analysis and evaluated automated change detection |
 | Fraud intelligence | Contradictions, identity reuse, similarity, collector links, investigations/outcomes, live case links and targeted backcheck questions with reviewed form drafts | Peer-side targeting, multilingual/effectiveness evaluation, calibrated triage and false-positive evaluation |
 | Adaptive surveys | Doctor, simulations, version-change analysis and recodes | Approved bounded policies, reviewed evolution/draft generation, answer uncertainty, conversational multilingual support and native-export recodes |
@@ -435,3 +435,13 @@ quota and minimum visit-time checks charged to its start date. Approved online
 and signed offline itineraries retain the full UTC boundary. See
 [O20-overnight-visit-shifts.md](O20-overnight-visit-shifts.md). Navigation, additional
 task types, sampling strata and calibrated estimates remain pending.
+
+
+### O21 sampling by recorded area or answer
+
+Manual draws can use a selected scalar question within each collector, with
+visible missing-answer groups, reproducible retained group membership, and live
+requested/linked backcheck coverage by group alongside collector totals. Existing
+review and independent assignment rules apply. See
+[O21-grouped-backcheck-sampling.md](O21-grouped-backcheck-sampling.md). Scheduled
+field strata, unequal group rates, weighting and calibrated estimates remain pending.
