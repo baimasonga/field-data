@@ -7,6 +7,7 @@ const { UUID_PATTERN } = require('../util/claim-versioning');
 const links = require('../util/investigation-case-links');
 const Problem = require('../util/problem');
 const instrument = require('../util/investigation-instrument');
+const responseFormDraft = require('../util/investigation-response-form');
 const { requestBackcheck } = require('../util/backcheck-request');
 const conflict = () => Problem.user.investigationCaseLinkConflict();
 const scope = async (c, auth, params) => {
@@ -146,8 +147,27 @@ module.exports = (service, endpoint) => {
       const form = await tx.Forms.getByProjectAndXmlFormId(project.id, row.xmlFormId, Form.WithoutDef, Form.WithoutXml).then(getOrNotFound);
       const pending = await tx.db.oneFirst(sql`SELECT count(*)::integer FROM field_data_backchecks WHERE "caseId" = ${row.id} AND status = 'requested'`);
       return { templateVersion: instrument.VERSION, investigationRevision: inv.revision, caseRevision: row.revision,
+        canGenerateForm: !actor.archived && inv.status === 'open' && row.current && ['open', 'in-review'].includes(row.status) && await auth.can('form.create', project),
         items: items.slice(0, instrument.MAX_FINDINGS), omitted: Math.max(0, items.length - instrument.MAX_FINDINGS),
         canRequest: !actor.archived && inv.status === 'open' && row.current && row.status === 'in-review' && row.assignedTo === actor.id && pending === 0 && await auth.can('submission.update', form) };
+    });
+    response.set('Cache-Control', 'private, no-store'); return result;
+  }));
+  service.post(`${root}/:linkId/instrument/form-definition`, endpoint(async (c, { auth, params, body }, _, response) => {
+    const project = await scope(c, auth, params); const data = responseFormDraft.checked(body);
+    const result = await c.transacting(async tx => {
+      const { actor, inv, row } = await linkedScope(tx, auth, project, params, true);
+      await grantLock(tx.db, actor.id, project.acteeId, 'form.create');
+      if (inv.revision !== data.investigationRevision) throw Problem.user.investigationRevisionStale();
+      if (inv.status !== 'open' || actor.archived) throw Problem.user.investigationInstrumentConflict();
+      // Integrity writers lock findings before cases; use that same order to avoid a cycle.
+      const suggestions = (await instrumentFindings(tx.db, inv, row, true)).slice(0, instrument.MAX_FINDINGS);
+      if (data.findingIds.some(id => !suggestions.some(item => item.findingId === id))) throw instrument.invalid();
+      const current = await tx.db.one(sql`SELECT revision,status FROM field_data_review_cases WHERE id = ${row.id} FOR SHARE`);
+      if (current.revision !== data.caseRevision) throw Problem.user.reviewRevisionStale();
+      if (!row.current || !['open', 'in-review'].includes(current.status)) throw Problem.user.reviewCaseClosed();
+      const selected = suggestions.filter(item => data.findingIds.includes(item.findingId));
+      return { templateVersion: instrument.VERSION, definition: responseFormDraft.generate(selected) };
     });
     response.set('Cache-Control', 'private, no-store'); return result;
   }));

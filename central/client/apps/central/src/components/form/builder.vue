@@ -215,7 +215,9 @@ defineOptions({ name: 'FormBuilder' });
 
 const props = defineProps({
   projectId: { type: [String, Number], required: true },
-  initialAdvanced: Boolean
+  initialAdvanced: Boolean,
+  initialDefinition: { type: Object, default: null },
+  persistDraft: { type: Boolean, default: true }
 });
 const emit = defineEmits(['success']);
 
@@ -419,18 +421,20 @@ const create = async () => {
       // and nothing else, so it is said rather than thrown.
       alert.warning(t('alert.definitionNotSaved'));
     }).then(() => form))
-    .then((form) => { sessionStorage.removeItem(draftKey); emit('success', form); })
+    .then((form) => { if (props.persistDraft) sessionStorage.removeItem(draftKey); emit('success', form); })
     .catch(noop);
 };
 
 const hasAdvancedFields = computed(() => advanced.value && (extraSheets.value.length > 0 || Object.keys(settingsExtra.value).length > 0 || listsText.value !== '{}' || defaultLanguage.value !== '' || draft.questions.some(q => !questionTypes.value.some(questionType => questionType.name === q.type) || Object.keys(q.xlsExtra || {}).length > 0 || ['group', 'repeat', 'calculate'].includes(q.type) || ['relevant', 'constraint', 'calculation', 'choiceFilter'].some(k => q[k]) || Object.keys(q.translations || {}).length)));
 try {
-  const saved = JSON.parse(sessionStorage.getItem(draftKey));
+  const saved = props.persistDraft && !props.initialDefinition ? JSON.parse(sessionStorage.getItem(draftKey)) : null;
   if (saved) { Object.assign(draft, saved.draft); advanced.value = saved.advanced; listsText.value = saved.listsText; defaultLanguage.value = saved.defaultLanguage; updateExisting.value = saved.updateExisting || false; settingsExtra.value = saved.settingsExtra || {}; extraSheets.value = saved.extraSheets || []; }
 } catch { /* An incompatible local draft does not replace the saved server definition. */ }
+if (props.initialDefinition) loadDefinition(props.initialDefinition);
 key = Math.max(key, ...draft.questions.map(q => Number(q.key) || 0));
 if (!draft.questions.length) addQuestion();
 watch([draft, advanced, listsText, defaultLanguage, settingsExtra, extraSheets, updateExisting], () => {
+  if (!props.persistDraft) return;
   try { sessionStorage.setItem(draftKey, JSON.stringify({ draft, advanced: advanced.value, listsText: listsText.value, defaultLanguage: defaultLanguage.value, settingsExtra: settingsExtra.value, extraSheets: extraSheets.value, updateExisting: updateExisting.value })); } catch { advancedError.value = 'Local draft could not be saved. Download the XLSForm to preserve your work.'; }
 }, { deep: true });
 </script>

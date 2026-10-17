@@ -97,8 +97,12 @@ also exist. Those features must not be re-labelled as full completion of this pr
   primary-source findings, manager editing and published response-form selection,
   with independent collector dispatch through the existing backcheck workflow; see
   [F9-targeted-backcheck-instruments.md](F9-targeted-backcheck-instruments.md).
-  Automatic instrument schema generation, calibrated triage and broader
-  fraud-intelligence acceptance remain pending.
+  Generated response-form drafts (F10): consent-aware template fields reviewed
+  in the advanced builder, validated with the real compiler and saved through
+  ordinary draft creation, preserving existing builder work; see
+  [F10-generated-response-form-drafts.md](F10-generated-response-form-drafts.md).
+  Peer-side targeting, multilingual/effectiveness evaluation, calibrated triage
+  and broader fraud-intelligence acceptance remain pending.
 - Receipt and custody ledger (R1, first offline-resilience custody slice):
   an append-only, hash-chained receipt per submission version received,
   written by a database trigger; manager verification of chain and stored
@@ -373,7 +377,7 @@ pilot is a separate acceptance activity. Product work resumes with K7 above.
 | Offline resilience | Signed encrypted assignments/itineraries, recoverable media, encrypted relay packages and receipts | Durable XML submission queues, Collect integration, background sync and delegated courier/custody transport |
 | Operations | Sampling, allocation, shared capacity, UTC shifts, combined approved itineraries and agreement counts | Overnight shifts, additional task types, navigation, sampling strata and calibrated estimates |
 | Geospatial | Location integrity, imagery availability and cited human geospatial assessments with temporal context and outdated history | Exact footprint checks, reviewed change candidates, imagery analysis and evaluated automated change detection |
-| Fraud intelligence | Contradictions, identity reuse, similarity, collector links and investigations/outcomes | Review-case linking, calibrated triage and false-positive evaluation; targeted instruments remain deferred |
+| Fraud intelligence | Contradictions, identity reuse, similarity, collector links, investigations/outcomes, live case links and targeted backcheck questions with reviewed form drafts | Peer-side targeting, multilingual/effectiveness evaluation, calibrated triage and false-positive evaluation |
 | Adaptive surveys | Doctor, simulations, version-change analysis and recodes | Approved bounded policies, reviewed evolution/draft generation, answer uncertainty, conversational multilingual support and native-export recodes |
 | Multimodal | Provenance-preserving capture, manual evidence review and reviewed photo-text/voice extraction with correction history | Live provider/language evaluation, asset/module suggestions, guided capture, source-grounded drafts, offline models and field acceptance |
 
