@@ -24,7 +24,7 @@
           <p>Submission review state: {{ inspection.case.submissionReviewState ?? 'received' }}. This is separate from the investigation disposition.</p>
           <router-link :to="submissionPath(inspection.case.xmlFormId, inspection.case.instanceId)">Open source submission</router-link> ·
           <a :href="versionPath(inspection.case.xmlFormId, inspection.case.instanceId, inspection.case.versionInstanceId)" target="_blank" rel="noopener noreferrer">Download pinned source XML</a>
-          <field-data-investigation-instrument :key="inspection.linkId" :base="`${base}/${encodeURIComponent(inspection.linkId)}`" :case-id="inspection.case.id" @requested="inspect(item)"/>
+          <field-data-investigation-instrument :key="inspection.linkId" :base="`${base}/${encodeURIComponent(inspection.linkId)}`" :case-id="inspection.case.id" @requested="inspect(item)" @unavailable="instrumentUnavailable"/>
           <h5>Review decision history</h5><p v-if="!inspection.decisions.length">No review decision recorded.</p>
           <ol>
 <li v-for="decision in inspection.decisions" :key="decision.id">
@@ -116,6 +116,7 @@ const search = async more => {
     if (current === generation) { candidates.value = value.items; searched.value = true; nextCursor.value = value.nextCursor; lastQuery.value = q.value.trim(); lastStatus.value = status.value; }
   } catch { if (current === generation) { candidates.value = []; nextCursor.value = null; error.value = 'Readable cases could not be loaded. Search again after checking access.'; } } finally { if (current === generation) busy.value = false; }
 };
+const instrumentUnavailable = () => { generation += 1; busy.value = false; loading.value = false; pending.value = null; removing.value = null; reason.value = ''; caseId.value = ''; searched.value = false; inspection.value = null; data.value = null; candidates.value = []; nextCursor.value = null; error.value = 'Instrument access changed. Refresh linked cases to check the source and response-form permissions.'; };
 const remove = id => { removing.value = id; reason.value = ''; inspection.value = null; error.value = ''; };
 const save = async deleting => {
   if (busy.value || !data.value) return; const current = generation; busy.value = true; error.value = '';

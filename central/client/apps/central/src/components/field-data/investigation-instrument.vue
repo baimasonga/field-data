@@ -41,7 +41,7 @@ import useRequest from '../../composables/request';
 
 defineOptions({ name: 'FieldDataInvestigationInstrument' });
 const props = defineProps({ base: { type: String, required: true }, caseId: { type: String, required: true } });
-const emit = defineEmits(['requested']); const { request } = useRequest();
+const emit = defineEmits(['requested', 'unavailable']); const { request } = useRequest();
 const data = ref(null); const forms = ref([]); const busy = ref(false); const error = ref(''); const pending = ref(null);
 const selected = ref([]); const drafted = ref([]); const question = ref(''); const formId = ref(''); const collector = ref(null); const due = ref('');
 let generation = 0;
@@ -79,7 +79,10 @@ const save = async () => {
     await request({ method: 'POST', url: `${props.base}/instrument/backchecks`, data: pending.value.body, headers: { 'If-Match': `"review-case-${pending.value.revision}"` }, alert: false });
     if (current === generation) { pending.value = null; data.value = null; emit('requested'); }
   } catch (failure) {
-    if (current === generation) error.value = [400, 403, 404, 409, 412, 428].includes(failure.response?.status)
+    if (current === generation && [403, 404].includes(failure.response?.status)) {
+      data.value = null; forms.value = []; pending.value = null; selected.value = []; drafted.value = []; question.value = ''; formId.value = ''; collector.value = null; due.value = '';
+      emit('unavailable');
+    } else if (current === generation) error.value = [400, 409, 412, 428].includes(failure.response?.status)
       ? 'The case, investigation, finding or permissions changed. Refresh the instrument before making another request.'
       : 'The request could not be confirmed. Retry the same backcheck request or refresh the instrument.';
   } finally { if (current === generation) busy.value = false; }

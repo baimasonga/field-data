@@ -1916,7 +1916,7 @@ const setupInstrument = async page => {
   const context = await setupCaseLinks(page); const { f, region, link, inv } = context;
   const fixture = { canRequest: true, items: [{ findingId: 11, ruleVersion: 2, label: 'Similar answers', question: 'Collect the key survey answers independently without showing the earlier answers.' },
     { findingId: 12, ruleVersion: 1, label: 'Visit location', question: 'Confirm where the visit took place and record legitimate reasons for an uncertain location.' }],
-  caseRevision: 4, writes: [], seen: new Map(), lostResponse: false, stale: false, unavailable: false, delay: null };
+  caseRevision: 4, writes: [], seen: new Map(), lostResponse: false, stale: false, unavailable: false, denyWrite: false, delay: null };
   await page.route('**/v1/projects/7/investigations/*/cases/*/instrument**', async route => {
     if (route.request().method() === 'GET') {
       if (fixture.delay) await fixture.delay;
@@ -1924,6 +1924,7 @@ const setupInstrument = async page => {
       return route.fulfill({ json: { templateVersion: 'investigation-backcheck@1', investigationRevision: inv.revision, caseRevision: fixture.caseRevision, items: fixture.items, omitted: 0, canRequest: fixture.canRequest } });
     }
     const body = route.request().postDataJSON(); const header = route.request().headers()['if-match']; fixture.writes.push({ body, header });
+    if (fixture.denyWrite) return route.fulfill({ status: 404, json: { message: 'Source or response form unavailable' } });
     if (fixture.seen.has(body.requestId)) { expect({ body, header }).toEqual(fixture.seen.get(body.requestId)); return route.fulfill({ status: 201, json: { id: backcheckId, replayed: true } }); }
     if (fixture.stale) { fixture.stale = false; fixture.caseRevision += 1; return route.fulfill({ status: 412, json: { message: 'Changed' } }); }
     expect(header).toBe(`"review-case-${fixture.caseRevision}"`); expect(body.investigationRevision).toBe(inv.revision);
@@ -1994,4 +1995,14 @@ test('targeted instrument clears unavailable and delayed private drafts when lin
   await expect(region.locator('.case-inspection')).toHaveCount(0);
   await expect(region.getByRole('region', { name: 'Targeted backcheck instrument' })).toHaveCount(0);
   expect(errors).toEqual([]);
+});
+
+
+test('targeted instrument clears cached inspection after a request loses source or response-form access', async ({ page }) => {
+  const { fixture, instrument, prepare, region, errors } = await setupInstrument(page); await prepare(); fixture.denyWrite = true;
+  await instrument.getByRole('button', { name: 'Request targeted backcheck' }).click();
+  await expect(region.getByRole('alert')).toContainText('Instrument access changed');
+  await expect(region.locator('.case-inspection')).toHaveCount(0);
+  await expect(region).not.toContainText('uuid:source'); await expect(region).not.toContainText('Related household evidence.');
+  expect(fixture.seen.size).toBe(0); expect(errors).toEqual([]);
 });

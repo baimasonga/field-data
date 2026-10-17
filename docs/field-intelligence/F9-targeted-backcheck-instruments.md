@@ -65,6 +65,7 @@ adds no duplicate request or audit, even after closure/withdrawal. Active link,
 manager and both source/response grants must still be present for replay; removal
 or revoked access hides the request through this workflow. Changed retry contents
 conflict. Refresh clears the pending draft/request and starts a fresh identity.
+Explicit access denials clear cached instrument and case inspection details.
 Failures never silently fall back to another form, collector or source.
 
 ## Acceptance and remaining work
