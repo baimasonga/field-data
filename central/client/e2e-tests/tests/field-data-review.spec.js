@@ -1987,8 +1987,10 @@ test('targeted instrument refreshes stale state and creates a fresh identity bef
 test('targeted instrument clears unavailable and delayed private drafts when linked source inspection is refreshed', async ({ page }) => {
   const { fixture, instrument, prepare, region, errors } = await setupInstrument(page); await prepare(); fixture.unavailable = true;
   await instrument.getByRole('button', { name: 'Refresh instrument' }).click();
-  await expect(instrument.getByRole('alert')).toContainText('could not be prepared'); await expect(instrument.getByLabel('Questions for the independent visit')).toHaveCount(0);
+  await expect(region.getByRole('alert')).toContainText('Instrument access changed'); await expect(region.locator('.case-inspection')).toHaveCount(0);
   fixture.unavailable = false;
+  await region.getByRole('button', { name: 'Refresh linked cases' }).click();
+  await region.getByRole('button', { name: 'Inspect linked case' }).click();
   let release; fixture.delay = new Promise(resolve => { release = resolve; });
   await instrument.getByRole('button', { name: 'Prepare targeted backcheck' }).click();
   await region.getByRole('button', { name: 'Refresh linked cases' }).click(); release();

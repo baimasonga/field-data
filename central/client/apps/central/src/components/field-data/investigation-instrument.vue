@@ -59,7 +59,10 @@ const load = async () => {
     const available = value.canRequest && value.items.length ? (await request({ method: 'GET', url: `/v1/field-data/review-queue/${encodeURIComponent(props.caseId)}/backcheck-forms`, alert: false })).data : [];
     if (!Array.isArray(available) || !available.every(form => typeof form.xmlFormId === 'string' && Array.isArray(form.assignees))) throw new Error('Invalid forms');
     if (current === generation) { data.value = value; forms.value = available; }
-  } catch { if (current === generation) error.value = 'The instrument could not be prepared. Refresh to check the source, findings and permissions.'; } finally { if (current === generation) busy.value = false; }
+  } catch (failure) {
+    if (current === generation && [403, 404].includes(failure.response?.status)) emit('unavailable');
+    else if (current === generation) error.value = 'The instrument could not be prepared. Refresh to check the source, findings and permissions.';
+  } finally { if (current === generation) busy.value = false; }
 };
 const draft = () => {
   const prompts = [...new Set(data.value.items.filter(item => selected.value.includes(item.findingId)).map(item => item.question))];
