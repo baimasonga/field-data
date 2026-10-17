@@ -1,4 +1,5 @@
 #!/bin/bash -eu
 set -o pipefail
 cd /usr/odk
-/usr/local/bin/node lib/bin/run-field-data-backups.js >/proc/1/fd/1 2>/proc/1/fd/2
+. ./container-output.sh
+/usr/local/bin/node lib/bin/run-field-data-backups.js >&3 2>&4

@@ -1,6 +1,7 @@
 #!/bin/bash -eu
 set -o pipefail
 cd /usr/odk
+. ./container-output.sh
 
 # Each run leaves a row in cron_log, so whether cron fires at all, and why the
 # runner fails when it does, can be read from the database: the container log
@@ -25,13 +26,13 @@ SQL
 record started "cron started the operations runner"
 errors=$(mktemp)
 status=0
-if /usr/local/bin/node lib/bin/run-field-data-operations.js >/proc/1/fd/1 2>"$errors"; then
+if /usr/local/bin/node lib/bin/run-field-data-operations.js >&3 2>"$errors"; then
   record succeeded "operations runner finished"
 else
   status=$?
   record failed "exit $status: $(tail -c 500 "$errors" | tr '\n' ' ')"
 fi
-cat "$errors" >/proc/1/fd/2 2>/dev/null || true
+cat "$errors" >&4 || true
 rm -f "$errors"
 # The runner's own status, so cron and manual callers still see a failure.
 exit "$status"
