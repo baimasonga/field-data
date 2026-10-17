@@ -14,6 +14,12 @@ const decode = (value, limit = MAX_BYTES) => {
 const uuid = value => typeof value === 'string' && /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(value);
 const text = (value, limit) => typeof value === 'string' && value.length <= limit;
 
+const validShiftWindow = (shift, date) => {
+  const canonical = value => typeof value === 'string' && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(value) && Number.isFinite(Date.parse(value)) && new Date(value).toISOString() === value;
+  return shift != null && typeof shift === 'object' && !Array.isArray(shift) && Object.keys(shift).every(key => ['startAt', 'endAt'].includes(key)) &&
+    canonical(shift.startAt) && canonical(shift.endAt) && shift.startAt.slice(0, 10) === date &&
+    Date.parse(shift.endAt) > Date.parse(shift.startAt) && Date.parse(shift.endAt) - Date.parse(shift.startAt) < 86400000;
+};
 export const validateTime = (data, now = Date.now()) => {
   const issued = Date.parse(data.issuedAt);
   const expiry = Date.parse(data.expiresAt);
@@ -60,6 +66,7 @@ export const verifySnapshot = async (bundle, origin = window.location.origin) =>
       routes.items.some(route => !uuid(route.id) || !text(route.note, 2000) || typeof route.needsReview !== 'boolean' ||
         !text(route.method, 500) || !/^\d{4}-\d{2}-\d{2}$/.test(route.date ?? '') || !Number.isFinite(Date.parse(`${route.date}T00:00:00Z`)) ||
         new Date(`${route.date}T00:00:00Z`).toISOString().slice(0, 10) !== route.date || !location(route.start) ||
+        (route.shift != null && (!validShiftWindow(route.shift, route.date))) ||
         !Number.isInteger(route.withheld) || route.withheld < 0 || route.withheld > 100 || !Array.isArray(route.stops) || route.stops.length > 100 ||
         route.stops.some((stop, i) => !uuid(stop.id) || !Number.isInteger(stop.order) || stop.order < 1 || stop.order > 100 ||
           (stop.kind != null && !['backcheck', 'reverification'].includes(stop.kind)) ||

@@ -10,7 +10,7 @@ const { timestamp } = require('../util/asset-freshness');
 const { ALLOCATION_LOCK } = require('../util/backcheck-request');
 const { reverificationVisits } = require('../util/reverification-visits');
 const { visitUsage } = require('../util/visit-capacity');
-const { validDate, slotFor } = require('../util/backcheck-calendar');
+const { validDate, slotOnDate } = require('../util/backcheck-calendar');
 
 const STATUSES = ['queued', 'dispatched', 'closed', 'cancelled', 'superseded'];
 const REASON_CODES = ['access-blocked', 'safety', 'asset-removed', 'duplicate', 'other'];
@@ -292,14 +292,12 @@ module.exports = (service, endpoint) => {
           AND f.id = ${task.formId} AND f."deletedAt" IS NULL AND f.state = 'open')`);
       if (!active) throw invalid();
       const now = new Date();
-      const today = now.toISOString().slice(0, 10);
-      if (data.plannedVisitDate < today || data.plannedVisitDate > new Date(now.getTime() + 90 * 86400000).toISOString().slice(0, 10)
+      if (data.plannedVisitDate < new Date(now.getTime() - 86400000).toISOString().slice(0, 10) || data.plannedVisitDate > new Date(now.getTime() + 90 * 86400000).toISOString().slice(0, 10)
         || data.plannedVisitDate > data.visitBy.slice(0, 10)) throw invalid();
       const calendar = await tx.db.maybeOne(sql`SELECT settings FROM field_data_backcheck_calendars
         WHERE "actorId" = ${data.assigneeId} AND "projectId" = ${task.projectId}`);
       const used = await visitUsage(tx.db, task.projectId, task.id);
-      const start = new Date(Math.max(now.getTime(), Date.parse(`${data.plannedVisitDate}T00:00:00Z`)));
-      if (slotFor(data.assigneeId, calendar?.settings, used, start, new Date(data.visitBy)) !== data.plannedVisitDate) throw invalid();
+      if (slotOnDate(data.assigneeId, calendar?.settings, used, data.plannedVisitDate, now, new Date(data.visitBy)) !== data.plannedVisitDate) throw invalid();
     }
     // Only a different collector restarts the evidence clock; changing the
     // deadline for the same collector keeps work already received.
