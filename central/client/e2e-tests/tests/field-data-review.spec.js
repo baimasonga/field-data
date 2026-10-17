@@ -1921,7 +1921,7 @@ const setupInstrument = async page => {
     if (route.request().method() === 'GET') {
       if (fixture.delay) await fixture.delay;
       if (fixture.unavailable) return route.fulfill({ status: 404, json: { message: 'Unavailable' } });
-      return route.fulfill({ json: { templateVersion: 'investigation-backcheck@1', investigationRevision: inv.revision, caseRevision: fixture.caseRevision, items: fixture.items, omitted: 0, canRequest: fixture.canRequest } });
+      return route.fulfill({ json: { templateVersion: 'investigation-backcheck@1', investigationRevision: inv.revision, caseRevision: fixture.caseRevision, items: fixture.items, omitted: 0, canGenerateForm: fixture.canGenerateForm ?? false, canRequest: fixture.canRequest } });
     }
     const body = route.request().postDataJSON(); const header = route.request().headers()['if-match']; fixture.writes.push({ body, header });
     if (fixture.denyWrite) return route.fulfill({ status: 404, json: { message: 'Source or response form unavailable' } });
@@ -2007,4 +2007,64 @@ test('targeted instrument clears cached inspection after a request loses source 
   await expect(region.locator('.case-inspection')).toHaveCount(0);
   await expect(region).not.toContainText('uuid:source'); await expect(region).not.toContainText('Related household evidence.');
   expect(fixture.seen.size).toBe(0); expect(errors).toEqual([]);
+});
+
+const setupGeneratedResponseForm = async page => {
+  const context = await setupInstrument(page); const { fixture, prepare } = context; fixture.canGenerateForm = true;
+  const generation = { status: 200, input: null, validated: null, saved: null, created: 0, valid: true };
+  const definition = { schemaVersion: 2, title: 'Independent verification', formId: 'verification_generated', lists: { yes_no: [{ name: 'yes', label: 'Yes' }, { name: 'no', label: 'No' }] }, questions: [
+    { id: 'visit_consent', name: 'visit_consent', type: 'select_one', label: 'Does the respondent agree to this visit?', listName: 'yes_no', required: true },
+    { id: 'verification_1', name: 'verification_1', type: 'text', label: 'Record independent answers and legitimate explanations.', relevant: "${visit_consent} = 'yes'" },
+    { id: 'visit_notes', name: 'visit_notes', type: 'text', label: 'Corrections or uncertainty', relevant: "${visit_consent} = 'yes'" }
+  ] };
+  await page.route('**/v1/projects/7/investigations/*/cases/*/instrument/form-definition', async route => {
+    generation.input = route.request().postDataJSON();
+    await route.fulfill({ status: generation.status, json: generation.status === 200 ? { templateVersion: 'investigation-backcheck@1', definition } : { message: 'Changed or unavailable' } });
+  });
+  await page.route('**/v1/field-data/form-builder/question-types', route => route.fulfill({ json: [{ name: 'text', needsChoices: false }, { name: 'note', needsChoices: false }, { name: 'select_one', needsChoices: true }] }));
+  await page.route('**/v1/projects/7/form-builder/validate', route => { generation.validated = route.request().postDataJSON(); return route.fulfill({ json: { valid: generation.valid, diagnostics: generation.valid ? [] : [{ questionId: 'verification_1', path: '/verification_1', message: 'Review this question before creating the draft.' }] } }); });
+  await page.route('**/v1/projects/7/form-builder/xlsform', route => route.fulfill({ body: Buffer.from('Browser XLSForm fixture; real compiler tested in API suite.'), contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }));
+  await page.route('**/v1/projects/7/forms?*', route => {
+    expect(route.request().method()).toBe('POST'); expect(new URL(route.request().url()).searchParams.has('publish')).toBe(false); generation.created += 1;
+    return route.fulfill({ json: { xmlFormId: definition.formId, name: 'Reviewed verification', publishedAt: null } });
+  });
+  await page.route('**/v1/projects/7/forms/verification_generated/builder-definition', route => { generation.saved = route.request().postDataJSON(); return route.fulfill({ json: { success: true } }); });
+  await prepare();
+  return { ...context, generation };
+};
+
+test('generated response form opens an editable builder, preserves saved work and creates a draft without publishing', async ({ page }) => {
+  const { instrument, generation, errors } = await setupGeneratedResponseForm(page);
+  await page.evaluate(() => globalThis.sessionStorage.setItem('field-data:builder:v2:1:7', 'existing unsaved builder work'));
+  await instrument.getByRole('button', { name: 'Generate response-form draft', exact: true }).click();
+  const review = instrument.getByRole('region', { name: 'Generated response-form review' });
+  await expect(review.getByLabel('Form title', { exact: true })).toHaveValue('Independent verification');
+  expect(generation.input).toMatchObject({ caseRevision: 4, findingIds: [11], templateVersion: 'investigation-backcheck@1' });
+  await review.getByLabel('Form title', { exact: true }).fill('Reviewed verification');
+  await review.locator('#builder-question-verification_1').getByLabel('Label', { exact: true }).fill('Ask for an independent account and record uncertainty.');
+  await page.setViewportSize({ width: 320, height: 800 });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= 320)).toBe(true);
+  expect(await page.evaluate(() => globalThis.sessionStorage.getItem('field-data:builder:v2:1:7'))).toBe('existing unsaved builder work');
+  await review.getByRole('button', { name: 'Create Form', exact: true }).click();
+  await expect(instrument.getByRole('link', { name: 'Review and publish response-form draft' })).toHaveAttribute('href', '/projects/7/forms/verification_generated/draft');
+  expect(generation.created).toBe(1); expect(generation.saved.title).toBe('Reviewed verification');
+  expect(generation.saved.questions.find(q => q.name === 'verification_1').label).toBe('Ask for an independent account and record uncertainty.');
+  expect(await page.evaluate(() => globalThis.sessionStorage.getItem('field-data:builder:v2:1:7'))).toBe('existing unsaved builder work'); expect(errors).toEqual([]);
+});
+
+test('generated response form keeps compiler diagnostics reviewable and clears stale or denied generation', async ({ page }) => {
+  const { instrument, generation, region, errors } = await setupGeneratedResponseForm(page); generation.status = 412;
+  await instrument.getByRole('button', { name: 'Generate response-form draft', exact: true }).click();
+  await expect(instrument.getByRole('alert')).toContainText('Refresh the instrument');
+  await expect(instrument.getByRole('region', { name: 'Generated response-form review' })).toHaveCount(0);
+  generation.status = 200; await instrument.getByRole('button', { name: 'Generate response-form draft', exact: true }).click();
+  generation.valid = false;
+  await instrument.getByRole('button', { name: 'Create Form', exact: true }).click();
+  await expect(instrument.getByRole('region', { name: 'Compiler diagnostics' })).toContainText('Review this question before creating the draft.'); expect(generation.created).toBe(0);
+  await instrument.getByRole('button', { name: 'Refresh instrument', exact: true }).click();
+  await expect(instrument.getByRole('region', { name: 'Generated response-form review' })).toHaveCount(0);
+  await instrument.getByLabel('Similar answers', { exact: false }).check(); generation.status = 404;
+  await instrument.getByRole('button', { name: 'Generate response-form draft', exact: true }).click();
+  await expect(region.getByRole('alert')).toContainText('Instrument access changed'); await expect(region.locator('.case-inspection')).toHaveCount(0);
+  expect(errors).toEqual([]);
 });

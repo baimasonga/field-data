@@ -82,6 +82,41 @@ describe('api: XLSForm and XForms XML upload pipeline', () => {
 
     const withCompiler = (test) => testServiceWith({ xlsform: (...args) => real(...args) }, test);
 
+    it('compiles a generated investigation response form as a private draft, then publishes and collects a native backcheck', withCompiler(async service => {
+      const { randomUUID } = require('node:crypto');
+      const generator = require('../../../lib/util/investigation-response-form');
+      const { suggestion } = require('../../../lib/util/investigation-instrument');
+      const { buildWorkbook } = require('../../../lib/util/xlsform-builder');
+      const definition = generator.generate([suggestion({ id: 1, rule: 'location-accuracy', ruleVersion: 1 }), suggestion({ id: 2, rule: 'near-duplicate', ruleVersion: 1 })]);
+      const alice = await service.login('alice'); const formPath = `/v1/projects/1/forms/${definition.formId}`;
+      await upload(alice, '/v1/projects/1/forms', await buildWorkbook(definition), XLSX).expect(200);
+      const draft = (await alice.get(`${formPath}/draft`).expect(200)).body; assert.equal(draft.xmlFormId, definition.formId);
+      assert.equal(draft.publishedAt, null);
+      const compiled = (await alice.get(`${formPath}/draft.xml`).expect(200)).text;
+      assert.match(compiled, /visit_consent/); assert.match(compiled, /location_permission/); assert.match(compiled, /visit_location/); assert.match(compiled, /verification_1/);
+      const checker = (await alice.post('/v1/projects/1/app-users').send({ displayName: 'Generated form checker' }).expect(200)).body;
+      const list = () => service.get('/v1/projects/1/formList').set('Authorization', `Bearer ${checker.token}`).set('X-OpenRosa-Version', '1.0');
+      assert.equal((await list().expect(200)).text.includes(definition.formId), false);
+      await alice.post(`${formPath}/draft/publish`).expect(200);
+      assert.equal((await list().expect(200)).text.includes(definition.formId), false);
+      await alice.post(`${formPath}/assignments/app-user/${checker.id}`).expect(200);
+      assert.equal((await list().expect(200)).text.includes(definition.formId), true);
+      await upload(alice, '/v1/projects/1/forms/simple/submissions', testData.instances.simple.one, 'application/xml').expect(200);
+      const reviewCase = (await alice.get('/v1/field-data/review-queue?projectId=1&xmlFormId=simple').expect(200)).body.items[0];
+      const reviewerId = (await alice.get('/v1/users/current').expect(200)).body.id;
+      const assigned = await alice.patch(`/v1/field-data/review-queue/${reviewCase.id}/assignment`).set('If-Match', `"review-case-${reviewCase.revision}"`).set('Idempotency-Key', randomUUID())
+        .send({ assignedTo: reviewerId, status: 'in-review' })
+        .expect(200);
+      const requested = await alice.post(`/v1/field-data/review-queue/${reviewCase.id}/backchecks`).set('If-Match', assigned.headers.etag)
+        .send({ requestId: randomUUID(), assignedTo: checker.id, responseXmlFormId: definition.formId, question: 'Record an independent account, with consent.', dueAt: null }).expect(201);
+      await service.post(`${formPath}/submissions`).set('Authorization', `Bearer ${checker.token}`).set('Content-Type', 'application/xml')
+        .send(`<data id="${definition.formId}" version="1"><visit_consent>no</visit_consent><meta><instanceID>generated-response</instanceID></meta></data>`)
+        .expect(200);
+      await alice.post(`/v1/field-data/review-queue/${reviewCase.id}/backchecks/${requested.body.id}/link`).set('If-Match', requested.headers.etag).send({ instanceId: 'generated-response' }).expect(200);
+      const comparison = (await alice.get(`/v1/field-data/review-queue/${reviewCase.id}/backchecks/${requested.body.id}/comparison`).expect(200)).body;
+      assert.equal(comparison.backcheck.xmlFormId, definition.formId); assert.equal(comparison.comparisonMode, 'unmapped');
+    }));
+
     it('publishes the requested Bo town water survey with editable source and correct metadata', withCompiler(async service => {
       const alice = await service.login('alice');
       const source = readFileSync(path.resolve(__dirname, '../../../../../forms/community-water/sl_community_water_service.xlsx'));

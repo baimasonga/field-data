@@ -24,7 +24,8 @@ text and must select a published response form; no equivalence is inferred.
 Changing the form resets the collector to its independent workload suggestion.
 The original collector is unavailable.
 
-This is a question-and-dispatch instrument, not automatic form generation. No
+F9 is a question-and-dispatch instrument. Reviewed template-based response-form
+generation is added by [F10-generated-response-form-drafts.md](F10-generated-response-form-drafts.md). No
 form schema, field mapping, decision, finding resolution or investigation
 disposition is changed. Published form creation and App User grants stay in the
 existing authoring/administration workflow. The manager must verify that the
@@ -77,7 +78,7 @@ archive/closure, collector independence, native pending-request rules and limits
 Browser checks cover explicit drafting/editing, form/collector changes, exact
 lost-response retry, stale refresh, unavailable/delayed sources and 320px layout.
 
-Automatic schema generation/publication, peer-side targeting, multilingual
+Automatic publication, general schema evolution, peer-side targeting, multilingual
 prompts, validated instrument effectiveness, calibrated fraud triage and field
 acceptance remain separate deliverables. This milestone does not complete the
 fraud-intelligence area or the eight-area programme.

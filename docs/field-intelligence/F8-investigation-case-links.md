@@ -78,4 +78,5 @@ layout; complete CI and deployment checks. Calibrated triage, false-positive
 estimates and field acceptance remain separate work. Fixed-template targeted
 backcheck questions and dispatch are added by
 [F9-targeted-backcheck-instruments.md](F9-targeted-backcheck-instruments.md);
-automatic instrument schema generation remains pending.
+reviewed template-based form generation is added by
+[F10-generated-response-form-drafts.md](F10-generated-response-form-drafts.md).

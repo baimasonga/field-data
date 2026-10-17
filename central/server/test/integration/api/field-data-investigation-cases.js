@@ -219,7 +219,8 @@ describe('api: targeted investigation backcheck instruments (F9)', () => {
     const investigation = (await alice.get(`${root}/${inv.id}`).expect(200)).body; assert.equal(investigation.revision, body.investigationRevision); assert.equal(investigation.disposition, null);
     await post({ ...body, question: 'Changed request contents must be rejected.' }).expect(400);
     await service.post('/v1/projects/1/forms/withrepeat/submissions').set('Authorization', `Bearer ${checker.token}`)
-      .set('Content-Type', 'application/xml').send(xml.instances.withrepeat.one).expect(200);
+      .set('Content-Type', 'application/xml').send(xml.instances.withrepeat.one)
+      .expect(200);
     await alice.post(`/v1/field-data/review-queue/${first.id}/backchecks/${saved.body.id}/link`).set('If-Match', saved.headers.etag).send({ instanceId: 'rone' }).expect(200);
     const inspection = (await alice.get(`${path}/${link.linkId}`).expect(200)).body;
     assert.equal(inspection.backchecks[0].status, 'linked'); assert.equal(inspection.backchecks[0].responseInstanceId, 'rone');
@@ -292,6 +293,74 @@ describe('api: targeted investigation backcheck instruments (F9)', () => {
     await post({ ...body, investigationRevision: draft.investigationRevision, findingIds: [more.at(-1).id] }, draft.caseRevision).expect(400);
     await alice.delete('/v1/projects/1/forms/simple/submissions/one').expect(200); await alice.get(endpoint).expect(404);
     assert.equal(await c.db.oneFirst(sql`SELECT count(*)::integer FROM field_data_backchecks WHERE "caseId" = ${first.id}`), 0);
+  }));
+  it('generates a reviewable form definition without creating or publishing any form', testService(async (service, c) => {
+    const { alice, endpoint, draft, body, finding, inv } = await seed(service, c);
+    const before = await c.db.oneFirst(sql`SELECT count(*)::integer FROM forms`);
+    const generate = data => alice.post(`${endpoint}/form-definition`).send(data);
+    const input = { investigationRevision: draft.investigationRevision, caseRevision: draft.caseRevision, templateVersion: draft.templateVersion, findingIds: [finding] };
+    const response = await generate(input).expect(200); assert.equal(response.headers['cache-control'], 'private, no-store');
+    assert.equal(response.body.definition.schemaVersion, 2); assert.equal(response.body.definition.title, 'Independent verification');
+    assert.equal(response.body.definition.questions.some(q => q.name === 'visit_consent'), true);
+    assert.equal(JSON.stringify(response.body).includes('secret earlier answer'), false); assert.equal(JSON.stringify(response.body).includes(inv.id), false);
+    assert.equal(await c.db.oneFirst(sql`SELECT count(*)::integer FROM forms`), before);
+    assert.notEqual((await generate(input).expect(200)).body.definition.formId, response.body.definition.formId);
+    assert.equal((await alice.get(endpoint).expect(200)).body.canGenerateForm, true);
+    assert.equal((await alice.get(`${root}/${inv.id}`).expect(200)).body.revision, body.investigationRevision);
+    await generate({ ...input, investigationRevision: 1 }).expect(412); await generate({ ...input, caseRevision: 999 }).expect(412);
+  }));
+  it('requires form-create and live source grants when generating a definition', testService(async (service, c) => {
+    const { alice, endpoint, draft, finding } = await seed(service, c); const { user, id } = await limitedManager(service, c, alice);
+    const input = { investigationRevision: draft.investigationRevision, caseRevision: draft.caseRevision, templateVersion: draft.templateVersion, findingIds: [finding] };
+    assert.equal((await user.get(endpoint).expect(200)).body.canGenerateForm, false);
+    await user.post(`${endpoint}/form-definition`).send(input).expect(404);
+    await c.db.query(sql`UPDATE roles SET verbs = verbs || '["form.create"]'::jsonb WHERE system = 'manager'`);
+    assert.equal((await user.get(endpoint).expect(200)).body.canGenerateForm, true);
+    await user.post(`${endpoint}/form-definition`).send(input).expect(200);
+    await alice.delete(`/v1/projects/1/forms/simple/assignments/viewer/${id}`).expect(200);
+    await user.post(`${endpoint}/form-definition`).send(input).expect(404);
+    await service.post(`${endpoint}/form-definition`).send(input).expect(401);
+  }));
+  it('rechecks selected findings and refuses archived, closed, historical and removed generation sources', testService(async (service, c) => {
+    const { alice, endpoint, draft, finding, unrelated, inv, path, link, first } = await seed(service, c);
+    const input = { investigationRevision: draft.investigationRevision, caseRevision: draft.caseRevision, templateVersion: draft.templateVersion, findingIds: [finding] };
+    const generate = data => alice.post(`${endpoint}/form-definition`).send(data);
+    await generate({ ...input, findingIds: [unrelated] }).expect(400); await generate({ ...input, extra: true }).expect(400);
+    await c.db.query(sql`UPDATE field_data_integrity_flags SET outcome = 'withdrawn' WHERE id = ${finding}`); await generate(input).expect(400);
+    await c.db.query(sql`UPDATE field_data_integrity_flags SET outcome = 'concern' WHERE id = ${finding}`);
+    await c.db.query(sql`UPDATE projects SET archived = TRUE WHERE id = 1`); await generate(input).expect(409);
+    await c.db.query(sql`UPDATE projects SET archived = FALSE WHERE id = 1`);
+    await c.db.query(sql`UPDATE field_data_investigations SET status = 'closed',disposition = 'insufficient-evidence' WHERE id = ${inv.id}`); await generate(input).expect(409);
+    await c.db.query(sql`UPDATE field_data_investigations SET status = 'open',disposition = NULL WHERE id = ${inv.id}`);
+    await c.db.query(sql`UPDATE field_data_review_cases SET status = 'resolved',"resolvedAt" = clock_timestamp() WHERE id = ${first.id}`); await generate(input).expect(409);
+    await c.db.query(sql`UPDATE field_data_review_cases SET status = 'in-review',"resolvedAt" = NULL WHERE id = ${first.id}`);
+    await c.db.query(sql`UPDATE submission_defs SET current = FALSE WHERE id = (SELECT "submissionDefId" FROM field_data_claim_versions WHERE id = ${first.claimVersionId})`); await generate(input).expect(409);
+    await write(alice, `${path}/${link.linkId}/remove`, draft.investigationRevision, { requestId: randomUUID(), reason: 'This source is no longer part of the investigation.' }).expect(200);
+    await generate(input).expect(404);
+  }));
+  it('generates without a lock cycle when an integrity writer locks a finding before its case', testServiceFullTrx(async (service, c) => {
+    const { alice, endpoint, draft, finding, first } = await seed(service, c);
+    let signal; let release;
+    const held = new Promise(resolve => { signal = resolve; }); const gate = new Promise(resolve => { release = resolve; });
+    const writer = c.transacting(async tx => {
+      await tx.db.query(sql`SELECT id FROM field_data_integrity_flags WHERE id = ${finding} FOR UPDATE`); signal(); await gate;
+      await tx.db.query(sql`SET LOCAL lock_timeout = '3s'`);
+      await tx.db.query(sql`SELECT id FROM field_data_review_cases WHERE id = ${first.id} FOR UPDATE`);
+      await tx.db.query(sql`UPDATE field_data_integrity_flags SET outcome = 'withdrawn' WHERE id = ${finding}`);
+    });
+    await held;
+    const generated = alice.post(`${endpoint}/form-definition`).send({ investigationRevision: draft.investigationRevision, caseRevision: draft.caseRevision, templateVersion: draft.templateVersion, findingIds: [finding] }).then(response => response);
+    let waiting = false;
+    try {
+      const deadline = Date.now() + 3000;
+      while (!waiting && Date.now() < deadline) {
+        waiting = (await c.db.oneFirst(sql`SELECT count(*)::integer FROM pg_stat_activity WHERE wait_event_type = 'Lock' AND query LIKE '%field_data_investigation_findings x%'`)) > 0;
+        if (!waiting) await new Promise(resolve => setTimeout(resolve, 25));
+      }
+    } finally { release(); }
+    const [written, result] = await Promise.allSettled([writer, generated]);
+    assert.equal(waiting, true, 'generation reached the finding lock');
+    assert.equal(written.status, 'fulfilled'); assert.equal(result.status, 'fulfilled'); assert.equal(result.value.status, 400);
   }));
   it('serializes concurrent requests without duplicate backchecks or investigation audit', testServiceFullTrx(async (service, c) => {
     const { post, first } = await seed(service, c); const results = await Promise.all([post().expect(201), post().expect(201)]);
