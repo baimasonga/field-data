@@ -179,7 +179,7 @@ describe('api: O3 random backcheck sample', () => {
 
   it('groups exact decoded answers and missing values, retains immutable coverage and supports retry', testService(async (service, { all, run }) => {
     const alice = await service.login('alice');
-    const values = ['North', 'North', ' North ', 'South', 'South', '', 'A &amp; B'];
+    const values = ['North', ' North ', '<![CDATA[No]]>rth', 'South', 'South', '', 'A &amp; B'];
     for (const [i, value] of values.entries())
       await alice.post('/v1/projects/1/forms/simple/submissions').send(instance(`group${i}`).replace('<name>Alice</name>', `<name>${value}</name>`).replace('<data id=', '<data xmlns="urn:group-fixture" id='))
         .set('Content-Type', 'application/xml').expect(200);
@@ -211,6 +211,9 @@ describe('api: O3 random backcheck sample', () => {
       await alice.post(base).send({ ...body, groupField }).expect(400);
     await service.get(`/v1/key/${a.token}/projects/1/forms/simple/backcheck-samples/fields`).expect(403);
     await run(sql`UPDATE submission_defs SET xml = replace(xml, 'Alice</name>', 'Other</name>') WHERE current AND xml LIKE '%web0</instanceID>%'`);
+    await run(sql`UPDATE submission_defs SET xml = replace(xml, '<name>Alice</name>', '<name>Alice</name><name></name>') WHERE current AND xml LIKE '%A0</instanceID>%'`);
+    await alice.post(base).send(body).expect(400);
+    await run(sql`UPDATE submission_defs SET xml = replace(xml, '<name></name>', '') WHERE current AND xml LIKE '%A0</instanceID>%'`);
     const max = LIMITS.maxGroups; LIMITS.maxGroups = 1;
     try { await alice.post(base).send(body).expect(400); } finally { LIMITS.maxGroups = max; }
     await run(sql`UPDATE submission_defs SET xml = replace(xml, 'Alice</name>', ${`${'x'.repeat(201)}</name>`}) WHERE current AND xml LIKE '%A0</instanceID>%'`);

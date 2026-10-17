@@ -119,11 +119,12 @@ const drawSample = async (db, form, { requestId, settings, requestHash, actorId,
   const until = window != null ? window.until.toISOString()
     : settings.receivedTo == null ? null : new Date(Date.parse(`${settings.receivedTo}T00:00:00Z`) + 24 * 60 * 60 * 1000).toISOString();
   // Only validated path segments enter this XPath; values remain SQL parameters.
-  const xpath = settings.groupField ? `/*/${settings.groupField.slice(1).split('/').map(part => `*[local-name()="${part}"]`).join('/')}/text()` : null;
+  const xpath = settings.groupField ? `/*/${settings.groupField.slice(1).split('/').map(part => `*[local-name()="${part}"]`).join('/')}` : null;
   const candidates = await db.any(sql`SELECT s.id, s."instanceId", s."submitterId", v.id AS "claimVersionId",
       ${xpath == null ? sql`` : sql`CASE WHEN sd."localKey" IS NULL AND octet_length(sd.xml) <= 2097152 AND xml_is_well_formed_document(sd.xml)
-        THEN left((SELECT x.value FROM XMLTABLE('/*' PASSING (sd.xml::xml) COLUMNS value text PATH (${`(${xpath})[1]`})) x), 201) ELSE NULL END AS "groupValue",
-        (sd."localKey" IS NOT NULL OR octet_length(sd.xml) > 2097152 OR NOT xml_is_well_formed_document(sd.xml)) AS unreadable,`}
+        THEN left((SELECT x.value FROM XMLTABLE('/*' PASSING (sd.xml::xml) COLUMNS value text PATH (${`string((${xpath})[1])`})) x), 201) ELSE NULL END AS "groupValue",
+        CASE WHEN sd."localKey" IS NULL AND octet_length(sd.xml) <= 2097152 AND xml_is_well_formed_document(sd.xml)
+          THEN cardinality(xpath(${xpath}, sd.xml::xml)) > 1 ELSE TRUE END AS unreadable,`}
       EXISTS (SELECT 1 FROM field_data_backcheck_sample_items i WHERE i."submissionId" = s.id) AS "sampledBefore"
     FROM submissions s
     JOIN submission_defs sd ON sd."submissionId" = s.id AND sd.current IS TRUE
@@ -138,7 +139,7 @@ const drawSample = async (db, form, { requestId, settings, requestHash, actorId,
   if (skipEmpty && eligible.length === 0) return { id: null, replayed: false, eligible: 0, sampled: 0 };
   if (settings.groupField) {
     for (const e of eligible) {
-      if (e.unreadable) throw Problem.user.backcheckSampleInvalid({ field: 'groupField', reason: 'cannot group unreadable, encrypted or oversized submissions; use collector-only sampling' });
+      if (e.unreadable) throw Problem.user.backcheckSampleInvalid({ field: 'groupField', reason: 'cannot group repeated, unreadable, encrypted or oversized answers; use collector-only sampling' });
       const raw = e.groupValue;
       e.groupValue = raw == null ? null : raw.normalize('NFC').trim() || null;
       if ((raw?.length ?? 0) > LIMITS.maxGroupValue || (e.groupValue?.length ?? 0) > LIMITS.maxGroupValue)

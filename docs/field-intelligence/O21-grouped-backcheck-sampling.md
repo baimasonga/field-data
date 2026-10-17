@@ -17,8 +17,9 @@ recorded answer; no geographic boundary is inferred from coordinates.
 Grouped draws additionally require `submission.read` and `submission.list`.
 All history, labels and eligible-list reads retain form-level authorization and
 private/no-store responses. Encrypted published forms cannot use grouping.
-Any eligible encrypted, malformed or over-2-MiB XML submission rejects the whole
-grouped draw rather than silently losing its coverage. Collector-only sampling
+Any eligible encrypted, malformed, ambiguous repeated answer or over-2-MiB XML submission rejects the whole
+grouped draw rather than silently losing its coverage. This also catches historical
+form versions where a currently scalar path had multiple answers. Collector-only sampling
 continues to work without reading answers.
 
 Groups use decoded text, trim surrounding whitespace, normalize Unicode NFC,
