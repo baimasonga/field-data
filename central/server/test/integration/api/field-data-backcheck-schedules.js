@@ -207,6 +207,23 @@ describe('api: O6 scheduled backcheck samples', () => {
     assert.equal(result.outcome, 'drawn'); assert.equal(result.sampled, 2);
   }));
 
+  it('draws nothing for a form deleted after its schedule was locked', testService(async (service, container) => {
+    const alice = await service.login('alice');
+    await alice.put(path).send({ rate: 100, frequency: 'daily', enabled: true }).expect(200);
+    await submit(alice, 'gone0');
+    const first = await scheduleRow(container.one);
+    // The form is deleted just after the schedule row is read under its lock.
+    const wrap = db => ({ ...db, transaction: callback => db.transaction(trx => callback(wrap(trx))), maybeOne: async (query) => {
+      const row = await db.maybeOne(query);
+      if (query.sql.includes('FROM field_data_backcheck_schedules b JOIN forms f'))
+        await db.query(sql`UPDATE forms SET "deletedAt" = clock_timestamp() WHERE "xmlFormId" = 'simple' AND "projectId" = 1`);
+      return row;
+    } });
+    assert.deepEqual(await runBackcheckSchedules(wrap(container.db), first.nextRunAt), []);
+    assert.equal(await container.oneFirst(sql`SELECT count(*)::integer FROM field_data_backcheck_samples`), 0);
+    assert.equal(await container.oneFirst(sql`SELECT count(*)::integer FROM field_data_backcheck_schedule_runs`), 0);
+  }));
+
   it('serializes overlapping runners and manual draws without duplicate selections', testServiceFullTrx(async (service, container) => {
     const alice = await service.login('alice');
     await alice.put(path).send({ rate: 100, frequency: 'daily', enabled: true }).expect(200);
