@@ -658,7 +658,7 @@ jobs:
                   from field_data.bootstrap_log
                   order by at desc limit 10`);
                 // Written by each cron run of the operations job: none means
-                // cron never fired; "failed" rows carry the runner's error.
+                // cron never fired; "failed" rows carry the error from the runner.
                 await show("what cron recorded for the operations job", `
                   select at, outcome, detail
                   from field_data.cron_log
