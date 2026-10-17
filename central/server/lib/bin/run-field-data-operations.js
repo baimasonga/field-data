@@ -11,5 +11,11 @@ runOperations(db)
   .then(() => runBackcheckSchedules(db))
   .then(() => runAllocations(db))
   .then(() => runAlerts(db))
-  .catch(() => { process.stderr.write('Operations runner failed. Check database connectivity and the operations runbook.\n'); process.exitCode = 1; })
+  // The cause is recorded in cron_log by the calling script; only the error's
+  // message is printed, never configuration.
+  .catch((error) => {
+    const cause = String(error?.message ?? error).split('\n')[0].slice(0, 300);
+    process.stderr.write(`Operations runner failed: ${cause}. Check database connectivity and the operations runbook.\n`);
+    process.exitCode = 1;
+  })
   .finally(() => db.end());
