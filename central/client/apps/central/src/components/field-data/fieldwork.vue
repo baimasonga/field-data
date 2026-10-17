@@ -52,6 +52,7 @@ Acknowledge request
         <li v-for="itinerary of itineraries" :key="itinerary.id">
           <h3>{{ itinerary.date }} · approved stop order</h3>
           <p>{{ itinerary.note }}</p>
+          <p v-if="itinerary.shift">Approved UTC shift: {{ itinerary.shift.startAt }} to {{ itinerary.shift.endAt }}. The itinerary date is the shift start date.</p>
           <p v-if="itinerary.needsReview">The supervisor approved this itinerary with review warnings. Confirm access and travel time before starting.</p>
           <p v-if="itinerary.withheld" role="status">{{ itinerary.withheld }} stops are no longer available. Refresh and contact your supervisor.</p>
           <p>Start: {{ itinerary.start.latitude }}, {{ itinerary.start.longitude }}. Return to this start after the visits.</p>

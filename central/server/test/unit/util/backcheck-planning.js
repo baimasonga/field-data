@@ -1,5 +1,5 @@
 require('should');
-const { validDate, validateCalendar, quotaOn, slotFor, chooseDated, shiftOn } = require('../../../lib/util/backcheck-calendar');
+const { validDate, validateCalendar, quotaOn, slotFor, slotOnDate, chooseDated, shiftOn } = require('../../../lib/util/backcheck-calendar');
 const { distanceKm, itinerary, orderedItinerary } = require('../../../lib/util/backcheck-route');
 describe('(util) calendar and route planning', () => {
   it('validates weekly quotas, real dates and unique bounded exceptions', () => {
@@ -65,6 +65,44 @@ describe('(util) calendar and route planning', () => {
     calendar.exceptions = [{ date: '2026-10-15', maxVisits: 10, shift: null }];
     slotFor(1, calendar, new Map(), new Date('2026-10-14T12:00:00Z'), new Date('2026-10-16T12:00:00Z')).should.equal('2026-10-16');
     (slotFor(1, calendar, new Map(), new Date('2026-10-14T12:00:00Z'), new Date('2026-10-16T08:20:00Z')) == null).should.be.true();
+  });
+
+  it('requires explicit overnight intent, bounds duration and rejects adjacent overlaps across the week', () => {
+    const night = { start: '22:00', end: '06:00', endNextDay: true };
+    const body = { weeklyCapacity: Array(7).fill(2), weeklyShifts: Array(7).fill(night), exceptions: [] };
+    validateCalendar(body).should.eql(body);
+    for (const shift of [{ ...night, endNextDay: 'true' }, { ...night, end: '22:00' }, { ...night, end: '23:00' }, { ...night, endNextDay: false }])
+      (validateCalendar({ ...body, weeklyShifts: Array(7).fill(shift) }) == null).should.be.true();
+    // Saturday's tail must not overlap Sunday's window.
+    (validateCalendar({ ...body, weeklyShifts: [{ start: '05:00', end: '08:00' }, ...Array(6).fill(night)] }) == null).should.be.true();
+    validateCalendar({ ...body, weeklyShifts: [{ start: '06:00', end: '08:00' }, ...Array(6).fill(night)] }).should.be.an.Object();
+    for (const shift of [{ start: '05:00', end: '08:00' }, { start: '23:00', end: '23:30', endNextDay: true }])
+      (validateCalendar({ ...body, exceptions: [{ date: '2026-10-14', maxVisits: 2, shift }] }) == null).should.be.true();
+    (validateCalendar({ ...body, exceptions: [{ date: '2026-10-14', maxVisits: 2, shift: { start: '23:00', end: '23:30' } },
+      { date: '2026-10-13', maxVisits: 2, shift: { start: '23:00', end: '23:15', endNextDay: true } }] }) == null).should.be.true();
+  });
+  it('anchors overnight windows and exceptions on the start date across year and leap boundaries', () => {
+    const calendar = { weeklyCapacity: Array(7).fill(2), weeklyShifts: Array(7).fill({ start: '22:00', end: '06:00', endNextDay: true }),
+      exceptions: [{ date: '2027-01-01', maxVisits: 0, shift: null }] };
+    shiftOn(calendar, '2026-12-31').endAt.should.equal('2027-01-01T06:00:00.000Z');
+    shiftOn(calendar, '2028-02-29').endAt.should.equal('2028-03-01T06:00:00.000Z');
+    shiftOn(calendar, '2026-12-31').minutes.should.equal(480);
+    slotFor(1, calendar, new Map(), new Date('2027-01-01T01:00:00Z'), new Date('2027-01-01T06:00:00Z')).should.equal('2026-12-31');
+    (shiftOn(calendar, '2027-01-01') == null).should.be.true();
+  });
+  it('reserves the ongoing previous night with shared quota, remaining time and exact deadline bounds', () => {
+    const calendar = { weeklyCapacity: Array(7).fill(2), weeklyShifts: Array(7).fill({ start: '22:00', end: '06:00', endNextDay: true }), visitMinutes: 30, exceptions: [] };
+    const now = new Date('2026-10-15T05:00:00Z'); const due = new Date('2026-10-16T06:00:00Z');
+    slotFor(1, calendar, new Map(), now, due).should.equal('2026-10-14');
+    slotOnDate(1, calendar, new Map([['1|2026-10-14', 1]]), '2026-10-14', now, due).should.equal('2026-10-14');
+    slotFor(1, calendar, new Map([['1|2026-10-14', 2]]), now, due).should.equal('2026-10-15');
+    (slotOnDate(1, calendar, new Map(), '2026-10-14', now, new Date('2026-10-15T05:29:59Z')) == null).should.be.true();
+    slotOnDate(1, calendar, new Map(), '2026-10-14', now, new Date('2026-10-15T05:30:00Z')).should.equal('2026-10-14');
+    for (const date of ['2026-10-13', '2027-01-14'])
+      (slotOnDate(1, calendar, new Map(), date, now, due) == null).should.be.true();
+    (slotOnDate(1, calendar, new Map(), '2026-10-14', new Date('2026-10-15T06:00:00Z'), due) == null).should.be.true();
+    calendar.exceptions = [{ date: '2026-10-14', maxVisits: 2, shift: null }];
+    slotFor(1, calendar, new Map(), now, due).should.equal('2026-10-15');
   });
 
 });

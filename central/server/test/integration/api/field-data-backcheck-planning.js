@@ -198,6 +198,46 @@ describe('api: calendar availability and route planning', () => {
     } finally { clock.uninstall(); }
   }));
 
+  it('allocates overnight capacity and preserves approved UTC boundaries online and offline', testService(async (service, c) => {
+    const clock = FakeTimers.install({ now: new Date('2026-10-15T01:00:00Z'), toFake: ['Date'] });
+    const previousKey = process.env.FIELD_DATA_OFFLINE_SIGNING_KEY; const previousOrigin = process.env.FIELD_DATA_OFFLINE_ORIGIN;
+    try {
+      const { alice, users } = await setup(service, true, 3);
+      const settings = { weeklyCapacity: Array(7).fill(2), visitMinutes: 45,
+        weeklyShifts: Array(7).fill({ start: '22:00', end: '06:00', endNextDay: true }), exceptions: [] };
+      await alice.put(`${root}/backcheck-calendars/${users[1].id}`).send(settings).expect(200);
+      const saved = (await alice.get(`${root}/backcheck-calendars`).expect(200)).body.find(u => u.id === users[1].id);
+      assert.deepEqual(saved.settings, settings);
+      await alice.put(`${root}/backcheck-calendars/${users[1].id}`).send({ ...settings,
+        exceptions: [{ date: '2026-10-15', maxVisits: 2, shift: { start: '05:00', end: '08:00' } }] }).expect(400);
+      await runAllocations(c.db, new Date());
+      const rows = await checks(c);
+      assert.deepEqual(rows.map(r => r.date).sort(), ['2026-10-14', '2026-10-14', '2026-10-15']);
+      const preview = (await route(alice, users[1])).body;
+      assert.equal(preview.timing.dayMinutes, 300); assert.equal(preview.timing.expiredShift, false);
+      assert.equal(preview.timing.shift.endNextDay, true);
+      assert.equal(preview.timing.shift.startAt, '2026-10-14T22:00:00.000Z');
+      assert.equal(preview.timing.shift.endAt, '2026-10-15T06:00:00.000Z');
+      await alice.post(`${root}/backcheck-itineraries`).send({ id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', reviewToken: preview.reviewToken,
+        note: 'Finish Thursday morning.', query: { actorId: String(users[1].id), date: '2026-10-14', startLat: '8.48', startLon: '-13.23' } }).expect(201);
+      const online = (await service.get('/v1/field-data/app-user/itineraries').set('Authorization', `Bearer ${users[1].token}`).expect(200)).body.items[0];
+      assert.equal(online.date, '2026-10-14');
+      assert.deepEqual(online.shift, { startAt: '2026-10-14T22:00:00.000Z', endAt: '2026-10-15T06:00:00.000Z' });
+      process.env.FIELD_DATA_OFFLINE_SIGNING_KEY = generateKeyPairSync('ec', { namedCurve: 'prime256v1' }).privateKey.export({ type: 'pkcs8', format: 'pem' });
+      process.env.FIELD_DATA_OFFLINE_ORIGIN = 'https://field.example.test';
+      const { bundle } = (await service.get('/v1/field-data/app-user/offline-assignments').set('Authorization', `Bearer ${users[1].token}`).expect(200)).body;
+      assert.deepEqual(JSON.parse(Buffer.from(bundle.payload, 'base64url')).itineraries.items[0].shift, online.shift);
+      clock.setSystemTime(new Date('2026-10-15T06:00:00Z'));
+      const expired = (await route(alice, users[1])).body;
+      assert.equal(expired.timing.dayMinutes, 0); assert.equal(expired.timing.expiredShift, true);
+      assert.deepEqual((await checks(c)).map(r => r.date).sort(), rows.map(r => r.date).sort());
+    } finally {
+      clock.uninstall();
+      if (previousKey == null) delete process.env.FIELD_DATA_OFFLINE_SIGNING_KEY; else process.env.FIELD_DATA_OFFLINE_SIGNING_KEY = previousKey;
+      if (previousOrigin == null) delete process.env.FIELD_DATA_OFFLINE_ORIGIN; else process.env.FIELD_DATA_OFFLINE_ORIGIN = previousOrigin;
+    }
+  }));
+
   it('uses validated road stop ordering and explicitly falls back when the provider fails', testService(async (service, c) => {
     const { alice, users } = await setup(service, true, 2);
     await calendar(alice, users[1], [2, 2, 2, 2, 2, 2, 2]); await runAllocations(c.db, now);

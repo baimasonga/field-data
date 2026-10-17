@@ -1,5 +1,6 @@
 // Copyright 2026 Field Data Developers. Licensed under the Apache License, Version 2.0.
 const { strict: assert } = require('assert');
+const FakeTimers = require('@sinonjs/fake-timers');
 const { sql } = require('slonik');
 const { testService, testServiceFullTrx } = require('../setup');
 const testData = require('../../data/xml');
@@ -393,6 +394,26 @@ describe('api: re-verification dispatch and field closure', () => {
 });
 
 describe('api: shared re-verification visit capacity', () => {
+  it('dispatches into yesterday only while its explicit overnight shift has capacity and time', testService(async (service, container) => {
+    const clock = FakeTimers.install({ now: new Date('2026-10-15T01:00:00Z'), toFake: ['Date'] });
+    try {
+      const ctx = await setup(service, container);
+      await ctx.alice.put(`/v1/projects/1/backcheck-calendars/${ctx.collector.id}`).send({ weeklyCapacity: Array(7).fill(1),
+        weeklyShifts: Array(7).fill({ start: '22:00', end: '06:00', endNextDay: true }), visitMinutes: 30 }).expect(200);
+      const body = { plannedVisitDate: '2026-10-14', visitBy: future() };
+      await dispatch(ctx, 1, ctx.collector, body).expect(200);
+      await dispatch(ctx, 2, ctx.collector, body).expect(200);
+      await ctx.observe(await ctx.submitAs(ctx.alice, 'two'), { predicate: 'pressure' });
+      await generateReverification(container.db);
+      const another = (await ctx.alice.get(tasks).expect(200)).body.items.find(item => item.predicate === 'pressure');
+      await act(ctx.alice, `${tasks}/${another.id}`, 'dispatch', 1, { ...body, assigneeId: ctx.collector.id }).expect(400);
+      clock.setSystemTime(new Date('2026-10-15T06:00:00Z'));
+      await dispatch(ctx, 3, ctx.collector, body).expect(400);
+      await dispatch(ctx, 3, ctx.collector, { ...body, plannedVisitDate: '2026-10-15' }).expect(200);
+      assert.equal((await ctx.alice.get(ctx.path).expect(200)).body.task.plannedVisitDate, '2026-10-15');
+    } finally { clock.uninstall(); }
+  }));
+
   it('reserves a calendar slot, preserves retry/history, rejects closed dates, and releases cancellation', testService(async (service, container) => {
     const ctx = await setup(service, container);
     const date = new Date(Date.now() + 86400000).toISOString().slice(0, 10);

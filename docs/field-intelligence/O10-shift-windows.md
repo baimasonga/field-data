@@ -3,7 +3,8 @@
 Collectors can retain seven optional UTC shift windows and an expected visit
 allowance (1–480 whole minutes). Each window is either unavailable (`null`)
 or `{ start: 'HH:mm', end: 'HH:mm' }`, ending after it starts on the same UTC
-date. Overnight shifts are not represented by this contract. Existing
+date. [O20](O20-overnight-visit-shifts.md) extends this contract with explicit
+`endNextDay: true` windows. Existing
 calendars without windows retain their date/quota behavior.
 
 Dated exceptions retain date/maxVisits and can override a weekday with a
@@ -41,7 +42,7 @@ pending until an approved service and field measurements are available.
 
 ## Validation
 
-Tests cover clock formats, invalid/overnight windows, exception precedence,
+Tests cover clock formats, invalid windows, exception precedence,
 closed and expired shifts, remaining minutes, deadline boundaries, legacy
 calendars, persisted settings, allocation limits, unchanged existing visits,
 preview budget clamping, browser editing/invalid-window recovery and 390px
