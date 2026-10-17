@@ -33,8 +33,13 @@ new container" or "have never run") when none arrives; an older sample does not
 count, since the samples table outlives containers. The samples come from
 the same five-minute cron job that runs backups, re-verification tasks,
 scheduled back-check samples and alerts, so a stale sample means those stopped
-too. Check that `cron` is running in the container and that the cron
-environment block it reads (`ODK_ENVBLOCK`) was written at start-up.
+too. Each operations run also writes a started/succeeded/failed row, with
+the runner's error, to `cron_log` (kept 7 days); the deploy's database report
+prints the latest rows. No rows means cron never fires: check that `cron` is
+running and that `ODK_ENVBLOCK` was written at start-up. "failed" rows carry
+the cause. Cron scripts send output to the container log only where PID 1's
+stdout can be reopened; on Cloudflare it cannot, and before this was handled
+every cron job failed with exit 1 before starting.
 
 The default policy opens an alert after three consecutive failures, with one
 record per alert transition and a recovery after success. Alert history lasts
