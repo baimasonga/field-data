@@ -24,6 +24,7 @@ SQL
 
 record started "cron started the operations runner"
 errors=$(mktemp)
+status=0
 if /usr/local/bin/node lib/bin/run-field-data-operations.js >/proc/1/fd/1 2>"$errors"; then
   record succeeded "operations runner finished"
 else
@@ -32,3 +33,5 @@ else
 fi
 cat "$errors" >/proc/1/fd/2 2>/dev/null || true
 rm -f "$errors"
+# The runner's own status, so cron and manual callers still see a failure.
+exit "$status"
