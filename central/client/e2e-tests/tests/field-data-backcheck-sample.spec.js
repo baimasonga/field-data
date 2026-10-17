@@ -110,6 +110,48 @@ test('a manager draws a sample, retries safely, and sees coverage by collector',
   expect(errors).toEqual([]);
 });
 
+test('a manager groups by an area answer with retry, escaped coverage and mobile controls', async ({ page: p }) => {
+  const posts = []; let saved = false; let fieldFailures = 1;
+  const grouped = { ...detail, settings: { ...detail.settings, groupField: '/district' },
+    groups: [{ value: '<img src=x onerror=alert(1)>', eligible: 6, sampled: 3, requested: 1, linked: 1 },
+      { value: null, eligible: 3, sampled: 2, requested: 0, linked: 0 }],
+    items: detail.items.map(i => ({ ...i, groupValue: i.submitterId === 5 ? '<img src=x onerror=alert(1)>' : null })) };
+  const errors = await api(p, managerVerbs, async (route, path) => {
+    if (path.endsWith('/backcheck-samples/fields')) {
+      if (fieldFailures-- > 0) await route.fulfill({ status: 503, json: {} });
+      else await route.fulfill({ json: { fields: [{ path: '/district', type: 'string' }] } });
+      return true;
+    }
+    if (path === samplesPath && route.request().method() === 'POST') {
+      posts.push(route.request().postDataJSON());
+      if (posts.length === 1) await route.fulfill({ status: 503, json: { message: 'Retry this draw.' } });
+      else { saved = true; await route.fulfill({ status: 201, json: grouped }); }
+      return true;
+    }
+    if (path === samplesPath) { await route.fulfill({ json: saved ? [grouped] : [] }); return true; }
+    if (path === `${samplesPath}/${sampleId}`) { await route.fulfill({ json: grouped }); return true; }
+    return false;
+  });
+  await p.goto(`${appUrl}${page}`); const section = p.locator('.backcheck-sample');
+  await section.getByRole('combobox', { name: 'Group submissions', exact: true }).selectOption('field');
+  await expect(section.getByText('Grouping questions could not be loaded.', { exact: false })).toBeVisible();
+  await section.getByText('Grouping questions could not be loaded.', { exact: false }).getByRole('button', { name: 'Retry' }).click();
+  await section.getByRole('combobox', { name: 'Area or answer question', exact: true }).selectOption('/district');
+  await section.getByRole('button', { name: 'Draw sample', exact: true }).click();
+  await expect(section.getByRole('alert')).toContainText('Retry this draw.');
+  await section.getByRole('button', { name: 'Draw sample', exact: true }).click();
+  await expect(section.locator('.backcheck-group-coverage')).toContainText('Missing answer');
+  await expect(section.locator('.backcheck-group-coverage')).toContainText('<img src=x onerror=alert(1)>');
+  await expect(section.locator('.backcheck-group-coverage img')).toHaveCount(0);
+  expect(posts[1]).toEqual(posts[0]); expect(posts[0].groupField).toBe('/district');
+  await expect(section.locator('.backcheck-sample-summary')).toContainText('per collector and answer group for /district');
+  await section.getByText('Chosen Submissions (5)').click();
+  await expect(section.locator('.backcheck-sample-items')).toContainText('Group: Missing answer');
+  await p.setViewportSize({ width: 360, height: 800 });
+  expect(await p.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  expect(errors).toEqual([]);
+});
+
 test('a viewer sees samples but cannot draw one', async ({ page: p }) => {
   const errors = await api(p, viewerVerbs, async (route, path) => {
     if (path === samplesPath) { await route.fulfill({ json: [summary] }); return true; }

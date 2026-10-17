@@ -132,7 +132,7 @@ describe('api: O3 random backcheck sample', () => {
 
   it('limits who can draw and read, and follows backchecks in its coverage', testService(async (service) => {
     const { alice, a, b } = await setUp(service);
-    const sample = (await alice.post(base).send({ requestId: requestId(1), rate: 100, minPerCollector: 0 }).expect(201)).body;
+    const sample = (await alice.post(base).send({ requestId: requestId(1), rate: 100, groupField: '/name', minPerCollector: 0 }).expect(201)).body;
 
     const chelsea = await service.login('chelsea');
     const chelseaId = (await chelsea.get('/v1/users/current').expect(200)).body.id;
@@ -164,6 +164,7 @@ describe('api: O3 random backcheck sample', () => {
     const coverage = async () => (await alice.get(`${base}/${sample.id}`).expect(200)).body;
     let view = await coverage();
     view.collectors.find((c) => c.submitterId === a.id).should.containEql({ sampled: 6, requested: 1, linked: 0 });
+    view.groups[0].should.containEql({ value: 'Alice', eligible: 9, sampled: 9, requested: 1, linked: 0 });
     view.items.find((i) => i.instanceId === item.instanceId).backcheck.should.equal('requested');
 
     await service.post(`/v1/key/${b.token}/projects/1/forms/simple/submissions`)
@@ -172,7 +173,52 @@ describe('api: O3 random backcheck sample', () => {
       .send({ instanceId: 'revisit' }).expect(200);
     view = await coverage();
     view.collectors.find((c) => c.submitterId === a.id).should.containEql({ requested: 1, linked: 1 });
+    view.groups[0].should.containEql({ requested: 1, linked: 1 });
     view.items.find((i) => i.instanceId === item.instanceId).backcheck.should.equal('linked');
+  }));
+
+  it('groups exact decoded answers and missing values, retains immutable coverage and supports retry', testService(async (service, { all, run }) => {
+    const alice = await service.login('alice');
+    const values = ['North', 'North', ' North ', 'South', 'South', '', 'A &amp; B'];
+    for (const [i, value] of values.entries())
+      await alice.post('/v1/projects/1/forms/simple/submissions').send(instance(`group${i}`).replace('<name>Alice</name>', `<name>${value}</name>`).replace('<data id=', '<data xmlns="urn:group-fixture" id='))
+        .set('Content-Type', 'application/xml').expect(200);
+    const { fields } = (await alice.get(`${base}/fields`).expect(200)).body;
+    fields.map(f => f.path).should.containEql('/name'); fields.map(f => f.path).should.not.containEql('/meta/instanceID');
+    const body = { requestId: requestId(41), rate: 50, minPerCollector: 1, groupField: '/name' };
+    const sample = (await alice.post(base).send(body).expect(201)).body;
+    sample.should.containEql({ eligible: 7, sampled: 5 });
+    sample.groups.map(g => [g.value, g.eligible, g.sampled]).should.eql([['A & B', 1, 1], ['North', 3, 2], ['South', 2, 1], [null, 1, 1]]);
+    const full = (await alice.get(`${base}/${sample.id}?eligible=true`).expect(200)).body;
+    draw(full.eligibleList, full.settings, full.seed).chosen.map(c => c.instanceId).sort().should.eql(sample.items.map(i => i.instanceId).sort());
+    (await alice.post(base).send(body).expect(200)).body.id.should.equal(sample.id);
+    await alice.post(base).send({ ...body, groupField: '/age' }).expect(400);
+    await run(sql`UPDATE submission_defs SET xml = replace(xml, 'North', 'Changed') WHERE current AND xml LIKE '%group%'`);
+    (await alice.get(`${base}/${sample.id}`).expect(200)).body.groups.should.eql(sample.groups);
+    (await all(sql`SELECT count(*)::integer AS n FROM field_data_backcheck_samples`))[0].n.should.equal(1);
+    const chelsea = await service.login('chelsea');
+    await chelsea.get(`${base}/fields`).expect(403);
+    const chelseaId = (await chelsea.get('/v1/users/current').expect(200)).body.id;
+    await alice.post(`/v1/projects/1/assignments/viewer/${chelseaId}`).expect(200);
+    await chelsea.get(`${base}/fields`).expect(200); await chelsea.get(`${base}/${sample.id}`).expect(200);
+    await chelsea.post(base).send({ ...body, requestId: requestId(42) }).expect(403);
+  }));
+
+  it('refuses unsupported fields, excessive categories, long or unreadable answers atomically', testService(async (service, { all, run }) => {
+    const { alice, a } = await setUp(service);
+    const body = { requestId: requestId(51), rate: 10, groupField: '/name' };
+    for (const groupField of ['/nope', '/meta/instanceID', '/name[1]', '/name/../age'])
+      await alice.post(base).send({ ...body, groupField }).expect(400);
+    await service.get(`/v1/key/${a.token}/projects/1/forms/simple/backcheck-samples/fields`).expect(403);
+    await run(sql`UPDATE submission_defs SET xml = replace(xml, 'Alice</name>', 'Other</name>') WHERE current AND xml LIKE '%web0</instanceID>%'`);
+    const max = LIMITS.maxGroups; LIMITS.maxGroups = 1;
+    try { await alice.post(base).send(body).expect(400); } finally { LIMITS.maxGroups = max; }
+    await run(sql`UPDATE submission_defs SET xml = replace(xml, 'Alice</name>', ${`${'x'.repeat(201)}</name>`}) WHERE current AND xml LIKE '%A0</instanceID>%'`);
+    await alice.post(base).send(body).expect(400);
+    await run(sql`UPDATE submission_defs SET xml = replace(xml, ${'x'.repeat(201)}, 'Alice'), "localKey" = 'unreadable' WHERE current AND xml LIKE '%A0</instanceID>%'`);
+    await alice.post(base).send(body).expect(400);
+    (await all(sql`SELECT count(*)::integer AS n FROM field_data_backcheck_samples`))[0].n.should.equal(0);
+    (await all(sql`SELECT count(*)::integer AS n FROM audits WHERE action = 'field_data.backcheck_sample.draw'`))[0].n.should.equal(0);
   }));
 
   it('keeps samples on a migration rollback', testServiceFullTrx(async (service) => {
