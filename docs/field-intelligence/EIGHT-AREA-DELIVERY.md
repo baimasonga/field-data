@@ -93,8 +93,12 @@ also exist. Those features must not be re-labelled as full completion of this pr
   remove/relink with append-only reasons and shared revision checks; source
   revocation hides identifiers and private history. See
   [F8-investigation-case-links.md](F8-investigation-case-links.md).
-  Calibrated triage, targeted instrument generation and broader fraud-intelligence
-  acceptance remain pending.
+  Targeted backcheck instruments (F9): fixed neutral question drafts from active
+  primary-source findings, manager editing and published response-form selection,
+  with independent collector dispatch through the existing backcheck workflow; see
+  [F9-targeted-backcheck-instruments.md](F9-targeted-backcheck-instruments.md).
+  Automatic instrument schema generation, calibrated triage and broader
+  fraud-intelligence acceptance remain pending.
 - Receipt and custody ledger (R1, first offline-resilience custody slice):
   an append-only, hash-chained receipt per submission version received,
   written by a database trigger; manager verification of chain and stored

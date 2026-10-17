@@ -335,6 +335,7 @@ const problems = {
     mediaExtractionConflict: problem(409.49, () => 'Media extraction source, revision, retry identity or limit changed. Refresh the record.'),
     geoAssessmentConflict: problem(409.51, () => 'The geospatial source, citation, revision or limit changed. Refresh assessment history.'),
     investigationCaseLinkConflict: problem(409.52, () => 'The case is already linked, its retry identity changed, or link capacity is unavailable. Refresh the investigation.'),
+    investigationInstrumentConflict: problem(409.53, () => 'The investigation is closed or its project is archived. Refresh the instrument before requesting a backcheck.'),
     reviewRevisionStale: problem(412.1, () => 'The review case has changed. Refresh and retry.'),
     assetRevisionStale: problem(412.2, () => 'The asset has changed. Reload its history before saving.'),
     reverificationRevisionStale: problem(412.3, () => 'The re-verification task has changed. Reload it before saving.'),

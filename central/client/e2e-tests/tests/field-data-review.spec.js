@@ -1824,7 +1824,7 @@ const setupCaseLinks = async page => {
     if (suffix) {
       if (f.hidden) return route.fulfill({ status: 404, json: { message: 'Unavailable' } });
       return respond({ linkId: f.items[0].linkId, case: row, decisions: [{ id: 'decision-1', outcome: 'needs-evidence', reasonCode: 'unclear', note: 'Check the household again.', reviewerName: 'Independent reviewer', createdAt: '2026-10-16T12:00:00.000Z' }], decisionsOmitted: 0,
-        backchecks: [{ id: backcheckId, status: 'linked', question: 'Confirm household details.', responseXmlFormId: 'health', responseInstanceId: 'uuid:response', responseCurrent: false }], hiddenBackchecks: 1, backchecksOmitted: 0 });
+        backchecks: f.instrumentBackchecks ?? [{ id: backcheckId, status: 'linked', question: 'Confirm household details.', responseXmlFormId: 'health', responseInstanceId: 'uuid:response', responseCurrent: false }], hiddenBackchecks: 1, backchecksOmitted: 0 });
     }
     return respond(snapshot(url.searchParams.get('before')));
   });
@@ -1909,4 +1909,102 @@ test('case links paginate candidates and history and refresh stale writes before
   await expect(region.getByRole('button', { name: 'Search readable cases' })).toHaveCount(0);
   await expect(region.getByRole('button', { name: 'Remove this case link' })).toHaveCount(0);
   await expect(region.getByRole('button', { name: 'Inspect linked case' })).toBeVisible(); expect(errors).toEqual([]);
+});
+
+
+const setupInstrument = async page => {
+  const context = await setupCaseLinks(page); const { f, region, link, inv } = context;
+  const fixture = { canRequest: true, items: [{ findingId: 11, ruleVersion: 2, label: 'Similar answers', question: 'Collect the key survey answers independently without showing the earlier answers.' },
+    { findingId: 12, ruleVersion: 1, label: 'Visit location', question: 'Confirm where the visit took place and record legitimate reasons for an uncertain location.' }],
+  caseRevision: 4, writes: [], seen: new Map(), lostResponse: false, stale: false, unavailable: false, denyWrite: false, delay: null };
+  await page.route('**/v1/projects/7/investigations/*/cases/*/instrument**', async route => {
+    if (route.request().method() === 'GET') {
+      if (fixture.delay) await fixture.delay;
+      if (fixture.unavailable) return route.fulfill({ status: 404, json: { message: 'Unavailable' } });
+      return route.fulfill({ json: { templateVersion: 'investigation-backcheck@1', investigationRevision: inv.revision, caseRevision: fixture.caseRevision, items: fixture.items, omitted: 0, canRequest: fixture.canRequest } });
+    }
+    const body = route.request().postDataJSON(); const header = route.request().headers()['if-match']; fixture.writes.push({ body, header });
+    if (fixture.denyWrite) return route.fulfill({ status: 404, json: { message: 'Source or response form unavailable' } });
+    if (fixture.seen.has(body.requestId)) { expect({ body, header }).toEqual(fixture.seen.get(body.requestId)); return route.fulfill({ status: 201, json: { id: backcheckId, replayed: true } }); }
+    if (fixture.stale) { fixture.stale = false; fixture.caseRevision += 1; return route.fulfill({ status: 412, json: { message: 'Changed' } }); }
+    expect(header).toBe(`"review-case-${fixture.caseRevision}"`); expect(body.investigationRevision).toBe(inv.revision);
+    fixture.seen.set(body.requestId, { body, header }); fixture.caseRevision += 1; fixture.canRequest = false;
+    f.instrumentBackchecks = [{ id: backcheckId, status: 'requested', responseXmlFormId: body.responseXmlFormId, question: body.question }];
+    if (fixture.lostResponse) { fixture.lostResponse = false; return route.abort('failed'); }
+    return route.fulfill({ status: 201, json: { id: backcheckId, replayed: false } });
+  });
+  await page.route('**/v1/field-data/review-queue/*/backcheck-forms', route => route.fulfill({ json: [
+    { id: 1, xmlFormId: 'health', name: 'Original', assignees: [{ id: 41, name: 'Original collector', original: true, pending: 0 }, { id: 42, name: 'Independent collector', original: false, suggested: true, pending: 2 }] },
+    { id: 2, xmlFormId: 'verification', name: 'Verification', assignees: [{ id: 43, name: 'Replacement collector', original: false, suggested: true, pending: 0 }] }
+  ] }));
+  await link(); await region.getByRole('button', { name: 'Inspect linked case' }).click();
+  const instrument = region.getByRole('region', { name: 'Targeted backcheck instrument' });
+  const prepare = async () => {
+    await instrument.getByRole('button', { name: /Prepare targeted backcheck|Refresh instrument/ }).click();
+    await instrument.getByLabel('Similar answers', { exact: false }).check();
+    await instrument.getByRole('button', { name: 'Draft verification questions' }).click();
+    await instrument.getByLabel('Response form', { exact: true }).selectOption('health');
+  };
+  return { ...context, fixture, instrument, prepare };
+};
+
+test('targeted instrument drafts neutral questions, resets collectors for the response form and safely retries a lost request', async ({ page }) => {
+  const { fixture, instrument, prepare, region, errors } = await setupInstrument(page); await prepare();
+  await expect(instrument.getByLabel('Questions for the independent visit')).toHaveValue(/without showing the earlier answers/);
+  await expect(instrument.getByLabel('Independent collector')).toHaveValue('42');
+  await expect(instrument.getByRole('option', { name: /original collector unavailable/ })).toHaveJSProperty('disabled', true);
+  await instrument.getByLabel('Response form', { exact: true }).selectOption('verification');
+  await expect(instrument.getByLabel('Independent collector')).toHaveValue('43');
+  await instrument.getByLabel('Visit location', { exact: false }).check();
+  await expect(instrument.getByRole('button', { name: 'Request targeted backcheck' })).toBeDisabled();
+  await instrument.getByRole('button', { name: 'Draft verification questions' }).click();
+  await instrument.getByLabel('Questions for the independent visit').fill('Confirm the household independently; allow corrections and uncertainty.');
+  await instrument.getByLabel('Visit due date (optional)').fill('2026-11-01');
+  await page.setViewportSize({ width: 320, height: 800 });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= 320)).toBe(true);
+  fixture.lostResponse = true; await instrument.getByRole('button', { name: 'Request targeted backcheck' }).click();
+  await expect(instrument.getByRole('alert')).toContainText('could not be confirmed');
+  await expect(instrument.getByLabel('Questions for the independent visit')).toBeDisabled();
+  await instrument.getByRole('button', { name: 'Retry same backcheck request' }).click();
+  await expect(region).toContainText('Confirm the household independently; allow corrections and uncertainty.');
+  expect(fixture.writes[1]).toEqual(fixture.writes[0]); expect(fixture.seen.size).toBe(1);
+  expect(fixture.writes[0]).toMatchObject({ header: '"review-case-4"', body: { findingIds: [11,12], responseXmlFormId: 'verification', assignedTo: 43, dueAt: '2026-11-01T23:59:59Z' } });
+  expect(errors).toEqual([]);
+});
+
+test('targeted instrument refreshes stale state and creates a fresh identity before another request', async ({ page }) => {
+  const { fixture, instrument, prepare, region, errors } = await setupInstrument(page); await prepare(); fixture.stale = true;
+  await instrument.getByRole('button', { name: 'Request targeted backcheck' }).click();
+  await expect(instrument.getByRole('alert')).toContainText('Refresh the instrument');
+  await prepare(); await instrument.getByRole('button', { name: 'Request targeted backcheck' }).click();
+  await expect(region.locator('.linked-cases')).toContainText('requested');
+  expect(fixture.writes[1].body.requestId).not.toBe(fixture.writes[0].body.requestId); expect(fixture.writes[1].header).toBe('"review-case-5"');
+  await instrument.getByRole('button', { name: 'Prepare targeted backcheck' }).click();
+  await expect(instrument).toContainText('no pending backcheck'); await expect(instrument.getByRole('button', { name: 'Request targeted backcheck' })).toHaveCount(0);
+  expect(errors).toEqual([]);
+});
+
+test('targeted instrument clears unavailable and delayed private drafts when linked source inspection is refreshed', async ({ page }) => {
+  const { fixture, instrument, prepare, region, errors } = await setupInstrument(page); await prepare(); fixture.unavailable = true;
+  await instrument.getByRole('button', { name: 'Refresh instrument' }).click();
+  await expect(region.getByRole('alert')).toContainText('Instrument access changed'); await expect(region.locator('.case-inspection')).toHaveCount(0);
+  fixture.unavailable = false;
+  await region.getByRole('button', { name: 'Refresh linked cases' }).click();
+  await region.getByRole('button', { name: 'Inspect linked case' }).click();
+  let release; fixture.delay = new Promise(resolve => { release = resolve; });
+  await instrument.getByRole('button', { name: 'Prepare targeted backcheck' }).click();
+  await region.getByRole('button', { name: 'Refresh linked cases' }).click(); release();
+  await expect(region.locator('.case-inspection')).toHaveCount(0);
+  await expect(region.getByRole('region', { name: 'Targeted backcheck instrument' })).toHaveCount(0);
+  expect(errors).toEqual([]);
+});
+
+
+test('targeted instrument clears cached inspection after a request loses source or response-form access', async ({ page }) => {
+  const { fixture, instrument, prepare, region, errors } = await setupInstrument(page); await prepare(); fixture.denyWrite = true;
+  await instrument.getByRole('button', { name: 'Request targeted backcheck' }).click();
+  await expect(region.getByRole('alert')).toContainText('Instrument access changed');
+  await expect(region.locator('.case-inspection')).toHaveCount(0);
+  await expect(region).not.toContainText('uuid:source'); await expect(region).not.toContainText('Related household evidence.');
+  expect(fixture.seen.size).toBe(0); expect(errors).toEqual([]);
 });
