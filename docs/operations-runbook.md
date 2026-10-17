@@ -27,8 +27,10 @@ cover the frontend and an authorized synthetic API request from outside the
 container; database failure may prevent the local worker recording its sample.
 
 Every deploy also reads System → Operations with its smoke-test session and
-warns in the run summary ("Scheduled jobs are not running" or "have never run")
-when the newest sample is over 20 minutes old or missing. The samples come from
+waits up to eight minutes for a sample recorded by the newly deployed
+container. It warns in the run summary ("Scheduled jobs are not running in the
+new container" or "have never run") when none arrives; an older sample does not
+count, since the samples table outlives containers. The samples come from
 the same five-minute cron job that runs backups, re-verification tasks,
 scheduled back-check samples and alerts, so a stale sample means those stopped
 too. Check that `cron` is running in the container and that the cron
