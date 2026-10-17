@@ -46,7 +46,8 @@ const approvedItineraries = async (container, user) => {
     });
     return { id: plan.id, date: plan.date, createdAt: plan.createdAt, note: plan.note, stops,
       withheld: plan.snapshot.route.stops.length - stops.length, needsReview: plan.snapshot.needsReview,
-      method: plan.snapshot.method, start: plan.snapshot.start };
+      method: plan.snapshot.method, start: plan.snapshot.start,
+      ...(plan.snapshot.timing?.shift?.startAt && plan.snapshot.timing?.shift?.endAt ? { shift: { startAt: plan.snapshot.timing.shift.startAt, endAt: plan.snapshot.timing.shift.endAt } } : {}) };
   }) };
 };
 module.exports = { approvedItineraries };

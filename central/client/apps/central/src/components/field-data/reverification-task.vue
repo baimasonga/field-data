@@ -42,6 +42,7 @@
                   <option v-for="user of appUsers" :key="user.id" :value="user.id">{{ user.displayName }}</option>
                 </select>
               </label>
+              <p>For an overnight shift, use its UTC start date, including yesterday if that shift is still open. Capacity is shared with backchecks.</p>
               <label>Planned visit date (optional, UTC) <input v-model="plannedVisitDate" class="form-control" type="date"></label>
               <p>A planned date requires a visit deadline and a saved collector calendar. It reserves capacity shared with backchecks. Leaving it empty keeps this task unplanned.</p>
               <label>Visit by (optional) <input v-model="visitBy" class="form-control" type="datetime-local"></label>

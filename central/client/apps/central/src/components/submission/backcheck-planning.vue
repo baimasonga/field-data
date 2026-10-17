@@ -33,9 +33,10 @@
               <template v-if="shiftAvailable[index]">
                 <label>{{ day }} shift start <input v-model="weeklyShifts[index].start" type="time" required class="form-control"></label>
                 <label>{{ day }} shift end <input v-model="weeklyShifts[index].end" type="time" required class="form-control"></label>
+                <label><input v-model="weeklyShifts[index].endNextDay" type="checkbox">{{ day }} end next day</label>
               </template>
             </div>
-            <p>Shifts start and end on the same UTC date. Quotas still apply. Allocation checks minimum visit time; review travel separately.</p>
+            <p>Select end next day for a shift crossing midnight UTC (for example 22:00–06:00). Quotas and dated exceptions apply to the shift start date. Adjacent shifts cannot overlap. Allocation checks minimum visit time; review travel separately.</p>
           </template>
         </fieldset>
         <fieldset>
@@ -50,6 +51,7 @@
               <template v-if="exception.shiftMode === 'custom'">
                 <label>Exception shift start <input v-model="exception.shiftStart" type="time" required class="form-control"></label>
                 <label>Exception shift end <input v-model="exception.shiftEnd" type="time" required class="form-control"></label>
+                <label><input v-model="exception.endNextDay" type="checkbox">Exception end next day</label>
               </template>
             </template>
             <button type="button" class="btn btn-link" @click="exceptions.splice(index, 1)">Remove exception</button>
@@ -59,7 +61,7 @@
         <button type="submit" class="btn btn-default" :disabled="busy">Save calendar</button>
       </form>
       <p v-else>Weekly visits, Sunday to Saturday: {{ weeklyCapacity.join(', ') }}. Dated exceptions: {{ exceptions.length }}.</p>
-      <p v-if="useShifts && !canManage">Expected visit duration: {{ expectedVisitMinutes }} minutes. UTC shifts: {{ weekdays.map((day, i) => `${day}: ${shiftAvailable[i] ? `${weeklyShifts[i].start}–${weeklyShifts[i].end}` : 'unavailable'}`).join('; ') }}.</p>
+      <p v-if="useShifts && !canManage">Expected visit duration: {{ expectedVisitMinutes }} minutes. UTC shifts: {{ weekdays.map((day, i) => `${day}: ${shiftAvailable[i] ? `${weeklyShifts[i].start}–${weeklyShifts[i].end}${weeklyShifts[i].endNextDay ? ' next day' : ''}` : 'unavailable'}`).join('; ') }}.</p>
       <p v-if="saved" role="status">Calendar saved.</p>
       <form v-if="canManage" class="route-form" @submit.prevent="preview">
         <h4>Visit itinerary preview</h4>
@@ -69,7 +71,7 @@
         <label>Start latitude <input v-model.number="startLat" type="number" min="-90" max="90" step="any" required class="form-control"></label>
         <label>Start longitude <input v-model.number="startLon" type="number" min="-180" max="180" step="any" required class="form-control"></label>
         <label v-if="useShifts"><input v-model="useSavedTiming" type="checkbox">Use saved shift and visit-duration assumptions</label>
-        <p v-if="useSavedTiming">The preview uses the saved calendar for this date. The result shows its UTC shift and time budget.</p>
+        <p v-if="useSavedTiming">For overnight work after midnight, choose the UTC date when the shift started. The preview uses the saved calendar for this date. The result shows its UTC shift and time budget.</p>
         <template v-else>
         <label>Minutes per visit <input v-model.number="visitMinutes" type="number" min="1" max="480" required class="form-control"></label>
         <label>Available minutes including travel <input v-model.number="dayMinutes" type="number" min="1" max="1440" required class="form-control"></label>
@@ -91,7 +93,8 @@ Review required: {{ plan.truncated ? 'the task list was truncated; ' : '' }}{{ o
         <p v-if="plan.scope === 'combined-visits@1'">Backchecks and re-verification stops are included together. Time estimates allow for all reserved or completed visits.</p>
         <p v-else-if="plan.otherVisits">{{ plan.otherVisits }} re-verification visits also reserve this day. Their stops and travel are not included in this backcheck preview; review the combined workload.</p>
         <p v-if="plan.capacity != null && plan.used > plan.capacity">This day is over capacity. Calendar edits do not reschedule existing visits.</p>
-        <p v-if="plan.timing?.shift">Saved UTC shift: {{ plan.timing.shift.start }}–{{ plan.timing.shift.end }} · {{ plan.timing.dayMinutes }} minutes budget.</p>
+        <p v-if="plan.timing?.shift">Saved UTC shift: {{ plan.timing.shift.start }}–{{ plan.timing.shift.end }}{{ plan.timing.shift.endNextDay ? ' next day' : '' }} · {{ plan.timing.dayMinutes }} minutes budget.</p>
+        <p v-if="plan.timing?.shift?.endNextDay">UTC window: {{ plan.timing.shift.startAt }} to {{ plan.timing.shift.endAt }}. Capacity is charged to {{ plan.date }}.</p>
         <p v-if="plan.timing?.shiftUnavailable" role="status">This date has no available shift. Reschedule before fieldwork.</p>
         <p v-if="plan.timing?.expiredShift" role="status">This shift has ended. Existing visits are not automatically rescheduled.</p>
         <p v-if="plan.timing?.previewOverrides">Time assumptions are preview overrides; they do not change saved calendar availability.</p>
@@ -167,7 +170,7 @@ const selectCollector = () => {
   weeklyShifts.value = Array.from({ length: 7 }, (_, i) => ({ ...(collector?.settings?.weeklyShifts?.[i] ?? { start: '08:00', end: '17:00' }) }));
   shiftAvailable.value = Array.from({ length: 7 }, (_, i) => !useShifts.value || collector.settings.weeklyShifts[i] != null);
   expectedVisitMinutes.value = collector?.settings?.visitMinutes ?? 30;
-  exceptions.value = (collector?.settings?.exceptions ?? []).map(e => ({ date: e.date, maxVisits: e.maxVisits, shiftMode: e.shift === null ? 'closed' : e.shift ? 'custom' : 'inherit', shiftStart: e.shift?.start ?? '08:00', shiftEnd: e.shift?.end ?? '17:00' })); plan.value = null; saved.value = false; error.value = '';
+  exceptions.value = (collector?.settings?.exceptions ?? []).map(e => ({ date: e.date, maxVisits: e.maxVisits, shiftMode: e.shift === null ? 'closed' : e.shift ? 'custom' : 'inherit', shiftStart: e.shift?.start ?? '08:00', shiftEnd: e.shift?.end ?? '17:00', endNextDay: e.shift?.endNextDay === true })); plan.value = null; saved.value = false; error.value = '';
 };
 const loadError = ref(false);
 const loadPanel = () => {
@@ -180,22 +183,22 @@ const saveCalendar = () => {
   if (busy.value) return Promise.resolve();
   error.value = ''; saved.value = false;
   if (new Set(exceptions.value.map(e => e.date)).size !== exceptions.value.length) { error.value = 'Use each exception date once.'; return Promise.resolve(); }
-  if (useShifts.value && (weeklyShifts.value.some((shift, i) => shiftAvailable.value[i] && shift.start >= shift.end) ||
-    exceptions.value.some(e => e.shiftMode === 'custom' && e.shiftStart >= e.shiftEnd))) { error.value = 'Each UTC shift must end after it starts on the same date.'; return Promise.resolve(); }
+  if (useShifts.value && (weeklyShifts.value.some((shift, i) => shiftAvailable.value[i] && (shift.endNextDay ? shift.start <= shift.end : shift.start >= shift.end)) ||
+    exceptions.value.some(e => e.shiftMode === 'custom' && (e.endNextDay ? e.shiftStart <= e.shiftEnd : e.shiftStart >= e.shiftEnd)))) { error.value = 'A same-date UTC shift must end after it starts. For an overnight shift, select end next day and use an earlier end clock time.'; return Promise.resolve(); }
   return request({
     method: 'PUT', url: `${base()}/backcheck-calendars/${actorId.value}`, alert: false,
     data: {
       weeklyCapacity: weeklyCapacity.value, exceptions: exceptions.value.map(e => ({
         date: e.date, maxVisits: e.maxVisits,
-        ...(useShifts.value && e.shiftMode !== 'inherit' ? { shift: e.shiftMode === 'closed' ? null : { start: e.shiftStart, end: e.shiftEnd } } : {})
+        ...(useShifts.value && e.shiftMode !== 'inherit' ? { shift: e.shiftMode === 'closed' ? null : { start: e.shiftStart, end: e.shiftEnd, ...(e.endNextDay ? { endNextDay: true } : {}) } } : {})
       })),
-      ...(useShifts.value ? { weeklyShifts: weeklyShifts.value.map((shift, i) => (shiftAvailable.value[i] ? shift : null)), visitMinutes: expectedVisitMinutes.value } : {})
+      ...(useShifts.value ? { weeklyShifts: weeklyShifts.value.map((shift, i) => (shiftAvailable.value[i] ? { start: shift.start, end: shift.end, ...(shift.endNextDay ? { endNextDay: true } : {}) } : null)), visitMinutes: expectedVisitMinutes.value } : {})
     }
   })
     .then(({ data }) => {
       collectors.value = collectors.value.map(c => (c.id === Number(actorId.value) ? { ...c, settings: data.settings } : c));
       configured.value = true; saved.value = true; plan.value = null; useSavedTiming.value = useShifts.value;
-    }).catch(e => { error.value = e.response?.data?.message || 'Calendar could not be saved.'; });
+    }).catch(e => { error.value = e.response?.status === 400 ? 'Calendar settings are invalid. Check adjacent UTC shifts for overlap, clock ranges and dated exceptions.' : e.response?.data?.message || 'Calendar could not be saved.'; });
 };
 const preview = () => {
   if (busy.value) return Promise.resolve();
@@ -233,6 +236,7 @@ const download = () => {
     ['Applied stop order', plan.value.ordering?.applied ?? 'straight'], ['Road estimate status', plan.value.road?.status ?? 'unknown'], ['Road distance km', plan.value.road?.distanceKm],
     ['Driving minutes including return', plan.value.road?.travelMinutes], ['Maximum road snap distance metres', plan.value.road?.maxSnapMeters],
     ['UTC shift start', plan.value.timing?.shift?.start], ['UTC shift end', plan.value.timing?.shift?.end],
+    ['UTC shift starts at', plan.value.timing?.shift?.startAt], ['UTC shift ends at', plan.value.timing?.shift?.endAt], ['Ends next UTC day', plan.value.timing?.shift?.endNextDay === true],
     ['Shift unavailable', plan.value.timing?.shiftUnavailable], ['Shift ended', plan.value.timing?.expiredShift], ['Preview time overrides', plan.value.timing?.previewOverrides],
     ['Minutes per visit', plan.value.timing?.visitMinutes], ['Available minutes', plan.value.timing?.dayMinutes],
     ['Total estimated minutes', plan.value.timing?.totalMinutes], ['Over time budget', plan.value.timing?.overBudget],
@@ -248,8 +252,9 @@ const download = () => {
 .backcheck-planning {
   margin-top: 24px;
   .calendar-shift { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-bottom: 10px; }
-  fieldset { flex-basis: 100%; }
+  fieldset { flex-basis: 100%; min-width: 0; }
   fieldset label, .calendar-exception { display: inline-flex; gap: 8px; margin-right: 12px; }
+  .calendar-exception { flex-wrap: wrap; max-width: 100%; margin-bottom: 10px; }
   .calendar-form, .route-form { margin: 16px 0; }
   .calendar-form input[type="number"] { max-width: 100px; }
   .itinerary-table { overflow-x: auto; }

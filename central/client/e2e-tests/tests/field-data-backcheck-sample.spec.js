@@ -597,6 +597,62 @@ test('a manager saves UTC shift windows and previews using persistent visit-time
 });
 
 
+test('a manager explicitly saves overnight UTC shifts, recovers from overlap and previews both dates', async ({ page: p }) => {
+  const saves = []; let rejectOverlap = true;
+  const errors = await api(p, managerVerbs, async (route, path) => {
+    if (path.endsWith('/backcheck-calendars')) {
+      await route.fulfill({ json: [{ id: 5, name: 'Checker', settings: { weeklyCapacity: Array(7).fill(2), visitMinutes: 30,
+        weeklyShifts: Array(7).fill({ start: '22:00', end: '23:00' }), exceptions: [] } }] }); return true;
+    }
+    if (path.endsWith('/backcheck-calendars/5')) {
+      if (rejectOverlap) { rejectOverlap = false; await route.fulfill({ status: 400, json: {} }); return true; }
+      const settings = route.request().postDataJSON(); saves.push(settings);
+      await route.fulfill({ json: { id: 5, settings } }); return true;
+    }
+    if (path.endsWith('/backcheck-route')) {
+      await route.fulfill({ json: { actor: { id: 5, name: 'Checker' }, date: '2026-10-14', capacity: 2, used: 0, unplanned: 0,
+        excluded: {}, uncertainLocations: 0, truncated: false, needsReview: false, start: { latitude: 8.48, longitude: -13.23 },
+        route: { stops: [], distanceKm: 0, returnKm: 0 }, road: { status: 'ok', distanceKm: 0, travelMinutes: 0, legs: [] },
+        timing: { visitMinutes: 30, dayMinutes: 300, totalMinutes: 0, overBudget: false,
+          shift: { start: '22:00', end: '06:00', endNextDay: true, startAt: '2026-10-14T22:00:00.000Z', endAt: '2026-10-15T06:00:00.000Z' } } } }); return true;
+    }
+    return false;
+  });
+  await p.goto(`${appUrl}${page}`); const section = p.locator('.backcheck-planning');
+  await section.getByLabel('Planning collector').selectOption('5');
+  await section.getByLabel('Wednesday shift end', { exact: true }).fill('06:00');
+  await section.getByRole('button', { name: 'Save calendar', exact: true }).click();
+  await expect(section.getByRole('alert')).toContainText('select end next day'); expect(saves).toHaveLength(0);
+  await section.getByLabel('Wednesday end next day', { exact: true }).check();
+  await section.getByRole('button', { name: 'Add dated exception' }).click();
+  await section.getByLabel('Exception date', { exact: true }).fill('2026-10-16');
+  await section.getByLabel('Exception visits', { exact: true }).fill('1');
+  await section.getByLabel('Exception shift', { exact: true }).selectOption('custom');
+  await section.getByLabel('Exception shift start', { exact: true }).fill('23:00');
+  await section.getByLabel('Exception shift end', { exact: true }).fill('05:00');
+  await section.getByLabel('Exception end next day', { exact: true }).check();
+  await section.getByRole('button', { name: 'Save calendar', exact: true }).click();
+  await expect(section.getByRole('alert')).toContainText('Check adjacent UTC shifts for overlap');
+  await section.getByRole('button', { name: 'Save calendar', exact: true }).click();
+  await expect(section).toContainText('Calendar saved.');
+  expect(saves[0].weeklyShifts[3]).toEqual({ start: '22:00', end: '06:00', endNextDay: true });
+  expect(saves[0].exceptions).toEqual([{ date: '2026-10-16', maxVisits: 1, shift: { start: '23:00', end: '05:00', endNextDay: true } }]);
+  expect(saves[0].weeklyShifts[4]).toEqual({ start: '22:00', end: '23:00' });
+  await section.getByLabel('Route date').fill('2026-10-14');
+  await section.getByLabel('Start latitude').fill('8.48'); await section.getByLabel('Start longitude').fill('-13.23');
+  await section.getByRole('button', { name: 'Preview itinerary' }).click();
+  await expect(section).toContainText('Saved UTC shift: 22:00–06:00 next day');
+  await expect(section).toContainText('UTC window: 2026-10-14T22:00:00.000Z to 2026-10-15T06:00:00.000Z');
+  const downloaded = p.waitForEvent('download');
+  await section.getByRole('button', { name: 'Download itinerary CSV' }).click();
+  const csv = await readFile(await (await downloaded).path(), 'utf8');
+  expect(csv).toContain('UTC shift starts at'); expect(csv).toContain('2026-10-15T06:00:00.000Z');
+  expect(csv).toContain('Ends next UTC day');
+  await p.setViewportSize({ width: 390, height: 900 });
+  expect(await p.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  expect(errors).toEqual([]);
+});
+
 test('road-aware preview exposes the applied order and honest provider fallback', async ({ page: p }) => {
   let attempt = 0; const queries = [];
   const errors = await api(p, managerVerbs, async (route, path) => {
