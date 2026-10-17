@@ -551,6 +551,45 @@ jobs:
           fi
           echo "Every step of the critical path answered."
 
+      # The scheduled jobs (operations checks, backups, re-verification tasks,
+      # scheduled backcheck samples, alerts) run from cron inside the container
+      # and fail silently: nothing answers a request differently when they stop.
+      # The operations runner records a check every five minutes. The checks
+      # table outlives containers, so a recent row may still be the previous
+      # container's: only a check recorded after this step starts (the critical
+      # path walk above has already moved traffic to the new container) shows
+      # that the deployed container's cron runs. Wait up to eight minutes for
+      # one. A warning, not a failure, while the cause of #89 is open.
+      - name: Report whether the deployed container runs the scheduled jobs
+        if: env.FIELD_DATA_SESSION_TOKEN != ''
+        continue-on-error: true
+        env:
+          BASE: https://field-data.mohamedbangura.workers.dev
+        run: |
+          set -o pipefail
+          started=$(date -u +%s)
+          newest=""
+          body=""
+          for attempt in $(seq 1 17); do
+            body=$(curl --silent --show-error --fail --max-time 45 \
+              --header "Authorization: Bearer $FIELD_DATA_SESSION_TOKEN" \
+              "$BASE/v1/field-data/operations") || body=""
+            newest=$(printf '%s' "$body" | jq -r '[.checks[]?.checkedAt // empty] | max // empty' 2>/dev/null || true)
+            if [[ -n "$newest" ]] && (( $(date -u -d "$newest" +%s) > started )); then
+              echo "The deployed container recorded an operations check at $newest."
+              printf '%s' "$body" | jq -r '.checks[] | "  \(.name): \(.status) at \(.checkedAt)"' || true
+              exit 0
+            fi
+            [[ "$attempt" -lt 17 ]] && sleep 30
+          done
+          if [[ -z "$body" ]]; then
+            echo "::warning title=Scheduled jobs not checked::The operations status could not be read."
+          elif [[ -z "$newest" ]]; then
+            echo "::warning title=Scheduled jobs have never run::No operations check has ever been recorded, so cron is not running the operations job. Backups, re-verification tasks, scheduled backcheck samples and alerts do not run either. See docs/operations-runbook.md."
+          else
+            echo "::warning title=Scheduled jobs are not running in the new container::No operations check was recorded in the eight minutes after this deploy (newest: $newest); the job runs every five minutes. Backups, re-verification tasks, scheduled backcheck samples and alerts are likely stopped too. See docs/operations-runbook.md."
+          fi
+
       - name: Verify custom-domain build and offline snapshot signing
         if: env.FIELD_DATA_SESSION_TOKEN != ''
         env:
