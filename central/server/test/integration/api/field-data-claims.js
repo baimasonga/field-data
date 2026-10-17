@@ -22,6 +22,7 @@ const sampleMigration = require('../../../lib/model/migrations/20261010-05-add-b
 const nearDuplicateMigration = require('../../../lib/model/migrations/20261010-06-route-near-duplicates');
 const receiptMigration = require('../../../lib/model/migrations/20261010-07-add-receipt-ledger');
 const investigationMigration = require('../../../lib/model/migrations/20261010-08-add-investigations');
+const investigationCaseMigration = require('../../../lib/model/migrations/20261016-04-investigation-case-links');
 const assetOperationMigration = require('../../../lib/model/migrations/20261011-01-add-asset-operations');
 const duplicateMigration = require('../../../lib/model/migrations/20261011-02-add-asset-duplicate-dismissals');
 const recodeMigration = require('../../../lib/model/migrations/20261011-03-add-export-recodes');
@@ -151,6 +152,7 @@ describe('api: P0.2 claim versioning', () => {
           await recodeMigration.down(trx);
           await duplicateMigration.down(trx);
           await assetOperationMigration.down(trx);
+          await investigationCaseMigration.down(trx);
           await investigationMigration.down(trx);
           await receiptMigration.down(trx);
           await nearDuplicateMigration.down(trx);
@@ -195,6 +197,7 @@ describe('api: P0.2 claim versioning', () => {
           await nearDuplicateMigration.up(trx);
           await receiptMigration.up(trx);
           await investigationMigration.up(trx);
+          await investigationCaseMigration.up(trx);
           await assetOperationMigration.up(trx);
           await duplicateMigration.up(trx);
           await recodeMigration.up(trx);
