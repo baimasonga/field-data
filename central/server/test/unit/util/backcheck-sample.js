@@ -65,6 +65,28 @@ describe('(util) backcheck sample', () => {
     fieldOf({ rate: 10, receivedFrom: '2026-09-02', receivedTo: '2026-09-01' }).should.equal('receivedTo');
   });
 
+  it('draws each collector and answer intersection reproducibly, keeping missing answers distinct', () => {
+    const eligible = [1, 2].flatMap(submitterId => ['North', 'South', null].flatMap(groupValue =>
+      Array.from({ length: 3 }, (_, i) => ({ instanceId: `${submitterId}-${groupValue}-${i}`, submitterId, groupValue }))));
+    const settings = { rate: 10, minPerCollector: 1, groupField: '/district' };
+    const result = draw(eligible, settings, seed);
+    result.chosen.length.should.equal(6); result.counts.length.should.equal(6);
+    result.counts.forEach(group => group.should.containEql({ eligible: 3, sampled: 1 }));
+    draw([...eligible].reverse(), settings, seed).should.eql(result);
+    result.chosen.filter(c => c.groupValue === null).length.should.equal(2);
+    validateSettings({ rate: 10, groupField: '/location/district' }).settings.groupField.should.equal('/location/district');
+    for (const groupField of [null, 1, '', 'district', '/a[1]', '/a/../b', '/a"', '/'.repeat(501)])
+      validateSettings({ rate: 10, groupField }).error.field.should.equal('groupField');
+  });
+
+  it('offers only non-repeating scalar questions outside metadata', () => {
+    const { groupFields } = require('../../../lib/util/backcheck-sample');
+    groupFields([{ path: '/district', type: 'string' }, { path: '/age', type: 'int' },
+      { path: '/photo', type: 'binary', binary: true }, { path: '/point', type: 'geopoint' },
+      { path: '/many', type: 'string', selectMultiple: true }, { path: '/meta/instanceID', type: 'string' },
+      { path: '/household', type: 'repeat' }, { path: '/household/name', type: 'string' }]).map(f => f.path).should.eql(['/district', '/age']);
+  });
+
   describe('O6 schedules', () => {
     const { boundaryAtOrBefore, nextBoundaryAfter, dueRun, runRequestId, validateSchedule } = require('../../../lib/util/backcheck-sample');
     const t = (s) => new Date(s);

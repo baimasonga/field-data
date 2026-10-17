@@ -2,13 +2,13 @@
 //
 // Random backcheck sample (O3): a share of every collector's submissions,
 // chosen by a seeded hash so the draw can be recomputed and checked by anyone
-// holding the seed and the eligible list. Nothing here reads answers.
+// holding the seed and the eligible list. Optional field groups are supplied by the authorized sampling route.
 //
 // Contract: docs/field-intelligence/O3-backcheck-sample.md
 
 const { createHash, randomBytes } = require('crypto');
 
-const LIMITS = { maxSample: 500, maxEligible: 50000, maxMinimum: 20 };
+const LIMITS = { maxSample: 500, maxEligible: 50000, maxMinimum: 20, maxGroups: 100, maxGroupValue: 200 };
 const SEED_PATTERN = /^[0-9a-f]{32}$/;
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -19,7 +19,7 @@ const drawKey = (seed, instanceId) => createHash('sha256').update(`${seed}:${ins
 
 // Settings from a request body, or { field, reason } describing the first problem.
 const validateSettings = (body) => {
-  const allowed = ['requestId', 'rate', 'minPerCollector', 'receivedFrom', 'receivedTo'];
+  const allowed = ['requestId', 'rate', 'minPerCollector', 'receivedFrom', 'receivedTo', 'groupField'];
   const unknown = Object.keys(body ?? {}).find((k) => !allowed.includes(k));
   if (body == null || typeof body !== 'object' || Array.isArray(body)) return { error: { field: 'body', reason: 'must be an object' } };
   if (unknown != null) return { error: { field: unknown, reason: 'is not a setting' } };
@@ -33,7 +33,10 @@ const validateSettings = (body) => {
       return { error: { field, reason: 'must be a date (YYYY-MM-DD)' } };
   if (receivedFrom != null && receivedTo != null && receivedFrom > receivedTo)
     return { error: { field: 'receivedTo', reason: 'must not be before receivedFrom' } };
-  return { settings: { rate, minPerCollector, receivedFrom, receivedTo } };
+  if (body.groupField !== undefined && (typeof body.groupField !== 'string' || body.groupField.length > 500 ||
+    !/^\/(?:[A-Za-z_][A-Za-z0-9_.-]*\/)*[A-Za-z_][A-Za-z0-9_.-]*$/.test(body.groupField)))
+    return { error: { field: 'groupField', reason: 'must name a supported question path' } };
+  return { settings: { rate, minPerCollector, receivedFrom, receivedTo, ...(body.groupField === undefined ? {} : { groupField: body.groupField }) } };
 };
 
 // How many of a stratum of n are taken.
@@ -45,24 +48,33 @@ const takeFrom = (n, { rate, minPerCollector }) => Math.min(n, Math.max(minPerCo
 const draw = (eligible, settings, seed) => {
   const strata = new Map();
   for (const e of eligible) {
-    const key = e.submitterId ?? null;
+    const key = settings.groupField ? JSON.stringify([e.submitterId ?? null, e.groupValue ?? null]) : e.submitterId ?? null;
     if (!strata.has(key)) strata.set(key, []);
     strata.get(key).push({ ...e, key: drawKey(seed, e.instanceId) });
   }
   const chosen = [];
   const counts = [];
-  const order = [...strata.keys()].sort((a, b) => (a == null ? 1 : b == null ? -1 : a - b));
-  for (const submitterId of order) {
-    const members = strata.get(submitterId)
+  const order = [...strata.keys()].sort((a, b) => (settings.groupField ? (a < b ? -1 : a > b ? 1 : 0) : a == null ? 1 : b == null ? -1 : a - b));
+  for (const stratum of order) {
+    const [submitterId, groupValue] = settings.groupField ? JSON.parse(stratum) : [stratum];
+    const group = settings.groupField ? { groupValue } : {};
+    const members = strata.get(stratum)
       .sort((a, b) => (a.key < b.key ? -1 : a.key > b.key ? 1 : a.instanceId < b.instanceId ? -1 : 1));
     const take = takeFrom(members.length, settings);
-    members.slice(0, take).forEach((m, i) => chosen.push({ instanceId: m.instanceId, submitterId, rank: i + 1 }));
-    counts.push({ submitterId, eligible: members.length, sampled: take });
+    members.slice(0, take).forEach((m, i) => chosen.push({ instanceId: m.instanceId, submitterId, ...group, rank: i + 1 }));
+    counts.push({ submitterId, ...group, eligible: members.length, sampled: take });
   }
   return { chosen, counts };
 };
 
-module.exports = { LIMITS, SEED_PATTERN, newSeed, drawKey, validateSettings, takeFrom, draw };
+const groupFields = fields => {
+  const repeats = fields.filter(f => f.type === 'repeat').map(f => f.path);
+  return fields.filter(f => ['string', 'int', 'decimal', 'date', 'barcode'].includes(f.type) && !f.binary && !f.selectMultiple &&
+    /^\/(?:[A-Za-z_][A-Za-z0-9_.-]*\/)*[A-Za-z_][A-Za-z0-9_.-]*$/.test(f.path) && !f.path.startsWith('/meta/') &&
+    !repeats.some(path => f.path.startsWith(`${path}/`))).map(f => ({ path: f.path, type: f.type }));
+};
+
+module.exports = { LIMITS, SEED_PATTERN, newSeed, drawKey, validateSettings, takeFrom, draw, groupFields };
 
 // O6 scheduled samples (docs/field-intelligence/O6-scheduled-backcheck-samples.md).
 // Periods are UTC days, or weeks starting on Monday.

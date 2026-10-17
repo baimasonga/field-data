@@ -2,6 +2,7 @@
 //
 // Random backcheck sample (O3): docs/field-intelligence/O3-backcheck-sample.md
 //
+// Optional manual answer strata: docs/field-intelligence/O21-grouped-backcheck-sampling.md
 // A manager draws a seeded, reproducible share of every collector's
 // submissions of a form; each chosen submission's review case gets the reason
 // code 'backcheck-sample', and the existing backcheck request (which refuses
@@ -14,7 +15,7 @@ const { Form } = require('../model/frames');
 const Problem = require('../util/problem');
 const { getOrNotFound } = require('../util/promise');
 const { UUID_PATTERN } = require('../util/claim-versioning');
-const { LIMITS, newSeed, validateSettings, draw } = require('../util/backcheck-sample');
+const { LIMITS, newSeed, validateSettings, draw, groupFields } = require('../util/backcheck-sample');
 
 const REASON = 'backcheck-sample';
 const LOCK = 74139;
@@ -53,7 +54,7 @@ const sampleView = async (db, formId, sampleId, withEligible) => {
     LEFT JOIN LATERAL (SELECT status FROM field_data_backchecks
       WHERE "caseId" = i."caseId" ORDER BY "createdAt" DESC, id DESC LIMIT 1) b ON TRUE
     WHERE i."sampleId" = ${sampleId}
-    ORDER BY i."submitterId" NULLS LAST, i.rank`);
+    ORDER BY i."submitterId" NULLS LAST, i.rank, i."instanceId"`);
   const collectors = new Map();
   const collector = (submitterId, displayName) => {
     if (!collectors.has(submitterId)) collectors.set(submitterId, { submitterId, displayName: displayName ?? null, eligible: 0, sampled: 0, requested: 0, linked: 0 });
@@ -71,11 +72,27 @@ const sampleView = async (db, formId, sampleId, withEligible) => {
   const names = await db.any(sql`SELECT id, "displayName" FROM actors
     WHERE id = ANY(${sql.array([...collectors.keys()].filter((k) => k != null), 'int4')})`);
   for (const n of names) collectors.get(n.id).displayName = n.displayName;
+  const groups = new Map();
+  const groupByInstance = new Map(row.settings.groupField ? row.eligibleList.map(e => [e.instanceId, e.groupValue ?? null]) : []);
+  if (row.settings.groupField) {
+    const group = value => {
+      if (!groups.has(value)) groups.set(value, { value, eligible: 0, sampled: 0, requested: 0, linked: 0 });
+      return groups.get(value);
+    };
+    for (const e of row.eligibleList) group(e.groupValue ?? null).eligible += 1;
+    for (const i of items) {
+      const g = group(groupByInstance.get(i.instanceId) ?? null); g.sampled += 1;
+      if (['requested', 'linked'].includes(i.backcheck)) g.requested += 1;
+      if (i.backcheck === 'linked') g.linked += 1;
+    }
+  }
   return {
     ...summaryOf(row),
+    ...(row.settings.groupField ? { groups: [...groups.values()].sort((a, b) => (a.value == null ? 1 : b.value == null ? -1 : a.value < b.value ? -1 : a.value > b.value ? 1 : 0)) } : {}),
     collectors: [...collectors.values()].sort((a, b) => (a.submitterId == null ? 1 : b.submitterId == null ? -1 : a.submitterId - b.submitterId)),
     items: items.map((i) => ({
       instanceId: i.instanceId, submitterId: i.submitterId, displayName: i.displayName, rank: i.rank,
+      ...(row.settings.groupField ? { groupValue: groupByInstance.get(i.instanceId) ?? null } : {}),
       caseId: i.caseId, caseStatus: i.caseStatus, routing: i.routing, backcheck: i.backcheck
     })),
     ...(withEligible ? { eligibleList: row.eligibleList } : {})
@@ -101,7 +118,13 @@ const drawSample = async (db, form, { requestId, settings, requestHash, actorId,
     : settings.receivedFrom == null ? null : `${settings.receivedFrom}T00:00:00Z`;
   const until = window != null ? window.until.toISOString()
     : settings.receivedTo == null ? null : new Date(Date.parse(`${settings.receivedTo}T00:00:00Z`) + 24 * 60 * 60 * 1000).toISOString();
+  // Only validated path segments enter this XPath; values remain SQL parameters.
+  const xpath = settings.groupField ? `/*/${settings.groupField.slice(1).split('/').map(part => `*[local-name()="${part}"]`).join('/')}` : null;
   const candidates = await db.any(sql`SELECT s.id, s."instanceId", s."submitterId", v.id AS "claimVersionId",
+      ${xpath == null ? sql`` : sql`CASE WHEN sd."localKey" IS NULL AND octet_length(sd.xml) <= 2097152 AND xml_is_well_formed_document(sd.xml)
+        THEN left((SELECT x.value FROM XMLTABLE('/*' PASSING (sd.xml::xml) COLUMNS value text PATH (${`string((${xpath})[1])`})) x), 201) ELSE NULL END AS "groupValue",
+        CASE WHEN sd."localKey" IS NULL AND octet_length(sd.xml) <= 2097152 AND xml_is_well_formed_document(sd.xml)
+          THEN cardinality(xpath(${xpath}, sd.xml::xml)) > 1 ELSE TRUE END AS unreadable,`}
       EXISTS (SELECT 1 FROM field_data_backcheck_sample_items i WHERE i."submissionId" = s.id) AS "sampledBefore"
     FROM submissions s
     JOIN submission_defs sd ON sd."submissionId" = s.id AND sd.current IS TRUE
@@ -114,15 +137,27 @@ const drawSample = async (db, form, { requestId, settings, requestHash, actorId,
   if (eligible.length > LIMITS.maxEligible)
     throw Problem.user.backcheckSampleTooLarge({ what: 'eligible submissions', count: eligible.length, max: LIMITS.maxEligible });
   if (skipEmpty && eligible.length === 0) return { id: null, replayed: false, eligible: 0, sampled: 0 };
+  if (settings.groupField) {
+    for (const e of eligible) {
+      if (e.unreadable) throw Problem.user.backcheckSampleInvalid({ field: 'groupField', reason: 'cannot group repeated, unreadable, encrypted or oversized answers; use collector-only sampling' });
+      const raw = e.groupValue;
+      e.groupValue = raw == null ? null : raw.normalize('NFC').trim() || null;
+      if ((raw?.length ?? 0) > LIMITS.maxGroupValue || (e.groupValue?.length ?? 0) > LIMITS.maxGroupValue)
+        throw Problem.user.backcheckSampleInvalid({ field: 'groupField', reason: `answers must be at most ${LIMITS.maxGroupValue} characters; choose a categorical question` });
+    }
+    if (new Set(eligible.map(e => e.groupValue)).size > LIMITS.maxGroups)
+      throw Problem.user.backcheckSampleInvalid({ field: 'groupField', reason: `must have at most ${LIMITS.maxGroups} distinct groups, including missing answers` });
+  }
+  const recorded = eligible.map(e => ({ instanceId: e.instanceId, submitterId: e.submitterId, ...(settings.groupField ? { groupValue: e.groupValue } : {}) }));
   const seed = newSeed();
-  const { chosen } = draw(eligible.map((e) => ({ instanceId: e.instanceId, submitterId: e.submitterId })), settings, seed);
+  const { chosen } = draw(recorded, settings, seed);
   if (chosen.length > LIMITS.maxSample)
     throw Problem.user.backcheckSampleTooLarge({ what: 'submissions', count: chosen.length, max: LIMITS.maxSample });
 
   const sample = await db.one(sql`INSERT INTO field_data_backcheck_samples
     ("formId", "requestId", "requestHash", seed, settings, eligible, "sampledBefore", "drawnBy", "scheduleId")
     VALUES (${form.id}, ${requestId}, ${requestHash}, ${seed}, ${JSON.stringify(settings)},
-      ${JSON.stringify(eligible.map((e) => ({ instanceId: e.instanceId, submitterId: e.submitterId })))},
+      ${JSON.stringify(recorded)},
       ${candidates.length - eligible.length}, ${actorId}, ${scheduleId})
     RETURNING id`);
 
@@ -166,6 +201,13 @@ module.exports = (service, endpoint) => {
     if (!UUID_PATTERN.test(body?.requestId ?? '')) throw Problem.user.backcheckSampleInvalid({ field: 'requestId', reason: 'must be a UUID' });
     const { settings, error } = validateSettings(body);
     if (error != null) throw Problem.user.backcheckSampleInvalid(error);
+    if (settings.groupField) {
+      await auth.canOrReject('submission.read', form);
+      await auth.canOrReject('submission.list', form);
+      const published = await container.Forms.getByProjectAndXmlFormId(params.projectId, params.xmlFormId, Form.PublishedVersion).then(getOrNotFound);
+      if (published.def.keyId != null || !groupFields(await container.Forms.getFields(published.def.id)).some(f => f.path === settings.groupField))
+        throw Problem.user.backcheckSampleInvalid({ field: 'groupField', reason: 'must name a non-repeating scalar question in an unencrypted published form' });
+    }
     const requestHash = createHash('sha256').update(JSON.stringify(settings)).digest('hex');
     const actorId = auth.actor.map((actor) => actor.id).orNull();
 
@@ -185,6 +227,13 @@ module.exports = (service, endpoint) => {
       FROM field_data_backcheck_samples s LEFT JOIN actors a ON a.id = s."drawnBy"
       WHERE s."formId" = ${form.id} ORDER BY s."drawnAt" DESC, s.id`);
     return rows.map(summaryOf);
+  }));
+
+  service.get(`${base}/fields`, endpoint(async (container, { params, auth }, _, response) => {
+    await formFor(container, auth, params, ['submission.list', 'submission.read']);
+    const published = await container.Forms.getByProjectAndXmlFormId(params.projectId, params.xmlFormId, Form.PublishedVersion).then(getOrNotFound);
+    response.set('Cache-Control', 'private, no-store');
+    return { fields: published.def.keyId == null ? groupFields(await container.Forms.getFields(published.def.id)) : [] };
   }));
 
   service.get(`${base}/:sampleId`, endpoint(async (container, { params, auth, query }, _, response) => {
