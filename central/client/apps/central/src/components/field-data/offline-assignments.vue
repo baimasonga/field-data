@@ -51,6 +51,7 @@
         <article v-for="itinerary of snapshot.itineraries.items" :key="itinerary.id">
           <h4>{{ itinerary.date }} · approved itinerary snapshot</h4>
           <p>{{ itinerary.note }}</p>
+          <p v-if="itinerary.shift">Approved UTC shift: {{ itinerary.shift.startAt }} to {{ itinerary.shift.endAt }}. The itinerary date is the shift start date.</p>
           <p v-if="itinerary.withheld">{{ itinerary.withheld }} stops were unavailable when saved.</p>
           <p v-if="itinerary.needsReview">This itinerary was approved with review warnings. Confirm access and travel assumptions with your supervisor.</p>
           <p>Start and return: {{ itinerary.start.latitude }}, {{ itinerary.start.longitude }}</p>

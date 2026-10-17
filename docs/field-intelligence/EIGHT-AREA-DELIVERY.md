@@ -127,8 +127,8 @@ also exist. Those features must not be re-labelled as full completion of this pr
   shift windows and visit-time planning (O10) add weekday/date overrides,
   closed/expired-window handling, conservative allocation time limits and
   saved preview assumptions: implemented and merged in PR #96. Road
-  navigation, overnight shifts,
-  automatic route dispatch and planning for other task types remain pending.
+  navigation and planning for other task types remain pending. O20 adds explicit
+  overnight shifts; O11/O19 provide reviewed approved itinerary dispatch.
 - Static survey doctor (S1, first adaptive-surveys slice): checks of a form
   definition for unknown references, cycles, never-shown questions, impossible
   constraints and choice-list problems, on the Draft page and in the publish
@@ -361,7 +361,7 @@ road estimate, shift budget and approved stop order. Collector inboxes and signe
 encrypted snapshots retain visit type and recheck task instructions. Changed
 assignments, observation ownership, task revisions and unavailable evidence
 withhold stale re-verification stops. See [O19-unified-visit-itineraries.md](O19-unified-visit-itineraries.md).
-Navigation, other task types, overnight shifts, live road-provider and real-device
+O20 adds overnight shifts. Navigation, other task types, live road-provider and real-device
 acceptance remain pending.
 
 ### Product implementation priorities after the reliability work
@@ -375,7 +375,7 @@ pilot is a separate acceptance activity. Product work resumes with K7 above.
 | Knowledge | Asset facts, ownership history, freshness, cited search and multi-fact historical projections | Location/photo identity comparisons, asset maps/location areas, broader decision projections, answer/semantic retrieval, causal contracts and diagnostics |
 | Evidence/trust | Evidence graph, challenges/replay checks, signed witnesses with correction/withdrawal history, human assessments and device-reported location | Delegation, certified key revocation, independent sensor/hardware corroboration, calibrated presence limitations |
 | Offline resilience | Signed encrypted assignments/itineraries, recoverable media, encrypted relay packages and receipts | Durable XML submission queues, Collect integration, background sync and delegated courier/custody transport |
-| Operations | Sampling, allocation, shared capacity, UTC shifts, combined approved itineraries and agreement counts | Overnight shifts, additional task types, navigation, sampling strata and calibrated estimates |
+| Operations | Sampling, allocation, shared capacity, same-day/overnight UTC shifts, combined approved itineraries and agreement counts | Additional task types, navigation, sampling strata and calibrated estimates |
 | Geospatial | Location integrity, imagery availability and cited human geospatial assessments with temporal context and outdated history | Exact footprint checks, reviewed change candidates, imagery analysis and evaluated automated change detection |
 | Fraud intelligence | Contradictions, identity reuse, similarity, collector links, investigations/outcomes, live case links and targeted backcheck questions with reviewed form drafts | Peer-side targeting, multilingual/effectiveness evaluation, calibrated triage and false-positive evaluation |
 | Adaptive surveys | Doctor, simulations, version-change analysis and recodes | Approved bounded policies, reviewed evolution/draft generation, answer uncertainty, conversational multilingual support and native-export recodes |
@@ -424,3 +424,14 @@ This advances Geospatial. No imagery pixels are fetched or interpreted, no revie
 case or answer changes automatically, and exact footprint/cloud analysis, automated
 change candidates/detection, labelled evaluation and live provider/device acceptance
 remain pending.
+
+
+### O20 overnight UTC visit shifts
+
+Managers can explicitly mark weekly and dated windows as ending the next UTC
+day. Adjacent windows cannot overlap, including week/year boundaries. Allocation
+and re-verification dispatch can use the ongoing previous night, with shared
+quota and minimum visit-time checks charged to its start date. Approved online
+and signed offline itineraries retain the full UTC boundary. See
+[O20-overnight-visit-shifts.md](O20-overnight-visit-shifts.md). Navigation, additional
+task types, sampling strata and calibrated estimates remain pending.

@@ -6,6 +6,7 @@ const appUrl = process.env.ODK_URL || 'http://127.0.0.1:8989';
 const taskId = '11111111-1111-4111-8111-111111111111';
 const pushId = '22222222-2222-4222-8222-222222222222';
 const key = 'fixture-app-user-key';
+const overnightShift = { startAt: '2026-10-14T22:00:00.000Z', endAt: '2026-10-15T06:00:00.000Z' };
 const visitFixture = { id: '88888888-8888-4888-8888-888888888888', assetName: 'Water point', externalId: 'WP-01', assetType: 'water-point',
   predicate: 'condition', instruction: 'Check the pump handle. <img src=x onerror=alert(1)>', xmlFormId: 'verification',
   formName: 'Independent verification', plannedVisitDate: '2026-10-19', visitBy: '2026-10-20T00:00:00Z', dispatchedAt: '2026-10-09T10:00:00Z', actionable: true };
@@ -403,11 +404,12 @@ test('a receipts failure does not hide the inbox', async ({ page }) => {
 
 
 test('approved itinerary stops are escaped, withheld work is visible and disconnect clears locations', async ({ page }) => {
-  const { errors } = await setup(page, { itineraries: [{ id: taskId, date: '2026-10-14', note: 'Check access. <img src=x onerror=alert(1)>',
+  const { errors } = await setup(page, { itineraries: [{ id: taskId, date: '2026-10-14', shift: overnightShift, note: 'Check access. <img src=x onerror=alert(1)>',
     start: { latitude: 8.48, longitude: -13.23 }, needsReview: true, withheld: 1,
     stops: [{ kind: 'reverification', id: taskId, order: 2, question: 'Verify this visit.', xmlFormId: 'verify', formName: 'Independent verification', formVersion: '2', dueAt: '2026-10-15T10:00:00Z', location: { latitude: 8.49, longitude: -13.22, accuracy: 15 } }] }] });
   await connect(page);
   await expect(page.getByRole('heading', { name: '2026-10-14 · approved stop order' })).toBeVisible();
+  await expect(page.getByText('Approved UTC shift:', { exact: false })).toContainText(overnightShift.endAt);
   await expect(page.getByText('1 stops are no longer available.', { exact: false })).toBeVisible();
   await expect(page.getByText('Re-verification visit', { exact: true })).toBeVisible();
   await expect(page.getByText('8.49, -13.22', { exact: false })).toBeVisible();
@@ -423,7 +425,7 @@ test('approved itinerary stops are escaped, withheld work is visible and disconn
 
 
 test('signed approved itineraries unlock offline without persisting plaintext coordinates', async ({ page, context }) => {
-  const approved = { id: taskId, date: '2026-10-14', note: 'Approved access instructions.', needsReview: true, withheld: 1,
+  const approved = { id: taskId, date: '2026-10-14', shift: overnightShift, note: 'Approved access instructions.', needsReview: true, withheld: 1,
     method: 'nearest-next-stop, great-circle distance, return to start', start: { latitude: 8.48, longitude: -13.23 },
     stops: [{ kind: 'reverification', assetName: 'Kissy water point', predicate: 'condition', id: pushId, order: 2, question: 'Visit approved water point.', xmlFormId: 'verify', formName: 'Independent verification', formVersion: '2', dueAt: '2026-10-15T10:00:00Z', location: { latitude: 8.491234, longitude: -13.221234, accuracy: 15 } }] };
   const { errors, state } = await setup(page, { offline: true, offlineItineraries: [approved] });
@@ -436,6 +438,7 @@ test('signed approved itineraries unlock offline without persisting plaintext co
   await expect(panel).toContainText('Independent verification (verify)'); await expect(panel).toContainText('Form version: 2 · as saved');
   await expect(panel).toContainText('Re-verification visit');
   await expect(panel).toContainText('Kissy water point · condition');
+  await expect(panel).toContainText(`Approved UTC shift: ${overnightShift.startAt} to ${overnightShift.endAt}`);
   await expect(panel).toContainText('8.491234, -13.221234'); await expect(panel).toContainText('1 stops were unavailable when saved');
   await expect(panel).toContainText('Cancellations, access changes and road conditions cannot be checked offline');
   expect(state.requests.length).toBe(reads);
@@ -454,6 +457,21 @@ test('a valid signature cannot make malformed itinerary coordinates acceptable',
   await expect(offlinePanel(page).getByRole('alert')).toBeVisible(); expect(await vault(page)).toBeNull();
 });
 
+
+for (const [name, shift] of [
+  ['reversed window', { startAt: overnightShift.endAt, endAt: overnightShift.startAt }],
+  ['wrong start date', { ...overnightShift, startAt: '2026-10-13T22:00:00.000Z' }],
+  ['invalid calendar instant', { ...overnightShift, endAt: '2026-02-30T06:00:00.000Z' }],
+  ['24 hour window', { ...overnightShift, endAt: '2026-10-15T22:00:00.000Z' }],
+  ['unexpected metadata', { ...overnightShift, answer: 'private' }]
+]) {
+  test(`signed itinerary rejects ${name} before storage`, async ({ page }) => {
+    await setup(page, { offline: true, offlineItineraries: [{ id: taskId, date: '2026-10-14', shift, note: 'Instructions', needsReview: false,
+      withheld: 0, method: 'road suggestion', start: { latitude: 8.48, longitude: -13.23 }, stops: [] }] });
+    await connect(page); await saveOffline(page);
+    await expect(offlinePanel(page).getByRole('alert')).toBeVisible(); expect(await vault(page)).toBeNull();
+  });
+}
 
 for (const [name, invalid] of [
   ['malformed collection metadata', { formVersion: {}, dueAt: 'not-a-date' }],
