@@ -75,4 +75,7 @@ concurrency, exact retries, state/quotas, history rollback/purge/immutability,
 response-form hiding; browser linking/removal/relink/history, safe retries, case
 inspection/comparison, stale revisions, unavailable sources, paging and narrow
 layout; complete CI and deployment checks. Calibrated triage, false-positive
-estimates, targeted instruments and field acceptance remain separate work.
+estimates and field acceptance remain separate work. Fixed-template targeted
+backcheck questions and dispatch are added by
+[F9-targeted-backcheck-instruments.md](F9-targeted-backcheck-instruments.md);
+automatic instrument schema generation remains pending.

@@ -6,6 +6,8 @@ const { getOrNotFound } = require('../util/promise');
 const { UUID_PATTERN } = require('../util/claim-versioning');
 const links = require('../util/investigation-case-links');
 const Problem = require('../util/problem');
+const instrument = require('../util/investigation-instrument');
+const { requestBackcheck } = require('../util/backcheck-request');
 const conflict = () => Problem.user.investigationCaseLinkConflict();
 const scope = async (c, auth, params) => {
   if (!/^[1-9]\d*$/.test(params.projectId) || !Number.isSafeInteger(Number(params.projectId)) || !UUID_PATTERN.test(params.id ?? '')) throw Problem.user.notFound();
@@ -64,6 +66,26 @@ const state = async (c, auth, project, inv, before = 501) => {
       available: available(e), ...(available(e) ? { case: publicCase(byId.get(e.caseId)), reason: e.reason, actorName: e.actorName, createdAt: e.createdAt } : {}) })),
     hiddenEvents: selected.filter(e => !available(e)).length, nextBefore: page.length > selected.length ? selected.at(-1).sequence : null };
 };
+// Only primary-source findings are used: no peer identifiers or recorded answers enter drafts.
+const instrumentFindings = async (db, inv, row, lock = false) => {
+  const findings = await db.any(sql`SELECT i.id,i.rule,i."ruleVersion" FROM field_data_investigation_findings x
+    JOIN field_data_integrity_flags i ON i.id = x."findingId"
+    WHERE x."investigationId" = ${inv.id} AND i."formId" = ${row.formId} AND i."instanceId" = ${row.instanceId}
+      AND i.status IN ('open','investigating') AND i.outcome IN ('concern','inconclusive')
+    ORDER BY i.id ${lock ? sql`FOR SHARE OF i,x` : sql``}`);
+  return findings.map(instrument.suggestion).filter(Boolean);
+};
+const linkedScope = async (tx, auth, project, params, lock = false) => {
+  if (!UUID_PATTERN.test(params.linkId ?? '')) throw Problem.user.notFound();
+  const actor = await managerLock(tx, auth.actor.get().id, project);
+  const inv = await investigation(tx.db, project.id, params.id, lock);
+  const link = links.active(await eventsFor(tx.db, inv.id)).find(e => e.linkId === params.linkId.toLowerCase());
+  if (!link) throw Problem.user.notFound();
+  const [row] = await caseRows(tx.db, project.id, [link.caseId], true);
+  if (!row || row.claimVersionId !== link.claimVersionId) throw Problem.user.notFound();
+  await grantLock(tx.db, actor.id, row.formActeeId, 'submission.read');
+  return { actor, inv, link, row };
+};
 module.exports = (service, endpoint) => {
   const root = '/projects/:projectId/investigations/:id/cases';
   const respond = (response, revision) => { response.set('Cache-Control', 'private, no-store'); response.set('ETag', `"investigation-${revision}"`); };
@@ -116,6 +138,45 @@ module.exports = (service, endpoint) => {
     respond(response, result.revision); response.set('Idempotency-Status', result.replayed ? 'replayed' : 'created'); return result;
   });
   service.post(root, write(false)); service.post(`${root}/:linkId/remove`, write(true));
+  service.get(`${root}/:linkId/instrument`, endpoint(async (c, { auth, params, query }, _, response) => {
+    const project = await scope(c, auth, params); if (Object.keys(query).length) throw instrument.invalid();
+    const result = await c.transacting(async tx => {
+      const { actor, inv, row } = await linkedScope(tx, auth, project, params);
+      const items = await instrumentFindings(tx.db, inv, row);
+      const form = await tx.Forms.getByProjectAndXmlFormId(project.id, row.xmlFormId, Form.WithoutDef, Form.WithoutXml).then(getOrNotFound);
+      const pending = await tx.db.oneFirst(sql`SELECT count(*)::integer FROM field_data_backchecks WHERE "caseId" = ${row.id} AND status = 'requested'`);
+      return { templateVersion: instrument.VERSION, investigationRevision: inv.revision, caseRevision: row.revision,
+        items: items.slice(0, instrument.MAX_FINDINGS), omitted: Math.max(0, items.length - instrument.MAX_FINDINGS),
+        canRequest: !actor.archived && inv.status === 'open' && row.current && row.status === 'in-review' && row.assignedTo === actor.id && pending === 0 && await auth.can('submission.update', form) };
+    });
+    response.set('Cache-Control', 'private, no-store'); return result;
+  }));
+  service.post(`${root}/:linkId/instrument/backchecks`, endpoint(async (c, { auth, params, body, headers }, _, response) => {
+    const project = await scope(c, auth, params); const data = instrument.checked(body, headers);
+    const result = await c.transacting(async tx => {
+      const { actor, inv, link, row } = await linkedScope(tx, auth, project, params, true);
+      await grantLock(tx.db, actor.id, row.formActeeId, 'submission.update');
+      const responseForm = await tx.db.maybeOne(sql`SELECT id,"acteeId" FROM forms
+        WHERE "projectId" = ${project.id} AND "xmlFormId" = ${data.responseXmlFormId} AND "deletedAt" IS NULL FOR SHARE`);
+      if (!responseForm) throw Problem.user.notFound();
+      await grantLock(tx.db, actor.id, responseForm.acteeId, 'submission.read');
+      const prior = await tx.db.maybeOne(sql`SELECT id FROM field_data_backchecks WHERE "caseId" = ${row.id} AND "requestId" = ${data.requestId}`);
+      if (!prior) {
+        if (inv.revision !== data.investigationRevision) throw Problem.user.investigationRevisionStale();
+        if (inv.status !== 'open' || actor.archived) throw Problem.user.investigationInstrumentConflict();
+        const eligible = new Set((await instrumentFindings(tx.db, inv, row, true)).slice(0, instrument.MAX_FINDINGS).map(item => item.findingId));
+        if (data.findingIds.some(id => !eligible.has(id))) throw instrument.invalid();
+      }
+      const requestHash = links.hash({ actorId: actor.id, investigationId: inv.id, linkId: link.linkId, ...data });
+      const requested = await requestBackcheck(tx.db, { ...data, caseId: row.id, claimVersionId: row.claimVersionId,
+        projectId: project.id, formActeeId: row.formActeeId, responseForm, reviewerId: actor.id, requestHash });
+      if (!requested.replayed) await tx.Audits.log(auth.actor, 'field_data.investigation.instrument.request', project,
+        { investigationId: inv.id, linkId: link.linkId, backcheckId: requested.id, templateVersion: instrument.VERSION, findingCount: data.findingIds.length });
+      return requested;
+    });
+    response.set('Cache-Control', 'private, no-store'); response.set('ETag', `"review-case-${result.revision}"`);
+    response.set('Idempotency-Status', result.replayed ? 'replayed' : 'created'); response.status(201); return result;
+  }));
   service.get(`${root}/:linkId`, endpoint(async (c, { auth, params }, _, response) => {
     const project = await scope(c, auth, params); if (!UUID_PATTERN.test(params.linkId ?? '')) throw Problem.user.notFound(); const actorId = auth.actor.get().id;
     const result = await c.transacting(async tx => {

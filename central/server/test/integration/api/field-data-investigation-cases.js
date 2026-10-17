@@ -168,3 +168,135 @@ describe('api: investigation review-case links', () => {
     assert.deepEqual(competing.map(r => r.status).sort(), [200, 412]); assert.equal((await alice.get(path).expect(200)).body.eventCount, 2);
   }));
 });
+
+describe('api: targeted investigation backcheck instruments (F9)', () => {
+  const seed = async (service, c) => {
+    const context = await setup(service); const { alice, first, inv, path } = context;
+    const flag = async (rule, instanceId = 'one', status = 'open', outcome = 'concern') => (await c.db.one(sql`INSERT INTO field_data_integrity_flags
+      ("formId",rule,"ruleVersion","instanceId",status,outcome,evidence)
+      SELECT id,${rule},1,${instanceId},${status},${outcome},'{"title":"Private respondent identity","answer":"secret earlier answer"}'::jsonb
+      FROM forms WHERE "projectId" = 1 AND "xmlFormId" = 'simple' RETURNING id`)).id;
+    const finding = await flag('contradiction:instrument'); const identity = await flag('identity-reused:instrument');
+    const unrelated = await flag('contradiction:other-source', 'two');
+    const withdrawn = await flag('contradiction:withdrawn', 'one', 'open', 'withdrawn');
+    const resolved = await flag('contradiction:resolved', 'one', 'resolved'); const unknown = await flag('unrecognized-rule');
+    const unattached = await flag('contradiction:unattached');
+    await alice.post(`${root}/${inv.id}/findings`).set('If-Match', '"investigation-1"').send({ findingIds: [finding, identity, unrelated, withdrawn, resolved, unknown] }).expect(200);
+    await write(alice, path, 2, linkBody(first.id)).expect(200);
+    const link = (await alice.get(path).expect(200)).body.items[0]; const endpoint = `${path}/${link.linkId}/instrument`;
+    const user = (await alice.get('/v1/users/current').expect(200)).body;
+    const target = (await alice.get(`/v1/field-data/review-queue/${first.id}`).expect(200)).body;
+    await alice.patch(`/v1/field-data/review-queue/${first.id}/assignment`).set('If-Match', `"review-case-${target.revision}"`).set('Idempotency-Key', randomUUID())
+      .send({ assignedTo: user.id, status: 'in-review' })
+      .expect(200);
+    const checker = (await alice.post('/v1/projects/1/app-users').send({ displayName: 'Independent instrument checker' }).expect(200)).body;
+    await alice.post(`/v1/projects/1/forms/withrepeat/assignments/app-user/${checker.id}`).expect(200);
+    const draft = (await alice.get(endpoint).expect(200)).body;
+    const body = { requestId: randomUUID(), investigationRevision: draft.investigationRevision, templateVersion: draft.templateVersion,
+      findingIds: [identity, finding], responseXmlFormId: 'withrepeat', assignedTo: checker.id, question: 'Confirm the household details independently, recording legitimate explanations.', dueAt: null };
+    const post = (data = body, revision = draft.caseRevision) => alice.post(`${endpoint}/backchecks`).set('If-Match', `"review-case-${revision}"`).send(data);
+    return { ...context, endpoint, draft, body, post, finding, identity, unrelated, unattached, checker, actorId: user.id, link };
+  };
+  it('drafts only supported active primary-source findings without copying evidence or answers', testService(async (service, c) => {
+    const { alice, endpoint, draft, finding, identity } = await seed(service, c);
+    assert.deepEqual(draft.items.map(i => i.findingId), [finding, identity]); assert.equal(draft.canRequest, true);
+    const text = JSON.stringify(draft); assert.equal(text.includes('secret earlier answer'), false); assert.equal(text.includes('Private respondent'), false);
+    assert.ok(draft.items.every(i => /correction|legitimately/.test(i.question))); assert.equal(draft.templateVersion, 'investigation-backcheck@1');
+    const response = await alice.get(endpoint).expect(200); assert.equal(response.headers['cache-control'], 'private, no-store');
+    await alice.get(`${endpoint}?extra=1`).expect(400);
+  }));
+  it('creates an ordinary dedicated-form backcheck with atomic investigation audit and normalized exact retries', testService(async (service, c) => {
+    const { alice, first, inv, draft, body, post, checker, path, link } = await seed(service, c);
+    const saved = await post().expect(201); assert.equal(saved.headers.etag, `"review-case-${draft.caseRevision + 1}"`);
+    const replay = await post({ ...body, requestId: body.requestId.toUpperCase(), findingIds: [...body.findingIds].reverse(), question: ` ${body.question} ` }).expect(201);
+    assert.equal(replay.body.id, saved.body.id); assert.equal(replay.headers['idempotency-status'], 'replayed');
+    assert.equal(await c.db.oneFirst(sql`SELECT count(*)::integer FROM field_data_backchecks WHERE "caseId" = ${first.id}`), 1);
+    const native = (await alice.get(`/v1/field-data/review-queue/${first.id}/backchecks`).expect(200)).body[0];
+    assert.equal(native.responseXmlFormId, 'withrepeat'); assert.equal(native.assignedTo, checker.id); assert.equal(native.question, body.question);
+    const audits = await c.db.any(sql`SELECT details FROM audits WHERE action = 'field_data.investigation.instrument.request'`); assert.equal(audits.length, 1);
+    assert.equal(audits[0].details.templateVersion, draft.templateVersion); assert.equal(audits[0].details.findingCount, 2);
+    assert.equal(JSON.stringify(audits).includes(body.question), false); assert.equal(JSON.stringify(audits).includes(first.id), false);
+    const investigation = (await alice.get(`${root}/${inv.id}`).expect(200)).body; assert.equal(investigation.revision, body.investigationRevision); assert.equal(investigation.disposition, null);
+    await post({ ...body, question: 'Changed request contents must be rejected.' }).expect(400);
+    await service.post('/v1/projects/1/forms/withrepeat/submissions').set('Authorization', `Bearer ${checker.token}`)
+      .set('Content-Type', 'application/xml').send(xml.instances.withrepeat.one).expect(200);
+    await alice.post(`/v1/field-data/review-queue/${first.id}/backchecks/${saved.body.id}/link`).set('If-Match', saved.headers.etag).send({ instanceId: 'rone' }).expect(200);
+    const inspection = (await alice.get(`${path}/${link.linkId}`).expect(200)).body;
+    assert.equal(inspection.backchecks[0].status, 'linked'); assert.equal(inspection.backchecks[0].responseInstanceId, 'rone');
+    await alice.get(`/v1/field-data/review-queue/${first.id}/backchecks/${saved.body.id}/comparison`).expect(200);
+    assert.equal((await post().expect(201)).body.status, 'linked');
+  }));
+  it('rechecks findings and both revisions before writing, while exact retries survive closure and withdrawal', testService(async (service, c) => {
+    const { alice, inv, body, post, finding, unrelated, unattached, endpoint } = await seed(service, c);
+    for (const id of [unrelated, unattached]) await post({ ...body, requestId: randomUUID(), findingIds: [id] }).expect(400);
+    await post({ ...body, investigationRevision: body.investigationRevision - 1 }).expect(412);
+    await post(body, 999).expect(412);
+    await c.db.query(sql`UPDATE field_data_integrity_flags SET outcome = 'withdrawn' WHERE id = ${finding}`);
+    await post().expect(400);
+    const valid = { ...body, findingIds: [body.findingIds[0]] }; await post(valid).expect(201);
+    await alice.post(`${root}/${inv.id}/close`).set('If-Match', `"investigation-${body.investigationRevision}"`).send({ disposition: 'insufficient-evidence', conclusion: 'Awaiting an independent follow-up.' }).expect(200);
+    await post(valid).expect(201); const closed = (await alice.get(endpoint).expect(200)).body; assert.equal(closed.canRequest, false);
+    await post({ ...valid, requestId: randomUUID(), investigationRevision: body.investigationRevision + 1 }).expect(409);
+  }));
+  it('requires source update/read grants and hides drafts after source or investigation access revocation', testService(async (service, c) => {
+    const { alice, endpoint, body, draft, actorId } = await seed(service, c); const { user, id } = await limitedManager(service, c, alice);
+    assert.equal((await user.get(endpoint).expect(200)).body.canRequest, false);
+    await user.post(`${endpoint}/backchecks`).set('If-Match', `"review-case-${draft.caseRevision}"`).send(body).expect(404);
+    await alice.delete(`/v1/projects/1/forms/simple/assignments/viewer/${id}`).expect(200); await user.get(endpoint).expect(404);
+    await alice.delete(`/v1/projects/1/assignments/manager/${id}`).expect(200); await user.get(endpoint).expect(403);
+    assert.notEqual(id, actorId); await service.get(endpoint).expect(401);
+  }));
+  it('keeps native independence, reviewer ownership, published form, pending-request and collector grants', testService(async (service, c) => {
+    const { first, body, post, checker, endpoint, alice } = await seed(service, c);
+    await c.db.query(sql`UPDATE submissions SET "submitterId" = ${checker.id} WHERE "formId" = (SELECT id FROM forms WHERE "projectId" = 1 AND "xmlFormId" = 'simple') AND "instanceId" = 'one'`);
+    await post().expect(400);
+    await c.db.query(sql`UPDATE submissions SET "submitterId" = NULL WHERE "formId" = (SELECT id FROM forms WHERE "projectId" = 1 AND "xmlFormId" = 'simple') AND "instanceId" = 'one'`);
+    await post({ ...body, responseXmlFormId: 'missing' }).expect(404);
+    await post({ ...body, responseXmlFormId: 'simple' }).expect(400);
+    await c.db.query(sql`UPDATE forms SET state = 'closing' WHERE "projectId" = 1 AND "xmlFormId" = 'withrepeat'`); await post().expect(400);
+    await c.db.query(sql`UPDATE forms SET state = 'open' WHERE "projectId" = 1 AND "xmlFormId" = 'withrepeat'`);
+    await c.db.query(sql`UPDATE field_data_review_cases SET "assignedTo" = NULL WHERE id = ${first.id}`); await post().expect(409);
+    const self = (await alice.get('/v1/users/current').expect(200)).body.id; await c.db.query(sql`UPDATE field_data_review_cases SET "assignedTo" = ${self} WHERE id = ${first.id}`);
+    await post().expect(201); assert.equal((await alice.get(endpoint).expect(200)).body.canRequest, false);
+    const current = (await alice.get(endpoint).expect(200)).body;
+    await post({ ...body, requestId: randomUUID() }, current.caseRevision).expect(409);
+  }));
+  it('blocks archived, removed and historical links and bounds draft selection', testService(async (service, c) => {
+    const { alice, path, link, endpoint, body, post, draft } = await seed(service, c);
+    for (const patch of [{ findingIds: [] }, { findingIds: [1, 1] }, { findingIds: Array.from({ length: 21 }, (_, n) => n + 1) }, { templateVersion: 'future' }, { question: '' }, { extra: true }, { dueAt: 'bad' }]) await post({ ...body, ...patch }).expect(400);
+    await alice.post(`${endpoint}/backchecks`).send(body).expect(428);
+    await c.db.query(sql`UPDATE projects SET archived = TRUE WHERE id = 1`); assert.equal((await alice.get(endpoint).expect(200)).body.canRequest, false); await post().expect(409);
+    await c.db.query(sql`UPDATE projects SET archived = FALSE WHERE id = 1`);
+    await c.db.query(sql`UPDATE submission_defs SET current = FALSE WHERE id = (SELECT "submissionDefId" FROM field_data_claim_versions WHERE id = (SELECT "claimVersionId" FROM field_data_review_cases WHERE id = ${link.case.id}))`);
+    assert.equal((await alice.get(endpoint).expect(200)).body.canRequest, false); await post().expect(409);
+    await write(alice, `${path}/${link.linkId}/remove`, draft.investigationRevision, { requestId: randomUUID(), reason: 'Association no longer applies to this inquiry.' }).expect(200);
+    await alice.get(endpoint).expect(404); await post().expect(404);
+  }));
+  it('requires the response-form read grant even for a manager assigned the source case', testService(async (service, c) => {
+    const { alice, endpoint, body, first } = await seed(service, c); const { user, id } = await limitedManager(service, c, alice);
+    await c.db.query(sql`UPDATE roles SET verbs = verbs || '["submission.update"]'::jsonb WHERE system = 'manager'`);
+    await c.db.query(sql`UPDATE field_data_review_cases SET "assignedTo" = ${id} WHERE id = ${first.id}`);
+    const draft = (await user.get(endpoint).expect(200)).body; assert.equal(draft.canRequest, true);
+    const send = () => user.post(`${endpoint}/backchecks`).set('If-Match', `"review-case-${draft.caseRevision}"`).send(body);
+    await send().expect(404); assert.equal(await c.db.oneFirst(sql`SELECT count(*)::integer FROM field_data_backchecks WHERE "caseId" = ${first.id}`), 0);
+    await alice.post(`/v1/projects/1/forms/withrepeat/assignments/viewer/${id}`).expect(200); await send().expect(201);
+    await alice.delete(`/v1/projects/1/forms/withrepeat/assignments/viewer/${id}`).expect(200); await send().expect(404);
+  }));
+  it('bounds drafts to twenty findings and excludes selections outside the displayed batch', testService(async (service, c) => {
+    const { alice, inv, endpoint, body, post, first } = await seed(service, c);
+    const more = await c.db.any(sql`INSERT INTO field_data_integrity_flags ("formId",rule,"ruleVersion","instanceId",outcome,evidence)
+      SELECT f.id,'contradiction:bounded-' || n,1,'one','concern','{}'::jsonb FROM forms f CROSS JOIN generate_series(1,21) n
+      WHERE f."projectId" = 1 AND f."xmlFormId" = 'simple' RETURNING id`);
+    await alice.post(`${root}/${inv.id}/findings`).set('If-Match', `"investigation-${body.investigationRevision}"`).send({ findingIds: more.map(row => row.id) }).expect(200);
+    const draft = (await alice.get(endpoint).expect(200)).body; assert.equal(draft.items.length, 20); assert.equal(draft.omitted, 3);
+    await post({ ...body, investigationRevision: draft.investigationRevision, findingIds: [more.at(-1).id] }, draft.caseRevision).expect(400);
+    await alice.delete('/v1/projects/1/forms/simple/submissions/one').expect(200); await alice.get(endpoint).expect(404);
+    assert.equal(await c.db.oneFirst(sql`SELECT count(*)::integer FROM field_data_backchecks WHERE "caseId" = ${first.id}`), 0);
+  }));
+  it('serializes concurrent requests without duplicate backchecks or investigation audit', testServiceFullTrx(async (service, c) => {
+    const { post, first } = await seed(service, c); const results = await Promise.all([post().expect(201), post().expect(201)]);
+    assert.equal(results.filter(r => r.body.replayed).length, 1);
+    assert.equal(await c.db.oneFirst(sql`SELECT count(*)::integer FROM field_data_backchecks WHERE "caseId" = ${first.id}`), 1);
+    assert.equal(await c.db.oneFirst(sql`SELECT count(*)::integer FROM audits WHERE action = 'field_data.investigation.instrument.request'`), 1);
+  }));
+});

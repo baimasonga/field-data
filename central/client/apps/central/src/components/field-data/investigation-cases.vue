@@ -24,6 +24,7 @@
           <p>Submission review state: {{ inspection.case.submissionReviewState ?? 'received' }}. This is separate from the investigation disposition.</p>
           <router-link :to="submissionPath(inspection.case.xmlFormId, inspection.case.instanceId)">Open source submission</router-link> ·
           <a :href="versionPath(inspection.case.xmlFormId, inspection.case.instanceId, inspection.case.versionInstanceId)" target="_blank" rel="noopener noreferrer">Download pinned source XML</a>
+          <field-data-investigation-instrument :key="inspection.linkId" :base="`${base}/${encodeURIComponent(inspection.linkId)}`" :case-id="inspection.case.id" @requested="inspect(item)"/>
           <h5>Review decision history</h5><p v-if="!inspection.decisions.length">No review decision recorded.</p>
           <ol>
 <li v-for="decision in inspection.decisions" :key="decision.id">
@@ -84,6 +85,7 @@
 import { computed, onBeforeUnmount, ref, watch } from 'vue';
 import RecordDateTime from '../date-time.vue';
 import SubmissionBackcheckComparison from '../submission/backcheck-comparison.vue';
+import FieldDataInvestigationInstrument from './investigation-instrument.vue';
 import useRequest from '../../composables/request';
 import { apiPaths } from '../../util/request';
 
