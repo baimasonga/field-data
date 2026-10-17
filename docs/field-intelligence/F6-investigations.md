@@ -63,8 +63,10 @@ submissions), history, a note box, and close or reopen. Each collector group
 
 ## Not in this slice
 
-Assignment and due dates, linking review cases or backchecks, attachments,
-metrics over dispositions, retention rules.
+Assignment and due dates, attachments and retention rules remain pending.
+Metrics over dispositions were added by F7. Case linking and inspection of
+related readable backchecks are covered by
+[F8-investigation-case-links.md](F8-investigation-case-links.md).
 
 ## Acceptance
 

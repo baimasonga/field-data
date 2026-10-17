@@ -88,7 +88,13 @@ also exist. Those features must not be re-labelled as full completion of this pr
   investigations by status and disposition, days to close, closures by month,
   findings by kind of check and collectors by disposition, counts only, with
   the note that investigated findings are chosen by people: merged in PR #84.
-  Triage and linking review cases remain pending.
+  Investigation case links (F8): managers associate review cases with an
+  investigation, inspect live decisions and readable pinned backchecks, and
+  remove/relink with append-only reasons and shared revision checks; source
+  revocation hides identifiers and private history. See
+  [F8-investigation-case-links.md](F8-investigation-case-links.md).
+  Calibrated triage, targeted instrument generation and broader fraud-intelligence
+  acceptance remain pending.
 - Receipt and custody ledger (R1, first offline-resilience custody slice):
   an append-only, hash-chained receipt per submission version received,
   written by a database trigger; manager verification of chain and stored

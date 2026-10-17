@@ -89,6 +89,8 @@ Contract: docs/field-intelligence/F6-investigations.md -->
       </ul>
       <p v-if="current.hiddenFindings > 0" class="investigation-hidden">{{ current.hiddenFindings }} more on Forms you may not read.</p>
 
+      <field-data-investigation-cases :project-id="projectId" :investigation-id="current.id" :revision="current.revision" @changed="refreshCaseLinks"/>
+
       <h4>History</h4>
       <ol class="investigation-history">
         <li v-for="e of current.events" :key="e.id">
@@ -131,6 +133,7 @@ Contract: docs/field-intelligence/F6-investigations.md -->
 import { computed, ref, watch } from 'vue';
 
 import Spinner from '../spinner.vue';
+import FieldDataInvestigationCases from './investigation-cases.vue';
 import useRequest from '../../composables/request';
 
 defineOptions({ name: 'FieldDataInvestigations' });
@@ -207,6 +210,8 @@ const write = (path, data, what, reset) => {
 const addNote = () => write('notes', { note: note.value }, 'The note', () => { note.value = ''; });
 const close = () => write('close', { disposition: disposition.value, conclusion: conclusion.value }, 'The closure', () => { conclusion.value = ''; });
 const reopen = () => write('reopen', { reason: reason.value }, 'The reopening', () => { reason.value = ''; });
+
+const refreshCaseLinks = () => { if (current.value) { open(current.value.id); load(); } };
 
 const formPath = (xmlFormId) => `/projects/${props.projectId}/forms/${encodeURIComponent(xmlFormId)}`;
 const submissionPath = (xmlFormId, instanceId) => `${formPath(xmlFormId)}/submissions/${encodeURIComponent(instanceId)}`;

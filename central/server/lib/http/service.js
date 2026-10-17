@@ -146,6 +146,7 @@ module.exports = (container) => {
   require('../resources/field-data-receipts')(service, endpoint);
   require('../resources/field-data-search')(service, endpoint);
   require('../resources/field-data-investigations')(service, endpoint);
+  require('../resources/field-data-investigation-cases')(service, endpoint);
   require('../resources/field-data-export-recodes')(service, endpoint);
   require('../resources/field-data-evidence')(service, endpoint);
   require('../resources/field-data-reviews')(service, endpoint);

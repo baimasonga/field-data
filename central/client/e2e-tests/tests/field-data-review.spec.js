@@ -170,6 +170,11 @@ const setup = async (page, { comparisonUnavailable = false, failComparison = fal
       months: [{ month: '2026-09', ...zero() }, { month: '2026-10', ...dispositions }], families, collectors,
       collectorsOmitted: 0, hiddenFindings: closed.length === 0 ? 0 : 1, generatedAt: '2026-10-11T00:00:00.000Z' });
     }
+    // Existing investigation tests receive an empty, permission-scoped F8 panel.
+    if (/^\/v1\/projects\/7\/investigations\/[^/]+\/cases$/.test(path)) {
+      const id = path.split('/')[5]; const inv = state.investigations.find(v => v.id === id);
+      return respond({ revision: inv?.revision ?? 1, status: inv?.status ?? 'open', canLink: inv?.status !== 'closed', canRemove: inv?.status !== 'closed', eventCount: 0, items: [], history: [], hiddenLinks: 0, hiddenEvents: 0, nextBefore: null });
+    }
     // F6 investigations, with revisions as the server keeps them.
     const investigationPath = /^\/v1\/projects\/7\/investigations(?:\/([^/]+)(?:\/(notes|close|reopen))?)?$/.exec(path);
     if (investigationPath != null) {
@@ -1782,4 +1787,126 @@ test('asset status compares several facts with independent summaries, citations 
   await section.getByRole('button', { name: 'Show' }).click();
   await expect(section.locator('.asset-status-matrix')).toHaveCount(0); await expect(section.locator('.asset-status-table')).toBeVisible();
   expect(errors).toEqual([]);
+});
+
+
+// The case-link fixture keeps mutation identity separate from the shared investigation revision.
+const setupCaseLinks = async page => {
+  const { state, errors } = await setup(page, { manageProject: true });
+  const inv = { id: '44444444-4444-4444-8444-444444444444', title: 'Village review', status: 'open', disposition: null, revision: 1, openedByName: 'Test reviewer', findings: [], hiddenFindings: 0, events: [] };
+  state.investigations.push(inv);
+  const row = { id: caseId, xmlFormId: 'health', instanceId: 'uuid:source', versionInstanceId: 'original-version', status: 'in-review', ordinal: 1, current: false, submissionReviewState: null };
+  const f = { items: [], history: [], writes: [], seen: new Map(), hidden: false, loseResponse: false, stale: false, paged: false, historyPaged: false, candidateCalls: [] };
+  const snapshot = before => ({ revision: inv.revision, status: inv.status, canLink: inv.status === 'open', canRemove: inv.status === 'open', eventCount: f.history.length,
+    items: f.items.map(item => f.hidden ? { linkId: item.linkId, available: false } : item),
+    history: (before ? f.history.slice(1) : f.history).map(e => f.hidden ? { id: e.id, action: e.action, investigationRevision: e.investigationRevision, available: false } : e),
+    nextBefore: f.historyPaged && !before ? 2 : null });
+  await page.route('**/v1/projects/7/investigations/*/cases**', async route => {
+    const req = route.request(); const url = new URL(req.url()); const suffix = url.pathname.split('/cases')[1];
+    const respond = json => route.fulfill({ json });
+    if (req.method() === 'POST') {
+      const body = req.postDataJSON(); const header = req.headers()['if-match']; f.writes.push({ body, header, suffix });
+      if (f.seen.has(body.requestId)) { expect({ body, header, suffix }).toEqual(f.seen.get(body.requestId)); return respond({ revision: inv.revision, replayed: true }); }
+      if (f.stale) { f.stale = false; inv.revision += 1; return route.fulfill({ status: 412, json: { message: 'Stale revision' } }); }
+      expect(header).toBe(`"investigation-${inv.revision}"`); inv.revision += 1;
+      const removing = suffix.endsWith('/remove'); const linkId = removing ? f.items[0].linkId : `55555555-5555-4555-8555-${String(inv.revision).padStart(12, '0')}`;
+      const event = { id: `event-${inv.revision}`, linkId, action: removing ? 'removed' : 'linked', investigationRevision: inv.revision, available: true, case: row, actorName: 'Test reviewer', createdAt: '2026-10-16T12:00:00.000Z', reason: body.reason };
+      f.history.unshift(event); f.items = removing ? [] : [{ linkId, available: true, case: row, actorName: 'Test reviewer', linkedAt: event.createdAt, reason: body.reason }];
+      f.seen.set(body.requestId, { body, header, suffix });
+      if (f.loseResponse) { f.loseResponse = false; return route.abort('failed'); }
+      return respond({ revision: inv.revision, replayed: false });
+    }
+    if (suffix === '/candidates') {
+      f.candidateCalls.push(url.search);
+      const more = url.searchParams.has('cursor');
+      return respond({ items: f.hidden ? [] : [{ ...row, instanceId: more ? 'uuid:next-source' : row.instanceId, linked: f.items.length > 0 }], nextCursor: f.paged && !more ? 'next-page' : null });
+    }
+    if (suffix) {
+      if (f.hidden) return route.fulfill({ status: 404, json: { message: 'Unavailable' } });
+      return respond({ linkId: f.items[0].linkId, case: row, decisions: [{ id: 'decision-1', outcome: 'needs-evidence', reasonCode: 'unclear', note: 'Check the household again.', reviewerName: 'Independent reviewer', createdAt: '2026-10-16T12:00:00.000Z' }], decisionsOmitted: 0,
+        backchecks: [{ id: backcheckId, status: 'linked', question: 'Confirm household details.', responseXmlFormId: 'health', responseInstanceId: 'uuid:response', responseCurrent: false }], hiddenBackchecks: 1, backchecksOmitted: 0 });
+    }
+    return respond(snapshot(url.searchParams.get('before')));
+  });
+  await page.reload();
+  await page.getByRole('button', { name: 'Village review', exact: true }).click();
+  const region = page.getByRole('region', { name: 'Related review cases' });
+  await expect(region).toContainText('No review case is linked.');
+  const link = async () => {
+    await region.getByRole('button', { name: 'Search readable cases', exact: true }).click();
+    await region.getByLabel('Case to link').selectOption(caseId);
+    await region.getByLabel('Reason for linking', { exact: true }).fill('Related household evidence.');
+    await region.getByRole('button', { name: 'Link review case', exact: true }).click();
+  };
+  return { f, inv, region, errors, state, link };
+};
+
+test('case links retry a lost response exactly, inspect live decisions and backchecks, remove and relink', async ({ page }) => {
+  const { f, region, link, state, errors } = await setupCaseLinks(page);
+  f.loseResponse = true; await link();
+  await expect(region.getByRole('alert')).toContainText('could not be confirmed');
+  await expect(region.getByLabel('Reason for linking', { exact: true })).toBeDisabled();
+  await region.getByRole('button', { name: 'Retry same case link', exact: true }).click();
+  await expect(region.locator('.linked-cases > li')).toHaveCount(1);
+  expect(f.writes[1]).toEqual(f.writes[0]); expect(f.history).toHaveLength(1);
+  const oldLink = f.items[0].linkId;
+  await region.getByRole('button', { name: 'Inspect linked case' }).click();
+  await expect(region).toContainText('Check the household again.');
+  await expect(region).toContainText('1 backchecks withheld');
+  await expect(region.getByRole('link', { name: 'Open source submission' })).toHaveAttribute('href', '/projects/7/forms/health/submissions/uuid%3Asource');
+  await region.getByRole('button', { name: 'Compare answers', exact: true }).click();
+  await expect(region.getByRole('region', { name: 'Back-check answer comparison' })).toContainText('Changed: 1');
+  expect(state.comparisonRequests).toBe(1);
+  await page.setViewportSize({ width: 320, height: 800 });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= 320)).toBe(true);
+  await region.getByRole('button', { name: 'Remove this case link' }).click();
+  await region.getByLabel('Reason for removing this link').fill('Investigation now has sufficient context.');
+  await region.getByRole('button', { name: 'Confirm link removal' }).click();
+  await expect(region).toContainText('No review case is linked.');
+  await link(); await expect(region.locator('.linked-cases > li')).toHaveCount(1);
+  expect(f.items[0].linkId).not.toBe(oldLink); expect(f.history.map(e => e.action)).toEqual(['linked', 'removed', 'linked']);
+  await region.locator('summary').click();
+  await expect(region.locator('.case-link-history li')).toHaveCount(3);
+  expect(errors).toEqual([]);
+});
+
+test('case links withhold revoked sources and clear inspection before allowing opaque removal', async ({ page }) => {
+  const { f, region, link, errors } = await setupCaseLinks(page); await link();
+  await region.getByRole('button', { name: 'Inspect linked case' }).click();
+  await expect(region).toContainText('Independent reviewer'); f.hidden = true;
+  await region.getByRole('button', { name: 'Inspect linked case' }).click();
+  await expect(region.getByRole('alert')).toContainText('could not be opened');
+  await expect(region.locator('.case-inspection')).toHaveCount(0);
+  await region.getByRole('button', { name: 'Refresh linked cases' }).click();
+  await expect(region).toContainText('Linked case unavailable.');
+  await region.locator('summary').click();
+  await expect(region).not.toContainText('uuid:source'); await expect(region).not.toContainText('Related household evidence.');
+  await expect(region).not.toContainText('Test reviewer');
+  await region.getByRole('button', { name: 'Remove this case link' }).click();
+  await region.getByLabel('Reason for removing this link').fill('Remove inaccessible association.');
+  await region.getByRole('button', { name: 'Confirm link removal' }).click();
+  await expect(region).toContainText('No review case is linked.'); expect(f.history).toHaveLength(2); expect(errors).toEqual([]);
+});
+
+test('case links paginate candidates and history and refresh stale writes before a new request', async ({ page }) => {
+  const { f, inv, region, link, errors } = await setupCaseLinks(page); f.paged = true;
+  await region.getByRole('button', { name: 'Search readable cases' }).click();
+  await region.getByLabel('Find review cases').fill('changed query');
+  await expect(region.getByRole('button', { name: 'Next candidate page' })).toBeDisabled();
+  await region.getByLabel('Find review cases').fill('');
+  await region.getByRole('button', { name: 'Next candidate page' }).click();
+  await expect(region.getByLabel('Case to link')).toContainText('uuid:next-source'); expect(f.candidateCalls.at(-1)).toContain('cursor=next-page');
+  f.stale = true; await link();
+  await expect(region.getByRole('alert')).toContainText('Refresh linked cases');
+  const rejected = f.writes[0]; await region.getByRole('button', { name: 'Refresh linked cases' }).click();
+  await link(); await expect(region.locator('.linked-cases > li')).toHaveCount(1);
+  expect(f.writes[1].body.requestId).not.toBe(rejected.body.requestId); expect(f.writes[1].header).toBe('"investigation-2"');
+  f.history.push({ ...f.history[0], id: 'earlier-event', reason: 'Earlier association reason.' }); f.historyPaged = true;
+  await region.getByRole('button', { name: 'Refresh linked cases' }).click(); await region.locator('summary').click();
+  await region.getByRole('button', { name: 'Load earlier case link history' }).click();
+  await expect(region.locator('.case-link-history li')).toHaveCount(1); await expect(region.locator('.case-link-history')).toContainText('Earlier association reason.');
+  inv.status = 'closed'; await region.getByRole('button', { name: 'Refresh linked cases' }).click();
+  await expect(region.getByRole('button', { name: 'Search readable cases' })).toHaveCount(0);
+  await expect(region.getByRole('button', { name: 'Remove this case link' })).toHaveCount(0);
+  await expect(region.getByRole('button', { name: 'Inspect linked case' })).toBeVisible(); expect(errors).toEqual([]);
 });
