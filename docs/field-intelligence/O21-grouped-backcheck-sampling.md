@@ -58,8 +58,8 @@ Selected cases enter the ordinary review queue. Human review, independent
 backcheck assignment, opt-in allocation, quota/shift accounting and permission
 rechecks retain their existing behavior. A group is not an allegation.
 
-Schedules remain collector-only and the UI says so. Scheduled field grouping,
-unequal per-category rates, numeric bins, geographic polygon strata, weighting
+[O22](O22-scheduled-answer-sampling.md) extends this grouping to daily/weekly schedules.
+Unequal per-category rates, numeric bins, geographic polygon strata, weighting
 and calibrated estimates remain separate implementation work.
 
 ## Validation
