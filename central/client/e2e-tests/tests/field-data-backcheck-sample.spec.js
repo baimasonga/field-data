@@ -231,6 +231,47 @@ test('a manager sets a schedule and sees its runs and scheduled samples', async 
   expect(errors).toEqual([]);
 });
 
+test('a manager saves scheduled answer grouping, opens its coverage, and clears it on mobile', async ({ page: p }) => {
+  const puts = []; let current = saved({ rate: 10, minPerCollector: 1, frequency: 'daily', enabled: false, groupField: '/district' });
+  current.runs = [{ ...current.runs[2], error: 'Grouping answers are unreadable. Schedule paused.' }];
+  const grouped = { ...scheduled, settings: { ...scheduled.settings, groupField: '/district' }, groups: [{ value: 'North', eligible: 6, sampled: 3, requested: 1, linked: 1 },
+    { value: null, eligible: 3, sampled: 2, requested: 0, linked: 0 }] };
+  let failSave = true;
+  const errors = await api(p, managerVerbs, async (route, path) => {
+    if (path === `${samplesPath}/fields`) { await route.fulfill({ json: { fields: [{ path: '/district', type: 'string' }] } }); return true; }
+    if (path === schedulePath && route.request().method() === 'PUT') {
+      puts.push(route.request().postDataJSON());
+      if (failSave) { failSave = false; await route.fulfill({ status: 503, json: { message: 'Schedule unavailable; retry.' } }); }
+      else { current = saved(puts.at(-1)); await route.fulfill({ json: current }); }
+      return true;
+    }
+    if (path === schedulePath) { await route.fulfill({ json: current }); return true; }
+    if (path === samplesPath) { await route.fulfill({ json: [grouped] }); return true; }
+    if (path === `${samplesPath}/${scheduled.id}`) { await route.fulfill({ json: grouped }); return true; }
+    return false;
+  });
+  await p.goto(`${appUrl}${page}`); const panel = p.locator('.backcheck-schedule');
+  await expect(panel.getByRole('combobox', { name: 'Schedule grouping', exact: true })).toHaveValue('field');
+  await expect(panel.getByRole('combobox', { name: 'Scheduled area or answer question', exact: true })).toHaveValue('/district');
+  await expect(panel).toContainText('Schedule paused.');
+  await panel.getByLabel('On', { exact: true }).check();
+  await panel.getByRole('combobox', { name: 'Every', exact: true }).selectOption('weekly');
+  await panel.getByRole('button', { name: 'Save schedule', exact: true }).click();
+  await expect(panel.getByRole('alert')).toContainText('retry');
+  await panel.getByRole('button', { name: 'Save schedule', exact: true }).click();
+  expect(puts[1]).toEqual(puts[0]); expect(puts[1].groupField).toBe('/district');
+  await expect(panel).toContainText('per collector and answer group');
+  await panel.getByRole('button', { name: 'Show sample', exact: true }).click();
+  await expect(p.locator('.backcheck-group-coverage')).toContainText('Missing answer');
+  await panel.getByRole('combobox', { name: 'Schedule grouping', exact: true }).selectOption('collector');
+  await panel.getByRole('button', { name: 'Save schedule', exact: true }).click();
+  expect(puts.at(-1)).not.toHaveProperty('groupField');
+  await expect(panel).not.toContainText('Scheduled grouping question:');
+  await p.setViewportSize({ width: 360, height: 800 });
+  expect(await p.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  expect(errors).toEqual([]);
+});
+
 test('a viewer sees the schedule but cannot change it', async ({ page: p }) => {
   const errors = await api(p, viewerVerbs, async (route, path) => {
     if (path === schedulePath) { await route.fulfill({ json: saved({ rate: 10, minPerCollector: 1, frequency: 'daily', enabled: true }) }); return true; }

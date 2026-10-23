@@ -61,6 +61,88 @@ describe('api: O6 scheduled backcheck samples', () => {
     await alice.get('/v1/projects/1/forms/nope/backcheck-schedule').expect(404);
   }));
 
+  it('persists, clears and validates scheduled grouping with viewer restrictions', testService(async service => {
+    const alice = await service.login('alice');
+    const body = { rate: 20, frequency: 'daily', enabled: true, groupField: '/name' };
+    assert.equal((await alice.put(path).send(body).expect(200)).body.schedule.groupField, '/name');
+    assert.equal((await alice.get(path).expect(200)).body.schedule.groupField, '/name');
+    for (const groupField of ['/missing', '/meta/instanceID', '/name[1]', '', 1])
+      await alice.put(path).send({ ...body, groupField }).expect(400);
+    const chelsea = await service.login('chelsea');
+    const { id } = (await chelsea.get('/v1/users/current').expect(200)).body;
+    await alice.post(`/v1/projects/1/assignments/viewer/${id}`).expect(200);
+    assert.equal((await chelsea.get(path).expect(200)).body.schedule.groupField, '/name');
+    await chelsea.put(path).send(body).expect(403);
+    assert.equal((await alice.put(path).send({ ...body, groupField: null }).expect(200)).body.schedule.groupField, undefined);
+    await alice.put(path).send(body).expect(200);
+    assert.equal((await alice.put(path).send({ rate: 20, frequency: 'daily', enabled: true }).expect(200)).body.schedule.groupField, undefined);
+  }));
+
+  it('draws grouped catch-up periods reproducibly with missing answers and retry-safe history', testService(async (service, c) => {
+    const alice = await service.login('alice');
+    await alice.put(path).send({ rate: 10, frequency: 'weekly', enabled: true, groupField: '/name' }).expect(200);
+    for (const [i, value] of ['North', 'North', 'South', ''].entries())
+      await alice.post('/v1/projects/1/forms/simple/submissions').send(instance(`group${i}`).replace('Alice</name>', `${value}</name>`)).set('Content-Type', 'application/xml').expect(200);
+    const first = await scheduleRow(c.one);
+    const at = new Date(first.nextRunAt.getTime() + 7 * day);
+    const [result] = await runBackcheckSchedules(c.db, at);
+    assert.equal(result.outcome, 'drawn'); assert.equal(result.periods, 2); assert.equal(result.sampled, 3);
+    const sample = (await alice.get(`/v1/projects/1/forms/simple/backcheck-samples/${result.sampleId}?eligible=true`).expect(200)).body;
+    assert.equal(sample.settings.groupField, '/name');
+    assert.deepEqual(sample.groups.map(g => [g.value, g.eligible, g.sampled]), [['North', 2, 1], ['South', 1, 1], [null, 1, 1]]);
+    const { draw } = require('../../../lib/util/backcheck-sample');
+    assert.deepEqual(draw(sample.eligibleList, sample.settings, sample.seed).chosen.map(i => i.instanceId).sort(), sample.items.map(i => i.instanceId).sort());
+    assert.deepEqual(await runBackcheckSchedules(c.db, at), []);
+    assert.equal(await c.oneFirst(sql`SELECT count(*)::integer FROM field_data_backcheck_schedule_runs`), 1);
+  }));
+
+  it('pauses unsafe grouping atomically and can resume with collector-only settings', testService(async (service, c) => {
+    const alice = await service.login('alice');
+    const settings = { rate: 100, frequency: 'daily', enabled: true, groupField: '/name' };
+    await alice.put(path).send(settings).expect(200);
+    await submit(alice, 'unsafe0');
+    await c.run(sql`UPDATE submission_defs SET "localKey" = 'encrypted' WHERE current AND xml LIKE '%unsafe0</instanceID>%'`);
+    const [result] = await runBackcheckSchedules(c.db, (await scheduleRow(c.one)).nextRunAt);
+    assert.equal(result.outcome, 'failed'); assert.match(result.error, /Schedule paused/);
+    assert.equal((await scheduleRow(c.one)).enabled, false);
+    assert.equal(await c.oneFirst(sql`SELECT count(*)::integer FROM field_data_backcheck_samples`), 0);
+    assert.equal(await c.oneFirst(sql`SELECT count(*)::integer FROM audits WHERE action = 'field_data.backcheck_sample.draw'`), 0);
+    await alice.put(path).send({ ...settings, enabled: false, groupField: '/retired' }).expect(200);
+    await alice.put(path).send({ ...settings, groupField: null }).expect(200);
+    await submit(alice, 'after0');
+    const [next] = await runBackcheckSchedules(c.db, (await scheduleRow(c.one)).nextRunAt);
+    assert.equal(next.outcome, 'drawn'); assert.equal(next.sampled, 1);
+  }));
+
+  it('pauses when the selected question disappears or the project is archived', testService(async (service, c) => {
+    const alice = await service.login('alice');
+    const settings = { rate: 10, frequency: 'daily', enabled: true, groupField: '/name' };
+    await alice.put(path).send(settings).expect(200); await submit(alice, 'retired0');
+    await c.run(sql`UPDATE field_data_backcheck_schedules SET "groupField" = '/retired'`);
+    let [result] = await runBackcheckSchedules(c.db, (await scheduleRow(c.one)).nextRunAt);
+    assert.match(result.error, /grouping question.*unavailable/); assert.equal((await scheduleRow(c.one)).enabled, false);
+    await alice.put(path).send(settings).expect(200);
+    await c.run(sql`UPDATE projects SET archived = TRUE WHERE id = 1`);
+    [result] = await runBackcheckSchedules(c.db, (await scheduleRow(c.one)).nextRunAt);
+    assert.equal(result.outcome, 'failed'); assert.equal((await scheduleRow(c.one)).enabled, false);
+  }));
+
+  it('rechecks answer-read permission even when the configuring manager still has write permission', testService(async (service, c) => {
+    const alice = await service.login('alice');
+    const settings = { rate: 10, frequency: 'daily', enabled: true, groupField: '/name' };
+    await alice.put(path).send(settings).expect(200); await submit(alice, 'private0');
+    const { id } = (await alice.get('/v1/users/current').expect(200)).body;
+    const actor = (await c.Actors.getById(id)).orNull();
+    const actee = await c.oneFirst(sql`SELECT "acteeId" FROM forms WHERE "projectId" = 1 AND "xmlFormId" = 'simple'`);
+    await c.run(sql`UPDATE roles SET verbs = verbs - 'submission.read'`);
+    assert.equal(await c.Auth.can(actor, 'submission.update', actee), true);
+    assert.equal(await c.Auth.can(actor, 'submission.read', actee), false);
+    await alice.put(path).send(settings).expect(403);
+    const [result] = await runBackcheckSchedules(c.db, (await scheduleRow(c.one)).nextRunAt);
+    assert.equal(result.outcome, 'failed'); assert.equal((await scheduleRow(c.one)).enabled, false);
+    assert.equal(await c.oneFirst(sql`SELECT count(*)::integer FROM field_data_backcheck_samples`), 0);
+  }));
+
   it('draws each ended period once, of only that period\'s submissions, and records every run', testService(async (service, container) => {
     const { one, all, oneFirst, run } = container;
     const alice = await service.login('alice');
@@ -158,6 +240,22 @@ describe('api: O6 scheduled backcheck samples', () => {
     assert.deepEqual(await runBackcheckSchedules(container.db, new Date(Date.now() + 10 * day)), []);
   }));
 
+  it('retains configured group fields on migration rollback and safely recreates unused columns', testServiceFullTrx(async service => {
+    const alice = await service.login('alice');
+    await alice.put(path).send({ rate: 10, frequency: 'daily', enabled: true, groupField: '/name' }).expect(200);
+    const migration = require('../../../lib/model/migrations/20261023-01-scheduled-answer-sampling');
+    const db = knexConnect(config.get('test.database'));
+    try {
+      await db.transaction(async trx => {
+        await migration.down(trx); await migration.up(trx);
+        assert.equal((await trx.raw('SELECT "groupField" FROM field_data_backcheck_schedules')).rows[0].groupField, '/name');
+        await trx.raw('UPDATE field_data_backcheck_schedules SET "groupField" = NULL');
+        await migration.down(trx); await migration.up(trx);
+        assert.equal((await trx.raw('SELECT "groupField" FROM field_data_backcheck_schedules')).rows[0].groupField, null);
+      });
+    } finally { await db.destroy(); }
+  }));
+
   it('keeps schedules and their runs on a migration rollback', testServiceFullTrx(async (service) => {
     const alice = await service.login('alice');
     await alice.put(path).send({ rate: 10, frequency: 'daily', enabled: true }).expect(200);
@@ -191,7 +289,7 @@ describe('api: O6 scheduled backcheck samples', () => {
 
   it('rolls back a failure after writes and retries the original period cleanly', testService(async (service, container) => {
     const alice = await service.login('alice');
-    await alice.put(path).send({ rate: 100, frequency: 'daily', enabled: true }).expect(200);
+    await alice.put(path).send({ rate: 100, frequency: 'daily', enabled: true, groupField: '/name' }).expect(200);
     await submit(alice, 'retry0', 'retry1');
     const first = await scheduleRow(container.one);
     const wrap = db => ({ ...db, transaction: callback => db.transaction(trx => callback(wrap(trx))), query: query => {
@@ -226,7 +324,7 @@ describe('api: O6 scheduled backcheck samples', () => {
 
   it('serializes overlapping runners and manual draws without duplicate selections', testServiceFullTrx(async (service, container) => {
     const alice = await service.login('alice');
-    await alice.put(path).send({ rate: 100, frequency: 'daily', enabled: true }).expect(200);
+    await alice.put(path).send({ rate: 100, frequency: 'daily', enabled: true, groupField: '/name' }).expect(200);
     await submit(alice, 'overlap0', 'overlap1');
     const schedule = await scheduleRow(container.one);
     await Promise.all([

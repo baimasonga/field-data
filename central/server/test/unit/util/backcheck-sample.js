@@ -120,6 +120,9 @@ describe('(util) backcheck sample', () => {
     it('checks schedule settings', () => {
       validateSchedule({ rate: 10, frequency: 'weekly', enabled: false }).should.eql({ schedule: { rate: 10, minPerCollector: 1, frequency: 'weekly', enabled: false } });
       validateSchedule({ rate: 10, minPerCollector: 0, frequency: 'daily', enabled: true }).schedule.minPerCollector.should.equal(0);
+      validateSchedule({ rate: 10, frequency: 'daily', enabled: true, groupField: '/district' }).schedule.groupField.should.equal('/district');
+      validateSchedule({ rate: 10, frequency: 'daily', enabled: true, groupField: null }).schedule.should.not.have.property('groupField');
+      validateSchedule({ rate: 10, frequency: 'daily', enabled: true, groupField: '/x[1]' }).error.field.should.equal('groupField');
       for (const [body, field] of [[null, 'body'], [[], 'body'], [{ rate: 10, frequency: 'daily', enabled: true, x: 1 }, 'x'],
         [{ rate: 101, frequency: 'daily', enabled: true }, 'rate'], [{ rate: 10, minPerCollector: 1.5, frequency: 'daily', enabled: true }, 'minPerCollector'],
         [{ rate: 10, frequency: 'monthly', enabled: true }, 'frequency'], [{ rate: 10, frequency: 'daily' }, 'enabled']])

@@ -61,21 +61,40 @@ docs/field-intelligence/O6-scheduled-backcheck-samples.md -->
       <p class="backcheck-schedule-lead">
         With a schedule on, a sample of the Submissions received in each day or week (UTC; weeks start on Monday)
         is drawn when that period ends, with the same rules. Turning it on starts from now: earlier Submissions are
-        only sampled by drawing above. Scheduled draws group by collector; the optional area/answer grouping above applies to manual draws.
+        only sampled by drawing above. Choose collector-only sampling or a recorded area/answer question for the schedule below. A grouped schedule pauses if its question, permissions or grouping data become unavailable.
       </p>
       <p v-if="schedule != null" role="status" class="backcheck-schedule-status">
         <template v-if="schedule.enabled">
-          On: {{ schedule.rate }}% per collector, at least {{ schedule.minPerCollector }}, {{ schedule.frequency }}.
+          On: {{ schedule.rate }}% per {{ schedule.groupField ? 'collector and answer group' : 'collector' }}, at least {{ schedule.minPerCollector }}, {{ schedule.frequency }}.
           Next sample after {{ formatDate(schedule.nextRunAt) }}.
         </template>
         <template v-else>Off.</template>
       </p>
       <p v-else class="backcheck-schedule-status">No schedule.</p>
+      <p v-if="schedule?.groupField">Scheduled grouping question: {{ schedule.groupField }}. Group values are retained in each sample history; coverage is available through Show sample.</p>
       <form v-if="canDraw" class="backcheck-sample-form backcheck-schedule-form" @submit.prevent="saveSchedule">
-        <label>Share of each collector's Submissions (%)
+        <label>Schedule grouping
+          <select v-model="scheduleGroupMode" class="form-control" @change="loadGroupFields">
+            <option value="collector">By collector</option>
+            <option value="field">By collector and area or answer</option>
+          </select>
+        </label>
+        <template v-if="scheduleGroupMode === 'field'">
+          <p v-if="fieldsLoading" role="status">Loading grouping questions…</p>
+          <div v-if="fieldsError" role="alert">Schedule grouping questions could not be loaded. <button type="button" class="btn btn-link" @click="loadGroupFields">Retry</button></div>
+          <label>Scheduled area or answer question
+            <select v-model="scheduleGroupField" class="form-control" :required="scheduleSettings.enabled">
+              <option value="" disabled>Choose an available question</option>
+              <option v-for="field of fields" :key="field.path" :value="field.path">{{ field.path }} ({{ field.type }})</option>
+            </select>
+          </label>
+          <p class="backcheck-sample-hint">The rate and minimum apply to each collector and answer group. Missing answers form a group. Choose a categorical question, not a personal identifier: its values are retained in sample history. Limits are 100 groups and 200 characters per value. Grouping changes apply to the next draw, including submissions already received in its period.</p>
+          <p v-if="!fieldsLoading && !fieldsError && fields.length === 0" role="status">No grouping questions are available. Choose collector-only sampling or turn the schedule off.</p>
+        </template>
+        <label>{{ scheduleGroupMode === 'field' ? 'Scheduled share of each collector and answer group (%)' : "Share of each collector's Submissions (%)" }}
           <input v-model.number="scheduleSettings.rate" type="number" min="1" max="100" step="1" required class="form-control">
         </label>
-        <label>At least, per collector
+        <label>{{ scheduleGroupMode === 'field' ? 'Scheduled minimum per collector and answer group' : 'At least, per collector' }}
           <input v-model.number="scheduleSettings.minPerCollector" type="number" min="0" max="20" step="1" required class="form-control">
         </label>
         <label>Every
@@ -191,12 +210,13 @@ const base = () => `/v1/projects/${props.projectId}/forms/${encodeURIComponent(p
 
 const loadError = ref(false);
 const samples = ref(null); const sample = ref(null); const selectedId = ref(null); const error = ref('');
+const scheduleGroupMode = ref('collector'); const scheduleGroupField = ref('');
 const groupMode = ref('collector'); const groupField = ref(''); const fields = ref([]); const fieldsLoading = ref(false); const fieldsError = ref(false);
 const loadGroupFields = () => {
-  if (groupMode.value !== 'field' || fieldsLoading.value) return Promise.resolve();
+  if ((groupMode.value !== 'field' && scheduleGroupMode.value !== 'field') || fieldsLoading.value) return Promise.resolve();
   fieldsLoading.value = true; fieldsError.value = false;
   return request({ method: 'GET', url: `${base()}/fields`, alert: false })
-    .then(({ data }) => { if (!Array.isArray(data?.fields)) throw new Error(); fields.value = data.fields; if (!fields.value.some(field => field.path === groupField.value)) groupField.value = ''; })
+    .then(({ data }) => { if (!Array.isArray(data?.fields)) throw new Error(); fields.value = data.fields; if (!fields.value.some(field => field.path === groupField.value)) groupField.value = ''; if (!fields.value.some(field => field.path === scheduleGroupField.value)) scheduleGroupField.value = ''; })
     .catch(() => { fieldsError.value = true; })
     .finally(() => { fieldsLoading.value = false; });
 };
@@ -217,6 +237,8 @@ const showSchedule = (data) => {
   if (data.schedule != null) {
     const { rate, minPerCollector, frequency, enabled } = data.schedule;
     Object.assign(scheduleSettings, { rate, minPerCollector, frequency, enabled });
+    scheduleGroupMode.value = data.schedule.groupField ? 'field' : 'collector'; scheduleGroupField.value = data.schedule.groupField ?? '';
+    if (props.canDraw && scheduleGroupMode.value === 'field') loadGroupFields();
   }
 };
 const loadSchedule = () => {
@@ -228,7 +250,8 @@ loadSchedule();
 const saveSchedule = () => {
   if (busy.value) return Promise.resolve();
   scheduleError.value = '';
-  return request({ method: 'PUT', url: scheduleUrl(), data: { ...scheduleSettings }, alert: false })
+  if (scheduleSettings.enabled && scheduleGroupMode.value === 'field' && (!scheduleGroupField.value || fieldsError.value || fieldsLoading.value)) { scheduleError.value = 'Choose an available scheduled grouping question, or turn the schedule off.'; return Promise.resolve(); }
+  return request({ method: 'PUT', url: scheduleUrl(), data: { ...scheduleSettings, ...(scheduleGroupMode.value === 'field' && scheduleGroupField.value ? { groupField: scheduleGroupField.value } : {}) }, alert: false })
     .then(({ data }) => showSchedule(data))
     .catch((e) => { scheduleError.value = e.response?.data?.message || 'The schedule could not be saved.'; });
 };

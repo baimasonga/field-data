@@ -28,6 +28,11 @@ const formFor = async (container, auth, params, verbs) => {
   return form;
 };
 
+const groupingAvailable = async (container, projectId, xmlFormId, path) => {
+  const published = (await container.Forms.getByProjectAndXmlFormId(projectId, xmlFormId, Form.PublishedVersion)).orNull();
+  return published != null && published.def.keyId == null && groupFields(await container.Forms.getFields(published.def.id)).some(f => f.path === path);
+};
+
 const summaryColumns = sql`s.id, s."drawnAt", s.seed, s.settings, s."sampledBefore", s."scheduleId",
   jsonb_array_length(s.eligible) AS eligible, s."drawnBy", a."displayName" AS "drawnByName",
   (SELECT count(*)::integer FROM field_data_backcheck_sample_items i WHERE i."sampleId" = s.id) AS sampled,
@@ -204,8 +209,7 @@ module.exports = (service, endpoint) => {
     if (settings.groupField) {
       await auth.canOrReject('submission.read', form);
       await auth.canOrReject('submission.list', form);
-      const published = await container.Forms.getByProjectAndXmlFormId(params.projectId, params.xmlFormId, Form.PublishedVersion).then(getOrNotFound);
-      if (published.def.keyId != null || !groupFields(await container.Forms.getFields(published.def.id)).some(f => f.path === settings.groupField))
+      if (!await groupingAvailable(container, params.projectId, params.xmlFormId, settings.groupField))
         throw Problem.user.backcheckSampleInvalid({ field: 'groupField', reason: 'must name a non-repeating scalar question in an unencrypted published form' });
     }
     const requestHash = createHash('sha256').update(JSON.stringify(settings)).digest('hex');
@@ -245,3 +249,5 @@ module.exports = (service, endpoint) => {
 };
 
 module.exports.drawSample = drawSample;
+
+module.exports.groupingAvailable = groupingAvailable;

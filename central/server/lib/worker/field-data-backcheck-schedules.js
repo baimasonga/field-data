@@ -10,13 +10,13 @@ const { sql } = require('slonik');
 const { createHash } = require('crypto');
 const { withDefaults } = require('../model/container');
 const { dueRun, nextBoundaryAfter, runRequestId } = require('../util/backcheck-sample');
-const { drawSample } = require('../resources/field-data-backcheck-samples');
+const { drawSample, groupingAvailable } = require('../resources/field-data-backcheck-samples');
 
 const BATCH = 20;
 
 const runSchedule = (db, scheduleId, now) => db.transaction(async (trx) => {
   // Skip a schedule another runner holds; read it again under the lock.
-  const schedule = await trx.maybeOne(sql`SELECT b.*, f."acteeId", f."deletedAt" AS "formDeletedAt"
+  const schedule = await trx.maybeOne(sql`SELECT b.*, f."acteeId", f."projectId", f."xmlFormId", f."deletedAt" AS "formDeletedAt"
     FROM field_data_backcheck_schedules b JOIN forms f ON f.id = b."formId"
     WHERE b.id = ${scheduleId} AND b.enabled AND b."nextRunAt" <= ${now.toISOString()}
     FOR UPDATE OF b SKIP LOCKED`);
@@ -29,6 +29,7 @@ const runSchedule = (db, scheduleId, now) => db.transaction(async (trx) => {
   if (run == null) return null;
   const settings = {
     rate: schedule.rate, minPerCollector: schedule.minPerCollector,
+    ...(schedule.groupField == null ? {} : { groupField: schedule.groupField }),
     receivedFrom: run.periodStart.toISOString().slice(0, 10),
     receivedTo: new Date(run.periodEnd.getTime() - 1).toISOString().slice(0, 10),
     periodStart: run.periodStart.toISOString(), periodEnd: run.periodEnd.toISOString()
@@ -38,12 +39,15 @@ const runSchedule = (db, scheduleId, now) => db.transaction(async (trx) => {
   const actor = schedule.updatedBy == null ? null : (await container.Actors.getById(schedule.updatedBy)).orNull();
   const projectActive = await trx.oneFirst(sql`SELECT EXISTS (SELECT 1 FROM projects p JOIN forms f ON f."projectId" = p.id
     WHERE f.id = ${schedule.formId} AND p."deletedAt" IS NULL AND p.archived IS NOT TRUE)`);
-  const allowed = projectActive && actor != null && await container.Auth.can(actor, 'submission.update', schedule.acteeId);
+  let allowed = projectActive && actor != null && await container.Auth.can(actor, 'submission.update', schedule.acteeId);
+  if (allowed && schedule.groupField != null) allowed = await container.Auth.can(actor, 'submission.read', schedule.acteeId) &&
+    await container.Auth.can(actor, 'submission.list', schedule.acteeId) &&
+    await groupingAvailable(container, schedule.projectId, schedule.xmlFormId, schedule.groupField);
   let outcome;
   if (!allowed) {
     await trx.query(sql`UPDATE field_data_backcheck_schedules SET enabled = FALSE WHERE id = ${schedule.id}`);
     outcome = { outcome: 'failed', sampleId: null, eligible: 0, sampled: 0,
-      error: 'The configuring manager is no longer authorized, or the project is unavailable. Schedule paused.' };
+      error: 'The configuring manager, project or grouping question is unavailable. Schedule paused.' };
   } else try {
     // A failed draw rolls back to here and is recorded.
     const drawn = await trx.transaction((inner) => drawSample(inner, { id: schedule.formId, acteeId: schedule.acteeId }, {
@@ -55,10 +59,13 @@ const runSchedule = (db, scheduleId, now) => db.transaction(async (trx) => {
       : { outcome: 'drawn', sampleId: drawn.id, eligible: drawn.eligible ?? 0, sampled: drawn.sampled ?? 0, error: null };
   } catch (error) {
     // Transient failures retain the due period and roll back all writes so the
-    // next tick retries. Only an oversized draw is a terminal period outcome.
-    if (error?.problemCode !== 400.59) throw error;
+    // next tick retries. Oversized draws record a failed period; unsafe grouped
+    // answers also pause the schedule until the manager corrects it.
+    if (error?.problemCode !== 400.59 && !(schedule.groupField != null && error?.problemCode === 400.58)) throw error;
+    const invalidGroup = error?.problemCode === 400.58;
+    if (invalidGroup) await trx.query(sql`UPDATE field_data_backcheck_schedules SET enabled = FALSE WHERE id = ${schedule.id}`);
     const details = error?.problemDetails;
-    const message = details?.count != null
+    const message = invalidGroup ? 'Grouping answers are repeated, unreadable or exceed category/value limits. Schedule paused; correct the data or grouping and re-enable.' : details?.count != null
       ? `${details.count} ${details.what} is more than the ${details.max} allowed; lower the rate or draw this period by hand.`
       : 'The sample could not be drawn.';
     outcome = { outcome: 'failed', sampleId: null, eligible: 0, sampled: 0, error: message.slice(0, 500) };

@@ -107,13 +107,13 @@ const runRequestId = (scheduleId, periodStart) => {
 // A schedule's settings from a request body, or { field, reason }.
 const validateSchedule = (body) => {
   if (body == null || typeof body !== 'object' || Array.isArray(body)) return { error: { field: 'body', reason: 'must be an object' } };
-  const unknown = Object.keys(body).find((k) => !['rate', 'minPerCollector', 'frequency', 'enabled'].includes(k));
+  const unknown = Object.keys(body).find((k) => !['rate', 'minPerCollector', 'frequency', 'enabled', 'groupField'].includes(k));
   if (unknown != null) return { error: { field: unknown, reason: 'is not a setting' } };
-  const { settings, error } = validateSettings({ rate: body.rate, minPerCollector: body.minPerCollector ?? 1 });
+  const { settings, error } = validateSettings({ rate: body.rate, minPerCollector: body.minPerCollector ?? 1, ...(body.groupField == null ? {} : { groupField: body.groupField }) });
   if (error != null) return { error };
   if (!FREQUENCIES.includes(body.frequency)) return { error: { field: 'frequency', reason: 'must be daily or weekly' } };
   if (typeof body.enabled !== 'boolean') return { error: { field: 'enabled', reason: 'must be true or false' } };
-  return { schedule: { rate: settings.rate, minPerCollector: settings.minPerCollector, frequency: body.frequency, enabled: body.enabled } };
+  return { schedule: { rate: settings.rate, minPerCollector: settings.minPerCollector, frequency: body.frequency, enabled: body.enabled, ...(settings.groupField ? { groupField: settings.groupField } : {}) } };
 };
 
 Object.assign(module.exports, { FREQUENCIES, periodLength, boundaryAtOrBefore, nextBoundaryAfter, dueRun, runRequestId, validateSchedule });
