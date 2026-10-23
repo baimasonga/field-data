@@ -22,14 +22,14 @@ const formFor = async (container, auth, params, verbs) => {
 };
 
 const view = async (db, formId) => {
-  const schedule = await db.maybeOne(sql`SELECT b.id, b.rate, b."minPerCollector", b.frequency, b.enabled, b."groupField",
+  const schedule = await db.maybeOne(sql`SELECT b.id, b.rate, b."minPerCollector", b.frequency, b.enabled, b."groupField", b."groupRates",
       b."periodStart", b."nextRunAt", b."updatedAt", a."displayName" AS "updatedByName"
     FROM field_data_backcheck_schedules b LEFT JOIN actors a ON a.id = b."updatedBy" WHERE b."formId" = ${formId}`);
   if (schedule == null) return { schedule: null, runs: [] };
   const runs = await db.any(sql`SELECT "periodStart", "periodEnd", periods, outcome, "sampleId", eligible, sampled, error, "ranAt"
     FROM field_data_backcheck_schedule_runs WHERE "scheduleId" = ${schedule.id} ORDER BY "periodStart" DESC LIMIT 20`);
-  const { id, groupField, ...rest } = schedule;
-  return { schedule: { ...rest, nextRunAt: rest.enabled ? rest.nextRunAt : null, ...(groupField == null ? {} : { groupField }) }, runs };
+  const { id, groupField, groupRates, ...rest } = schedule;
+  return { schedule: { ...rest, nextRunAt: rest.enabled ? rest.nextRunAt : null, ...(groupField == null ? {} : { groupField }), ...(groupRates?.length ? { groupRates } : {}) }, runs };
 };
 
 module.exports = (service, endpoint) => {
@@ -62,11 +62,11 @@ module.exports = (service, endpoint) => {
       const nextRunAt = restart || current.frequency !== schedule.frequency
         ? nextBoundaryAfter(new Date(now), schedule.frequency) : current.nextRunAt;
       await db.query(sql`INSERT INTO field_data_backcheck_schedules
-          ("formId", rate, "minPerCollector", frequency, enabled, "groupField", "periodStart", "nextRunAt", "updatedBy", "updatedAt")
-        VALUES (${form.id}, ${schedule.rate}, ${schedule.minPerCollector}, ${schedule.frequency}, ${schedule.enabled}, ${schedule.groupField ?? null},
+          ("formId", rate, "minPerCollector", frequency, enabled, "groupField", "groupRates", "periodStart", "nextRunAt", "updatedBy", "updatedAt")
+        VALUES (${form.id}, ${schedule.rate}, ${schedule.minPerCollector}, ${schedule.frequency}, ${schedule.enabled}, ${schedule.groupField ?? null}, ${schedule.groupRates ? JSON.stringify(schedule.groupRates) : null},
           ${new Date(periodStart).toISOString()}, ${new Date(nextRunAt).toISOString()}, ${actorId}, clock_timestamp())
         ON CONFLICT ("formId") DO UPDATE SET rate = EXCLUDED.rate, "minPerCollector" = EXCLUDED."minPerCollector",
-          frequency = EXCLUDED.frequency, enabled = EXCLUDED.enabled, "groupField" = EXCLUDED."groupField", "periodStart" = EXCLUDED."periodStart",
+          frequency = EXCLUDED.frequency, enabled = EXCLUDED.enabled, "groupField" = EXCLUDED."groupField", "groupRates" = EXCLUDED."groupRates", "periodStart" = EXCLUDED."periodStart",
           "nextRunAt" = EXCLUDED."nextRunAt", "updatedBy" = EXCLUDED."updatedBy", "updatedAt" = EXCLUDED."updatedAt"`);
       await db.query(sql`INSERT INTO audits ("actorId", action, "acteeId", details, "loggedAt", processed, failures)
         VALUES (${actorId}, 'field_data.backcheck_schedule.update', ${form.acteeId}, ${JSON.stringify(schedule)},

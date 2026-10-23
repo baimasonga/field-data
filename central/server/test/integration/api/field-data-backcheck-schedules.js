@@ -96,6 +96,47 @@ describe('api: O6 scheduled backcheck samples', () => {
     assert.equal(await c.oneFirst(sql`SELECT count(*)::integer FROM field_data_backcheck_schedule_runs`), 1);
   }));
 
+  it('persists and executes group rates and clears them without changing period boundaries', testService(async (service, c) => {
+    const alice = await service.login('alice');
+    const settings = { rate: 10, frequency: 'daily', enabled: true, groupField: '/name',
+      groupRates: [{ value: null, rate: 100 }, { value: ' North ', rate: 100 }] };
+    const initial = (await alice.put(path).send(settings).expect(200)).body.schedule;
+    const rules = [{ value: 'North', rate: 100 }, { value: null, rate: 100 }];
+    assert.deepEqual(initial.groupRates, rules);
+    assert.deepEqual((await alice.get(path).expect(200)).body.schedule.groupRates, rules);
+    for (const [i, value] of ['North', 'North', 'South', 'South', '', ''].entries())
+      await alice.post('/v1/projects/1/forms/simple/submissions').send(instance(`rate${i}`).replace('Alice</name>', `${value}</name>`)).set('Content-Type', 'application/xml').expect(200);
+    const [result] = await runBackcheckSchedules(c.db, new Date(initial.nextRunAt));
+    assert.equal(result.sampled, 5);
+    const sample = (await alice.get(`/v1/projects/1/forms/simple/backcheck-samples/${result.sampleId}`).expect(200)).body;
+    assert.deepEqual(sample.settings.groupRates, rules);
+    assert.deepEqual(sample.groups.map(g => [g.value, g.rate, g.sampled]), [['North', 100, 2], ['South', 10, 1], [null, 100, 2]]);
+    const boundary = (await alice.get(path).expect(200)).body.schedule.periodStart;
+    const cleared = (await alice.put(path).send({ ...settings, groupRates: [] }).expect(200)).body.schedule;
+    assert.equal(cleared.groupRates, undefined); assert.equal(cleared.periodStart, boundary);
+    await alice.put(path).send(settings).expect(200);
+    const collector = (await alice.put(path).send({ rate: 20, frequency: 'daily', enabled: true }).expect(200)).body.schedule;
+    assert.equal(collector.groupRates, undefined); assert.equal(collector.groupField, undefined);
+    await alice.put(path).send({ ...settings, groupField: null }).expect(400);
+    assert.deepEqual((await alice.get(`/v1/projects/1/forms/simple/backcheck-samples/${result.sampleId}`).expect(200)).body.settings.groupRates, rules);
+  }));
+
+  it('preserves configured rates on rollback and recreates an unused column', testServiceFullTrx(async service => {
+    const alice = await service.login('alice');
+    await alice.put(path).send({ rate: 10, frequency: 'daily', enabled: true, groupField: '/name', groupRates: [{ value: 'North', rate: 100 }] }).expect(200);
+    const migration = require('../../../lib/model/migrations/20261023-02-group-sampling-rates');
+    const db = knexConnect(config.get('test.database'));
+    try {
+      await db.transaction(async trx => {
+        await migration.down(trx); await migration.up(trx);
+        assert.deepEqual((await trx.raw('SELECT "groupRates" FROM field_data_backcheck_schedules')).rows[0].groupRates, [{ value: 'North', rate: 100 }]);
+        await trx.raw('UPDATE field_data_backcheck_schedules SET "groupRates" = NULL');
+        await migration.down(trx); await migration.up(trx);
+        assert.equal((await trx.raw('SELECT "groupRates" FROM field_data_backcheck_schedules')).rows[0].groupRates, null);
+      });
+    } finally { await db.destroy(); }
+  }));
+
   it('pauses unsafe grouping atomically and can resume with collector-only settings', testService(async (service, c) => {
     const alice = await service.login('alice');
     const settings = { rate: 100, frequency: 'daily', enabled: true, groupField: '/name' };

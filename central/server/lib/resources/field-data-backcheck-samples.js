@@ -15,7 +15,7 @@ const { Form } = require('../model/frames');
 const Problem = require('../util/problem');
 const { getOrNotFound } = require('../util/promise');
 const { UUID_PATTERN } = require('../util/claim-versioning');
-const { LIMITS, newSeed, validateSettings, draw, groupFields } = require('../util/backcheck-sample');
+const { LIMITS, newSeed, validateSettings, draw, groupFields, rateFor } = require('../util/backcheck-sample');
 
 const REASON = 'backcheck-sample';
 const LOCK = 74139;
@@ -81,7 +81,7 @@ const sampleView = async (db, formId, sampleId, withEligible) => {
   const groupByInstance = new Map(row.settings.groupField ? row.eligibleList.map(e => [e.instanceId, e.groupValue ?? null]) : []);
   if (row.settings.groupField) {
     const group = value => {
-      if (!groups.has(value)) groups.set(value, { value, eligible: 0, sampled: 0, requested: 0, linked: 0 });
+      if (!groups.has(value)) groups.set(value, { value, ...(row.settings.groupRates ? { rate: rateFor(row.settings, value) } : {}), eligible: 0, sampled: 0, requested: 0, linked: 0 });
       return groups.get(value);
     };
     for (const e of row.eligibleList) group(e.groupValue ?? null).eligible += 1;

@@ -29,6 +29,7 @@ const runSchedule = (db, scheduleId, now) => db.transaction(async (trx) => {
   if (run == null) return null;
   const settings = {
     rate: schedule.rate, minPerCollector: schedule.minPerCollector,
+    ...(schedule.groupRates?.length ? { groupRates: schedule.groupRates } : {}),
     ...(schedule.groupField == null ? {} : { groupField: schedule.groupField }),
     receivedFrom: run.periodStart.toISOString().slice(0, 10),
     receivedTo: new Date(run.periodEnd.getTime() - 1).toISOString().slice(0, 10),

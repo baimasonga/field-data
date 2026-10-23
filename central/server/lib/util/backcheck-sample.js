@@ -19,7 +19,7 @@ const drawKey = (seed, instanceId) => createHash('sha256').update(`${seed}:${ins
 
 // Settings from a request body, or { field, reason } describing the first problem.
 const validateSettings = (body) => {
-  const allowed = ['requestId', 'rate', 'minPerCollector', 'receivedFrom', 'receivedTo', 'groupField'];
+  const allowed = ['requestId', 'rate', 'minPerCollector', 'receivedFrom', 'receivedTo', 'groupField', 'groupRates'];
   const unknown = Object.keys(body ?? {}).find((k) => !allowed.includes(k));
   if (body == null || typeof body !== 'object' || Array.isArray(body)) return { error: { field: 'body', reason: 'must be an object' } };
   if (unknown != null) return { error: { field: unknown, reason: 'is not a setting' } };
@@ -36,8 +36,29 @@ const validateSettings = (body) => {
   if (body.groupField !== undefined && (typeof body.groupField !== 'string' || body.groupField.length > 500 ||
     !/^\/(?:[A-Za-z_][A-Za-z0-9_.-]*\/)*[A-Za-z_][A-Za-z0-9_.-]*$/.test(body.groupField)))
     return { error: { field: 'groupField', reason: 'must name a supported question path' } };
-  return { settings: { rate, minPerCollector, receivedFrom, receivedTo, ...(body.groupField === undefined ? {} : { groupField: body.groupField }) } };
+  const groupRates = [];
+  if (body.groupRates !== undefined) {
+    if (!Array.isArray(body.groupRates) || body.groupRates.length > LIMITS.maxGroups)
+      return { error: { field: 'groupRates', reason: 'must be a list of at most 100 group rates' } };
+    const seen = new Set();
+    for (const rule of body.groupRates) {
+      if (rule == null || typeof rule !== 'object' || Array.isArray(rule) || Object.keys(rule).some(k => !['value', 'rate'].includes(k)) ||
+        (rule.value !== null && (typeof rule.value !== 'string' || rule.value.length > LIMITS.maxGroupValue || !rule.value.trim())) ||
+        !Number.isInteger(rule.rate) || rule.rate < 1 || rule.rate > 100)
+        return { error: { field: 'groupRates', reason: 'each rule needs an answer (or null for missing) and a whole percentage from 1 to 100' } };
+      const value = rule.value === null ? null : rule.value.normalize('NFC').trim();
+      if (value?.length > LIMITS.maxGroupValue || seen.has(value))
+        return { error: { field: 'groupRates', reason: 'answers must be distinct and at most 200 characters after normalization' } };
+      seen.add(value); groupRates.push({ value, rate: rule.rate });
+    }
+    if (groupRates.length && !body.groupField)
+      return { error: { field: 'groupRates', reason: 'requires a grouping question' } };
+    groupRates.sort((a, b) => (a.value === null ? 1 : b.value === null ? -1 : a.value < b.value ? -1 : a.value > b.value ? 1 : 0));
+  }
+  return { settings: { rate, minPerCollector, receivedFrom, receivedTo, ...(groupRates.length ? { groupRates } : {}), ...(body.groupField === undefined ? {} : { groupField: body.groupField }) } };
 };
+
+const rateFor = (settings, value) => settings.groupRates?.find(rule => rule.value === value)?.rate ?? settings.rate;
 
 // How many of a stratum of n are taken.
 const takeFrom = (n, { rate, minPerCollector }) => Math.min(n, Math.max(minPerCollector, Math.ceil((rate * n) / 100)));
@@ -60,7 +81,7 @@ const draw = (eligible, settings, seed) => {
     const group = settings.groupField ? { groupValue } : {};
     const members = strata.get(stratum)
       .sort((a, b) => (a.key < b.key ? -1 : a.key > b.key ? 1 : a.instanceId < b.instanceId ? -1 : 1));
-    const take = takeFrom(members.length, settings);
+    const take = takeFrom(members.length, { ...settings, rate: rateFor(settings, groupValue) });
     members.slice(0, take).forEach((m, i) => chosen.push({ instanceId: m.instanceId, submitterId, ...group, rank: i + 1 }));
     counts.push({ submitterId, ...group, eligible: members.length, sampled: take });
   }
@@ -74,7 +95,7 @@ const groupFields = fields => {
     !repeats.some(path => f.path.startsWith(`${path}/`))).map(f => ({ path: f.path, type: f.type }));
 };
 
-module.exports = { LIMITS, SEED_PATTERN, newSeed, drawKey, validateSettings, takeFrom, draw, groupFields };
+module.exports = { LIMITS, SEED_PATTERN, newSeed, drawKey, validateSettings, takeFrom, draw, groupFields, rateFor };
 
 // O6 scheduled samples (docs/field-intelligence/O6-scheduled-backcheck-samples.md).
 // Periods are UTC days, or weeks starting on Monday.
@@ -107,13 +128,13 @@ const runRequestId = (scheduleId, periodStart) => {
 // A schedule's settings from a request body, or { field, reason }.
 const validateSchedule = (body) => {
   if (body == null || typeof body !== 'object' || Array.isArray(body)) return { error: { field: 'body', reason: 'must be an object' } };
-  const unknown = Object.keys(body).find((k) => !['rate', 'minPerCollector', 'frequency', 'enabled', 'groupField'].includes(k));
+  const unknown = Object.keys(body).find((k) => !['rate', 'minPerCollector', 'frequency', 'enabled', 'groupField', 'groupRates'].includes(k));
   if (unknown != null) return { error: { field: unknown, reason: 'is not a setting' } };
-  const { settings, error } = validateSettings({ rate: body.rate, minPerCollector: body.minPerCollector ?? 1, ...(body.groupField == null ? {} : { groupField: body.groupField }) });
+  const { settings, error } = validateSettings({ ...(body.groupRates === undefined ? {} : { groupRates: body.groupRates }), rate: body.rate, minPerCollector: body.minPerCollector ?? 1, ...(body.groupField == null ? {} : { groupField: body.groupField }) });
   if (error != null) return { error };
   if (!FREQUENCIES.includes(body.frequency)) return { error: { field: 'frequency', reason: 'must be daily or weekly' } };
   if (typeof body.enabled !== 'boolean') return { error: { field: 'enabled', reason: 'must be true or false' } };
-  return { schedule: { rate: settings.rate, minPerCollector: settings.minPerCollector, frequency: body.frequency, enabled: body.enabled, ...(settings.groupField ? { groupField: settings.groupField } : {}) } };
+  return { schedule: { rate: settings.rate, minPerCollector: settings.minPerCollector, frequency: body.frequency, enabled: body.enabled, ...(settings.groupRates ? { groupRates: settings.groupRates } : {}), ...(settings.groupField ? { groupField: settings.groupField } : {}) } };
 };
 
 Object.assign(module.exports, { FREQUENCIES, periodLength, boundaryAtOrBefore, nextBoundaryAfter, dueRun, runRequestId, validateSchedule });

@@ -272,6 +272,58 @@ test('a manager saves scheduled answer grouping, opens its coverage, and clears 
   expect(errors).toEqual([]);
 });
 
+test('group rates survive retries, schedule reloads and mobile clearing', async ({ page: p }) => {
+  const rules = [{ value: 'North', rate: 100 }, { value: null, rate: 50 }];
+  const grouped = { ...detail, settings: { ...detail.settings, groupField: '/district', groupRates: rules },
+    groups: [{ value: 'North', rate: 100, eligible: 6, sampled: 6, requested: 0, linked: 0 }] };
+  const posts = []; const puts = [];
+  let current = saved({ rate: 10, minPerCollector: 1, frequency: 'daily', enabled: true, groupField: '/district', groupRates: rules });
+  const errors = await api(p, managerVerbs, async (route, path) => {
+    if (path === `${samplesPath}/fields`) { await route.fulfill({ json: { fields: [{ path: '/district', type: 'string' }, { path: '/other', type: 'string' }] } }); return true; }
+    if (path === schedulePath) {
+      if (route.request().method() === 'PUT') { puts.push(route.request().postDataJSON()); current = saved(puts.at(-1)); }
+      await route.fulfill({ json: current }); return true;
+    }
+    if (path === samplesPath && route.request().method() === 'POST') {
+      posts.push(route.request().postDataJSON());
+      await route.fulfill(posts.length === 1 ? { status: 503, json: { message: 'Retry the rates.' } } : { status: 201, json: grouped }); return true;
+    }
+    if (path === samplesPath) { await route.fulfill({ json: [grouped] }); return true; }
+    if (path === `${samplesPath}/${sampleId}`) { await route.fulfill({ json: grouped }); return true; }
+    return false;
+  });
+  await p.goto(`${appUrl}${page}`);
+  const manual = p.locator('.backcheck-sample-form').first(); const panel = p.locator('.backcheck-schedule');
+  await expect(panel.locator('.sampling-group-rate')).toHaveCount(2);
+  await expect(panel.getByLabel('Group rate answer')).toHaveValue('North');
+  await expect(panel.locator('.backcheck-schedule-rates')).toContainText('Missing answer: 50%');
+  await expect(p.locator('.backcheck-group-coverage tbody tr').first().locator('td')).toHaveText(['100%', '6', '6', '0', '0']);
+  await manual.getByRole('combobox', { name: 'Group submissions', exact: true }).selectOption('field');
+  await manual.getByRole('combobox', { name: 'Area or answer question', exact: true }).selectOption('/district');
+  await manual.getByRole('button', { name: 'Add group rate', exact: true }).click();
+  await manual.getByLabel('Group rate answer').fill('North');
+  await manual.getByRole('button', { name: 'Add group rate', exact: true }).click();
+  await manual.getByRole('combobox', { name: 'Group rate target', exact: true }).nth(1).selectOption('missing');
+  await manual.getByLabel('Group rate percentage').nth(1).fill('50');
+  await manual.getByRole('button', { name: 'Draw sample', exact: true }).click();
+  await expect(p.locator('.backcheck-sample-error').first()).toContainText('Retry the rates.');
+  await manual.getByRole('button', { name: 'Draw sample', exact: true }).click();
+  await expect.poll(() => posts.length).toBe(2);
+  expect(posts[0].groupRates).toEqual(rules); expect(posts[1]).toEqual(posts[0]);
+  await panel.getByLabel('Group rate percentage').first().fill('80');
+  await panel.getByRole('button', { name: 'Save schedule', exact: true }).click();
+  await expect(panel.locator('.backcheck-schedule-rates')).toContainText('North: 80%');
+  await p.reload();
+  await expect(panel.getByLabel('Group rate percentage').first()).toHaveValue('80');
+  await p.setViewportSize({ width: 360, height: 800 });
+  expect(await p.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  await panel.getByRole('combobox', { name: 'Scheduled area or answer question', exact: true }).selectOption('/other');
+  await expect(panel.locator('.sampling-group-rate')).toHaveCount(0);
+  await panel.getByRole('button', { name: 'Save schedule', exact: true }).click();
+  await expect.poll(() => puts.length).toBe(2); expect(puts.at(-1)).not.toHaveProperty('groupRates');
+  expect(errors).toEqual([]);
+});
+
 test('a viewer sees the schedule but cannot change it', async ({ page: p }) => {
   const errors = await api(p, viewerVerbs, async (route, path) => {
     if (path === schedulePath) { await route.fulfill({ json: saved({ rate: 10, minPerCollector: 1, frequency: 'daily', enabled: true }) }); return true; }
