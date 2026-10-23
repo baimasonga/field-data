@@ -8,6 +8,12 @@ const testData = require('../../data/xml');
 const { generateReverification } = require('../../../lib/worker/field-data-reverification');
 const { runAllocations } = require('../../../lib/worker/field-data-backcheck-allocation');
 /* eslint-disable no-await-in-loop */
+// Keep fixture dates inside the database-clock itinerary window; fake JS clocks
+// do not change PostgreSQL clock_timestamp(). Anchor to the most recent Wednesday
+// to preserve weekday quotas and within-day boundaries while staying within 7 days.
+const currentUtcDay = new Date();
+const fixtureMidnight = Date.parse(`${currentUtcDay.toISOString().slice(0, 10)}T00:00:00Z`) - ((currentUtcDay.getUTCDay() + 4) % 7) * 86400000;
+const fixtureDate = offset => new Date(fixtureMidnight + offset * 86400000).toISOString().slice(0, 10);
 const root = '/v1/projects/1';
 const geoForm = `<h:html xmlns="http://www.w3.org/2002/xforms" xmlns:h="http://www.w3.org/1999/xhtml"><h:head><h:title>Route survey</h:title><model>
 <instance><data id="route_survey"><meta><instanceID/></meta><location/></data></instance>
@@ -34,8 +40,8 @@ const setup = async (service, geo = false, count = 3, accuracy = '15') => {
 };
 const calendar = (alice, user, weeklyCapacity, exceptions = []) => alice.put(`${root}/backcheck-calendars/${user.id}`).send({ weeklyCapacity, exceptions }).expect(200);
 const checks = c => c.all(sql`SELECT *, to_char("plannedVisitDate", 'YYYY-MM-DD') AS date FROM field_data_backchecks ORDER BY "createdAt", id`);
-const now = new Date('2026-10-14T12:00:00Z');
-const route = (alice, user) => alice.get(`${root}/backcheck-route?actorId=${user.id}&date=2026-10-14&startLat=8.48&startLon=-13.23`).expect(200);
+const now = new Date(`${fixtureDate(0)}T12:00:00Z`);
+const route = (alice, user) => alice.get(`${root}/backcheck-route?actorId=${user.id}&date=${fixtureDate(0)}&startLat=8.48&startLon=-13.23`).expect(200);
 describe('api: calendar availability and route planning', () => {
   it('reserves dated capacity with exceptions, includes dates in the inbox, and does not reuse completed slots', testService(async (service, c) => {
     const { alice, users } = await setup(service);
@@ -45,12 +51,12 @@ describe('api: calendar availability and route planning', () => {
     await calendar(alice, users[2], [0, 0, 0, 0, 1, 0, 0]);
     await runAllocations(c.db, now);
     assert.equal((await checks(c)).length, 1);
-    await calendar(alice, users[1], [1, 1, 1, 1, 1, 1, 1], [{ date: '2026-10-14', maxVisits: 0 }]);
+    await calendar(alice, users[1], [1, 1, 1, 1, 1, 1, 1], [{ date: fixtureDate(0), maxVisits: 0 }]);
     await runAllocations(c.db, now);
     const rows = await checks(c);
-    assert.deepEqual(rows.map(r => r.date).sort(), ['2026-10-15', '2026-10-15', '2026-10-16']);
+    assert.deepEqual(rows.map(r => r.date).sort(), [fixtureDate(1), fixtureDate(1), fixtureDate(2)]);
     const inbox = (await service.get('/v1/field-data/app-user/backchecks').set('Authorization', `Bearer ${users[1].token}`).expect(200)).body;
-    assert.deepEqual(inbox.items.map(i => i.plannedVisitDate).sort(), ['2026-10-15', '2026-10-16']);
+    assert.deepEqual(inbox.items.map(i => i.plannedVisitDate).sort(), [fixtureDate(1), fixtureDate(2)]);
     const linked = rows.find(r => r.assignedTo === users[2].id);
     await service.post(`/v1/key/${users[2].token}/projects/1/forms/simple/submissions`).send(testData.instances.simple.one.replace('one</instanceID>', 'response</instanceID>'))
       .set('Content-Type', 'application/xml').expect(200);
@@ -61,19 +67,19 @@ describe('api: calendar availability and route planning', () => {
     await runAllocations(c.db, now);
     // The linked response itself can also be sampled, but all calendar slots are full.
     assert.equal((await checks(c)).length, 3);
-    const cancelled = rows.find(r => r.date === '2026-10-16');
+    const cancelled = rows.find(r => r.date === fixtureDate(2));
     const item = await alice.get(`/v1/field-data/review-queue/${cancelled.caseId}`).expect(200);
     await alice.post(`/v1/field-data/review-queue/${cancelled.caseId}/backchecks/${cancelled.id}/cancel`).set('If-Match', item.headers.etag)
       .send({ requestId: '33333333-3333-4333-8333-333333333333', reason: 'Visit no longer needed.' }).expect(200);
     await runAllocations(c.db, now);
     assert.equal((await checks(c)).length, 4);
-    assert.equal((await checks(c)).at(-1).date, '2026-10-16');
+    assert.equal((await checks(c)).at(-1).date, fixtureDate(2));
   }));
   it('serializes calendar-aware allocation without overbooking a day', testServiceFullTrx(async (service, c) => {
     const { alice, users } = await setup(service, false, 4);
     await calendar(alice, users[1], [0, 0, 0, 1, 0, 0, 0]);
     await Promise.all([runAllocations(c.db, now), runAllocations(c.db, now)]);
-    assert.equal((await checks(c)).length, 1); assert.equal((await checks(c))[0].date, '2026-10-14');
+    assert.equal((await checks(c)).length, 1); assert.equal((await checks(c))[0].date, fixtureDate(0));
   }));
   it('previews verified locations in order and flags changed calendars, missing integrity and revoked eligibility', testService(async (service, c) => {
     const { alice, users } = await setup(service, true, 2);
@@ -110,7 +116,7 @@ describe('api: calendar availability and route planning', () => {
     await alice.post(`${root}/assignments/viewer/${id}`).expect(200);
     await chelsea.get(`${root}/backcheck-calendars`).expect(200);
     await chelsea.put(`${root}/backcheck-calendars/${users[1].id}`).send({ weeklyCapacity: [1, 1, 1, 1, 1, 1, 1] }).expect(403);
-    await chelsea.get(`${root}/backcheck-route?actorId=${users[1].id}&date=2026-10-14&startLat=8&startLon=-13`).expect(403);
+    await chelsea.get(`${root}/backcheck-route?actorId=${users[1].id}&date=${fixtureDate(0)}&startLat=8&startLon=-13`).expect(403);
     await service.get(`${root}/backcheck-calendars`).set('Authorization', `Bearer ${users[0].token}`).expect(403);
     await alice.put(`${root}/backcheck-calendars/${id}`).send({ weeklyCapacity: [1, 1, 1, 1, 1, 1, 1] }).expect(404);
     for (const body of [{ weeklyCapacity: [1] }, { weeklyCapacity: [1, 1, 1, 1, 1, 1, 1], exceptions: [{ date: '2026-02-30', maxVisits: 0 }] }])
@@ -118,7 +124,7 @@ describe('api: calendar availability and route planning', () => {
     await calendar(alice, users[1], [1, 1, 1, 1, 1, 1, 1]); await runAllocations(c.db, now);
     assert.equal((await route(alice, users[1])).body.excluded.missingLocation, 1);
     await alice.get(`${root}/backcheck-route?actorId=${users[1].id}&date=2026-02-30&startLat=8&startLon=-13`).expect(400);
-    await alice.get(`${root}/backcheck-route?actorId=${users[1].id}&date=2026-10-14&startLat=91&startLon=-13`).expect(400);
+    await alice.get(`${root}/backcheck-route?actorId=${users[1].id}&date=${fixtureDate(0)}&startLat=91&startLon=-13`).expect(400);
   }));
   it('flags unknown GPS accuracy and retains calendars and dated tasks on rollback', testServiceFullTrx(async (service, c) => {
     const { alice, users } = await setup(service, true, 1, '');
@@ -133,7 +139,7 @@ describe('api: calendar availability and route planning', () => {
       await db.transaction(async trx => { await migration.down(trx); await migration.up(trx); });
       const calendars = (await alice.get(`${root}/backcheck-calendars`).expect(200)).body;
       assert.equal(calendars.find(row => row.id === users[1].id).settings.weeklyCapacity[3], 1);
-      assert.equal((await checks(c))[0].date, '2026-10-14');
+      assert.equal((await checks(c))[0].date, fixtureDate(0));
     } finally { await db.destroy(); }
   }));
 
@@ -152,10 +158,10 @@ describe('api: calendar availability and route planning', () => {
       waypoints: [{ distance: 0 }, { distance: 150 }, { distance: 0 }] }));
     };
     try {
-      const result = (await alice.get(`${root}/backcheck-route?actorId=${users[1].id}&date=2026-10-14&startLat=8.48&startLon=-13.23&visitMinutes=30&dayMinutes=60`).expect(200)).body;
+      const result = (await alice.get(`${root}/backcheck-route?actorId=${users[1].id}&date=${fixtureDate(0)}&startLat=8.48&startLon=-13.23&visitMinutes=30&dayMinutes=60`).expect(200)).body;
       assert.equal(result.road.travelMinutes, 60); assert.equal(result.timing.totalMinutes, 90);
       assert.equal(result.timing.overBudget, true); assert.equal(result.needsReview, true);
-      await alice.get(`${root}/backcheck-route?actorId=${users[1].id}&date=2026-10-14&startLat=8.48&startLon=-13.23&visitMinutes=0`).expect(400);
+      await alice.get(`${root}/backcheck-route?actorId=${users[1].id}&date=${fixtureDate(0)}&startLat=8.48&startLon=-13.23&visitMinutes=0`).expect(400);
       assert.equal(calls, 1);
       global.fetch = async () => { throw new Error('upstream secret'); };
       const unavailable = (await route(alice, users[1])).body;
@@ -173,22 +179,22 @@ describe('api: calendar availability and route planning', () => {
       const { alice, users } = await setup(service, true, 3);
       const settings = { weeklyCapacity: [100, 100, 100, 100, 100, 100, 100], visitMinutes: 45,
         weeklyShifts: Array(7).fill({ start: '08:00', end: '08:30' }),
-        exceptions: [{ date: '2026-10-15', maxVisits: 100, shift: { start: '08:00', end: '09:30' } }] };
+        exceptions: [{ date: fixtureDate(1), maxVisits: 100, shift: { start: '08:00', end: '09:30' } }] };
       await alice.put(`${root}/backcheck-calendars/${users[1].id}`).send(settings).expect(200);
       await runAllocations(c.db, now);
       const rows = await checks(c);
-      assert.equal(rows.length, 2); assert.deepEqual(rows.map(r => r.date), ['2026-10-15', '2026-10-15']);
+      assert.equal(rows.length, 2); assert.deepEqual(rows.map(r => r.date), [fixtureDate(1), fixtureDate(1)]);
       const { report } = (await alice.get(`${root}/forms/route_survey/backcheck-allocation`).expect(200)).body.policy;
       assert.equal(report.noCalendarSlot, 1);
       // Route budgets use the request clock, not the allocator's explicit time.
-      const plan = (await alice.get(`${root}/backcheck-route?actorId=${users[1].id}&date=2026-10-15&startLat=8.48&startLon=-13.23`).expect(200)).body;
+      const plan = (await alice.get(`${root}/backcheck-route?actorId=${users[1].id}&date=${fixtureDate(1)}&startLat=8.48&startLon=-13.23`).expect(200)).body;
       assert.equal(plan.timing.visitMinutes, 45); assert.equal(plan.timing.dayMinutes, 90);
       assert.equal(plan.timing.shift.start, '08:00'); assert.equal(plan.timing.shift.end, '09:30');
       assert.equal(plan.timing.previewOverrides, false); assert.equal(plan.timing.totalMinutes, null);
       const invalid = { ...settings, weeklyShifts: Array(7).fill({ start: '09:00', end: '08:00' }) };
       await alice.put(`${root}/backcheck-calendars/${users[1].id}`).send(invalid).expect(400);
-      await alice.put(`${root}/backcheck-calendars/${users[1].id}`).send({ ...settings, exceptions: [{ date: '2026-10-15', maxVisits: 100, shift: null }] }).expect(200);
-      const closed = (await alice.get(`${root}/backcheck-route?actorId=${users[1].id}&date=2026-10-15&startLat=8.48&startLon=-13.23`).expect(200)).body;
+      await alice.put(`${root}/backcheck-calendars/${users[1].id}`).send({ ...settings, exceptions: [{ date: fixtureDate(1), maxVisits: 100, shift: null }] }).expect(200);
+      const closed = (await alice.get(`${root}/backcheck-route?actorId=${users[1].id}&date=${fixtureDate(1)}&startLat=8.48&startLon=-13.23`).expect(200)).body;
       assert.equal(closed.timing.shiftUnavailable, true); assert.equal(closed.timing.dayMinutes, 0); assert.equal(closed.needsReview, true);
       assert.equal((await checks(c)).length, 2); // Edits never move existing visits.
       const past = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
@@ -199,7 +205,7 @@ describe('api: calendar availability and route planning', () => {
   }));
 
   it('allocates overnight capacity and preserves approved UTC boundaries online and offline', testService(async (service, c) => {
-    const clock = FakeTimers.install({ now: new Date('2026-10-15T01:00:00Z'), toFake: ['Date'] });
+    const clock = FakeTimers.install({ now: new Date(`${fixtureDate(1)}T01:00:00Z`), toFake: ['Date'] });
     const previousKey = process.env.FIELD_DATA_OFFLINE_SIGNING_KEY; const previousOrigin = process.env.FIELD_DATA_OFFLINE_ORIGIN;
     try {
       const { alice, users } = await setup(service, true, 3);
@@ -209,25 +215,25 @@ describe('api: calendar availability and route planning', () => {
       const saved = (await alice.get(`${root}/backcheck-calendars`).expect(200)).body.find(u => u.id === users[1].id);
       assert.deepEqual(saved.settings, settings);
       await alice.put(`${root}/backcheck-calendars/${users[1].id}`).send({ ...settings,
-        exceptions: [{ date: '2026-10-15', maxVisits: 2, shift: { start: '05:00', end: '08:00' } }] }).expect(400);
+        exceptions: [{ date: fixtureDate(1), maxVisits: 2, shift: { start: '05:00', end: '08:00' } }] }).expect(400);
       await runAllocations(c.db, new Date());
       const rows = await checks(c);
-      assert.deepEqual(rows.map(r => r.date).sort(), ['2026-10-14', '2026-10-14', '2026-10-15']);
+      assert.deepEqual(rows.map(r => r.date).sort(), [fixtureDate(0), fixtureDate(0), fixtureDate(1)]);
       const preview = (await route(alice, users[1])).body;
       assert.equal(preview.timing.dayMinutes, 300); assert.equal(preview.timing.expiredShift, false);
       assert.equal(preview.timing.shift.endNextDay, true);
-      assert.equal(preview.timing.shift.startAt, '2026-10-14T22:00:00.000Z');
-      assert.equal(preview.timing.shift.endAt, '2026-10-15T06:00:00.000Z');
+      assert.equal(preview.timing.shift.startAt, `${fixtureDate(0)}T22:00:00.000Z`);
+      assert.equal(preview.timing.shift.endAt, `${fixtureDate(1)}T06:00:00.000Z`);
       await alice.post(`${root}/backcheck-itineraries`).send({ id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', reviewToken: preview.reviewToken,
-        note: 'Finish Thursday morning.', query: { actorId: String(users[1].id), date: '2026-10-14', startLat: '8.48', startLon: '-13.23' } }).expect(201);
+        note: 'Finish the following morning.', query: { actorId: String(users[1].id), date: fixtureDate(0), startLat: '8.48', startLon: '-13.23' } }).expect(201);
       const online = (await service.get('/v1/field-data/app-user/itineraries').set('Authorization', `Bearer ${users[1].token}`).expect(200)).body.items[0];
-      assert.equal(online.date, '2026-10-14');
-      assert.deepEqual(online.shift, { startAt: '2026-10-14T22:00:00.000Z', endAt: '2026-10-15T06:00:00.000Z' });
+      assert.equal(online.date, fixtureDate(0));
+      assert.deepEqual(online.shift, { startAt: `${fixtureDate(0)}T22:00:00.000Z`, endAt: `${fixtureDate(1)}T06:00:00.000Z` });
       process.env.FIELD_DATA_OFFLINE_SIGNING_KEY = generateKeyPairSync('ec', { namedCurve: 'prime256v1' }).privateKey.export({ type: 'pkcs8', format: 'pem' });
       process.env.FIELD_DATA_OFFLINE_ORIGIN = 'https://field.example.test';
       const { bundle } = (await service.get('/v1/field-data/app-user/offline-assignments').set('Authorization', `Bearer ${users[1].token}`).expect(200)).body;
       assert.deepEqual(JSON.parse(Buffer.from(bundle.payload, 'base64url')).itineraries.items[0].shift, online.shift);
-      clock.setSystemTime(new Date('2026-10-15T06:00:00Z'));
+      clock.setSystemTime(new Date(`${fixtureDate(1)}T06:00:00Z`));
       const expired = (await route(alice, users[1])).body;
       assert.equal(expired.timing.dayMinutes, 0); assert.equal(expired.timing.expiredShift, true);
       assert.deepEqual((await checks(c)).map(r => r.date).sort(), rows.map(r => r.date).sort());
@@ -249,7 +255,7 @@ describe('api: calendar availability and route planning', () => {
       return new Response(JSON.stringify({ code: 'Ok', trips: [{ distance: 2000, duration: 1800, legs: Array(3).fill({ distance: 500, duration: 600 }) }],
         waypoints: [{ distance: 0, trips_index: 0, waypoint_index: 0 }, { distance: 0, trips_index: 0, waypoint_index: 2 }, { distance: 0, trips_index: 0, waypoint_index: 1 }] }));
     };
-    const url = `${root}/backcheck-route?actorId=${users[1].id}&date=2026-10-14&startLat=8.48&startLon=-13.23&order=road`;
+    const url = `${root}/backcheck-route?actorId=${users[1].id}&date=${fixtureDate(0)}&startLat=8.48&startLon=-13.23&order=road`;
     try {
       const result = (await alice.get(url).expect(200)).body;
       assert.equal(result.ordering.applied, 'road'); assert.deepEqual(result.route.stops.map(s => s.instanceId), ['visit1', 'visit0']);
@@ -272,7 +278,7 @@ describe('api: calendar availability and route planning', () => {
     await calendar(alice, users[1], [2, 2, 2, 2, 2, 2, 2]); await runAllocations(c.db, now);
     const preview = (await route(alice, users[1])).body;
     const body = { id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', reviewToken: preview.reviewToken, note: 'Review access with the supervisor.',
-      query: { actorId: String(users[1].id), date: '2026-10-14', startLat: '8.48', startLon: '-13.23' } };
+      query: { actorId: String(users[1].id), date: fixtureDate(0), startLat: '8.48', startLon: '-13.23' } };
     await alice.post(`${root}/backcheck-itineraries`).send({ ...body, reviewToken: '0'.repeat(64) }).expect(400);
     await alice.post(`${root}/backcheck-itineraries`).send(body).expect(201);
     await alice.post(`${root}/backcheck-itineraries`).send(body).expect(201);
