@@ -56,7 +56,7 @@ permission, archival, existing transaction retries/deletion/concurrency guards,
 and migration rollback/reapply. Browser coverage includes existing saved groups,
 failed-save retry, grouped history, clearing back to collector-only and mobile.
 
-Unequal group-specific rates, geographic polygon strata, weighting and calibrated
-estimates remain separate work. Production runner acceptance is distinct from
+[O23](O23-group-specific-sampling-rates.md) adds unequal group-specific rates.
+Geographic polygon strata, weighting and calibrated estimates remain separate work. Production runner acceptance is distinct from
 proving its selection contract in database tests; deployment checks retain the
 existing operations-runner diagnostics.

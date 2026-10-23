@@ -79,6 +79,27 @@ describe('(util) backcheck sample', () => {
       validateSettings({ rate: 10, groupField }).error.field.should.equal('groupField');
   });
 
+  it('uses canonical group rates, fallback and minimums reproducibly', () => {
+    const eligible = [1, 2].flatMap(submitterId => ['North', 'South', null, 'null'].flatMap(groupValue =>
+      Array.from({ length: 5 }, (_, i) => ({ instanceId: `${submitterId}-${groupValue === null ? 'missing' : groupValue}-${i}`, submitterId, groupValue }))));
+    const { settings } = validateSettings({ rate: 20, minPerCollector: 2, groupField: '/district',
+      groupRates: [{ value: null, rate: 60 }, { value: ' North ', rate: 100 }] });
+    const result = draw(eligible, settings, seed);
+    result.counts.map(c => c.sampled).should.eql([5, 2, 2, 3, 5, 2, 2, 3]);
+    draw([...eligible].reverse(), settings, seed).should.eql(result);
+    validateSettings({ ...settings, groupRates: [...settings.groupRates].reverse() }).settings.should.eql(settings);
+    validateSettings({ rate: 20, groupRates: [] }).settings.should.not.have.property('groupRates');
+    for (const groupRates of [null, {}, [{ value: 'North', rate: 0 }], [{ value: 'North', rate: 101 }],
+      [{ value: 'North', rate: 1.5 }], [{ value: '', rate: 10 }], [{ rate: 10 }], [{ value: 1, rate: 10 }],
+      [{ value: 'a'.repeat(201), rate: 10 }], [{ value: 'é', rate: 10 }, { value: ' é ', rate: 20 }],
+      [{ value: null, rate: 10 }, { value: null, rate: 20 }], [{ value: 'a', rate: 10, extra: true }],
+      Array.from({ length: 101 }, (_, i) => ({ value: String(i), rate: 10 }))])
+      validateSettings({ rate: 20, groupField: '/district', groupRates }).error.field.should.equal('groupRates');
+    validateSettings({ rate: 20, groupRates: [{ value: null, rate: 10 }] }).error.field.should.equal('groupRates');
+    const { validateSchedule } = require('../../../lib/util/backcheck-sample');
+    validateSchedule({ rate: 20, frequency: 'daily', enabled: true, groupField: '/district', groupRates: settings.groupRates }).schedule.groupRates.should.eql(settings.groupRates);
+  });
+
   it('offers only non-repeating scalar questions outside metadata', () => {
     const { groupFields } = require('../../../lib/util/backcheck-sample');
     groupFields([{ path: '/district', type: 'string' }, { path: '/age', type: 'int' },

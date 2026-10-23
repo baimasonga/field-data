@@ -59,8 +59,8 @@ backcheck assignment, opt-in allocation, quota/shift accounting and permission
 rechecks retain their existing behavior. A group is not an allegation.
 
 [O22](O22-scheduled-answer-sampling.md) extends this grouping to daily/weekly schedules.
-Unequal per-category rates, numeric bins, geographic polygon strata, weighting
-and calibrated estimates remain separate implementation work.
+[O23](O23-group-specific-sampling-rates.md) adds unequal per-category rates.
+Numeric bins, geographic polygon strata, weighting and calibrated estimates remain separate work.
 
 ## Validation
 

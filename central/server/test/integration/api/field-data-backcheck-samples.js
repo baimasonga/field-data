@@ -224,6 +224,25 @@ describe('api: O3 random backcheck sample', () => {
     (await all(sql`SELECT count(*)::integer AS n FROM audits WHERE action = 'field_data.backcheck_sample.draw'`))[0].n.should.equal(0);
   }));
 
+  it('records unequal rates, canonical retries and effective coverage atomically', testService(async (service, c) => {
+    const alice = await service.login('alice');
+    for (const [i, value] of ['North', 'North', 'North', 'South', 'South', '', '', 'null', 'null'].entries())
+      await alice.post('/v1/projects/1/forms/simple/submissions').send(instance(`rates${i}`).replace('Alice</name>', `${value}</name>`)).set('Content-Type', 'application/xml').expect(200);
+    const body = { requestId: requestId(50), rate: 10, minPerCollector: 0, groupField: '/name',
+      groupRates: [{ value: null, rate: 100 }, { value: ' North ', rate: 100 }, { value: 'Future', rate: 70 }] };
+    const sample = (await alice.post(base).send(body).expect(201)).body;
+    sample.sampled.should.equal(7);
+    sample.groups.map(g => [g.value, g.rate, g.eligible, g.sampled]).should.eql([['North', 100, 3, 3], ['South', 10, 2, 1], ['null', 10, 2, 1], [null, 100, 2, 2]]);
+    sample.settings.groupRates.should.eql([{ value: 'Future', rate: 70 }, { value: 'North', rate: 100 }, { value: null, rate: 100 }]);
+    const retry = await alice.post(base).send({ ...body, groupRates: [...body.groupRates].reverse() }).expect(200);
+    retry.headers['idempotency-status'].should.equal('replayed'); retry.body.id.should.equal(sample.id);
+    await alice.post(base).send({ ...body, groupRates: [{ value: null, rate: 50 }] }).expect(400);
+    await alice.post(base).send({ ...body, requestId: requestId(51), groupRates: [{ value: 'North', rate: 10 }, { value: ' North ', rate: 20 }] }).expect(400);
+    (await c.oneFirst(sql`SELECT count(*)::integer FROM field_data_backcheck_samples`)).should.equal(1);
+    const full = (await alice.get(`${base}/${sample.id}?eligible=true`).expect(200)).body;
+    draw(full.eligibleList, full.settings, full.seed).chosen.map(i => i.instanceId).sort().should.eql(sample.items.map(i => i.instanceId).sort());
+  }));
+
   it('keeps samples on a migration rollback', testServiceFullTrx(async (service) => {
     const { alice } = await setUp(service);
     await alice.post(base).send({ requestId: requestId(1), rate: 10 }).expect(201);
