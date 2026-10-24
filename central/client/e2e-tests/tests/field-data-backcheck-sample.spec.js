@@ -487,6 +487,53 @@ test('readers inspect, retry and export snapshot weights without treating unavai
   expect(errors).toEqual([]);
 });
 
+test('calibrated estimates require explicit outcomes and response assumptions, export diagnostics and clear stale inputs', async ({ page: p }) => {
+  const posts = []; const ids = ['uuid:a1', 'uuid:a2'];
+  const weights = { sampleId, available: true, groupField: null, eligible: 4, sampled: 2, strata: [{ submitterId: 5, eligible: 4, sampled: 2, inclusionProbability: 0.5, designWeight: 2 }], items: ids.map(instanceId => ({ instanceId })) };
+  const errors = await api(p, viewerVerbs, async (route, path) => {
+    if (path === samplesPath) { await route.fulfill({ json: [summary] }); return true; }
+    if (path === `${samplesPath}/${sampleId}`) { await route.fulfill({ json: detail }); return true; }
+    if (path === `${samplesPath}/${sampleId}/weights`) { await route.fulfill({ json: weights }); return true; }
+    if (path === `${samplesPath}/${sampleId}/estimate`) {
+      const body = route.request().postDataJSON(); posts.push(body);
+      if (posts.length === 1) { await route.fulfill({ status: 503, json: { message: 'Retry the calculation.' } }); return true; }
+      const reviewed = body.outcomes.filter(row => row.value !== null).length;
+      if (reviewed < 2 && !body.assumeRandomResponse) { await route.fulfill({ json: { available: false, reason: 'Some selected outcomes are unknown. Explicitly acknowledge random response.', strata: [] } }); return true; }
+      await route.fulfill({ json: { available: true, eligible: 4, sampled: 2, reviewed, missing: 2 - reviewed, estimatedProportion: reviewed === 1 ? 1 : 0.5, estimatedPositiveTotal: reviewed === 1 ? 4 : 2,
+        responseAssumption: reviewed === 1 ? 'random-within-each-stratum' : 'not-required-all-selected-reviewed', interval: { lower: 0, upper: 1 }, input: body,
+        strata: [{ submitterId: 5, eligible: 4, sampled: 2, reviewed, positive: 1, calibratedWeight: 4 / reviewed }] } }); return true;
+    }
+    return false;
+  });
+  await p.goto(`${appUrl}${page}`);
+  await p.locator('.backcheck-weights').getByRole('button', { name: 'Show sampling weights', exact: true }).click();
+  const panel = p.locator('.backcheck-estimate');
+  const [template] = await Promise.all([p.waitForEvent('download'), panel.getByRole('link', { name: 'Download outcome template', exact: true }).click()]);
+  const data = JSON.parse(await readFile(await template.path(), 'utf8'));
+  expect(data).toEqual({ sampleId, definition: '', source: '', outcomes: ids.map(instanceId => ({ instanceId, value: null })) });
+  const upload = value => panel.getByLabel('Reviewed outcomes JSON').setInputFiles({ name: 'outcomes.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(value)) });
+  await upload({ ...data, sampleId: 'other' });
+  await expect(panel.getByRole('alert')).toContainText('this sample');
+  await expect(panel.getByRole('button', { name: 'Calculate calibrated estimate', exact: true })).toBeDisabled();
+  const partial = { ...data, definition: 'Reviewed discrepancy', source: 'Review register 2026-10-24', outcomes: [{ instanceId: ids[0], value: 1 }, { instanceId: ids[1], value: null }] };
+  await upload(partial);
+  const calculate = panel.getByRole('button', { name: 'Calculate calibrated estimate', exact: true });
+  await calculate.click(); await expect(panel.getByRole('alert')).toContainText('Retry the calculation');
+  await calculate.click(); await expect(panel.locator('.backcheck-estimate-result')).toContainText('Explicitly acknowledge random response');
+  await expect(panel).not.toContainText('Estimated proportion:');
+  await panel.getByRole('checkbox').check(); await expect(panel.locator('.backcheck-estimate-result')).toHaveCount(0);
+  await calculate.click(); await expect(panel.locator('.backcheck-estimate-result')).toContainText('Estimated proportion: 100%');
+  await expect(panel).toContainText('unverified random-response assumption');
+  const [download] = await Promise.all([p.waitForEvent('download'), panel.getByRole('link', { name: 'Download estimate and diagnostics JSON', exact: true }).click()]);
+  expect(JSON.parse(await readFile(await download.path(), 'utf8')).input.assumeRandomResponse).toBe(true);
+  await upload({ ...partial, outcomes: [{ instanceId: ids[0], value: 1 }, { instanceId: ids[1], value: 0 }] });
+  await expect(panel.getByRole('checkbox')).not.toBeChecked(); await expect(panel.locator('.backcheck-estimate-result')).toHaveCount(0);
+  await calculate.click(); await expect(panel.locator('.backcheck-estimate-result')).toContainText('Estimated proportion: 50%');
+  await p.setViewportSize({ width: 360, height: 800 });
+  expect(await p.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  expect(errors).toEqual([]);
+});
+
 test('a viewer sees the schedule but cannot change it', async ({ page: p }) => {
   const errors = await api(p, viewerVerbs, async (route, path) => {
     if (path === schedulePath) { await route.fulfill({ json: saved({ rate: 10, minPerCollector: 1, frequency: 'daily', enabled: true }) }); return true; }

@@ -69,6 +69,6 @@ and polygon membership, scheduled draws and empty frames. Browser tests cover
 reader access, retry, stratum display, JSON download, unavailable-state handling,
 sample switching and mobile overflow.
 
-This implements inspectable design weights. Calibrated estimates, nonresponse
-adjustment, reviewed outcome estimands, variance and confidence intervals remain
-separate work. Operations and the eight-area programme remain partial.
+This implements inspectable design weights. [O27](O27-calibrated-binary-estimates.md)
+adds conditional retained-frame binary estimates and conservative bounds. External
+calibration, validated outcome coding and richer inference remain separate work. Operations and the eight-area programme remain partial.

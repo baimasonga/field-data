@@ -356,6 +356,36 @@ describe('api: O3 random backcheck sample', () => {
     (await alice.get(`${base}/${empty.id}/weights`).expect(200)).body.should.containEql({ available: true, eligible: 0, sampled: 0, strata: [], items: [] });
   }));
 
+  it('calculates explicit reviewed binary estimates without persisting outcomes or changing snapshots', testService(async (service, c) => {
+    const { alice } = await setUp(service);
+    const sample = (await alice.post(base).send({ requestId: requestId(90), rate: 34, minPerCollector: 1, groupField: '/name' }).expect(201)).body;
+    const path = `${base}/${sample.id}/estimate`;
+    const body = { sampleId: sample.id, definition: 'Reviewed discrepancy', source: 'Reviewed register 2026-10-24', outcomes: sample.items.map(item => ({ instanceId: item.instanceId, value: 1 })) };
+    const before = await c.all(sql`SELECT id, settings, eligible FROM field_data_backcheck_samples`);
+    const response = await alice.post(path).send(body).expect(200);
+    response.headers['cache-control'].should.equal('private, no-store');
+    response.body.should.containEql({ available: true, estimatedProportion: 1, estimatedPositiveTotal: 9, reviewed: 5, missing: 0 });
+    response.body.interval.lower.should.be.below(1);
+    const onePerCollector = [...new Map(sample.items.map(item => [item.submitterId, { instanceId: item.instanceId, value: 1 }])).values()];
+    const missing = { ...body, outcomes: onePerCollector };
+    (await alice.post(path).send(missing).expect(200)).body.requiresResponseAssumption.should.equal(true);
+    const adjusted = (await alice.post(path).send({ ...missing, assumeRandomResponse: true }).expect(200)).body;
+    adjusted.should.containEql({ available: true, reviewed: 3, missing: 2, estimatedProportion: 1, responseAssumption: 'random-within-each-stratum' });
+    adjusted.strata.reduce((sum, row) => sum + row.reviewed * row.calibratedWeight, 0).should.equal(9);
+    const partial = { ...body, outcomes: [body.outcomes[0]] };
+    (await alice.post(path).send(partial).expect(200)).body.available.should.equal(false);
+    await alice.post(path).send({ ...body, outcomes: [{ instanceId: 'unselected', value: 1 }] }).expect(400);
+    await alice.post(path).send({ ...body, sampleId: requestId(99) }).expect(400);
+    await alice.post(`${base}/bad/estimate`).send(body).expect(404);
+    const chelsea = await service.login('chelsea'); await chelsea.post(path).send(body).expect(403);
+    const { id } = (await chelsea.get('/v1/users/current').expect(200)).body;
+    await alice.post(`/v1/projects/1/assignments/viewer/${id}`).expect(200);
+    (await chelsea.post(path).send(body).expect(200)).body.inputDigest.should.equal(response.body.inputDigest);
+    (await c.all(sql`SELECT id, settings, eligible FROM field_data_backcheck_samples`)).should.eql(before);
+    await c.run(sql`UPDATE submission_defs SET xml = replace(xml, 'Alice</name>', 'Changed</name>') WHERE current`);
+    (await alice.post(path).send(body).expect(200)).body.should.eql(response.body);
+  }));
+
   it('keeps samples on a migration rollback', testServiceFullTrx(async (service) => {
     const { alice } = await setUp(service);
     await alice.post(base).send({ requestId: requestId(1), rate: 10 }).expect(201);

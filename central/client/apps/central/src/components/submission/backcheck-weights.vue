@@ -24,12 +24,14 @@
           </table>
         </div>
         <p>Display values are rounded to six decimal places; the JSON includes numerator/denominator counts and each selected record's weight. Collector IDs and group membership come from the retained snapshot, even if a collector or source submission was later deleted.</p>
+        <backcheck-estimate :project-id="projectId" :xml-form-id="xmlFormId" :weights="data"/>
       </template>
     </template>
   </section>
 </template>
 <script setup>
 import { computed, ref } from 'vue';
+import BackcheckEstimate from './backcheck-estimate.vue';
 import useRequest from '../../composables/request';
 defineOptions({ name: 'BackcheckWeights' });
 const props = defineProps({ projectId: { type: String, required: true }, xmlFormId: { type: String, required: true }, sampleId: { type: String, required: true } });
