@@ -1736,6 +1736,37 @@ test('possible duplicates cannot be dismissed by those who may not manage the pr
 });
 
 
+test('duplicate asset locations compare explicit facts, clear stale results and handle denied or missing evidence on mobile', async ({ page }) => {
+  const { state, errors } = await setup(page);
+  const a = { id: '55555555-5555-4555-8555-555555555555', name: 'Pump', externalId: 'P-1', assetType: 'pump', xmlFormId: 'health' };
+  const b = { ...a, id: '99999999-9999-4999-8999-999999999999', name: 'pump', externalId: 'P-2' };
+  state.duplicatePairs.push({ a, b, reasons: ['same-name'] });
+  let denied = false; let missing = false; const requests = [];
+  await page.route('**/assets/*/location-comparison/*?*', async route => {
+    const predicate = new URL(route.request().url()).searchParams.get('predicate'); requests.push(predicate);
+    if (denied) return route.fulfill({ status: 404, json: { message: 'Unavailable' } });
+    const side = { status: 'usable', citation: { observationId: 'retained-observation', sourceUrl: '/v1/field-data/claim-versions/77777777-7777-4777-8777-777777777777', validFrom: '2026-10-24T12:00:00Z', recordedAt: '2026-10-24T12:01:00Z', freshness: 'fresh' } };
+    return route.fulfill({ json: { method: 'asset-recorded-location@1', predicate, a: side, b: missing ? { status: 'unknown', citation: null } : side, distanceMetres: missing ? null : 42.4, reportedAccuracyRangeMetres: missing ? null : { minimum: 12.4, maximum: 72.4 } } });
+  });
+  await page.reload(); const section = page.getByRole('region', { name: 'Recorded asset location comparison' });
+  expect(requests).toEqual([]);
+  await section.getByRole('button', { name: 'Compare recorded locations' }).click();
+  await expect(section).toContainText('Straight-line separation: 42 metres'); await expect(section).toContainText('12–73 metres');
+  await expect(section.getByRole('link', { name: 'Source claim' }).first()).toHaveAttribute('href', /claim-versions/);
+  await expect(section).toContainText('Nearness does not prove the same asset');
+  await section.getByLabel('Location fact name').fill('survey position'); await expect(section).not.toContainText('Straight-line separation');
+  missing = true; await section.getByRole('button', { name: 'Compare recorded locations' }).click();
+  await expect(section).toContainText('Distance withheld'); await expect(section).toContainText('unknown');
+  denied = true; await section.getByRole('button', { name: 'Compare recorded locations' }).click();
+  await expect(section.getByRole('alert')).toContainText('Location comparison could not be loaded'); await expect(section).not.toContainText('Distance withheld');
+  denied = false; missing = false; await section.getByRole('button', { name: 'Compare recorded locations' }).click();
+  await expect(section).toContainText('Straight-line separation');
+  await page.setViewportSize({ width: 320, height: 800 });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= 320)).toBe(true);
+  await expect(page.getByRole('button', { name: 'Not the same', exact: true })).toHaveCount(0);
+  expect(requests).toEqual(['location', 'survey position', 'survey position', 'survey position']); expect(errors).toEqual([]);
+});
+
 test('asset status compares several facts with independent summaries, citations and historical cutoffs', async ({ page }) => {
   const { state, errors } = await setup(page);
   const assetId = '55555555-5555-4555-8555-555555555555';

@@ -372,7 +372,7 @@ pilot is a separate acceptance activity. Product work resumes with K7 above.
 
 | Area | Current delivery | Further implementation required |
 | --- | --- | --- |
-| Knowledge | Asset facts, ownership history, freshness, cited search and multi-fact historical projections | Location/photo identity comparisons, asset maps/location areas, broader decision projections, answer/semantic retrieval, causal contracts and diagnostics |
+| Knowledge | Asset facts, ownership history, freshness, cited search and multi-fact historical projections and cited recorded-location pair comparisons | Photo identity comparisons, asset maps/location areas, broader decision projections, answer/semantic retrieval, causal contracts and diagnostics |
 | Evidence/trust | Evidence graph, challenges/replay checks, signed witnesses with correction/withdrawal history and server-attested project key revocation, human assessments and device-reported location | Delegation, certified key revocation, independent sensor/hardware corroboration, calibrated presence limitations |
 | Offline resilience | Signed encrypted assignments/itineraries, recoverable media, encrypted relay packages and receipts | Durable XML submission queues, Collect integration, background sync and delegated courier/custody transport |
 | Operations | Sampling, allocation, shared capacity, same-day/overnight UTC shifts, combined approved itineraries, manual/scheduled collector/answer sampling with group-specific rates, numeric ranges, polygon groups, inspectable design weights, conditional calibrated binary estimates, approved-stop navigation handoff and agreement counts | Additional task types, built-in/offline routing, external benchmark calibration and validated outcome inference |
@@ -545,3 +545,13 @@ source-form grants, mapping ambiguity and retry access are checked. See
 [F12-cross-form-peer-backchecks.md](F12-cross-form-peer-backchecks.md). Broader
 peer families, multilingual/effectiveness evaluation and calibrated triage remain
 pending; all eight areas remain partial.
+
+
+### K8 recorded asset location comparisons
+
+Readable users can explicitly compare a chosen location fact for a possible
+duplicate pair, with source citations, freshness, distance and reported accuracy
+limits. Invalid, unknown, stale or unverified facts withhold comparison. See
+[K8-asset-location-comparison.md](K8-asset-location-comparison.md). Asset maps,
+photo identity matching and validated identity inference remain pending; all eight
+areas remain partial.

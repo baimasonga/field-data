@@ -8,6 +8,7 @@ const Problem = require('../util/problem');
 const { timestamp, freshness, selectFacts } = require('../util/asset-freshness');
 const { MAX_ASSETS, summarize, summarizeByArea } = require('../util/asset-projection');
 const { generateReverification } = require('../worker/field-data-reverification');
+const { compare: compareLocations } = require('../util/asset-location-comparison');
 const invalid = () => Problem.user.assetInvalid();
 const hash = value => createHash('sha256').update(JSON.stringify(value)).digest('hex');
 const text = (value, max) => typeof value === 'string' && value.trim().length > 0 && value.length <= max;
@@ -67,6 +68,17 @@ const audit = (tx, actorId, formId, action, details) => tx.db.query(sql`INSERT I
     clock_timestamp(), clock_timestamp(), 0 FROM forms f WHERE f.id = ${formId}`);
 module.exports = (service, endpoint) => {
   const root = '/field-data/projects/:projectId/assets';
+  service.get(`${root}/:assetId/location-comparison/:otherAssetId`, endpoint(async (container, { auth, params, query }, _, response) => {
+    await scope(container, auth, params);
+    if (Object.keys(query).some(key => key !== 'predicate') || !text(query.predicate, 100) || query.predicate !== query.predicate.trim() || params.assetId === params.otherAssetId) throw invalid();
+    const a = await assetFor(container, auth, params);
+    const b = await assetFor(container, auth, { ...params, assetId: params.otherAssetId });
+    if (a.id === b.id) throw invalid();
+    if (a.status !== 'active' || b.status !== 'active') throw Problem.user.notFound();
+    const histories = await Promise.all([historyFor(container, auth, a), historyFor(container, auth, b)]);
+    response.set('Cache-Control', 'private, no-store');
+    return { ...compareLocations(histories[0], histories[1], query.predicate), assetIds: [a.id, b.id] };
+  }));
   service.get(root, endpoint(async (container, { auth, params, query }, request, response) => {
     const project = await scope(container, auth, params);
     if (query.cursor != null && (typeof query.cursor !== 'string' || !UUID_PATTERN.test(query.cursor))) throw invalid();
