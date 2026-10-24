@@ -309,7 +309,7 @@ describe('api: O3 random backcheck sample', () => {
     (await alice.get(`${path}/${sample.id}`).expect(200)).body.groups.should.eql(sample.groups);
     const audit = await c.oneFirst(sql`SELECT details FROM audits WHERE action = 'field_data.backcheck_sample.draw'`);
     audit.settings.groupAreas.should.eql(groupAreas);
-    const fields = (await alice.get(`${path}/fields`).expect(200)).body.fields;
+    const { fields } = (await alice.get(`${path}/fields`).expect(200)).body;
     fields.should.containEql({ path: '/age', type: 'geopoint' });
   }));
 
