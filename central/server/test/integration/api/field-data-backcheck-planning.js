@@ -289,6 +289,18 @@ describe('api: calendar availability and route planning', () => {
     const get = user => service.get('/v1/field-data/app-user/itineraries').set('Authorization', `Bearer ${user.token}`).expect(200);
     assert.equal((await get(users[2])).body.items.length, 0);
     const received = (await get(users[1])).body.items[0];
+    const navigationPath = stop => `/v1/field-data/app-user/itineraries/${received.id}/stops/${stop.kind}/${stop.id}/navigation`;
+    const navigate = (stop, user = users[1]) => service.get(navigationPath(stop)).set('Authorization', `Bearer ${user.token}`);
+    const navigation = await navigate(received.stops[0]).expect(200);
+    assert.equal(navigation.headers['cache-control'], 'private, no-store');
+    assert.equal(navigation.body.stopId, received.stops[0].id);
+    assert.equal(new URL(navigation.body.targets[0].url).searchParams.get('destination'), `${received.stops[0].location.latitude},${received.stops[0].location.longitude}`);
+    assert.equal(JSON.stringify(navigation.body).includes(users[1].token), false);
+    assert.equal(Date.parse(navigation.body.expiresAt) - Date.parse(navigation.body.checkedAt), 60000);
+    await navigate(received.stops[0], users[2]).expect(404);
+    await service.get(navigationPath(received.stops[0])).expect(401);
+    await alice.get(navigationPath(received.stops[0])).expect(403);
+    await service.get(`/v1/field-data/app-user/itineraries/bad/stops/backcheck/${received.stops[0].id}/navigation`).set('Authorization', `Bearer ${users[1].token}`).expect(404);
     const previousKey = process.env.FIELD_DATA_OFFLINE_SIGNING_KEY; const previousOrigin = process.env.FIELD_DATA_OFFLINE_ORIGIN;
     try {
       process.env.FIELD_DATA_OFFLINE_SIGNING_KEY = generateKeyPairSync('ec', { namedCurve: 'prime256v1' }).privateKey.export({ type: 'pkcs8', format: 'pem' });
@@ -312,6 +324,7 @@ describe('api: calendar availability and route planning', () => {
     const provenance = await c.one(sql`SELECT p.* FROM field_data_submission_provenance p JOIN field_data_claim_versions v ON v."submissionDefId" = p."submissionDefId" WHERE v.id = ${pinned}`);
     await c.db.query(sql`UPDATE field_data_submission_provenance SET "integrityHash" = ${'0'.repeat(64)} WHERE "submissionDefId" = ${provenance.submissionDefId}`);
     assert.equal((await get(users[1])).body.items[0].withheld, 1);
+    await navigate(received.stops.find(stop => stop.id === preview.route.stops[0].id)).expect(404);
     await c.db.query(sql`UPDATE field_data_submission_provenance SET "integrityHash" = ${provenance.integrityHash} WHERE "submissionDefId" = ${provenance.submissionDefId}`);
     await service.get('/v1/field-data/app-user/itineraries').expect(401);
     await service.post(`${root}/backcheck-itineraries`).set('Authorization', `Bearer ${users[1].token}`).send(body).expect(403);
@@ -319,9 +332,21 @@ describe('api: calendar availability and route planning', () => {
     await alice.post(`/v1/field-data/review-queue/${first.caseId}/backchecks/${first.id}/cancel`).set('If-Match', detail.headers.etag)
       .send({ requestId: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', reason: 'No longer needed.' }).expect(200);
     const refreshed = (await get(users[1])).body.items[0]; assert.equal(refreshed.stops.length, 1); assert.equal(refreshed.withheld, 1);
+    await navigate(received.stops.find(stop => stop.id === first.id)).expect(404);
+    await navigate(refreshed.stops[0]).expect(200);
+    await c.run(sql`UPDATE projects SET archived = TRUE WHERE id = 1`);
+    await navigate(refreshed.stops[0]).expect(404);
+    await c.run(sql`UPDATE projects SET archived = FALSE WHERE id = 1`);
     await alice.post(`${root}/backcheck-itineraries`).send({ ...body, id: 'cccccccc-cccc-4ccc-8ccc-cccccccccccc' }).expect(400);
+    const newPreview = (await route(alice, users[1])).body;
+    const newerId = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc';
+    await alice.post(`${root}/backcheck-itineraries`).send({ ...body, id: newerId, reviewToken: newPreview.reviewToken }).expect(201);
+    await navigate(refreshed.stops[0]).expect(404);
+    const newPath = `/v1/field-data/app-user/itineraries/${newerId}/stops/backcheck/${refreshed.stops[0].id}/navigation`;
+    await service.get(newPath).set('Authorization', `Bearer ${users[1].token}`).expect(200);
     await alice.delete(`${root}/forms/simple/assignments/app-user/${users[1].id}`).expect(200);
     assert.equal((await get(users[1])).body.items[0].stops.length, 0);
+    await service.get(newPath).set('Authorization', `Bearer ${users[1].token}`).expect(404);
   }));
 
 });
@@ -383,6 +408,9 @@ describe('api: backchecks share capacity with re-verification', () => {
     const inbox = async () => (await service.get('/v1/field-data/app-user/itineraries')
       .set('Authorization', `Bearer ${users[1].token}`).expect(200)).body.items[0];
     assert.equal((await inbox()).stops.length, 2);
+    const approvedPlan = await inbox();
+    const navigateMixed = stop => service.get(`/v1/field-data/app-user/itineraries/${approvedPlan.id}/stops/${stop.kind}/${stop.id}/navigation`).set('Authorization', `Bearer ${users[1].token}`);
+    for (const stop of approvedPlan.stops) await navigateMixed(stop).expect(200);
     assert.equal((await inbox()).stops.find(stop => stop.kind === 'reverification').question, dispatch.note);
     assert.equal((await inbox()).stops.find(stop => stop.kind === 'reverification').assetName, 'Mixed route asset');
     const previousKey = process.env.FIELD_DATA_OFFLINE_SIGNING_KEY; const previousOrigin = process.env.FIELD_DATA_OFFLINE_ORIGIN;
@@ -408,6 +436,7 @@ describe('api: backchecks share capacity with re-verification', () => {
     await alice.post(`${taskRoot}/${task.id}/dispatch`).set('If-Match', '"task-2"')
       .send({ ...dispatch, requestId: '88888888-5555-4555-8555-555555555555', note: 'Use the revised instructions.' }).expect(200);
     assert.equal((await inbox()).withheld, 1);
+    await navigateMixed(approvedPlan.stops.find(stop => stop.kind === 'reverification')).expect(404);
     await alice.post(`${root}/backcheck-itineraries`).send({ ...body, id: '88888888-6666-4666-8666-666666666666' }).expect(400);
     assert.notEqual((await preview()).reviewToken, plan.reviewToken);
     await alice.delete(`${root}/forms/route_survey/assignments/app-user/${users[1].id}`).expect(200);

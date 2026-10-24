@@ -7,6 +7,8 @@ const offlineAssignments = require('../util/offline-assignments');
 const { reverificationVisits } = require('../util/reverification-visits');
 const { approvedItineraries } = require('../util/approved-itineraries');
 
+const { stopNavigation } = require('../util/stop-navigation');
+
 const appUser = async (container, auth) => {
   const actor = auth.actor.orNull();
   if (actor?.type !== 'field_key') throw Problem.user.insufficientRights();
@@ -76,6 +78,20 @@ module.exports = (service, endpoint) => {
     response.set('Cache-Control', 'private, no-store');
     return { appUser: { name: user.displayName, projectName: user.projectName }, items,
       nextCursor: rows.length > 50 ? Buffer.from(JSON.stringify({ id: last.id, createdAt: last.createdAt })).toString('base64url') : null };
+  }));
+
+  service.get('/field-data/app-user/itineraries/:itineraryId/stops/:kind/:stopId/navigation', endpoint(async (container, { params, auth }, _, response) => {
+    const user = await appUser(container, auth);
+    if (!UUID_PATTERN.test(params.itineraryId) || !UUID_PATTERN.test(params.stopId) || !['backcheck', 'reverification'].includes(params.kind)) throw Problem.user.notFound();
+    // Use exactly the same current assignment, provenance and latest-plan checks
+    // as the online itinerary inbox. Saved offline instructions cannot authorize this.
+    const current = await approvedItineraries(container, user);
+    const itinerary = current.items.find(plan => plan.id === params.itineraryId);
+    const stop = itinerary?.stops.find(item => item.id === params.stopId && item.kind === params.kind);
+    const navigation = stop == null ? null : stopNavigation(itinerary, stop);
+    if (navigation == null) throw Problem.user.notFound();
+    response.set('Cache-Control', 'private, no-store');
+    return navigation;
   }));
 
   service.get('/field-data/app-user/itineraries', endpoint(async (container, { auth }, _, response) => {

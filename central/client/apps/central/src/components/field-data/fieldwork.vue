@@ -56,7 +56,7 @@ Acknowledge request
           <p v-if="itinerary.needsReview">The supervisor approved this itinerary with review warnings. Confirm access and travel time before starting.</p>
           <p v-if="itinerary.withheld" role="status">{{ itinerary.withheld }} stops are no longer available. Refresh and contact your supervisor.</p>
           <p>Start: {{ itinerary.start.latitude }}, {{ itinerary.start.longitude }}. Return to this start after the visits.</p>
-          <field-data-itinerary-stops :stops="itinerary.stops"/>
+          <field-data-itinerary-stops :stops="itinerary.stops" :navigate="stop => navigationFor(itinerary.id, stop)"/>
           <p>This is an approved stop order, not turn-by-turn navigation. Road access and conditions may change.</p>
         </li>
       </ul>
@@ -235,6 +235,7 @@ const loadReceipts = async (current) => {
     if (current === generation) receiptsError.value = 'Receipts could not be loaded. Refresh to retry.';
   }
 };
+const navigationFor = (itineraryId, stop) => api(`itineraries/${encodeURIComponent(itineraryId)}/stops/${encodeURIComponent(stop.kind || 'backcheck')}/${encodeURIComponent(stop.id)}/navigation`);
 const loadItineraries = async (current) => {
   try {
     const data = await api('itineraries');
