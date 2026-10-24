@@ -41,6 +41,10 @@ const casesOf = (all, prefix) => all(sql`SELECT s."instanceId", c.id, c.status, 
   JOIN field_data_review_cases c ON c."claimVersionId" = v.id
   WHERE s."instanceId" LIKE ${`${prefix}%`} ORDER BY s."instanceId"`);
 
+const polygonBox = (value, x, y, size = 2) => ({ value, geometry: { type: 'Polygon', coordinates: [[[x, y], [x + size, y], [x + size, y + size], [x, y + size], [x, y]]] } });
+const publishGeopoint = alice => alice.post('/v1/projects/1/forms?publish=true').send(testData.forms.simple.replace('id="simple"', 'id="locations"').replace('type="int"', 'type="geopoint"')).set('Content-Type', 'application/xml').expect(200);
+const submitPoint = (alice, id, point) => alice.post('/v1/projects/1/forms/locations/submissions').send(instance(id).replace('id="simple"', 'id="locations"').replace('<age>30</age>', `<age>${point}</age>`)).set('Content-Type', 'application/xml').expect(200);
+
 describe('api: O3 random backcheck sample', () => {
   it('draws per collector, routes into review, and can be recomputed from its seed', testService(async (service, { run, all }) => {
     const { alice, a, b } = await setUp(service);
@@ -284,6 +288,44 @@ describe('api: O3 random backcheck sample', () => {
     (await c.oneFirst(sql`SELECT count(*)::integer FROM field_data_backcheck_samples`)).should.equal(0);
     (await c.oneFirst(sql`SELECT count(*)::integer FROM audits WHERE action = 'field_data.backcheck_sample.draw'`)).should.equal(0);
     (await c.all(sql`SELECT id, revision FROM field_data_review_cases ORDER BY id`)).should.eql(before);
+  }));
+
+  it('draws named polygons including edges, overlap, outside and missing with immutable range-free snapshots', testService(async (service, c) => {
+    const alice = await service.login('alice'); await publishGeopoint(alice);
+    const path = '/v1/projects/1/forms/locations/backcheck-samples';
+    const groupAreas = [polygonBox('North', 10, 10), polygonBox('South', 11.5, 10)];
+    for (const [i, point] of ['10.1 10.1', '10.2 10.2', '10 10', '10.2 11.7', '40 40', ''].entries()) await submitPoint(alice, `point${i}`, point);
+    const body = { requestId: requestId(70), rate: 10, minPerCollector: 0, groupField: '/age', groupAreas, groupRates: [{ value: 'North', rate: 100 }] };
+    const sample = (await alice.post(path).send(body).expect(201)).body;
+    sample.groups.map(g => [g.value, g.rate, g.eligible, g.sampled]).should.eql([
+      ['North', 100, 3, 3], ['Outside areas', 10, 1, 1], ['Overlapping areas', 10, 1, 1], [null, 10, 1, 1]
+    ]);
+    (await alice.post(path).send({ ...body, groupAreas: [...groupAreas].reverse() }).expect(200)).body.id.should.equal(sample.id);
+    await alice.post(path).send({ ...body, groupAreas: [polygonBox('North', 20, 20)] }).expect(400);
+    const full = (await alice.get(`${path}/${sample.id}?eligible=true`).expect(200)).body;
+    full.eligibleList.forEach(e => Object.keys(e).sort().should.eql(['groupValue', 'instanceId', 'submitterId']));
+    draw(full.eligibleList, full.settings, full.seed).chosen.map(i => i.instanceId).sort().should.eql(sample.items.map(i => i.instanceId).sort());
+    await c.run(sql`UPDATE submission_defs SET xml = replace(xml, '10.1 10.1', '40 40') WHERE current`);
+    (await alice.get(`${path}/${sample.id}`).expect(200)).body.groups.should.eql(sample.groups);
+    const audit = await c.oneFirst(sql`SELECT details FROM audits WHERE action = 'field_data.backcheck_sample.draw'`);
+    audit.settings.groupAreas.should.eql(groupAreas);
+    const fields = (await alice.get(`${path}/fields`).expect(200)).body.fields;
+    fields.should.containEql({ path: '/age', type: 'geopoint' });
+  }));
+
+  it('refuses missing areas, unsafe points, non-geopoint questions and excessive geometry work atomically', testService(async (service, c) => {
+    const alice = await service.login('alice'); await publishGeopoint(alice);
+    const path = '/v1/projects/1/forms/locations/backcheck-samples';
+    const body = { requestId: requestId(71), rate: 10, groupField: '/age', groupAreas: [polygonBox('North', 10, 10)] };
+    await alice.post(base).send(body).expect(400);
+    await alice.post(path).send({ ...body, groupAreas: [] }).expect(400);
+    await submitPoint(alice, 'badPoint', '0 0');
+    await alice.post(path).send(body).expect(400);
+    await c.run(sql`UPDATE submission_defs SET xml = replace(xml, '<age>0 0</age>', '<age>10.1 10.1</age>') WHERE current`);
+    const { AREA_LIMITS } = require('../../../lib/util/sampling-areas'); const { work: max } = AREA_LIMITS; AREA_LIMITS.work = 1;
+    try { (await alice.post(path).send(body).expect(400)).body.code.should.equal(400.59); } finally { AREA_LIMITS.work = max; }
+    (await c.oneFirst(sql`SELECT count(*)::integer FROM field_data_backcheck_samples`)).should.equal(0);
+    (await c.oneFirst(sql`SELECT count(*)::integer FROM audits WHERE action = 'field_data.backcheck_sample.draw'`)).should.equal(0);
   }));
 
   it('keeps samples on a migration rollback', testServiceFullTrx(async (service) => {

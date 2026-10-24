@@ -375,7 +375,7 @@ pilot is a separate acceptance activity. Product work resumes with K7 above.
 | Knowledge | Asset facts, ownership history, freshness, cited search and multi-fact historical projections | Location/photo identity comparisons, asset maps/location areas, broader decision projections, answer/semantic retrieval, causal contracts and diagnostics |
 | Evidence/trust | Evidence graph, challenges/replay checks, signed witnesses with correction/withdrawal history, human assessments and device-reported location | Delegation, certified key revocation, independent sensor/hardware corroboration, calibrated presence limitations |
 | Offline resilience | Signed encrypted assignments/itineraries, recoverable media, encrypted relay packages and receipts | Durable XML submission queues, Collect integration, background sync and delegated courier/custody transport |
-| Operations | Sampling, allocation, shared capacity, same-day/overnight UTC shifts, combined approved itineraries, manual/scheduled collector/answer sampling with group-specific rates, numeric ranges and agreement counts | Additional task types, navigation, geographic polygon strata, weighting and calibrated estimates |
+| Operations | Sampling, allocation, shared capacity, same-day/overnight UTC shifts, combined approved itineraries, manual/scheduled collector/answer sampling with group-specific rates, numeric ranges, polygon groups and agreement counts | Additional task types, navigation, weighting and calibrated estimates |
 | Geospatial | Location integrity, imagery availability and cited human geospatial assessments with temporal context and outdated history | Exact footprint checks, reviewed change candidates, imagery analysis and evaluated automated change detection |
 | Fraud intelligence | Contradictions, identity reuse, similarity, collector links, investigations/outcomes, live case links and targeted backcheck questions with reviewed form drafts | Peer-side targeting, multilingual/effectiveness evaluation, calibrated triage and false-positive evaluation |
 | Adaptive surveys | Doctor, simulations, version-change analysis and recodes | Approved bounded policies, reviewed evolution/draft generation, answer uncertainty, conversational multilingual support and native-export recodes |
@@ -453,7 +453,7 @@ answer-read/list permissions and published field availability, draws reproducibl
 collector/answer intersections across due/catch-up periods and pauses unsafe
 configurations atomically. UI exposes saved grouping, paused reasons, retries and
 grouped sample coverage. See
-[O22-scheduled-answer-sampling.md](O22-scheduled-answer-sampling.md). Group-specific rates are implemented in O23. Geographic polygon strata, weighting and calibrated estimates remain pending.
+[O22-scheduled-answer-sampling.md](O22-scheduled-answer-sampling.md). Group-specific rates are implemented in O23. Polygon groups are implemented in O25. Weighting and calibrated estimates remain pending.
 
 
 ### O23 different rates by recorded answer group
@@ -463,7 +463,7 @@ missing answers, with a default fallback and the existing per-intersection
 minimum. Saved rules, immutable snapshots and effective coverage rates are
 visible; retries, clearing and migration rollback are covered. See
 [O23-group-specific-sampling-rates.md](O23-group-specific-sampling-rates.md).
-Numeric ranges are implemented in O24. Geographic polygon strata, weighting and calibrated estimates remain pending. Operations and all eight areas remain partial.
+Numeric ranges are implemented in O24. Polygon groups are implemented in O25. Weighting and calibrated estimates remain pending. Operations and all eight areas remain partial.
 
 
 ### O24 numeric range sampling
@@ -472,5 +472,15 @@ Manual and scheduled draws can use exact decimal boundaries on numeric questions
 with generated range labels, different rates, separate missing answers, immutable
 range membership and numeric coverage order. Invalid answers refuse draws or pause
 schedules atomically. See [O24-numeric-range-sampling.md](O24-numeric-range-sampling.md).
-Geographic polygon strata, weighting and calibrated estimates remain pending.
+Polygon groups are implemented in O25. Weighting and calibrated estimates remain pending.
 Operations and all eight areas remain partial.
+
+
+### O25 geographic polygon sampling groups
+
+Manual and scheduled draws can assign recorded geopoints to uploaded named
+Polygon/MultiPolygon areas, with holes, explicit overlapping/outside/missing groups,
+different rates and immutable geometry/membership snapshots. Saved/recorded areas
+can be downloaded and coverage inspected. See
+[O25-polygon-sampling-groups.md](O25-polygon-sampling-groups.md). Weighting and
+calibrated estimates remain pending. Operations and all eight areas remain partial.

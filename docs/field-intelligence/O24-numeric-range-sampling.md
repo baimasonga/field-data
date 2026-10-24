@@ -76,6 +76,6 @@ scheduled catch-up, clearing without period reset, type restrictions and migrati
 rollback/reapply. Browser tests cover both editors, retries, saved reload, generated
 rate targets, stale-rate clearing, coverage and mobile layout.
 
-Geographic polygon strata, weighting and calibrated estimates remain separate
+[O25](O25-polygon-sampling-groups.md) adds polygon strata. Weighting and calibrated estimates remain separate
 work. Numeric grouping does not produce weighted population estimates or measured
 fraud/error rates. Operations and the overall eight-area programme remain partial.

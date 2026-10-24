@@ -9,6 +9,8 @@
 /* global BigInt */
 const { createHash, randomBytes } = require('crypto');
 
+const { validateAreas, areaLabels } = require('./sampling-areas');
+
 const LIMITS = { maxSample: 500, maxEligible: 50000, maxMinimum: 20, maxGroups: 100, maxGroupValue: 200 };
 const SEED_PATTERN = /^[0-9a-f]{32}$/;
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
@@ -56,7 +58,7 @@ const numericGroup = (value, breaks) => {
 
 // Settings from a request body, or { field, reason } describing the first problem.
 const validateSettings = (body) => {
-  const allowed = ['requestId', 'rate', 'minPerCollector', 'receivedFrom', 'receivedTo', 'groupField', 'groupRates', 'groupBreaks'];
+  const allowed = ['requestId', 'rate', 'minPerCollector', 'receivedFrom', 'receivedTo', 'groupField', 'groupRates', 'groupBreaks', 'groupAreas'];
   const unknown = Object.keys(body ?? {}).find((k) => !allowed.includes(k));
   if (body == null || typeof body !== 'object' || Array.isArray(body)) return { error: { field: 'body', reason: 'must be an object' } };
   if (unknown != null) return { error: { field: unknown, reason: 'is not a setting' } };
@@ -86,6 +88,10 @@ const validateSettings = (body) => {
     if (groupBreaks.length && !body.groupField)
       return { error: { field: 'groupBreaks', reason: 'requires a numeric grouping question' } };
   }
+  const { areas: groupAreas = [], error: areaError } = body.groupAreas === undefined ? {} : validateAreas(body.groupAreas);
+  if (areaError) return { error: areaError };
+  if (groupAreas.length && (!body.groupField || groupBreaks.length))
+    return { error: { field: 'groupAreas', reason: 'requires a geopoint question and cannot be combined with numeric ranges' } };
   const groupRates = [];
   if (body.groupRates !== undefined) {
     if (!Array.isArray(body.groupRates) || body.groupRates.length > LIMITS.maxGroups)
@@ -101,13 +107,15 @@ const validateSettings = (body) => {
         return { error: { field: 'groupRates', reason: 'answers must be distinct and at most 200 characters after normalization' } };
       if (groupBreaks.length && value !== null && !rangeLabels(groupBreaks).includes(value))
         return { error: { field: 'groupRates', reason: 'must target a configured numeric range or missing answers' } };
+      if (groupAreas.length && value !== null && !areaLabels(groupAreas).includes(value))
+        return { error: { field: 'groupRates', reason: 'must target a named area, Outside areas, Overlapping areas or missing answers' } };
       seen.add(value); groupRates.push({ value, rate: rule.rate });
     }
     if (groupRates.length && !body.groupField)
       return { error: { field: 'groupRates', reason: 'requires a grouping question' } };
     groupRates.sort((a, b) => (a.value === null ? 1 : b.value === null ? -1 : a.value < b.value ? -1 : a.value > b.value ? 1 : 0));
   }
-  return { settings: { rate, minPerCollector, receivedFrom, receivedTo, ...(groupBreaks.length ? { groupBreaks } : {}), ...(groupRates.length ? { groupRates } : {}), ...(body.groupField === undefined ? {} : { groupField: body.groupField }) } };
+  return { settings: { rate, minPerCollector, receivedFrom, receivedTo, ...(groupAreas.length ? { groupAreas } : {}), ...(groupBreaks.length ? { groupBreaks } : {}), ...(groupRates.length ? { groupRates } : {}), ...(body.groupField === undefined ? {} : { groupField: body.groupField }) } };
 };
 
 const rateFor = (settings, value) => settings.groupRates?.find(rule => rule.value === value)?.rate ?? settings.rate;
@@ -140,9 +148,9 @@ const draw = (eligible, settings, seed) => {
   return { chosen, counts };
 };
 
-const groupFields = fields => {
+const groupFields = (fields, includeGeopoints = false) => {
   const repeats = fields.filter(f => f.type === 'repeat').map(f => f.path);
-  return fields.filter(f => ['string', 'int', 'decimal', 'date', 'barcode'].includes(f.type) && !f.binary && !f.selectMultiple &&
+  return fields.filter(f => ['string', 'int', 'decimal', 'date', 'barcode', ...(includeGeopoints ? ['geopoint'] : [])].includes(f.type) && !f.binary && !f.selectMultiple &&
     /^\/(?:[A-Za-z_][A-Za-z0-9_.-]*\/)*[A-Za-z_][A-Za-z0-9_.-]*$/.test(f.path) && !f.path.startsWith('/meta/') &&
     !repeats.some(path => f.path.startsWith(`${path}/`))).map(f => ({ path: f.path, type: f.type }));
 };
@@ -180,13 +188,13 @@ const runRequestId = (scheduleId, periodStart) => {
 // A schedule's settings from a request body, or { field, reason }.
 const validateSchedule = (body) => {
   if (body == null || typeof body !== 'object' || Array.isArray(body)) return { error: { field: 'body', reason: 'must be an object' } };
-  const unknown = Object.keys(body).find((k) => !['rate', 'minPerCollector', 'frequency', 'enabled', 'groupField', 'groupRates', 'groupBreaks'].includes(k));
+  const unknown = Object.keys(body).find((k) => !['rate', 'minPerCollector', 'frequency', 'enabled', 'groupField', 'groupRates', 'groupBreaks', 'groupAreas'].includes(k));
   if (unknown != null) return { error: { field: unknown, reason: 'is not a setting' } };
-  const { settings, error } = validateSettings({ ...(body.groupBreaks === undefined ? {} : { groupBreaks: body.groupBreaks }), ...(body.groupRates === undefined ? {} : { groupRates: body.groupRates }), rate: body.rate, minPerCollector: body.minPerCollector ?? 1, ...(body.groupField == null ? {} : { groupField: body.groupField }) });
+  const { settings, error } = validateSettings({ ...(body.groupAreas === undefined ? {} : { groupAreas: body.groupAreas }), ...(body.groupBreaks === undefined ? {} : { groupBreaks: body.groupBreaks }), ...(body.groupRates === undefined ? {} : { groupRates: body.groupRates }), rate: body.rate, minPerCollector: body.minPerCollector ?? 1, ...(body.groupField == null ? {} : { groupField: body.groupField }) });
   if (error != null) return { error };
   if (!FREQUENCIES.includes(body.frequency)) return { error: { field: 'frequency', reason: 'must be daily or weekly' } };
   if (typeof body.enabled !== 'boolean') return { error: { field: 'enabled', reason: 'must be true or false' } };
-  return { schedule: { rate: settings.rate, minPerCollector: settings.minPerCollector, frequency: body.frequency, enabled: body.enabled, ...(settings.groupBreaks ? { groupBreaks: settings.groupBreaks } : {}), ...(settings.groupRates ? { groupRates: settings.groupRates } : {}), ...(settings.groupField ? { groupField: settings.groupField } : {}) } };
+  return { schedule: { rate: settings.rate, minPerCollector: settings.minPerCollector, frequency: body.frequency, enabled: body.enabled, ...(settings.groupAreas ? { groupAreas: settings.groupAreas } : {}), ...(settings.groupBreaks ? { groupBreaks: settings.groupBreaks } : {}), ...(settings.groupRates ? { groupRates: settings.groupRates } : {}), ...(settings.groupField ? { groupField: settings.groupField } : {}) } };
 };
 
 Object.assign(module.exports, { FREQUENCIES, periodLength, boundaryAtOrBefore, nextBoundaryAfter, dueRun, runRequestId, validateSchedule });

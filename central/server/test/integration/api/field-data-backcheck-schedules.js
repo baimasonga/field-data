@@ -27,6 +27,10 @@ const submit = async (alice, ...ids) => {
 };
 const scheduleRow = (one) => one(sql`SELECT * FROM field_data_backcheck_schedules`);
 
+const polygonBox = (value, x, y, size = 2) => ({ value, geometry: { type: 'Polygon', coordinates: [[[x, y], [x + size, y], [x + size, y + size], [x, y + size], [x, y]]] } });
+const publishGeopoint = alice => alice.post('/v1/projects/1/forms?publish=true').send(testData.forms.simple.replace('id="simple"', 'id="locations"').replace('type="int"', 'type="geopoint"')).set('Content-Type', 'application/xml').expect(200);
+const submitPoint = (alice, id, point) => alice.post('/v1/projects/1/forms/locations/submissions').send(instance(id).replace('id="simple"', 'id="locations"').replace('<age>30</age>', `<age>${point}</age>`)).set('Content-Type', 'application/xml').expect(200);
+
 describe('api: O6 scheduled backcheck samples', () => {
   it('is set and read by those allowed, with every setting checked', testService(async (service) => {
     const alice = await service.login('alice');
@@ -193,6 +197,62 @@ describe('api: O6 scheduled backcheck samples', () => {
         await trx.raw('UPDATE field_data_backcheck_schedules SET "groupBreaks" = NULL');
         await migration.down(trx); await migration.up(trx);
         assert.equal((await trx.raw('SELECT "groupBreaks" FROM field_data_backcheck_schedules')).rows[0].groupBreaks, null);
+      });
+    } finally { await db.destroy(); }
+  }));
+
+  it('persists polygon schedules, draws catch-up periods and clears without resetting the period', testService(async (service, c) => {
+    const alice = await service.login('alice'); await publishGeopoint(alice);
+    const polygonPath = '/v1/projects/1/forms/locations/backcheck-schedule';
+    const groupAreas = [polygonBox('North', 10, 10)];
+    const settings = { rate: 10, frequency: 'weekly', enabled: true, groupField: '/age', groupAreas, groupRates: [{ value: 'North', rate: 100 }] };
+    const initial = (await alice.put(polygonPath).send(settings).expect(200)).body.schedule;
+    assert.deepEqual((await alice.get(polygonPath).expect(200)).body.schedule.groupAreas, groupAreas);
+    for (const [i, point] of ['10.1 10.1', '10.2 10.2', '40 40', ''].entries()) await submitPoint(alice, `geo${i}`, point);
+    const at = new Date(Date.parse(initial.nextRunAt) + 7 * day);
+    const [result] = await runBackcheckSchedules(c.db, at); assert.equal(result.periods, 2); assert.equal(result.sampled, 4);
+    const samplePath = `/v1/projects/1/forms/locations/backcheck-samples/${result.sampleId}`;
+    const sample = (await alice.get(`${samplePath}?eligible=true`).expect(200)).body;
+    assert.deepEqual(sample.settings.groupAreas, groupAreas);
+    assert.deepEqual(sample.groups.map(g => g.value), ['North', 'Outside areas', null]);
+    const { draw } = require('../../../lib/util/backcheck-sample');
+    assert.deepEqual(draw(sample.eligibleList, sample.settings, sample.seed).chosen.map(i => i.instanceId).sort(), sample.items.map(i => i.instanceId).sort());
+    assert.deepEqual(await runBackcheckSchedules(c.db, at), []);
+    const boundary = (await alice.get(polygonPath).expect(200)).body.schedule.periodStart;
+    const cleared = (await alice.put(polygonPath).send({ rate: 10, frequency: 'weekly', enabled: true }).expect(200)).body.schedule;
+    assert.equal(cleared.groupAreas, undefined); assert.equal(cleared.groupField, undefined); assert.equal(cleared.periodStart, boundary);
+    assert.deepEqual((await alice.get(samplePath).expect(200)).body.settings.groupAreas, groupAreas);
+  }));
+
+  it('pauses invalid geographic data and unavailable geopoint fields without partial draws', testService(async (service, c) => {
+    const alice = await service.login('alice'); await publishGeopoint(alice);
+    const polygonPath = '/v1/projects/1/forms/locations/backcheck-schedule';
+    const settings = { rate: 10, frequency: 'daily', enabled: true, groupField: '/age', groupAreas: [polygonBox('North', 10, 10)] };
+    await alice.put(polygonPath).send(settings).expect(200); await submitPoint(alice, 'unsafeGeo', '0 0');
+    const [failed] = await runBackcheckSchedules(c.db, (await scheduleRow(c.one)).nextRunAt);
+    assert.equal(failed.outcome, 'failed'); assert.equal((await scheduleRow(c.one)).enabled, false);
+    assert.equal(await c.oneFirst(sql`SELECT count(*)::integer FROM field_data_backcheck_samples`), 0);
+    assert.equal(await c.oneFirst(sql`SELECT count(*)::integer FROM audits WHERE action = 'field_data.backcheck_sample.draw'`), 0);
+    await alice.put(polygonPath).send(settings).expect(200);
+    await c.run(sql`UPDATE field_data_backcheck_schedules SET "groupField" = '/name'`);
+    const [retired] = await runBackcheckSchedules(c.db, (await scheduleRow(c.one)).nextRunAt);
+    assert.match(retired.error, /grouping question.*unavailable/); assert.equal((await scheduleRow(c.one)).enabled, false);
+    await alice.put(polygonPath).send({ ...settings, enabled: false, groupField: '/retired' }).expect(200);
+  }));
+
+  it('preserves polygon definitions on rollback and recreates unused columns', testServiceFullTrx(async service => {
+    const alice = await service.login('alice'); await publishGeopoint(alice);
+    const groupAreas = [polygonBox('North', 10, 10)];
+    await alice.put('/v1/projects/1/forms/locations/backcheck-schedule').send({ rate: 10, frequency: 'daily', enabled: true, groupField: '/age', groupAreas }).expect(200);
+    const migration = require('../../../lib/model/migrations/20261024-02-polygon-sampling-areas');
+    const db = knexConnect(config.get('test.database'));
+    try {
+      await db.transaction(async trx => {
+        await migration.down(trx); await migration.up(trx);
+        assert.deepEqual((await trx.raw('SELECT "groupAreas" FROM field_data_backcheck_schedules')).rows[0].groupAreas, groupAreas);
+        await trx.raw('UPDATE field_data_backcheck_schedules SET "groupAreas" = NULL');
+        await migration.down(trx); await migration.up(trx);
+        assert.equal((await trx.raw('SELECT "groupAreas" FROM field_data_backcheck_schedules')).rows[0].groupAreas, null);
       });
     } finally { await db.destroy(); }
   }));

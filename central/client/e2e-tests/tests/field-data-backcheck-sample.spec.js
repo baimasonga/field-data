@@ -385,6 +385,71 @@ test('numeric ranges support manual retries, schedule editing, coverage and mobi
   expect(errors).toEqual([]);
 });
 
+test('polygon areas upload safely, retry manual draws, persist schedules and clear on mobile', async ({ page: p }) => {
+  const area = value => ({ value, geometry: { type: 'Polygon', coordinates: [[[10, 10], [12, 10], [12, 12], [10, 12], [10, 10]]] } });
+  const file = value => ({ name: 'areas.geojson', mimeType: 'application/geo+json', buffer: Buffer.from(JSON.stringify({ type: 'FeatureCollection', features: [{ type: 'Feature', properties: { name: value }, geometry: area(value).geometry }] })) });
+  const groupAreas = [area('North')]; const posts = []; const puts = [];
+  const grouped = { ...detail, settings: { ...detail.settings, groupField: '/location', groupAreas },
+    groups: [{ value: 'North', rate: 25, eligible: 6, sampled: 2, requested: 0, linked: 0 }, { value: 'Outside areas', rate: 25, eligible: 2, sampled: 1, requested: 0, linked: 0 }, { value: null, rate: 25, eligible: 1, sampled: 1, requested: 0, linked: 0 }] };
+  let current = saved({ rate: 10, minPerCollector: 1, frequency: 'daily', enabled: true, groupField: '/location', groupAreas, groupRates: [{ value: 'North', rate: 100 }] });
+  const errors = await api(p, managerVerbs, async (route, path) => {
+    if (path === `${samplesPath}/fields`) { await route.fulfill({ json: { fields: [{ path: '/location', type: 'geopoint' }, { path: '/name', type: 'string' }] } }); return true; }
+    if (path === schedulePath) {
+      if (route.request().method() === 'PUT') { puts.push(route.request().postDataJSON()); current = saved(puts.at(-1)); }
+      await route.fulfill({ json: current }); return true;
+    }
+    if (path === samplesPath && route.request().method() === 'POST') {
+      posts.push(route.request().postDataJSON());
+      await route.fulfill(posts.length === 1 ? { status: 503, json: { message: 'Retry geographic draw.' } } : { status: 201, json: grouped }); return true;
+    }
+    if (path === samplesPath) { await route.fulfill({ json: [grouped] }); return true; }
+    if (path === `${samplesPath}/${sampleId}`) { await route.fulfill({ json: grouped }); return true; }
+    return false;
+  });
+  await p.goto(`${appUrl}${page}`);
+  const manual = p.locator('.backcheck-sample-form').first(); const panel = p.locator('.backcheck-schedule');
+  await expect(panel.locator('.backcheck-schedule-areas')).toContainText('Scheduled areas: North; Outside areas; Overlapping areas; Missing answer.');
+  await expect(panel.locator('.sampling-polygon-areas li')).toHaveText(['North']);
+  await expect(p.locator('.backcheck-sample-areas')).toContainText('Recorded areas: North');
+  await expect(p.locator('.backcheck-group-coverage')).toContainText('Outside areas');
+  await manual.getByRole('combobox', { name: 'Group submissions', exact: true }).selectOption('field');
+  await manual.getByRole('combobox', { name: 'Area or answer question', exact: true }).selectOption('/location');
+  await manual.getByRole('button', { name: 'Draw sample', exact: true }).click();
+  await expect(p.locator('.backcheck-sample-error').first()).toContainText('Upload named polygon areas');
+  await manual.getByLabel('Sampling areas GeoJSON').setInputFiles({ name: 'bad.json', mimeType: 'application/json', buffer: Buffer.from('{') });
+  await expect(manual.locator('.sampling-polygon-areas [role="alert"]')).toContainText('not valid');
+  await manual.getByLabel('Sampling areas GeoJSON').setInputFiles(file('North'));
+  await expect(manual.locator('.sampling-polygon-areas li')).toHaveText(['North']);
+  await manual.getByRole('button', { name: 'Add group rate', exact: true }).click();
+  await expect(manual.getByRole('combobox', { name: 'Group rate answer', exact: true })).toHaveValue('North');
+  await manual.getByRole('button', { name: 'Draw sample', exact: true }).click();
+  await expect(p.locator('.backcheck-sample-error').first()).toContainText('Retry geographic draw.');
+  await manual.getByRole('button', { name: 'Draw sample', exact: true }).click();
+  await expect.poll(() => posts.length).toBe(2); expect(posts[1]).toEqual(posts[0]); expect(posts[0].groupAreas).toEqual(groupAreas);
+  await manual.getByLabel('Sampling areas GeoJSON').setInputFiles({ name: 'bad.json', mimeType: 'application/json', buffer: Buffer.from('{') });
+  await expect(manual.locator('.sampling-polygon-areas li')).toHaveCount(0); await expect(manual.locator('.sampling-group-rate')).toHaveCount(0);
+  await panel.getByLabel('Sampling areas GeoJSON').setInputFiles(file('South'));
+  await expect(panel.locator('.sampling-group-rate')).toHaveCount(0);
+  await panel.getByRole('button', { name: 'Add group rate', exact: true }).click();
+  await panel.getByRole('button', { name: 'Save schedule', exact: true }).click();
+  await expect(panel.locator('.backcheck-schedule-areas')).toContainText('Scheduled areas: South');
+  expect(puts[0].groupAreas).toEqual([area('South')]); expect(puts[0].groupRates).toEqual([{ value: 'South', rate: 100 }]);
+  const [download] = await Promise.all([p.waitForEvent('download'), panel.getByRole('link', { name: 'Download saved areas', exact: true }).click()]);
+  const exported = JSON.parse(await readFile(await download.path(), 'utf8'));
+  expect(exported.features).toEqual([{ type: 'Feature', properties: { name: 'South' }, geometry: area('South').geometry }]);
+  const [recorded] = await Promise.all([p.waitForEvent('download'), p.getByRole('link', { name: 'Download recorded areas', exact: true }).click()]);
+  expect(JSON.parse(await readFile(await recorded.path(), 'utf8')).features[0].properties.name).toBe('North');
+  await p.reload();
+  await expect(panel.locator('.sampling-polygon-areas li')).toHaveText(['South']);
+  await p.setViewportSize({ width: 360, height: 800 });
+  expect(await p.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  await panel.getByRole('combobox', { name: 'Schedule grouping', exact: true }).selectOption('collector');
+  await panel.getByRole('button', { name: 'Save schedule', exact: true }).click();
+  await expect.poll(() => puts.length).toBe(2); expect(puts[1]).not.toHaveProperty('groupAreas'); expect(puts[1]).not.toHaveProperty('groupRates');
+  await expect(panel.locator('.backcheck-schedule-areas')).toHaveCount(0);
+  expect(errors).toEqual([]);
+});
+
 test('a viewer sees the schedule but cannot change it', async ({ page: p }) => {
   const errors = await api(p, viewerVerbs, async (route, path) => {
     if (path === schedulePath) { await route.fulfill({ json: saved({ rate: 10, minPerCollector: 1, frequency: 'daily', enabled: true }) }); return true; }

@@ -19,7 +19,7 @@ docs/field-intelligence/O6-scheduled-backcheck-samples.md -->
 
     <form v-if="canDraw" class="backcheck-sample-form" @submit.prevent="drawSample">
       <label>Group submissions
-        <select v-model="groupMode" class="form-control" @change="groupRates = []; groupBreaks = []; loadGroupFields()">
+        <select v-model="groupMode" class="form-control" @change="groupRates = []; groupBreaks = []; groupAreas = []; loadGroupFields()">
           <option value="collector">By collector</option>
           <option value="field">By collector and area or answer</option>
         </select>
@@ -36,7 +36,8 @@ docs/field-intelligence/O6-scheduled-backcheck-samples.md -->
         </label>
         <p class="backcheck-sample-hint">Uses exact answers within each collector; spaces at the beginning or end are ignored and capitalization stays distinct. Missing answers form a separate group. Choose a recorded area or categorical answer, not a personal identifier. Selected values are retained in the sample history (at most 100 groups, 200 characters per value). Repeat, multi-select, media and encrypted answers are unavailable.</p>
         <sampling-numeric-ranges v-if="numericQuestion(groupField)" v-model="groupBreaks" @update:model-value="groupRates = []"/>
-        <sampling-group-rates v-model="groupRates" :choices="numericRangeLabels(groupBreaks)"/>
+        <sampling-polygon-areas v-if="geographicQuestion(groupField)" :key="groupField" v-model="groupAreas" @update:model-value="groupRates = []"/>
+        <sampling-group-rates v-model="groupRates" :choices="geographicQuestion(groupField) ? polygonChoices(groupAreas) : numericRangeLabels(groupBreaks)"/>
       </template>
       <label>{{ groupMode === 'field' ? 'Share of each collector and answer group (%)' : "Share of each collector's Submissions (%)" }}
         <input v-model.number="settings.rate" type="number" min="1" max="100" step="1" required class="form-control">
@@ -74,11 +75,13 @@ docs/field-intelligence/O6-scheduled-backcheck-samples.md -->
       </p>
       <p v-else class="backcheck-schedule-status">No schedule.</p>
       <p v-if="schedule?.groupField">Scheduled grouping question: {{ schedule.groupField }}. Group values are retained in each sample history; coverage is available through Show sample.</p>
+      <p v-if="schedule?.groupAreas?.length" class="backcheck-schedule-areas">Scheduled areas: {{ polygonChoices(schedule.groupAreas).join('; ') }}; Missing answer. The saved polygons are used until you replace them; changing another map layer does not update this schedule.</p>
+      <a v-if="schedule?.groupAreas?.length" class="btn btn-link" :href="polygonDownload(schedule.groupAreas)" download="scheduled-sampling-areas.geojson">Download saved areas</a>
       <p v-if="schedule?.groupBreaks?.length" class="backcheck-schedule-ranges">Scheduled ranges: {{ numericRangeLabels(schedule.groupBreaks).join('; ') }}; Missing answer. Only range membership is retained in sample history.</p>
       <p v-if="schedule?.groupRates?.length" class="backcheck-schedule-rates">Saved group rates: <span v-for="(rule, index) of schedule.groupRates" :key="index">{{ index ? '; ' : '' }}{{ rule.value === null ? 'Missing answer' : rule.value }}: {{ rule.rate }}%</span>. Other answers: {{ schedule.rate }}%.</p>
       <form v-if="canDraw" class="backcheck-sample-form backcheck-schedule-form" @submit.prevent="saveSchedule">
         <label>Schedule grouping
-          <select v-model="scheduleGroupMode" class="form-control" @change="scheduleGroupRates = []; scheduleGroupBreaks = []; loadGroupFields()">
+          <select v-model="scheduleGroupMode" class="form-control" @change="scheduleGroupRates = []; scheduleGroupBreaks = []; scheduleGroupAreas = []; loadGroupFields()">
             <option value="collector">By collector</option>
             <option value="field">By collector and area or answer</option>
           </select>
@@ -95,7 +98,8 @@ docs/field-intelligence/O6-scheduled-backcheck-samples.md -->
           <p class="backcheck-sample-hint">The rate and minimum apply to each collector and answer group. Missing answers form a group. Choose a categorical question, not a personal identifier: its values are retained in sample history. Limits are 100 groups and 200 characters per value. Grouping changes apply to the next draw, including submissions already received in its period.</p>
           <p v-if="!fieldsLoading && !fieldsError && fields.length === 0" role="status">No grouping questions are available. Choose collector-only sampling or turn the schedule off.</p>
           <sampling-numeric-ranges v-if="numericQuestion(scheduleGroupField)" v-model="scheduleGroupBreaks" @update:model-value="scheduleGroupRates = []"/>
-          <sampling-group-rates v-model="scheduleGroupRates" :choices="numericRangeLabels(scheduleGroupBreaks)"/>
+          <sampling-polygon-areas v-if="geographicQuestion(scheduleGroupField)" :key="scheduleGroupField" v-model="scheduleGroupAreas" @update:model-value="scheduleGroupRates = []"/>
+          <sampling-group-rates v-model="scheduleGroupRates" :choices="geographicQuestion(scheduleGroupField) ? polygonChoices(scheduleGroupAreas) : numericRangeLabels(scheduleGroupBreaks)"/>
         </template>
         <label>{{ scheduleGroupMode === 'field' ? 'Scheduled share of each collector and answer group (%)' : "Share of each collector's Submissions (%)" }}
           <input v-model.number="scheduleSettings.rate" type="number" min="1" max="100" step="1" required class="form-control">
@@ -148,6 +152,8 @@ docs/field-intelligence/O6-scheduled-backcheck-samples.md -->
             {{ sample.alreadyDecided }} already had a review decision and were not reopened.
           </template>
         </p>
+        <p v-if="sample.settings.groupAreas?.length" class="backcheck-sample-areas">Recorded areas: {{ polygonChoices(sample.settings.groupAreas).join('; ') }}; Missing answer. The polygons and group membership are fixed for this draw.</p>
+        <a v-if="sample.settings.groupAreas?.length" class="btn btn-link" :href="polygonDownload(sample.settings.groupAreas)" download="recorded-sampling-areas.geojson">Download recorded areas</a>
         <p v-if="sample.settings.groupBreaks?.length" class="backcheck-sample-ranges">Recorded ranges: {{ numericRangeLabels(sample.settings.groupBreaks).join('; ') }}; Missing answer. Boundaries start the next range. The seed replays the recorded range membership.</p>
         <p v-if="sample.settings.groupRates?.length">Recorded group rates: <span v-for="(rule, index) of sample.settings.groupRates" :key="index">{{ index ? '; ' : '' }}{{ rule.value === null ? 'Missing answer' : rule.value }}: {{ rule.rate }}%</span>. Other answers: {{ sample.settings.rate }}%. Coverage shows each group's rate; the minimum and rounding apply within each collector. These counts are not weighted population estimates.</p>
         <div v-if="sample.settings.groupField" class="backcheck-group-coverage">
@@ -205,6 +211,7 @@ import Spinner from '../spinner.vue';
 import BackcheckAllocation from './backcheck-allocation.vue';
 import SamplingGroupRates from './sampling-group-rates.vue';
 import SamplingNumericRanges from './sampling-numeric-ranges.vue';
+import SamplingPolygonAreas from './sampling-polygon-areas.vue';
 import numericRangeLabels from '../../util/sampling-ranges';
 import useRequest from '../../composables/request';
 
@@ -221,11 +228,15 @@ const base = () => `/v1/projects/${props.projectId}/forms/${encodeURIComponent(p
 
 const loadError = ref(false);
 const samples = ref(null); const sample = ref(null); const selectedId = ref(null); const error = ref('');
+const groupAreas = ref([]); const scheduleGroupAreas = ref([]);
+const polygonDownload = areas => `data:application/geo+json;charset=utf-8,${encodeURIComponent(JSON.stringify({ type: 'FeatureCollection', features: areas.map(area => ({ type: 'Feature', properties: { name: area.value }, geometry: area.geometry })) }))}`;
+const polygonChoices = areas => [...areas.map(area => area.value.normalize('NFC').trim()), 'Outside areas', 'Overlapping areas'];
 const groupBreaks = ref([]); const scheduleGroupBreaks = ref([]);
 const groupRates = ref([]); const scheduleGroupRates = ref([]);
 const scheduleGroupMode = ref('collector'); const scheduleGroupField = ref('');
 const groupMode = ref('collector'); const groupField = ref(''); const fields = ref([]); const fieldsLoading = ref(false); const fieldsError = ref(false);
 const numericQuestion = path => fields.value.some(field => field.path === path && ['int', 'decimal'].includes(field.type));
+const geographicQuestion = path => fields.value.some(field => field.path === path && field.type === 'geopoint');
 const loadGroupFields = () => {
   if ((groupMode.value !== 'field' && scheduleGroupMode.value !== 'field') || fieldsLoading.value) return Promise.resolve();
   fieldsLoading.value = true; fieldsError.value = false;
@@ -251,6 +262,7 @@ const showSchedule = (data) => {
   if (data.schedule != null) {
     const { rate, minPerCollector, frequency, enabled } = data.schedule;
     Object.assign(scheduleSettings, { rate, minPerCollector, frequency, enabled });
+    scheduleGroupAreas.value = [...(data.schedule.groupAreas ?? [])];
     scheduleGroupBreaks.value = [...(data.schedule.groupBreaks ?? [])];
     scheduleGroupRates.value = (data.schedule.groupRates ?? []).map(rule => ({ ...rule }));
     scheduleGroupMode.value = data.schedule.groupField ? 'field' : 'collector'; scheduleGroupField.value = data.schedule.groupField ?? '';
@@ -266,8 +278,9 @@ loadSchedule();
 const saveSchedule = () => {
   if (busy.value) return Promise.resolve();
   scheduleError.value = '';
+  if (scheduleSettings.enabled && scheduleGroupMode.value === 'field' && geographicQuestion(scheduleGroupField.value) && !scheduleGroupAreas.value.length) { scheduleError.value = 'Upload named polygon areas before enabling geographic sampling.'; return Promise.resolve(); }
   if (scheduleSettings.enabled && scheduleGroupMode.value === 'field' && (!scheduleGroupField.value || fieldsError.value || fieldsLoading.value)) { scheduleError.value = 'Choose an available scheduled grouping question, or turn the schedule off.'; return Promise.resolve(); }
-  return request({ method: 'PUT', url: scheduleUrl(), data: { ...scheduleSettings, ...(scheduleGroupMode.value === 'field' && scheduleGroupField.value ? { groupField: scheduleGroupField.value, ...(scheduleGroupBreaks.value.length ? { groupBreaks: scheduleGroupBreaks.value } : {}), ...(scheduleGroupRates.value.length ? { groupRates: scheduleGroupRates.value } : {}) } : {}) }, alert: false })
+  return request({ method: 'PUT', url: scheduleUrl(), data: { ...scheduleSettings, ...(scheduleGroupMode.value === 'field' && scheduleGroupField.value ? { groupField: scheduleGroupField.value, ...(scheduleGroupAreas.value.length ? { groupAreas: scheduleGroupAreas.value } : {}), ...(scheduleGroupBreaks.value.length ? { groupBreaks: scheduleGroupBreaks.value } : {}), ...(scheduleGroupRates.value.length ? { groupRates: scheduleGroupRates.value } : {}) } : {}) }, alert: false })
     .then(({ data }) => showSchedule(data))
     .catch((e) => { scheduleError.value = e.response?.data?.message || 'The schedule could not be saved.'; });
 };
@@ -295,9 +308,10 @@ const drawSample = () => {
   if (busy.value) return Promise.resolve();
   error.value = '';
   if (groupMode.value === 'field' && (!groupField.value || fieldsError.value || fieldsLoading.value)) { error.value = 'Choose an available grouping question before drawing.'; return Promise.resolve(); }
+  if (groupMode.value === 'field' && geographicQuestion(groupField.value) && !groupAreas.value.length) { error.value = 'Upload named polygon areas before drawing geographic samples.'; return Promise.resolve(); }
   const data = {
     rate: settings.rate, minPerCollector: settings.minPerCollector,
-    ...(groupMode.value === 'field' ? { groupField: groupField.value, ...(groupBreaks.value.length ? { groupBreaks: groupBreaks.value } : {}), ...(groupRates.value.length ? { groupRates: groupRates.value } : {}) } : {}),
+    ...(groupMode.value === 'field' ? { groupField: groupField.value, ...(groupAreas.value.length ? { groupAreas: groupAreas.value } : {}), ...(groupBreaks.value.length ? { groupBreaks: groupBreaks.value } : {}), ...(groupRates.value.length ? { groupRates: groupRates.value } : {}) } : {}),
     ...(settings.receivedFrom ? { receivedFrom: settings.receivedFrom } : {}),
     ...(settings.receivedTo ? { receivedTo: settings.receivedTo } : {})
   };
