@@ -24,6 +24,7 @@ decides. Contract: docs/field-intelligence/K5-duplicate-assets.md -->
           <ul class="duplicate-pair-reasons">
             <li v-for="reason of pair.reasons" :key="reason">{{ REASONS[reason] }}</li>
           </ul>
+          <asset-location-comparison :project-id="projectId" :a-id="pair.a.id" :b-id="pair.b.id" :a-name="pair.a.name" :b-name="pair.b.name"/>
           <form v-if="canManage" class="duplicate-pair-dismiss" @submit.prevent="dismiss(pair)">
             <label>Why they are not the same
               <input v-model="reasons[keyOf(pair)]" type="text" class="form-control" maxlength="2000" required>
@@ -57,6 +58,7 @@ decides. Contract: docs/field-intelligence/K5-duplicate-assets.md -->
 <script setup>
 import { reactive, ref } from 'vue';
 
+import AssetLocationComparison from './asset-location-comparison.vue';
 import useRequest from '../../composables/request';
 
 defineOptions({ name: 'FieldDataDuplicateAssets' });
