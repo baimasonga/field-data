@@ -238,6 +238,48 @@ describe('api: targeted investigation backcheck instruments (F9)', () => {
     assert.equal((await alice.get(endpoint).expect(200)).body.items.some(item => item.findingId === unrelated), false);
     assert.equal(await c.db.oneFirst(sql`SELECT count(*)::integer FROM field_data_backchecks`), 0);
   }));
+  it('dispatches explicit cross-form identity peers and hides them when the primary form grant is revoked', testService(async (service, c) => {
+    const { alice, endpoint, unrelated, body, first, checker } = await seed(service, c);
+    await alice.post('/v1/projects/1/forms/withrepeat/submissions').set('Content-Type', 'application/xml').send(xml.instances.withrepeat.one).expect(200);
+    await c.db.query(sql`UPDATE field_data_integrity_flags SET "formId" = (SELECT id FROM forms WHERE "projectId" = 1 AND "xmlFormId" = 'withrepeat'),
+      rule = 'identity-reused:cross-peer', "instanceId" = 'rone', "relatedInstanceId" = 'one',
+      evidence = '{"others":[{"instanceId":"one","xmlFormId":"simple"}],"answer":"secret peer answer"}'::jsonb WHERE id = ${unrelated}`);
+    const { user, id } = await limitedManager(service, c, alice);
+    await c.db.query(sql`UPDATE roles SET verbs = verbs || '["submission.update","form.create"]'::jsonb WHERE system = 'manager'`);
+    await c.db.query(sql`UPDATE field_data_review_cases SET "assignedTo" = ${id} WHERE id = ${first.id}`);
+    assert.equal((await user.get(endpoint).expect(200)).body.items.some(item => item.findingId === unrelated), false);
+    await alice.post(`/v1/projects/1/forms/withrepeat/assignments/viewer/${id}`).expect(200);
+    const draft = (await user.get(endpoint).expect(200)).body;
+    const item = draft.items.find(row => row.findingId === unrelated);
+    assert.equal(item.targetSide, 'peer'); assert.equal(item.targetScope, 'cross-form');
+    assert.equal(JSON.stringify(item).includes('rone'), false); assert.equal(JSON.stringify(item).includes('secret peer answer'), false);
+    const definitionBody = { investigationRevision: draft.investigationRevision, caseRevision: draft.caseRevision, templateVersion: draft.templateVersion, findingIds: [unrelated] };
+    await user.post(`${endpoint}/form-definition`).send(definitionBody).expect(200);
+    await alice.post(`/v1/projects/1/forms/simple/assignments/app-user/${checker.id}`).expect(200);
+    const request = { ...body, responseXmlFormId: 'simple', findingIds: [unrelated] }; const send = () => user.post(`${endpoint}/backchecks`).set('If-Match', `"review-case-${draft.caseRevision}"`).send(request);
+    const saved = await send().expect(201);
+    assert.equal(await c.db.oneFirst(sql`SELECT "caseId" FROM field_data_backchecks WHERE id = ${saved.body.id}`), first.id);
+    await c.db.query(sql`UPDATE field_data_integrity_flags SET outcome = 'withdrawn' WHERE id = ${unrelated}`);
+    assert.equal((await send().expect(201)).body.id, saved.body.id);
+    await alice.delete(`/v1/projects/1/forms/withrepeat/assignments/viewer/${id}`).expect(200);
+    assert.equal((await user.get(endpoint).expect(200)).body.items.some(row => row.findingId === unrelated), false);
+    await send().expect(404);
+    await user.post(`${endpoint}/form-definition`).send(definitionBody).expect(400);
+  }));
+  it('rejects missing, conflicting and unsupported cross-form peer mappings before dispatch', testService(async (service, c) => {
+    const { alice, endpoint, unrelated, body, post } = await seed(service, c);
+    await alice.post('/v1/projects/1/forms/withrepeat/submissions').set('Content-Type', 'application/xml').send(xml.instances.withrepeat.one).expect(200);
+    await c.db.query(sql`UPDATE field_data_integrity_flags SET "formId" = (SELECT id FROM forms WHERE "projectId" = 1 AND "xmlFormId" = 'withrepeat'),
+      rule = 'identity-reused:cross-peer', "instanceId" = 'rone', "relatedInstanceId" = 'one' WHERE id = ${unrelated}`);
+    for (const others of [[], [{ instanceId: 'one' }], [{ instanceId: 'one', xmlFormId: 'simple' }, { instanceId: 'one' }], [{ instanceId: 'one', xmlFormId: 'simple' }, { instanceId: 'one', xmlFormId: 'withrepeat' }]]) {
+      await c.db.query(sql`UPDATE field_data_integrity_flags SET evidence = ${sql.json({ others })} WHERE id = ${unrelated}`);
+      assert.equal((await alice.get(endpoint).expect(200)).body.items.some(row => row.findingId === unrelated), false);
+      await post({ ...body, findingIds: [unrelated] }).expect(400);
+    }
+    await c.db.query(sql`UPDATE field_data_integrity_flags SET rule = 'near-duplicate', evidence = '{"others":[{"instanceId":"one","xmlFormId":"simple"}]}'::jsonb WHERE id = ${unrelated}`);
+    await post({ ...body, findingIds: [unrelated] }).expect(400);
+    assert.equal(await c.db.oneFirst(sql`SELECT count(*)::integer FROM field_data_backchecks`), 0);
+  }));
   it('creates an ordinary dedicated-form backcheck with atomic investigation audit and normalized exact retries', testService(async (service, c) => {
     const { alice, first, inv, draft, body, post, checker, path, link } = await seed(service, c);
     const saved = await post().expect(201); assert.equal(saved.headers.etag, `"review-case-${draft.caseRevision + 1}"`);

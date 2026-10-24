@@ -1977,13 +1977,26 @@ test('same-form peer targeting labels the selected side and dispatches neutral q
   fixture.items[0].targetSide = 'peer';
   await prepare();
   await expect(instrument.getByLabel('Similar answers', { exact: false }).locator('..')).toContainText('Peer record');
-  await expect(instrument).toContainText('same-form peer');
+  await expect(instrument).toContainText('eligible peer');
   const question = await instrument.getByLabel('Questions for the independent visit').inputValue();
   expect(question).toContain('without showing the earlier answers');
   await instrument.getByRole('button', { name: 'Request targeted backcheck' }).click();
   await expect(region).toContainText(question);
   expect(fixture.writes[0].body.findingIds).toEqual([11]);
   expect(fixture.writes[0].body).not.toHaveProperty('targetSide');
+  await page.setViewportSize({ width: 320, height: 800 });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= 320)).toBe(true); expect(errors).toEqual([]);
+});
+
+test('cross-form peer targeting identifies the scope without revealing the primary form or respondent', async ({ page }) => {
+  const { fixture, instrument, prepare, region, errors } = await setupInstrument(page);
+  fixture.items[0].targetSide = 'peer'; fixture.items[0].targetScope = 'cross-form';
+  await prepare();
+  await expect(instrument.getByLabel('Similar answers', { exact: false }).locator('..')).toContainText('Cross-form peer record');
+  await expect(instrument).toContainText('another readable form');
+  await instrument.getByRole('button', { name: 'Request targeted backcheck' }).click();
+  await expect(region).toContainText('without showing the earlier answers');
+  expect(fixture.writes[0].body.findingIds).toEqual([11]); expect(fixture.writes[0].body).not.toHaveProperty('primaryFormId');
   await page.setViewportSize({ width: 320, height: 800 });
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= 320)).toBe(true); expect(errors).toEqual([]);
 });
