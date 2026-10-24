@@ -29,6 +29,7 @@ const runSchedule = (db, scheduleId, now) => db.transaction(async (trx) => {
   if (run == null) return null;
   const settings = {
     rate: schedule.rate, minPerCollector: schedule.minPerCollector,
+    ...(schedule.groupBreaks?.length ? { groupBreaks: schedule.groupBreaks } : {}),
     ...(schedule.groupRates?.length ? { groupRates: schedule.groupRates } : {}),
     ...(schedule.groupField == null ? {} : { groupField: schedule.groupField }),
     receivedFrom: run.periodStart.toISOString().slice(0, 10),
@@ -43,7 +44,7 @@ const runSchedule = (db, scheduleId, now) => db.transaction(async (trx) => {
   let allowed = projectActive && actor != null && await container.Auth.can(actor, 'submission.update', schedule.acteeId);
   if (allowed && schedule.groupField != null) allowed = await container.Auth.can(actor, 'submission.read', schedule.acteeId) &&
     await container.Auth.can(actor, 'submission.list', schedule.acteeId) &&
-    await groupingAvailable(container, schedule.projectId, schedule.xmlFormId, schedule.groupField);
+    await groupingAvailable(container, schedule.projectId, schedule.xmlFormId, schedule.groupField, schedule.groupBreaks?.length > 0);
   let outcome;
   if (!allowed) {
     await trx.query(sql`UPDATE field_data_backcheck_schedules SET enabled = FALSE WHERE id = ${schedule.id}`);

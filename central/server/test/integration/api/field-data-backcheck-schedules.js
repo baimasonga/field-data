@@ -137,6 +137,66 @@ describe('api: O6 scheduled backcheck samples', () => {
     } finally { await db.destroy(); }
   }));
 
+  it('persists and runs numeric ranges across catch-up periods and clears without resetting the period', testService(async (service, c) => {
+    const alice = await service.login('alice');
+    const settings = { rate: 10, minPerCollector: 0, frequency: 'weekly', enabled: true, groupField: '/age', groupBreaks: ['018.00', '35'], groupRates: [{ value: 'Below 18', rate: 100 }] };
+    const initial = (await alice.put(path).send(settings).expect(200)).body.schedule;
+    assert.deepEqual(initial.groupBreaks, ['18', '35']);
+    assert.deepEqual((await alice.get(path).expect(200)).body.schedule.groupBreaks, ['18', '35']);
+    await alice.put(path).send({ ...settings, groupField: '/name' }).expect(400);
+    for (const [i, value] of ['17', '17.9999999999999999999', '18', '35', ''].entries())
+      await alice.post('/v1/projects/1/forms/simple/submissions').send(instance(`numeric${i}`).replace('<age>30</age>', `<age>${value}</age>`)).set('Content-Type', 'application/xml').expect(200);
+    const at = new Date(Date.parse(initial.nextRunAt) + 7 * day);
+    const [result] = await runBackcheckSchedules(c.db, at);
+    assert.equal(result.periods, 2); assert.equal(result.sampled, 5);
+    const sample = (await alice.get(`/v1/projects/1/forms/simple/backcheck-samples/${result.sampleId}?eligible=true`).expect(200)).body;
+    assert.deepEqual(sample.settings.groupBreaks, ['18', '35']);
+    assert.deepEqual(sample.groups.map(g => g.value), ['Below 18', '18 to below 35', '35 or above', null]);
+    const { draw } = require('../../../lib/util/backcheck-sample');
+    assert.deepEqual(draw(sample.eligibleList, sample.settings, sample.seed).chosen.map(i => i.instanceId).sort(), sample.items.map(i => i.instanceId).sort());
+    assert.deepEqual(await runBackcheckSchedules(c.db, at), []);
+    const boundary = (await alice.get(path).expect(200)).body.schedule.periodStart;
+    const exact = (await alice.put(path).send({ rate: 10, frequency: 'weekly', enabled: true, groupField: '/age' }).expect(200)).body.schedule;
+    assert.equal(exact.groupBreaks, undefined); assert.equal(exact.groupRates, undefined); assert.equal(exact.periodStart, boundary);
+    assert.deepEqual((await alice.get(`/v1/projects/1/forms/simple/backcheck-samples/${result.sampleId}`).expect(200)).body.settings.groupBreaks, ['18', '35']);
+  }));
+
+  it('pauses invalid numeric data atomically and rejects a question no longer numeric', testService(async (service, c) => {
+    const alice = await service.login('alice');
+    const settings = { rate: 10, frequency: 'daily', enabled: true, groupField: '/age', groupBreaks: ['18'] };
+    await alice.put(path).send(settings).expect(200);
+    await alice.post('/v1/projects/1/forms/simple/submissions').send(instance('invalidNumeric').replace('<age>30</age>', '<age>1e3</age>')).set('Content-Type', 'application/xml').expect(200);
+    const [result] = await runBackcheckSchedules(c.db, (await scheduleRow(c.one)).nextRunAt);
+    assert.equal(result.outcome, 'failed'); assert.equal((await scheduleRow(c.one)).enabled, false);
+    assert.equal(await c.oneFirst(sql`SELECT count(*)::integer FROM field_data_backcheck_samples`), 0);
+    assert.equal(await c.oneFirst(sql`SELECT count(*)::integer FROM audits WHERE action = 'field_data.backcheck_sample.draw'`), 0);
+    await alice.put(path).send({ ...settings, enabled: false }).expect(200);
+    await alice.put(path).send(settings).expect(200);
+    await c.run(sql`UPDATE field_data_backcheck_schedules SET "groupField" = '/name'`);
+    const [retired] = await runBackcheckSchedules(c.db, (await scheduleRow(c.one)).nextRunAt);
+    assert.match(retired.error, /grouping question.*unavailable/);
+    assert.equal((await scheduleRow(c.one)).enabled, false);
+    await alice.put(path).send({ rate: 10, frequency: 'daily', enabled: true }).expect(200);
+    const cleared = (await alice.get(path).expect(200)).body.schedule;
+    assert.equal(cleared.groupBreaks, undefined);
+  }));
+
+  it('retains configured numeric ranges on rollback and recreates unused columns', testServiceFullTrx(async service => {
+    const alice = await service.login('alice');
+    await alice.put(path).send({ rate: 10, frequency: 'daily', enabled: true, groupField: '/age', groupBreaks: ['18', '35'] }).expect(200);
+    const migration = require('../../../lib/model/migrations/20261024-01-numeric-sampling-ranges');
+    const db = knexConnect(config.get('test.database'));
+    try {
+      await db.transaction(async trx => {
+        await migration.down(trx); await migration.up(trx);
+        assert.deepEqual((await trx.raw('SELECT "groupBreaks" FROM field_data_backcheck_schedules')).rows[0].groupBreaks, ['18', '35']);
+        await trx.raw('UPDATE field_data_backcheck_schedules SET "groupBreaks" = NULL');
+        await migration.down(trx); await migration.up(trx);
+        assert.equal((await trx.raw('SELECT "groupBreaks" FROM field_data_backcheck_schedules')).rows[0].groupBreaks, null);
+      });
+    } finally { await db.destroy(); }
+  }));
+
   it('pauses unsafe grouping atomically and can resume with collector-only settings', testService(async (service, c) => {
     const alice = await service.login('alice');
     const settings = { rate: 100, frequency: 'daily', enabled: true, groupField: '/name' };

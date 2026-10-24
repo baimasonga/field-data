@@ -6,6 +6,7 @@
 //
 // Contract: docs/field-intelligence/O3-backcheck-sample.md
 
+/* global BigInt */
 const { createHash, randomBytes } = require('crypto');
 
 const LIMITS = { maxSample: 500, maxEligible: 50000, maxMinimum: 20, maxGroups: 100, maxGroupValue: 200 };
@@ -17,9 +18,45 @@ const newSeed = () => randomBytes(16).toString('hex');
 // The draw order of a submission: lowest first.
 const drawKey = (seed, instanceId) => createHash('sha256').update(`${seed}:${instanceId}`).digest('hex');
 
+// Compare decimal strings without floating-point rounding at range boundaries.
+// Scientific notation and locale separators are deliberately unsupported.
+const canonicalDecimal = value => {
+  if (typeof value !== 'string' || !/^[+-]?(?:[0-9]+(?:\.[0-9]*)?|\.[0-9]+)$/.test(value)) return null;
+  const negative = value.startsWith('-');
+  const [whole, fraction = ''] = value.replace(/^[+-]/, '').split('.');
+  const integer = whole.replace(/^0+/, '') || '0';
+  const tail = fraction.replace(/0+$/, '');
+  return `${negative && (integer !== '0' || tail) ? '-' : ''}${integer}${tail ? `.${tail}` : ''}`;
+};
+const compareDecimal = (a, b) => {
+  const places = Math.max((a.split('.')[1] ?? '').length, (b.split('.')[1] ?? '').length);
+  const scaled = value => {
+    const [whole, fraction = ''] = value.split('.');
+    return BigInt(`${whole}${fraction.padEnd(places, '0')}`);
+  };
+  const x = scaled(a); const y = scaled(b);
+  return x < y ? -1 : x > y ? 1 : 0;
+};
+const rangeLabel = (breaks, index) => (index === 0 ? `Below ${breaks[0]}` : index === breaks.length
+  ? `${breaks[breaks.length - 1]} or above` : `${breaks[index - 1]} to below ${breaks[index]}`);
+const rangeLabels = breaks => Array.from({ length: breaks.length + 1 }, (_, index) => rangeLabel(breaks, index));
+const numericGroup = (value, breaks) => {
+  if (value === null) return { value: null };
+  const decimal = canonicalDecimal(value);
+  if (decimal === null) return { error: 'answers must be ordinary decimal numbers without scientific notation or separators' };
+  // A bounded binary search keeps large eligible lists inexpensive even with 98 boundaries.
+  let low = 0; let high = breaks.length;
+  while (low < high) {
+    const middle = Math.floor((low + high) / 2);
+    if (compareDecimal(decimal, breaks[middle]) < 0) high = middle;
+    else low = middle + 1;
+  }
+  return { value: rangeLabel(breaks, low) };
+};
+
 // Settings from a request body, or { field, reason } describing the first problem.
 const validateSettings = (body) => {
-  const allowed = ['requestId', 'rate', 'minPerCollector', 'receivedFrom', 'receivedTo', 'groupField', 'groupRates'];
+  const allowed = ['requestId', 'rate', 'minPerCollector', 'receivedFrom', 'receivedTo', 'groupField', 'groupRates', 'groupBreaks'];
   const unknown = Object.keys(body ?? {}).find((k) => !allowed.includes(k));
   if (body == null || typeof body !== 'object' || Array.isArray(body)) return { error: { field: 'body', reason: 'must be an object' } };
   if (unknown != null) return { error: { field: unknown, reason: 'is not a setting' } };
@@ -36,6 +73,19 @@ const validateSettings = (body) => {
   if (body.groupField !== undefined && (typeof body.groupField !== 'string' || body.groupField.length > 500 ||
     !/^\/(?:[A-Za-z_][A-Za-z0-9_.-]*\/)*[A-Za-z_][A-Za-z0-9_.-]*$/.test(body.groupField)))
     return { error: { field: 'groupField', reason: 'must name a supported question path' } };
+  const groupBreaks = [];
+  if (body.groupBreaks !== undefined) {
+    if (!Array.isArray(body.groupBreaks) || body.groupBreaks.length > 98)
+      return { error: { field: 'groupBreaks', reason: 'must be a list of at most 98 decimal boundaries' } };
+    for (const boundary of body.groupBreaks) {
+      const canonical = typeof boundary === 'string' && boundary.length <= 64 ? canonicalDecimal(boundary.trim()) : null;
+      if (canonical === null || canonical.length > 64 || (groupBreaks.length && compareDecimal(groupBreaks[groupBreaks.length - 1], canonical) >= 0))
+        return { error: { field: 'groupBreaks', reason: 'boundaries must be distinct ordinary decimal strings, at most 64 characters, in increasing order' } };
+      groupBreaks.push(canonical);
+    }
+    if (groupBreaks.length && !body.groupField)
+      return { error: { field: 'groupBreaks', reason: 'requires a numeric grouping question' } };
+  }
   const groupRates = [];
   if (body.groupRates !== undefined) {
     if (!Array.isArray(body.groupRates) || body.groupRates.length > LIMITS.maxGroups)
@@ -49,13 +99,15 @@ const validateSettings = (body) => {
       const value = rule.value === null ? null : rule.value.normalize('NFC').trim();
       if (value?.length > LIMITS.maxGroupValue || seen.has(value))
         return { error: { field: 'groupRates', reason: 'answers must be distinct and at most 200 characters after normalization' } };
+      if (groupBreaks.length && value !== null && !rangeLabels(groupBreaks).includes(value))
+        return { error: { field: 'groupRates', reason: 'must target a configured numeric range or missing answers' } };
       seen.add(value); groupRates.push({ value, rate: rule.rate });
     }
     if (groupRates.length && !body.groupField)
       return { error: { field: 'groupRates', reason: 'requires a grouping question' } };
     groupRates.sort((a, b) => (a.value === null ? 1 : b.value === null ? -1 : a.value < b.value ? -1 : a.value > b.value ? 1 : 0));
   }
-  return { settings: { rate, minPerCollector, receivedFrom, receivedTo, ...(groupRates.length ? { groupRates } : {}), ...(body.groupField === undefined ? {} : { groupField: body.groupField }) } };
+  return { settings: { rate, minPerCollector, receivedFrom, receivedTo, ...(groupBreaks.length ? { groupBreaks } : {}), ...(groupRates.length ? { groupRates } : {}), ...(body.groupField === undefined ? {} : { groupField: body.groupField }) } };
 };
 
 const rateFor = (settings, value) => settings.groupRates?.find(rule => rule.value === value)?.rate ?? settings.rate;
@@ -95,7 +147,7 @@ const groupFields = fields => {
     !repeats.some(path => f.path.startsWith(`${path}/`))).map(f => ({ path: f.path, type: f.type }));
 };
 
-module.exports = { LIMITS, SEED_PATTERN, newSeed, drawKey, validateSettings, takeFrom, draw, groupFields, rateFor };
+module.exports = { LIMITS, SEED_PATTERN, newSeed, drawKey, validateSettings, takeFrom, draw, groupFields, rateFor, canonicalDecimal, compareDecimal, rangeLabels, numericGroup };
 
 // O6 scheduled samples (docs/field-intelligence/O6-scheduled-backcheck-samples.md).
 // Periods are UTC days, or weeks starting on Monday.
@@ -128,13 +180,13 @@ const runRequestId = (scheduleId, periodStart) => {
 // A schedule's settings from a request body, or { field, reason }.
 const validateSchedule = (body) => {
   if (body == null || typeof body !== 'object' || Array.isArray(body)) return { error: { field: 'body', reason: 'must be an object' } };
-  const unknown = Object.keys(body).find((k) => !['rate', 'minPerCollector', 'frequency', 'enabled', 'groupField', 'groupRates'].includes(k));
+  const unknown = Object.keys(body).find((k) => !['rate', 'minPerCollector', 'frequency', 'enabled', 'groupField', 'groupRates', 'groupBreaks'].includes(k));
   if (unknown != null) return { error: { field: unknown, reason: 'is not a setting' } };
-  const { settings, error } = validateSettings({ ...(body.groupRates === undefined ? {} : { groupRates: body.groupRates }), rate: body.rate, minPerCollector: body.minPerCollector ?? 1, ...(body.groupField == null ? {} : { groupField: body.groupField }) });
+  const { settings, error } = validateSettings({ ...(body.groupBreaks === undefined ? {} : { groupBreaks: body.groupBreaks }), ...(body.groupRates === undefined ? {} : { groupRates: body.groupRates }), rate: body.rate, minPerCollector: body.minPerCollector ?? 1, ...(body.groupField == null ? {} : { groupField: body.groupField }) });
   if (error != null) return { error };
   if (!FREQUENCIES.includes(body.frequency)) return { error: { field: 'frequency', reason: 'must be daily or weekly' } };
   if (typeof body.enabled !== 'boolean') return { error: { field: 'enabled', reason: 'must be true or false' } };
-  return { schedule: { rate: settings.rate, minPerCollector: settings.minPerCollector, frequency: body.frequency, enabled: body.enabled, ...(settings.groupRates ? { groupRates: settings.groupRates } : {}), ...(settings.groupField ? { groupField: settings.groupField } : {}) } };
+  return { schedule: { rate: settings.rate, minPerCollector: settings.minPerCollector, frequency: body.frequency, enabled: body.enabled, ...(settings.groupBreaks ? { groupBreaks: settings.groupBreaks } : {}), ...(settings.groupRates ? { groupRates: settings.groupRates } : {}), ...(settings.groupField ? { groupField: settings.groupField } : {}) } };
 };
 
 Object.assign(module.exports, { FREQUENCIES, periodLength, boundaryAtOrBefore, nextBoundaryAfter, dueRun, runRequestId, validateSchedule });

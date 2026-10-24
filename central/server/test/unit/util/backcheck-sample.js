@@ -100,6 +100,34 @@ describe('(util) backcheck sample', () => {
     validateSchedule({ rate: 20, frequency: 'daily', enabled: true, groupField: '/district', groupRates: settings.groupRates }).schedule.groupRates.should.eql(settings.groupRates);
   });
 
+  it('compares decimal boundaries exactly, including negatives, long fractions and large integers', () => {
+    const { canonicalDecimal, compareDecimal, numericGroup } = require('../../../lib/util/backcheck-sample');
+    canonicalDecimal('+00018.000').should.equal('18'); canonicalDecimal('-0.000').should.equal('0');
+    canonicalDecimal('-.2500').should.equal('-0.25');
+    compareDecimal('9007199254740993', '9007199254740992').should.equal(1);
+    compareDecimal('17.9999999999999999999999', '18').should.equal(-1);
+    compareDecimal('-0.00001', '0').should.equal(-1);
+    compareDecimal('-20.01', '-20.001').should.equal(-1);
+    const breaks = ['-0.5', '18', '35'];
+    ['-1', '-0.5', '17.999999999999999999', '18', '34.999999999999999999', '35', '999'].map(value => numericGroup(value, breaks).value)
+      .should.eql(['Below -0.5', '-0.5 to below 18', '-0.5 to below 18', '18 to below 35', '18 to below 35', '35 or above', '35 or above']);
+    should.equal(numericGroup(null, breaks).value, null);
+    for (const value of ['', '1e3', 'NaN', 'Infinity', '0x10', '1,000', '1 2']) numericGroup(value, breaks).should.have.property('error');
+  });
+
+  it('validates canonical increasing numeric boundaries and matching rate rules', () => {
+    const body = { rate: 10, groupField: '/age', groupBreaks: [' +0018.00 ', '35.0'], groupRates: [{ value: 'Below 18', rate: 100 }] };
+    validateSettings(body).settings.groupBreaks.should.eql(['18', '35']);
+    validateSettings({ rate: 10, groupField: '/age', groupBreaks: Array.from({ length: 98 }, (_, i) => String(i)) }).settings.groupBreaks.length.should.equal(98);
+    validateSettings({ rate: 10, groupBreaks: [] }).settings.should.not.have.property('groupBreaks');
+    for (const groupBreaks of [null, {}, [18], [''], ['1e3'], ['NaN'], ['1,000'], ['2', '1'], ['1', '1.0'], ['a'.repeat(65)], ['.' + '1'.repeat(63)], Array.from({ length: 99 }, (_, i) => String(i))])
+      validateSettings({ ...body, groupBreaks }).error.field.should.equal('groupBreaks');
+    validateSettings({ rate: 10, groupBreaks: ['18'] }).error.field.should.equal('groupBreaks');
+    validateSettings({ ...body, groupRates: [{ value: '18', rate: 50 }] }).error.field.should.equal('groupRates');
+    const { validateSchedule } = require('../../../lib/util/backcheck-sample');
+    validateSchedule({ ...body, frequency: 'daily', enabled: true }).schedule.groupBreaks.should.eql(['18', '35']);
+  });
+
   it('offers only non-repeating scalar questions outside metadata', () => {
     const { groupFields } = require('../../../lib/util/backcheck-sample');
     groupFields([{ path: '/district', type: 'string' }, { path: '/age', type: 'int' },
