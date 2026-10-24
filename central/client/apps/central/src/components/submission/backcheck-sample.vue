@@ -180,6 +180,7 @@ docs/field-intelligence/O6-scheduled-backcheck-samples.md -->
             </tr>
           </tbody>
         </table>
+        <backcheck-weights :key="sample.id" :project-id="projectId" :xml-form-id="xmlFormId" :sample-id="sample.id"/>
         <details class="backcheck-sample-items">
           <summary>Chosen Submissions ({{ sample.items.length }})</summary>
           <ul>
@@ -209,6 +210,7 @@ import { computed, reactive, ref } from 'vue';
 
 import Spinner from '../spinner.vue';
 import BackcheckAllocation from './backcheck-allocation.vue';
+import BackcheckWeights from './backcheck-weights.vue';
 import SamplingGroupRates from './sampling-group-rates.vue';
 import SamplingNumericRanges from './sampling-numeric-ranges.vue';
 import SamplingPolygonAreas from './sampling-polygon-areas.vue';

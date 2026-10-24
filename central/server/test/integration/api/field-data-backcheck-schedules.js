@@ -328,6 +328,9 @@ describe('api: O6 scheduled backcheck samples', () => {
     const samples = (await alice.get('/v1/projects/1/forms/simple/backcheck-samples').expect(200)).body;
     assert.deepEqual(samples.map((s) => [s.id, s.scheduled, s.drawnBy]), [[drawn.sampleId, true, null]]);
     assert.equal(samples[0].settings.periodStart, first.periodStart.toISOString());
+    const weights = (await alice.get(`/v1/projects/1/forms/simple/backcheck-samples/${drawn.sampleId}/weights`).expect(200)).body;
+    assert.equal(weights.available, true); assert.equal(weights.scheduled, true);
+    assert.ok(weights.items.every(item => item.designWeight === 1));
 
     const view = (await alice.get(path).expect(200)).body;
     assert.deepEqual(view.runs.map((r) => [r.outcome, r.eligible, r.sampled, r.periods, r.sampleId]), [['drawn', 2, 2, 1, drawn.sampleId]]);

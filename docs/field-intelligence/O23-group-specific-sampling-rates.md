@@ -59,6 +59,6 @@ scheduled selection, clearing without period reset and rollback/reapply.
 Browser checks exercise editing both forms, retrying a manual draw, saved rule
 reload, coverage and clearing on a narrow mobile viewport.
 
-[O24](O24-numeric-range-sampling.md) adds numeric ranges. [O25](O25-polygon-sampling-groups.md) adds polygon strata. Weighting and calibrated estimates
+[O24](O24-numeric-range-sampling.md) adds numeric ranges. [O25](O25-polygon-sampling-groups.md) adds polygon strata. [O26](O26-sampling-design-weights.md) adds design weights. Calibrated estimates
 remain separate work. This completes the bounded unequal group-rate capability;
 the wider Operations area and the eight-area programme remain partial.

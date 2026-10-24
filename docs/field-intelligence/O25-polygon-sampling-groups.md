@@ -93,7 +93,7 @@ snapshots/audits, catch-up, clearing, atomic refusal/pause, type restrictions,
 work bounds and rollback/reapply. Browser checks cover file validation, retries,
 saved reload, changed-area rate clearing, coverage, exports and mobile controls.
 
-Weighting and calibrated estimates, map-based area editing, geodesic/global strata,
+[O26](O26-sampling-design-weights.md) adds design weights. Calibrated estimates, map-based area editing, geodesic/global strata,
 uncertainty-aware assignment and automatic updates from reference layers remain
 separate work. Operational counts are not weighted population or measured error
 estimates. Operations and the eight-area programme remain partial.
