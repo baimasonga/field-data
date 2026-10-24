@@ -373,7 +373,7 @@ pilot is a separate acceptance activity. Product work resumes with K7 above.
 | Area | Current delivery | Further implementation required |
 | --- | --- | --- |
 | Knowledge | Asset facts, ownership history, freshness, cited search and multi-fact historical projections | Location/photo identity comparisons, asset maps/location areas, broader decision projections, answer/semantic retrieval, causal contracts and diagnostics |
-| Evidence/trust | Evidence graph, challenges/replay checks, signed witnesses with correction/withdrawal history, human assessments and device-reported location | Delegation, certified key revocation, independent sensor/hardware corroboration, calibrated presence limitations |
+| Evidence/trust | Evidence graph, challenges/replay checks, signed witnesses with correction/withdrawal history and server-attested project key revocation, human assessments and device-reported location | Delegation, certified key revocation, independent sensor/hardware corroboration, calibrated presence limitations |
 | Offline resilience | Signed encrypted assignments/itineraries, recoverable media, encrypted relay packages and receipts | Durable XML submission queues, Collect integration, background sync and delegated courier/custody transport |
 | Operations | Sampling, allocation, shared capacity, same-day/overnight UTC shifts, combined approved itineraries, manual/scheduled collector/answer sampling with group-specific rates, numeric ranges, polygon groups, inspectable design weights, conditional calibrated binary estimates, approved-stop navigation handoff and agreement counts | Additional task types, built-in/offline routing, external benchmark calibration and validated outcome inference |
 | Geospatial | Location integrity, imagery availability and cited human geospatial assessments with temporal context and outdated history | Exact footprint checks, reviewed change candidates, imagery analysis and evaluated automated change detection |
@@ -514,3 +514,13 @@ disconnect and offline boundaries are covered. See
 [O28-approved-stop-navigation.md](O28-approved-stop-navigation.md). Built-in/offline
 routing, other task types and device/provider acceptance remain pending; all eight
 areas remain partial.
+
+
+### T6 server-attested witness key revocation
+
+Owners and project managers can permanently revoke retained witness signing keys
+within a project. Signed history remains readable, revoked records are excluded
+from active corroboration, and exports support independently pinned issuer checks.
+See [T6-witness-key-revocation.md](T6-witness-key-revocation.md). This covers
+self-generated witness keys; certified identity/delegation, certified identity-key
+revocation and sensor/hardware corroboration remain pending. All eight areas remain partial.
