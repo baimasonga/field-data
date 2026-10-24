@@ -10,10 +10,12 @@ through the existing form, and can be linked, compared and cancelled normally.
 
 Fixed templates (`investigation-backcheck@1`) cover contradictions, shared or
 inconsistent identity details, similar answers, location and visit timing.
-Only open/investigating, non-withdrawn findings attached to this investigation
-whose primary form and root submission match the linked case are eligible.
-Unsupported checks, resolved findings, unrelated sources and peer-side matches
-are excluded. The first 20 eligible findings by ID are offered; further matches
+Open/investigating, non-withdrawn findings attached to this investigation
+whose primary form and root submission match the linked case are eligible;
+F11 also admits supported same-form peer pairs as described below.
+Unsupported checks, resolved findings and unrelated sources are excluded.
+[F11](F11-same-form-peer-backchecks.md) adds bounded same-form peer matches;
+cross-form peer matches remain excluded. The first 20 eligible findings by ID are offered; further matches
 are counted. The selection must be nonempty and contain at most 20 distinct IDs.
 
 Drafts contain no recorded answers, peer identities, finding evidence, or copied
@@ -78,7 +80,7 @@ archive/closure, collector independence, native pending-request rules and limits
 Browser checks cover explicit drafting/editing, form/collector changes, exact
 lost-response retry, stale refresh, unavailable/delayed sources and 320px layout.
 
-Automatic publication, general schema evolution, peer-side targeting, multilingual
+Automatic publication, general schema evolution, cross-form peer-side targeting, multilingual
 prompts, validated instrument effectiveness, calibrated fraud triage and field
 acceptance remain separate deliverables. This milestone does not complete the
 fraud-intelligence area or the eight-area programme.

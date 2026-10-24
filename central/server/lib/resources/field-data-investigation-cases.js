@@ -67,11 +67,24 @@ const state = async (c, auth, project, inv, before = 501) => {
       available: available(e), ...(available(e) ? { case: publicCase(byId.get(e.caseId)), reason: e.reason, actorName: e.actorName, createdAt: e.createdAt } : {}) })),
     hiddenEvents: selected.filter(e => !available(e)).length, nextBefore: page.length > selected.length ? selected.at(-1).sequence : null };
 };
-// Only primary-source findings are used: no peer identifiers or recorded answers enter drafts.
+// Peer targets must resolve unambiguously to this same form and a live primary
+// record. Both sides therefore share the source read grant held by linkedScope.
 const instrumentFindings = async (db, inv, row, lock = false) => {
-  const findings = await db.any(sql`SELECT i.id,i.rule,i."ruleVersion" FROM field_data_investigation_findings x
+  const findings = await db.any(sql`SELECT i.id,i.rule,i."ruleVersion",
+    CASE WHEN i."instanceId" = ${row.instanceId} THEN 'primary' ELSE 'peer' END AS "targetSide"
+    FROM field_data_investigation_findings x
     JOIN field_data_integrity_flags i ON i.id = x."findingId"
-    WHERE x."investigationId" = ${inv.id} AND i."formId" = ${row.formId} AND i."instanceId" = ${row.instanceId}
+    WHERE x."investigationId" = ${inv.id} AND i."formId" = ${row.formId}
+      AND (i."instanceId" = ${row.instanceId} OR (
+        i."relatedInstanceId" = ${row.instanceId}
+        AND (i.rule IN ('near-duplicate','repeated-location') OR i.rule LIKE 'identity-reused:%')
+        AND (NOT (i.evidence ? 'others') OR jsonb_typeof(i.evidence->'others') = 'array')
+        AND NOT EXISTS (SELECT 1 FROM jsonb_array_elements(CASE WHEN jsonb_typeof(i.evidence->'others') = 'array'
+          THEN i.evidence->'others' ELSE '[]'::jsonb END) o
+          WHERE o->>'instanceId' = i."relatedInstanceId" AND o ? 'xmlFormId' AND o->>'xmlFormId' IS DISTINCT FROM ${row.xmlFormId})
+        AND EXISTS (SELECT 1 FROM submissions ps WHERE ps."formId" = i."formId" AND ps."instanceId" = i."instanceId"
+          AND ps."deletedAt" IS NULL AND ps.draft = FALSE ${lock ? sql`FOR SHARE OF ps` : sql``})
+      ))
       AND i.status IN ('open','investigating') AND i.outcome IN ('concern','inconclusive')
     ORDER BY i.id ${lock ? sql`FOR SHARE OF i,x` : sql``}`);
   return findings.map(instrument.suggestion).filter(Boolean);

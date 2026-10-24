@@ -1972,6 +1972,22 @@ test('targeted instrument drafts neutral questions, resets collectors for the re
   expect(errors).toEqual([]);
 });
 
+test('same-form peer targeting labels the selected side and dispatches neutral questions without peer identifiers', async ({ page }) => {
+  const { fixture, instrument, prepare, region, errors } = await setupInstrument(page);
+  fixture.items[0].targetSide = 'peer';
+  await prepare();
+  await expect(instrument.getByLabel('Similar answers', { exact: false }).locator('..')).toContainText('Peer record');
+  await expect(instrument).toContainText('same-form peer');
+  const question = await instrument.getByLabel('Questions for the independent visit').inputValue();
+  expect(question).toContain('without showing the earlier answers');
+  await instrument.getByRole('button', { name: 'Request targeted backcheck' }).click();
+  await expect(region).toContainText(question);
+  expect(fixture.writes[0].body.findingIds).toEqual([11]);
+  expect(fixture.writes[0].body).not.toHaveProperty('targetSide');
+  await page.setViewportSize({ width: 320, height: 800 });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= 320)).toBe(true); expect(errors).toEqual([]);
+});
+
 test('targeted instrument refreshes stale state and creates a fresh identity before another request', async ({ page }) => {
   const { fixture, instrument, prepare, region, errors } = await setupInstrument(page); await prepare(); fixture.stale = true;
   await instrument.getByRole('button', { name: 'Request targeted backcheck' }).click();
