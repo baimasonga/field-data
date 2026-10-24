@@ -17,6 +17,8 @@ const { getOrNotFound } = require('../util/promise');
 const { UUID_PATTERN } = require('../util/claim-versioning');
 const { LIMITS, newSeed, validateSettings, draw, groupFields, rateFor, numericGroup, rangeLabels } = require('../util/backcheck-sample');
 
+const { AREA_LIMITS, polygonGroup, areaLabels, areaVertexCount } = require('../util/sampling-areas');
+
 const REASON = 'backcheck-sample';
 const LOCK = 74139;
 
@@ -28,9 +30,9 @@ const formFor = async (container, auth, params, verbs) => {
   return form;
 };
 
-const groupingAvailable = async (container, projectId, xmlFormId, path, numeric = false) => {
+const groupingAvailable = async (container, projectId, xmlFormId, path, numeric = false, geographic = false) => {
   const published = (await container.Forms.getByProjectAndXmlFormId(projectId, xmlFormId, Form.PublishedVersion)).orNull();
-  return published != null && published.def.keyId == null && groupFields(await container.Forms.getFields(published.def.id)).some(f => f.path === path && (!numeric || ['int', 'decimal'].includes(f.type)));
+  return published != null && published.def.keyId == null && groupFields(await container.Forms.getFields(published.def.id), true).some(f => f.path === path && (geographic ? f.type === 'geopoint' : f.type !== 'geopoint') && (!numeric || ['int', 'decimal'].includes(f.type)));
 };
 
 const summaryColumns = sql`s.id, s."drawnAt", s.seed, s.settings, s."sampledBefore", s."scheduleId",
@@ -81,7 +83,7 @@ const sampleView = async (db, formId, sampleId, withEligible) => {
   const groupByInstance = new Map(row.settings.groupField ? row.eligibleList.map(e => [e.instanceId, e.groupValue ?? null]) : []);
   if (row.settings.groupField) {
     const group = value => {
-      if (!groups.has(value)) groups.set(value, { value, ...((row.settings.groupRates || row.settings.groupBreaks) ? { rate: rateFor(row.settings, value) } : {}), eligible: 0, sampled: 0, requested: 0, linked: 0 });
+      if (!groups.has(value)) groups.set(value, { value, ...((row.settings.groupRates || row.settings.groupBreaks || row.settings.groupAreas) ? { rate: rateFor(row.settings, value) } : {}), eligible: 0, sampled: 0, requested: 0, linked: 0 });
       return groups.get(value);
     };
     for (const e of row.eligibleList) group(e.groupValue ?? null).eligible += 1;
@@ -93,7 +95,7 @@ const sampleView = async (db, formId, sampleId, withEligible) => {
   }
   return {
     ...summaryOf(row),
-    ...(row.settings.groupField ? { groups: [...groups.values()].sort((a, b) => (a.value == null ? 1 : b.value == null ? -1 : row.settings.groupBreaks ? rangeLabels(row.settings.groupBreaks).indexOf(a.value) - rangeLabels(row.settings.groupBreaks).indexOf(b.value) : a.value < b.value ? -1 : a.value > b.value ? 1 : 0)) } : {}),
+    ...(row.settings.groupField ? { groups: [...groups.values()].sort((a, b) => (a.value == null ? 1 : b.value == null ? -1 : row.settings.groupAreas ? areaLabels(row.settings.groupAreas).indexOf(a.value) - areaLabels(row.settings.groupAreas).indexOf(b.value) : row.settings.groupBreaks ? rangeLabels(row.settings.groupBreaks).indexOf(a.value) - rangeLabels(row.settings.groupBreaks).indexOf(b.value) : a.value < b.value ? -1 : a.value > b.value ? 1 : 0)) } : {}),
     collectors: [...collectors.values()].sort((a, b) => (a.submitterId == null ? 1 : b.submitterId == null ? -1 : a.submitterId - b.submitterId)),
     items: items.map((i) => ({
       instanceId: i.instanceId, submitterId: i.submitterId, displayName: i.displayName, rank: i.rank,
@@ -142,6 +144,8 @@ const drawSample = async (db, form, { requestId, settings, requestHash, actorId,
   if (eligible.length > LIMITS.maxEligible)
     throw Problem.user.backcheckSampleTooLarge({ what: 'eligible submissions', count: eligible.length, max: LIMITS.maxEligible });
   if (skipEmpty && eligible.length === 0) return { id: null, replayed: false, eligible: 0, sampled: 0 };
+  if (settings.groupAreas && eligible.length * areaVertexCount(settings.groupAreas) > AREA_LIMITS.work)
+    throw Problem.user.backcheckSampleTooLarge({ what: 'location/polygon work units', count: eligible.length * areaVertexCount(settings.groupAreas), max: AREA_LIMITS.work });
   if (settings.groupField) {
     for (const e of eligible) {
       if (e.unreadable) throw Problem.user.backcheckSampleInvalid({ field: 'groupField', reason: 'cannot group repeated, unreadable, encrypted or oversized answers; use collector-only sampling' });
@@ -152,6 +156,11 @@ const drawSample = async (db, form, { requestId, settings, requestHash, actorId,
       if (settings.groupBreaks) {
         const group = numericGroup(e.groupValue, settings.groupBreaks);
         if (group.error) throw Problem.user.backcheckSampleInvalid({ field: 'groupBreaks', reason: group.error });
+        e.groupValue = group.value;
+      }
+      if (settings.groupAreas) {
+        const group = polygonGroup(e.groupValue, settings.groupAreas);
+        if (group.error) throw Problem.user.backcheckSampleInvalid({ field: 'groupAreas', reason: group.error });
         e.groupValue = group.value;
       }
     }
@@ -214,8 +223,8 @@ module.exports = (service, endpoint) => {
     if (settings.groupField) {
       await auth.canOrReject('submission.read', form);
       await auth.canOrReject('submission.list', form);
-      if (!await groupingAvailable(container, params.projectId, params.xmlFormId, settings.groupField, settings.groupBreaks != null))
-        throw Problem.user.backcheckSampleInvalid({ field: 'groupField', reason: 'must name a supported question in an unencrypted published form (numeric ranges require an integer or decimal question)' });
+      if (!await groupingAvailable(container, params.projectId, params.xmlFormId, settings.groupField, settings.groupBreaks != null, settings.groupAreas != null))
+        throw Problem.user.backcheckSampleInvalid({ field: 'groupField', reason: 'must name a supported question in an unencrypted published form (numeric ranges require a numeric question; polygon areas require a geopoint question)' });
     }
     const requestHash = createHash('sha256').update(JSON.stringify(settings)).digest('hex');
     const actorId = auth.actor.map((actor) => actor.id).orNull();
@@ -242,7 +251,7 @@ module.exports = (service, endpoint) => {
     await formFor(container, auth, params, ['submission.list', 'submission.read']);
     const published = await container.Forms.getByProjectAndXmlFormId(params.projectId, params.xmlFormId, Form.PublishedVersion).then(getOrNotFound);
     response.set('Cache-Control', 'private, no-store');
-    return { fields: published.def.keyId == null ? groupFields(await container.Forms.getFields(published.def.id)) : [] };
+    return { fields: published.def.keyId == null ? groupFields(await container.Forms.getFields(published.def.id), true) : [] };
   }));
 
   service.get(`${base}/:sampleId`, endpoint(async (container, { params, auth, query }, _, response) => {

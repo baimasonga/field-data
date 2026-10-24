@@ -22,14 +22,14 @@ const formFor = async (container, auth, params, verbs) => {
 };
 
 const view = async (db, formId) => {
-  const schedule = await db.maybeOne(sql`SELECT b.id, b.rate, b."minPerCollector", b.frequency, b.enabled, b."groupField", b."groupRates", b."groupBreaks",
+  const schedule = await db.maybeOne(sql`SELECT b.id, b.rate, b."minPerCollector", b.frequency, b.enabled, b."groupField", b."groupRates", b."groupBreaks", b."groupAreas",
       b."periodStart", b."nextRunAt", b."updatedAt", a."displayName" AS "updatedByName"
     FROM field_data_backcheck_schedules b LEFT JOIN actors a ON a.id = b."updatedBy" WHERE b."formId" = ${formId}`);
   if (schedule == null) return { schedule: null, runs: [] };
   const runs = await db.any(sql`SELECT "periodStart", "periodEnd", periods, outcome, "sampleId", eligible, sampled, error, "ranAt"
     FROM field_data_backcheck_schedule_runs WHERE "scheduleId" = ${schedule.id} ORDER BY "periodStart" DESC LIMIT 20`);
-  const { id, groupField, groupRates, groupBreaks, ...rest } = schedule;
-  return { schedule: { ...rest, nextRunAt: rest.enabled ? rest.nextRunAt : null, ...(groupField == null ? {} : { groupField }), ...(groupRates?.length ? { groupRates } : {}), ...(groupBreaks?.length ? { groupBreaks } : {}) }, runs };
+  const { id, groupField, groupRates, groupBreaks, groupAreas, ...rest } = schedule;
+  return { schedule: { ...rest, nextRunAt: rest.enabled ? rest.nextRunAt : null, ...(groupField == null ? {} : { groupField }), ...(groupRates?.length ? { groupRates } : {}), ...(groupBreaks?.length ? { groupBreaks } : {}), ...(groupAreas?.length ? { groupAreas } : {}) }, runs };
 };
 
 module.exports = (service, endpoint) => {
@@ -48,8 +48,8 @@ module.exports = (service, endpoint) => {
     if (schedule.enabled && schedule.groupField) {
       await auth.canOrReject('submission.read', form);
       await auth.canOrReject('submission.list', form);
-      if (!await groupingAvailable(container, params.projectId, params.xmlFormId, schedule.groupField, schedule.groupBreaks != null))
-        throw Problem.user.backcheckSampleInvalid({ field: 'groupField', reason: 'must name a supported question in an unencrypted published form (numeric ranges require an integer or decimal question)' });
+      if (!await groupingAvailable(container, params.projectId, params.xmlFormId, schedule.groupField, schedule.groupBreaks != null, schedule.groupAreas != null))
+        throw Problem.user.backcheckSampleInvalid({ field: 'groupField', reason: 'must name a supported question in an unencrypted published form (numeric ranges require a numeric question; polygon areas require a geopoint question)' });
     }
     const actorId = auth.actor.map((actor) => actor.id).orNull();
     await container.transacting(async ({ db }) => {
@@ -62,11 +62,11 @@ module.exports = (service, endpoint) => {
       const nextRunAt = restart || current.frequency !== schedule.frequency
         ? nextBoundaryAfter(new Date(now), schedule.frequency) : current.nextRunAt;
       await db.query(sql`INSERT INTO field_data_backcheck_schedules
-          ("formId", rate, "minPerCollector", frequency, enabled, "groupField", "groupRates", "groupBreaks", "periodStart", "nextRunAt", "updatedBy", "updatedAt")
-        VALUES (${form.id}, ${schedule.rate}, ${schedule.minPerCollector}, ${schedule.frequency}, ${schedule.enabled}, ${schedule.groupField ?? null}, ${schedule.groupRates ? JSON.stringify(schedule.groupRates) : null}, ${schedule.groupBreaks ? JSON.stringify(schedule.groupBreaks) : null},
+          ("formId", rate, "minPerCollector", frequency, enabled, "groupField", "groupRates", "groupBreaks", "groupAreas", "periodStart", "nextRunAt", "updatedBy", "updatedAt")
+        VALUES (${form.id}, ${schedule.rate}, ${schedule.minPerCollector}, ${schedule.frequency}, ${schedule.enabled}, ${schedule.groupField ?? null}, ${schedule.groupRates ? JSON.stringify(schedule.groupRates) : null}, ${schedule.groupBreaks ? JSON.stringify(schedule.groupBreaks) : null}, ${schedule.groupAreas ? JSON.stringify(schedule.groupAreas) : null},
           ${new Date(periodStart).toISOString()}, ${new Date(nextRunAt).toISOString()}, ${actorId}, clock_timestamp())
         ON CONFLICT ("formId") DO UPDATE SET rate = EXCLUDED.rate, "minPerCollector" = EXCLUDED."minPerCollector",
-          frequency = EXCLUDED.frequency, enabled = EXCLUDED.enabled, "groupField" = EXCLUDED."groupField", "groupRates" = EXCLUDED."groupRates", "groupBreaks" = EXCLUDED."groupBreaks", "periodStart" = EXCLUDED."periodStart",
+          frequency = EXCLUDED.frequency, enabled = EXCLUDED.enabled, "groupField" = EXCLUDED."groupField", "groupRates" = EXCLUDED."groupRates", "groupBreaks" = EXCLUDED."groupBreaks", "groupAreas" = EXCLUDED."groupAreas", "periodStart" = EXCLUDED."periodStart",
           "nextRunAt" = EXCLUDED."nextRunAt", "updatedBy" = EXCLUDED."updatedBy", "updatedAt" = EXCLUDED."updatedAt"`);
       await db.query(sql`INSERT INTO audits ("actorId", action, "acteeId", details, "loggedAt", processed, failures)
         VALUES (${actorId}, 'field_data.backcheck_schedule.update', ${form.acteeId}, ${JSON.stringify(schedule)},
