@@ -375,7 +375,7 @@ pilot is a separate acceptance activity. Product work resumes with K7 above.
 | Knowledge | Asset facts, ownership history, freshness, cited search and multi-fact historical projections | Location/photo identity comparisons, asset maps/location areas, broader decision projections, answer/semantic retrieval, causal contracts and diagnostics |
 | Evidence/trust | Evidence graph, challenges/replay checks, signed witnesses with correction/withdrawal history, human assessments and device-reported location | Delegation, certified key revocation, independent sensor/hardware corroboration, calibrated presence limitations |
 | Offline resilience | Signed encrypted assignments/itineraries, recoverable media, encrypted relay packages and receipts | Durable XML submission queues, Collect integration, background sync and delegated courier/custody transport |
-| Operations | Sampling, allocation, shared capacity, same-day/overnight UTC shifts, combined approved itineraries, manual/scheduled collector/answer sampling with group-specific rates, numeric ranges, polygon groups, inspectable design weights, conditional calibrated binary estimates and agreement counts | Additional task types, navigation, external benchmark calibration and validated outcome inference |
+| Operations | Sampling, allocation, shared capacity, same-day/overnight UTC shifts, combined approved itineraries, manual/scheduled collector/answer sampling with group-specific rates, numeric ranges, polygon groups, inspectable design weights, conditional calibrated binary estimates, approved-stop navigation handoff and agreement counts | Additional task types, built-in/offline routing, external benchmark calibration and validated outcome inference |
 | Geospatial | Location integrity, imagery availability and cited human geospatial assessments with temporal context and outdated history | Exact footprint checks, reviewed change candidates, imagery analysis and evaluated automated change detection |
 | Fraud intelligence | Contradictions, identity reuse, similarity, collector links, investigations/outcomes, live case links and targeted backcheck questions with reviewed form drafts | Peer-side targeting, multilingual/effectiveness evaluation, calibrated triage and false-positive evaluation |
 | Adaptive surveys | Doctor, simulations, version-change analysis and recodes | Approved bounded policies, reviewed evolution/draft generation, answer uncertainty, conversational multilingual support and native-export recodes |
@@ -503,3 +503,14 @@ conservative 95% bounds and reproducible input exports. Empty strata and invalid
 history withhold estimates. See [O27-calibrated-binary-estimates.md](O27-calibrated-binary-estimates.md).
 External benchmark calibration, validated outcomes and field acceptance remain
 pending. Operations and all eight areas remain partial.
+
+
+### O28 approved-stop navigation handoff
+
+Connected App Users can recheck an approved stop and explicitly open destination
+directions/pins in fixed map providers, without sharing Field Data credentials
+or task text. Current assignment/provenance checks, short-lived links, expiry,
+disconnect and offline boundaries are covered. See
+[O28-approved-stop-navigation.md](O28-approved-stop-navigation.md). Built-in/offline
+routing, other task types and device/provider acceptance remain pending; all eight
+areas remain partial.

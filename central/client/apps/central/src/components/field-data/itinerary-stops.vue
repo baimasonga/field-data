@@ -16,15 +16,18 @@
         <dt>GPS accuracy</dt><dd>{{ stop.location.accuracy == null || stop.location.accuracy < 0 ? 'Unknown' : `${stop.location.accuracy} m` }}</dd>
         <dt>Due</dt><dd><record-date-time v-if="stop.dueAt" :value="stop.dueAt"/><span v-else>Not set</span></dd>
       </dl>
+      <field-data-stop-navigation v-if="navigate && !snapshot" :load="() => navigate(stop)"/>
+      <p v-if="snapshot">Navigation requires a current online assignment check in connected Fieldwork. Saved coordinates may be outdated.</p>
       <details><summary>Request reference</summary><p>{{ stop.id }}</p></details>
     </li>
   </ol>
 </template>
 <script setup>
 import RecordDateTime from '../record-date-time.vue';
+import FieldDataStopNavigation from './stop-navigation.vue';
 
 defineOptions({ name: 'FieldDataItineraryStops' });
-defineProps({ stops: { type: Array, required: true }, snapshot: Boolean });
+defineProps({ stops: { type: Array, required: true }, snapshot: Boolean, navigate: { type: Function, default: null } });
 </script>
 <style scoped>
 .itinerary-stops { list-style: none; padding: 0; }

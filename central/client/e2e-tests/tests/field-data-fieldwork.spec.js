@@ -10,7 +10,7 @@ const overnightShift = { startAt: '2026-10-14T22:00:00.000Z', endAt: '2026-10-15
 const visitFixture = { id: '88888888-8888-4888-8888-888888888888', assetName: 'Water point', externalId: 'WP-01', assetType: 'water-point',
   predicate: 'condition', instruction: 'Check the pump handle. <img src=x onerror=alert(1)>', xmlFormId: 'verification',
   formName: 'Independent verification', plannedVisitDate: '2026-10-19', visitBy: '2026-10-20T00:00:00Z', dispatchedAt: '2026-10-09T10:00:00Z', actionable: true };
-const setup = async (page, { push = false, denied = false, fail = false, delayed = false, failDelete = false, offline = false, offlineOrigin = null, visits = [], failVisits = false, receipts = [], failReceipts = false, itineraries = [], failItineraries = false, offlineItineraries, offlineVisits } = {}) => {
+const setup = async (page, { push = false, denied = false, fail = false, delayed = false, failDelete = false, offline = false, offlineOrigin = null, visits = [], failVisits = false, receipts = [], failReceipts = false, itineraries = [], failItineraries = false, navigation = null, offlineItineraries, offlineVisits } = {}) => {
   const state = { inboxReads: 0, seen: false, registered: false, deleted: false, failures: fail ? 1 : 0, requests: [] };
   const errors = [];
   if (offline) {
@@ -69,6 +69,7 @@ const setup = async (page, { push = false, denied = false, fail = false, delayed
       if (failReceipts) return route.fulfill({ status: 503, json: {} });
       return route.fulfill({ json: { receipts, head: { projectId: 7, seq: receipts[0]?.seq ?? 0, entryHash: receipts[0]?.entryHash ?? '0'.repeat(64), signed: receipts.length ? { algorithm: 'ES256' } : null } } });
     }
+    if (path.endsWith('/navigation') && navigation) return navigation(route, state);
     if (path.endsWith('/itineraries')) return route.fulfill({ status: failItineraries ? 503 : 200, json: { items: itineraries } });
     if (path.endsWith('/seen')) { state.seen = true; return route.fulfill({ json: { id: taskId, seenAt: '2026-10-09T04:00:00Z' } }); }
     if (path.endsWith('/push') && req.method() === 'GET')
@@ -424,6 +425,46 @@ test('approved itinerary stops are escaped, withheld work is visible and disconn
 });
 
 
+test('navigation requires a fresh check, contains no key, expires and clears on disconnect', async ({ page }) => {
+  await page.clock.install();
+  let attempts = 0;
+  const itinerary = { id: taskId, date: '2026-10-14', start: { latitude: 8.48, longitude: -13.23 }, withheld: 0, needsReview: false,
+    stops: [{ id: taskId, kind: 'backcheck', order: 1, question: 'Revisit the site.', xmlFormId: 'verification', location: { latitude: 8.49, longitude: -13.22, accuracy: 15 } }] };
+  const { errors, state } = await setup(page, { itineraries: [itinerary], navigation: async route => {
+    attempts += 1;
+    if (attempts === 1) return route.fulfill({ status: 503, json: {} });
+    if (attempts === 4) return route.fulfill({ status: 404, json: {} });
+    const checked = Date.now();
+    return route.fulfill({ json: { itineraryId: taskId, stopId: taskId, kind: 'backcheck', checkedAt: new Date(checked).toISOString(), expiresAt: new Date(checked + 60000).toISOString(),
+      targets: attempts === 3 ? [{ id: 'google-maps', label: 'Unsafe', url: 'https://www.google.com.evil.test/?key=secret' }]
+        : [{ id: 'google-maps', label: 'Directions in Google Maps', url: 'https://www.google.com/maps/dir/?api=1&destination=8.49%2C-13.22' }, { id: 'openstreetmap', label: 'View location on OpenStreetMap', url: 'https://www.openstreetmap.org/?mlat=8.49&mlon=-13.22' }] } });
+  } });
+  await connect(page); const panel = page.locator('.stop-navigation');
+  await expect(panel.getByRole('link')).toHaveCount(0); expect(attempts).toBe(0);
+  await panel.getByRole('button', { name: 'Check stop for navigation', exact: true }).click();
+  await expect(panel.getByRole('alert')).toContainText('could not be verified');
+  await panel.getByRole('button', { name: 'Check stop for navigation', exact: true }).click();
+  const link = panel.getByRole('link', { name: 'Directions in Google Maps', exact: true });
+  await expect(link).toHaveAttribute('href', 'https://www.google.com/maps/dir/?api=1&destination=8.49%2C-13.22');
+  await expect(link).toHaveAttribute('rel', 'noopener noreferrer'); await expect(link).toHaveAttribute('referrerpolicy', 'no-referrer');
+  await expect(panel).toContainText('Opening a link shares these coordinates');
+  expect((await link.getAttribute('href')).includes(key)).toBe(false);
+  expect(state.requests.filter(req => req.url.endsWith('/navigation')).every(req => req.authorization === `Bearer ${key}`)).toBe(true);
+  await page.clock.fastForward(61000);
+  await expect(panel.getByRole('status')).toContainText('expired'); await expect(panel.getByRole('link')).toHaveCount(0);
+  await panel.getByRole('button', { name: 'Recheck navigation', exact: true }).click();
+  await expect(panel.getByRole('alert')).toBeVisible(); await expect(panel.getByRole('link')).toHaveCount(0);
+  await panel.getByRole('button', { name: 'Check stop for navigation', exact: true }).click();
+  await expect(panel.getByRole('alert')).toBeVisible(); await expect(panel.getByRole('link')).toHaveCount(0);
+  await panel.getByRole('button', { name: 'Check stop for navigation', exact: true }).click();
+  await expect(panel.getByRole('link')).toHaveCount(2);
+  await page.setViewportSize({ width: 360, height: 800 });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= 360)).toBe(true);
+  await page.getByRole('button', { name: 'Disconnect', exact: true }).click();
+  await expect(page.locator('.stop-navigation')).toHaveCount(0);
+  expect(errors).toEqual([]);
+});
+
 test('signed approved itineraries unlock offline without persisting plaintext coordinates', async ({ page, context }) => {
   const approved = { id: taskId, date: '2026-10-14', shift: overnightShift, note: 'Approved access instructions.', needsReview: true, withheld: 1,
     method: 'nearest-next-stop, great-circle distance, return to start', start: { latitude: 8.48, longitude: -13.23 },
@@ -435,6 +476,7 @@ test('signed approved itineraries unlock offline without persisting plaintext co
   await page.reload(); await page.waitForLoadState('networkidle'); const reads = state.requests.length;
   await context.setOffline(true); await unlockOffline(page);
   await expect(panel.getByRole('heading', { name: 'Offline approved itineraries' })).toBeVisible();
+  await expect(panel.locator('.stop-navigation')).toHaveCount(0);
   await expect(panel).toContainText('Independent verification (verify)'); await expect(panel).toContainText('Form version: 2 · as saved');
   await expect(panel).toContainText('Re-verification visit');
   await expect(panel).toContainText('Kissy water point · condition');
