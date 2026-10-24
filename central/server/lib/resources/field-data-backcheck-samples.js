@@ -19,6 +19,8 @@ const { LIMITS, newSeed, validateSettings, draw, groupFields, rateFor, numericGr
 
 const { AREA_LIMITS, polygonGroup, areaLabels, areaVertexCount } = require('../util/sampling-areas');
 
+const { samplingWeights } = require('../util/sampling-weights');
+
 const REASON = 'backcheck-sample';
 const LOCK = 74139;
 
@@ -252,6 +254,19 @@ module.exports = (service, endpoint) => {
     const published = await container.Forms.getByProjectAndXmlFormId(params.projectId, params.xmlFormId, Form.PublishedVersion).then(getOrNotFound);
     response.set('Cache-Control', 'private, no-store');
     return { fields: published.def.keyId == null ? groupFields(await container.Forms.getFields(published.def.id), true) : [] };
+  }));
+
+  service.get(`${base}/:sampleId/weights`, endpoint(async (container, { params, auth }, _, response) => {
+    const form = await formFor(container, auth, params, ['submission.list', 'submission.read']);
+    if (!UUID_PATTERN.test(params.sampleId)) throw Problem.user.notFound();
+    const sample = await container.db.maybeOne(sql`SELECT id, settings, seed, eligible, "drawnAt", "scheduleId"
+      FROM field_data_backcheck_samples WHERE id = ${params.sampleId} AND "formId" = ${form.id}`);
+    if (sample == null) throw Problem.user.notFound();
+    const items = await container.db.any(sql`SELECT "instanceId" FROM field_data_backcheck_sample_items WHERE "sampleId" = ${sample.id}`);
+    response.set('Cache-Control', 'private, no-store');
+    return { sampleId: sample.id, drawnAt: sample.drawnAt, scheduled: sample.scheduleId != null, seed: sample.seed,
+      groupField: sample.settings.groupField ?? null,
+      ...samplingWeights(sample.eligible, items, sample.settings, sample.seed) };
   }));
 
   service.get(`${base}/:sampleId`, endpoint(async (container, { params, auth, query }, _, response) => {

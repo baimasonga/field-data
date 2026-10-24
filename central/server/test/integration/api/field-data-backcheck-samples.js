@@ -267,6 +267,8 @@ describe('api: O3 random backcheck sample', () => {
     (await alice.get(`${base}/${sample.id}`).expect(200)).body.groups.should.eql(sample.groups);
     const audit = await c.oneFirst(sql`SELECT details FROM audits WHERE action = 'field_data.backcheck_sample.draw'`);
     audit.settings.groupBreaks.should.eql(['18', '35']);
+    const weights = (await alice.get(`${base}/${sample.id}/weights`).expect(200)).body;
+    weights.available.should.equal(true); weights.items.length.should.equal(sample.sampled);
   }));
 
   it('supports decimal questions with more than 100 distinct numeric answers', testService(async service => {
@@ -309,6 +311,8 @@ describe('api: O3 random backcheck sample', () => {
     (await alice.get(`${path}/${sample.id}`).expect(200)).body.groups.should.eql(sample.groups);
     const audit = await c.oneFirst(sql`SELECT details FROM audits WHERE action = 'field_data.backcheck_sample.draw'`);
     audit.settings.groupAreas.should.eql(groupAreas);
+    const weights = (await alice.get(`${path}/${sample.id}/weights`).expect(200)).body;
+    weights.available.should.equal(true); weights.items.length.should.equal(sample.sampled);
     const { fields } = (await alice.get(`${path}/fields`).expect(200)).body;
     fields.should.containEql({ path: '/age', type: 'geopoint' });
   }));
@@ -326,6 +330,30 @@ describe('api: O3 random backcheck sample', () => {
     try { (await alice.post(path).send(body).expect(400)).body.code.should.equal(400.59); } finally { AREA_LIMITS.work = max; }
     (await c.oneFirst(sql`SELECT count(*)::integer FROM field_data_backcheck_samples`)).should.equal(0);
     (await c.oneFirst(sql`SELECT count(*)::integer FROM audits WHERE action = 'field_data.backcheck_sample.draw'`)).should.equal(0);
+  }));
+
+  it('serves checked weights to readers, with stable snapshot-based counts and no source-value dependence', testService(async (service, c) => {
+    const { alice } = await setUp(service);
+    const sample = (await alice.post(base).send({ requestId: requestId(80), rate: 34, minPerCollector: 1, groupField: '/name' }).expect(201)).body;
+    const path = `${base}/${sample.id}/weights`;
+    const response = await alice.get(path).expect(200);
+    response.headers['cache-control'].should.equal('private, no-store');
+    const weights = response.body;
+    weights.should.containEql({ available: true, sampleId: sample.id, eligible: 9, sampled: 5, scope: 'recorded-eligible-submissions' });
+    weights.strata.map(s => [s.eligible, s.sampled, s.designWeight]).sort((a, b) => a[0] - b[0]).should.eql([[1, 1, 1], [2, 1, 2], [6, 3, 2]]);
+    weights.items.map(i => i.instanceId).sort().should.eql(sample.items.map(i => i.instanceId).sort());
+    weights.strata.forEach(s => s.groupValue.should.equal('Alice'));
+    await c.run(sql`UPDATE submission_defs SET xml = replace(xml, 'Alice</name>', 'Changed</name>') WHERE current`);
+    (await alice.get(path).expect(200)).body.should.eql(weights);
+    const chelsea = await service.login('chelsea');
+    await chelsea.get(path).expect(403);
+    const { id } = (await chelsea.get('/v1/users/current').expect(200)).body;
+    await alice.post(`/v1/projects/1/assignments/viewer/${id}`).expect(200);
+    (await chelsea.get(path).expect(200)).body.should.eql(weights);
+    await alice.get(`${base}/${requestId(99)}/weights`).expect(404);
+    await alice.get(`${base}/bad/weights`).expect(404);
+    const empty = (await alice.post(base).send({ requestId: requestId(81), rate: 100, receivedFrom: '2000-01-01', receivedTo: '2000-01-02' }).expect(201)).body;
+    (await alice.get(`${base}/${empty.id}/weights`).expect(200)).body.should.containEql({ available: true, eligible: 0, sampled: 0, strata: [], items: [] });
   }));
 
   it('keeps samples on a migration rollback', testServiceFullTrx(async (service) => {

@@ -450,6 +450,43 @@ test('polygon areas upload safely, retry manual draws, persist schedules and cle
   expect(errors).toEqual([]);
 });
 
+test('readers inspect, retry and export snapshot weights without treating unavailable history as valid', async ({ page: p }) => {
+  let attempts = 0;
+  const weights = { sampleId, available: true, method: 'stratum-expansion-v1', scope: 'recorded-eligible-submissions', eligible: 9, sampled: 5, groupField: '/district',
+    strata: [{ submitterId: 5, groupValue: 'North', eligible: 6, sampled: 3, inclusionProbability: 0.5, designWeight: 2 },
+      { submitterId: 6, groupValue: null, eligible: 3, sampled: 2, inclusionProbability: 2 / 3, designWeight: 1.5 }],
+    items: detail.items.map(item => ({ instanceId: item.instanceId, designWeight: item.submitterId === 5 ? 2 : 1.5 })) };
+  const errors = await api(p, viewerVerbs, async (route, path) => {
+    if (path === `${samplesPath}/${sampleId}/weights`) {
+      attempts += 1;
+      await route.fulfill(attempts === 1 ? { status: 503, json: {} } : attempts === 2 ? { json: weights } : { json: { available: false, reason: 'Recorded membership is inconsistent. Weights are unavailable.' } }); return true;
+    }
+    if (path === samplesPath) { await route.fulfill({ json: [summary, scheduled] }); return true; }
+    if (path === `${samplesPath}/${sampleId}`) { await route.fulfill({ json: detail }); return true; }
+    if (path === `${samplesPath}/${scheduled.id}`) { await route.fulfill({ json: scheduled }); return true; }
+    return false;
+  });
+  await p.goto(`${appUrl}${page}`); const panel = p.locator('.backcheck-weights');
+  await expect(panel).toContainText('do not adjust for missing backchecks'); expect(attempts).toBe(0);
+  await panel.getByRole('button', { name: 'Show sampling weights', exact: true }).click();
+  await expect(panel.getByRole('alert')).toContainText('could not be loaded');
+  await panel.getByRole('button', { name: 'Show sampling weights', exact: true }).click();
+  await expect(panel.getByRole('status')).toContainText('5 selected from 9 recorded eligible');
+  await expect(panel.locator('tbody tr').first().locator('td')).toHaveText(['North', '6', '3', '0.5', '2']);
+  await expect(panel.locator('tbody tr').nth(1)).toContainText('Missing answer');
+  const [download] = await Promise.all([p.waitForEvent('download'), panel.getByRole('link', { name: 'Download sampling weights JSON', exact: true }).click()]);
+  expect(JSON.parse(await readFile(await download.path(), 'utf8'))).toEqual(weights);
+  await p.setViewportSize({ width: 360, height: 800 });
+  expect(await p.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  await panel.getByRole('button', { name: 'Refresh sampling weights', exact: true }).click();
+  await expect(panel.getByRole('status')).toContainText('Weights are unavailable');
+  await expect(panel.getByRole('link')).toHaveCount(0); await expect(panel.locator('table')).toHaveCount(0);
+  await p.locator('.backcheck-sample-pick select').selectOption(scheduled.id);
+  await expect(panel.getByRole('button', { name: 'Show sampling weights', exact: true })).toBeVisible();
+  await expect(panel).not.toContainText('Weights are unavailable'); expect(attempts).toBe(3);
+  expect(errors).toEqual([]);
+});
+
 test('a viewer sees the schedule but cannot change it', async ({ page: p }) => {
   const errors = await api(p, viewerVerbs, async (route, path) => {
     if (path === schedulePath) { await route.fulfill({ json: saved({ rate: 10, minPerCollector: 1, frequency: 'daily', enabled: true }) }); return true; }
