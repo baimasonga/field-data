@@ -205,6 +205,39 @@ describe('api: targeted investigation backcheck instruments (F9)', () => {
     const response = await alice.get(endpoint).expect(200); assert.equal(response.headers['cache-control'], 'private, no-store');
     await alice.get(`${endpoint}?extra=1`).expect(400);
   }));
+  it('offers same-form peer findings for all supported pair families and dispatches to the peer case', testService(async (service, c) => {
+    const { alice, endpoint, unrelated, body, draft, post, first } = await seed(service, c);
+    for (const rule of ['near-duplicate', 'repeated-location', 'identity-reused:peer']) {
+      await c.db.query(sql`UPDATE field_data_integrity_flags SET rule = ${rule}, "relatedInstanceId" = 'one' WHERE id = ${unrelated}`);
+      const peer = (await alice.get(endpoint).expect(200)).body.items.find(item => item.findingId === unrelated);
+      assert.equal(peer.targetSide, 'peer'); assert.equal(JSON.stringify(peer).includes('secret earlier answer'), false);
+      assert.equal(JSON.stringify(peer).includes('two'), false);
+    }
+    const definition = await alice.post(`${endpoint}/form-definition`).send({ investigationRevision: draft.investigationRevision, caseRevision: draft.caseRevision, templateVersion: draft.templateVersion, findingIds: [unrelated] }).expect(200);
+    assert.equal(definition.body.definition.questions.some(q => /legitimately shared/.test(q.label)), true);
+    const request = { ...body, findingIds: [unrelated] }; const saved = await post(request).expect(201);
+    assert.equal(await c.db.oneFirst(sql`SELECT "caseId" FROM field_data_backchecks WHERE id = ${saved.body.id}`), first.id);
+    await c.db.query(sql`UPDATE field_data_integrity_flags SET outcome = 'withdrawn' WHERE id = ${unrelated}`);
+    assert.equal((await post(request).expect(201)).body.id, saved.body.id);
+    assert.equal((await alice.get(endpoint).expect(200)).body.items.some(item => item.findingId === unrelated), false);
+  }));
+  it('withholds unsupported, ambiguous, cross-form and missing-primary peer matches and rechecks before writing', testService(async (service, c) => {
+    const { alice, endpoint, unrelated, body, draft, post } = await seed(service, c);
+    await c.db.query(sql`UPDATE field_data_integrity_flags SET rule = 'near-duplicate', "relatedInstanceId" = 'one' WHERE id = ${unrelated}`);
+    assert.equal((await alice.get(endpoint).expect(200)).body.items.some(item => item.findingId === unrelated), true);
+    for (const evidence of [{ others: [{ instanceId: 'one', xmlFormId: 'withrepeat' }] }, { others: [{ instanceId: 'one', xmlFormId: null }] }, { others: {} }]) {
+      await c.db.query(sql`UPDATE field_data_integrity_flags SET evidence = ${sql.json(evidence)} WHERE id = ${unrelated}`);
+      assert.equal((await alice.get(endpoint).expect(200)).body.items.some(item => item.findingId === unrelated), false);
+      await post({ ...body, findingIds: [unrelated] }).expect(400);
+      await alice.post(`${endpoint}/form-definition`).send({ investigationRevision: draft.investigationRevision, caseRevision: draft.caseRevision, templateVersion: draft.templateVersion, findingIds: [unrelated] }).expect(400);
+    }
+    await c.db.query(sql`UPDATE field_data_integrity_flags SET evidence = '{}'::jsonb, rule = 'contradiction:unsupported-peer' WHERE id = ${unrelated}`);
+    assert.equal((await alice.get(endpoint).expect(200)).body.items.some(item => item.findingId === unrelated), false);
+    await c.db.query(sql`UPDATE field_data_integrity_flags SET rule = 'near-duplicate', "instanceId" = 'missing-primary' WHERE id = ${unrelated}`);
+    await post({ ...body, findingIds: [unrelated] }).expect(400);
+    assert.equal((await alice.get(endpoint).expect(200)).body.items.some(item => item.findingId === unrelated), false);
+    assert.equal(await c.db.oneFirst(sql`SELECT count(*)::integer FROM field_data_backchecks`), 0);
+  }));
   it('creates an ordinary dedicated-form backcheck with atomic investigation audit and normalized exact retries', testService(async (service, c) => {
     const { alice, first, inv, draft, body, post, checker, path, link } = await seed(service, c);
     const saved = await post().expect(201); assert.equal(saved.headers.etag, `"review-case-${draft.caseRevision + 1}"`);

@@ -377,7 +377,7 @@ pilot is a separate acceptance activity. Product work resumes with K7 above.
 | Offline resilience | Signed encrypted assignments/itineraries, recoverable media, encrypted relay packages and receipts | Durable XML submission queues, Collect integration, background sync and delegated courier/custody transport |
 | Operations | Sampling, allocation, shared capacity, same-day/overnight UTC shifts, combined approved itineraries, manual/scheduled collector/answer sampling with group-specific rates, numeric ranges, polygon groups, inspectable design weights, conditional calibrated binary estimates, approved-stop navigation handoff and agreement counts | Additional task types, built-in/offline routing, external benchmark calibration and validated outcome inference |
 | Geospatial | Location integrity, imagery availability and cited human geospatial assessments with temporal context and outdated history | Exact footprint checks, reviewed change candidates, imagery analysis and evaluated automated change detection |
-| Fraud intelligence | Contradictions, identity reuse, similarity, collector links, investigations/outcomes, live case links and targeted backcheck questions with reviewed form drafts | Peer-side targeting, multilingual/effectiveness evaluation, calibrated triage and false-positive evaluation |
+| Fraud intelligence | Contradictions, identity reuse, similarity, collector links, investigations/outcomes, live case links and targeted backcheck questions with reviewed form drafts and same-form peer targeting | Cross-form peer targeting, multilingual/effectiveness evaluation, calibrated triage and false-positive evaluation |
 | Adaptive surveys | Doctor, simulations, version-change analysis and recodes | Approved bounded policies, reviewed evolution/draft generation, answer uncertainty, conversational multilingual support and native-export recodes |
 | Multimodal | Provenance-preserving capture, manual evidence review and reviewed photo-text/voice extraction with correction history | Live provider/language evaluation, asset/module suggestions, guided capture, source-grounded drafts, offline models and field acceptance |
 
@@ -524,3 +524,14 @@ from active corroboration, and exports support independently pinned issuer check
 See [T6-witness-key-revocation.md](T6-witness-key-revocation.md). This covers
 self-generated witness keys; certified identity/delegation, certified identity-key
 revocation and sensor/hardware corroboration remain pending. All eight areas remain partial.
+
+
+### F11 same-form peer-side targeted backchecks
+
+Linked peer review cases can use active same-form shared-identity, similar-answer
+and repeated-location findings to prepare neutral prompts and reviewed response-form
+drafts, then dispatch an independent backcheck to that peer case. Side labels and
+write-time eligibility checks retain privacy and retry boundaries. See
+[F11-same-form-peer-backchecks.md](F11-same-form-peer-backchecks.md). Cross-form
+peer targeting, multilingual/effectiveness evaluation and calibrated triage remain
+pending; all eight areas remain partial.

@@ -2,7 +2,7 @@
 <template>
   <section class="investigation-instrument" aria-label="Targeted backcheck instrument">
     <h5>Targeted backcheck</h5>
-    <p>Prepare neutral follow-up questions from this source's active investigation findings. Review and edit the questions, then choose a published form that can record the answers.</p>
+    <p>Prepare neutral follow-up questions from active investigation findings that name this source as the primary record or a same-form peer. Review and edit the questions, then choose a published form that can record the answers.</p>
     <button type="button" class="btn btn-default" :disabled="busy" @click="load">{{ data ? 'Refresh instrument' : 'Prepare targeted backcheck' }}</button>
     <p v-if="error" role="alert">{{ error }}</p>
     <template v-if="data">
@@ -13,7 +13,7 @@
         <fieldset :disabled="busy || pending != null || generated != null || (!data.canRequest && !data.canGenerateForm)">
           <legend>Choose what to verify</legend>
           <label v-for="item of data.items" :key="item.findingId" class="instrument-check">
-            <input v-model="selected" type="checkbox" :value="item.findingId"> {{ item.label }} · finding {{ item.findingId }} (rule version {{ item.ruleVersion }})
+            <input v-model="selected" type="checkbox" :value="item.findingId"> {{ item.label }} · {{ item.targetSide === 'peer' ? 'Peer record' : 'Primary record' }} · finding {{ item.findingId }} (rule version {{ item.ruleVersion }})
           </label>
           <button type="button" class="btn btn-default" :disabled="!selected.length" @click="draft">Draft verification questions</button>
         </fieldset>
