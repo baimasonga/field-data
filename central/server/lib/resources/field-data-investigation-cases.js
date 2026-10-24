@@ -215,7 +215,7 @@ module.exports = (service, endpoint) => {
         // Exact replay may outlive a finding's active state, but never source access.
         const sources = await tx.db.any(sql`SELECT i.id,f."acteeId" FROM field_data_integrity_flags i
           JOIN forms f ON f.id = i."formId" AND f."projectId" = ${project.id} AND f."deletedAt" IS NULL
-          WHERE i.id = ANY(${sql.array(data.findingIds, 'int4')}) ORDER BY f.id,i.id FOR SHARE OF i,f`);
+          WHERE i.id = ANY(${sql.array(data.findingIds, 'int8')}) ORDER BY f.id,i.id FOR SHARE OF i,f`);
         if (sources.length !== data.findingIds.length) throw Problem.user.notFound();
         for (const source of sources) {
           // eslint-disable-next-line no-await-in-loop
