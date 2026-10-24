@@ -21,6 +21,8 @@ const { AREA_LIMITS, polygonGroup, areaLabels, areaVertexCount } = require('../u
 
 const { samplingWeights } = require('../util/sampling-weights');
 
+const { validateOutcomes, calibratedEstimate } = require('../util/sampling-estimate');
+
 const REASON = 'backcheck-sample';
 const LOCK = 74139;
 
@@ -267,6 +269,22 @@ module.exports = (service, endpoint) => {
     return { sampleId: sample.id, drawnAt: sample.drawnAt, scheduled: sample.scheduleId != null, seed: sample.seed,
       groupField: sample.settings.groupField ?? null,
       ...samplingWeights(sample.eligible, items, sample.settings, sample.seed) };
+  }));
+
+  // Calculation only: user-supplied outcomes and results are not persisted.
+  service.post(`${base}/:sampleId/estimate`, endpoint(async (container, { params, auth, body }, _, response) => {
+    const form = await formFor(container, auth, params, ['submission.list', 'submission.read']);
+    if (!UUID_PATTERN.test(params.sampleId)) throw Problem.user.notFound();
+    const sample = await container.db.maybeOne(sql`SELECT id, settings, seed, eligible FROM field_data_backcheck_samples
+      WHERE id = ${params.sampleId} AND "formId" = ${form.id}`);
+    if (sample == null) throw Problem.user.notFound();
+    const { input, error } = validateOutcomes(body, sample.id);
+    if (error) throw Problem.user.backcheckSampleInvalid(error);
+    const items = await container.db.any(sql`SELECT "instanceId" FROM field_data_backcheck_sample_items WHERE "sampleId" = ${sample.id}`);
+    const result = calibratedEstimate(sample, items, input);
+    if (result.error) throw Problem.user.backcheckSampleInvalid(result.error);
+    response.set('Cache-Control', 'private, no-store');
+    return result;
   }));
 
   service.get(`${base}/:sampleId`, endpoint(async (container, { params, auth, query }, _, response) => {

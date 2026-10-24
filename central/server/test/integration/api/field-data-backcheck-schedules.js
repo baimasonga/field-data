@@ -331,6 +331,8 @@ describe('api: O6 scheduled backcheck samples', () => {
     const weights = (await alice.get(`/v1/projects/1/forms/simple/backcheck-samples/${drawn.sampleId}/weights`).expect(200)).body;
     assert.equal(weights.available, true); assert.equal(weights.scheduled, true);
     assert.ok(weights.items.every(item => item.designWeight === 1));
+    const estimate = (await alice.post(`/v1/projects/1/forms/simple/backcheck-samples/${drawn.sampleId}/estimate`).send({ sampleId: drawn.sampleId, definition: 'Reviewed condition', source: 'Register', outcomes: weights.items.map(item => ({ instanceId: item.instanceId, value: 1 })) }).expect(200)).body;
+    assert.equal(estimate.available, true); assert.equal(estimate.estimatedProportion, 1); assert.equal(estimate.interval.lower, 1);
 
     const view = (await alice.get(path).expect(200)).body;
     assert.deepEqual(view.runs.map((r) => [r.outcome, r.eligible, r.sampled, r.periods, r.sampleId]), [['drawn', 2, 2, 1, drawn.sampleId]]);
