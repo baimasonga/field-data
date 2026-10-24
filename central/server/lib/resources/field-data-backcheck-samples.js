@@ -15,7 +15,7 @@ const { Form } = require('../model/frames');
 const Problem = require('../util/problem');
 const { getOrNotFound } = require('../util/promise');
 const { UUID_PATTERN } = require('../util/claim-versioning');
-const { LIMITS, newSeed, validateSettings, draw, groupFields, rateFor } = require('../util/backcheck-sample');
+const { LIMITS, newSeed, validateSettings, draw, groupFields, rateFor, numericGroup, rangeLabels } = require('../util/backcheck-sample');
 
 const REASON = 'backcheck-sample';
 const LOCK = 74139;
@@ -28,9 +28,9 @@ const formFor = async (container, auth, params, verbs) => {
   return form;
 };
 
-const groupingAvailable = async (container, projectId, xmlFormId, path) => {
+const groupingAvailable = async (container, projectId, xmlFormId, path, numeric = false) => {
   const published = (await container.Forms.getByProjectAndXmlFormId(projectId, xmlFormId, Form.PublishedVersion)).orNull();
-  return published != null && published.def.keyId == null && groupFields(await container.Forms.getFields(published.def.id)).some(f => f.path === path);
+  return published != null && published.def.keyId == null && groupFields(await container.Forms.getFields(published.def.id)).some(f => f.path === path && (!numeric || ['int', 'decimal'].includes(f.type)));
 };
 
 const summaryColumns = sql`s.id, s."drawnAt", s.seed, s.settings, s."sampledBefore", s."scheduleId",
@@ -81,7 +81,7 @@ const sampleView = async (db, formId, sampleId, withEligible) => {
   const groupByInstance = new Map(row.settings.groupField ? row.eligibleList.map(e => [e.instanceId, e.groupValue ?? null]) : []);
   if (row.settings.groupField) {
     const group = value => {
-      if (!groups.has(value)) groups.set(value, { value, ...(row.settings.groupRates ? { rate: rateFor(row.settings, value) } : {}), eligible: 0, sampled: 0, requested: 0, linked: 0 });
+      if (!groups.has(value)) groups.set(value, { value, ...((row.settings.groupRates || row.settings.groupBreaks) ? { rate: rateFor(row.settings, value) } : {}), eligible: 0, sampled: 0, requested: 0, linked: 0 });
       return groups.get(value);
     };
     for (const e of row.eligibleList) group(e.groupValue ?? null).eligible += 1;
@@ -93,7 +93,7 @@ const sampleView = async (db, formId, sampleId, withEligible) => {
   }
   return {
     ...summaryOf(row),
-    ...(row.settings.groupField ? { groups: [...groups.values()].sort((a, b) => (a.value == null ? 1 : b.value == null ? -1 : a.value < b.value ? -1 : a.value > b.value ? 1 : 0)) } : {}),
+    ...(row.settings.groupField ? { groups: [...groups.values()].sort((a, b) => (a.value == null ? 1 : b.value == null ? -1 : row.settings.groupBreaks ? rangeLabels(row.settings.groupBreaks).indexOf(a.value) - rangeLabels(row.settings.groupBreaks).indexOf(b.value) : a.value < b.value ? -1 : a.value > b.value ? 1 : 0)) } : {}),
     collectors: [...collectors.values()].sort((a, b) => (a.submitterId == null ? 1 : b.submitterId == null ? -1 : a.submitterId - b.submitterId)),
     items: items.map((i) => ({
       instanceId: i.instanceId, submitterId: i.submitterId, displayName: i.displayName, rank: i.rank,
@@ -149,6 +149,11 @@ const drawSample = async (db, form, { requestId, settings, requestHash, actorId,
       e.groupValue = raw == null ? null : raw.normalize('NFC').trim() || null;
       if ((raw?.length ?? 0) > LIMITS.maxGroupValue || (e.groupValue?.length ?? 0) > LIMITS.maxGroupValue)
         throw Problem.user.backcheckSampleInvalid({ field: 'groupField', reason: `answers must be at most ${LIMITS.maxGroupValue} characters; choose a categorical question` });
+      if (settings.groupBreaks) {
+        const group = numericGroup(e.groupValue, settings.groupBreaks);
+        if (group.error) throw Problem.user.backcheckSampleInvalid({ field: 'groupBreaks', reason: group.error });
+        e.groupValue = group.value;
+      }
     }
     if (new Set(eligible.map(e => e.groupValue)).size > LIMITS.maxGroups)
       throw Problem.user.backcheckSampleInvalid({ field: 'groupField', reason: `must have at most ${LIMITS.maxGroups} distinct groups, including missing answers` });
@@ -209,8 +214,8 @@ module.exports = (service, endpoint) => {
     if (settings.groupField) {
       await auth.canOrReject('submission.read', form);
       await auth.canOrReject('submission.list', form);
-      if (!await groupingAvailable(container, params.projectId, params.xmlFormId, settings.groupField))
-        throw Problem.user.backcheckSampleInvalid({ field: 'groupField', reason: 'must name a non-repeating scalar question in an unencrypted published form' });
+      if (!await groupingAvailable(container, params.projectId, params.xmlFormId, settings.groupField, settings.groupBreaks != null))
+        throw Problem.user.backcheckSampleInvalid({ field: 'groupField', reason: 'must name a supported question in an unencrypted published form (numeric ranges require an integer or decimal question)' });
     }
     const requestHash = createHash('sha256').update(JSON.stringify(settings)).digest('hex');
     const actorId = auth.actor.map((actor) => actor.id).orNull();

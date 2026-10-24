@@ -60,7 +60,7 @@ rechecks retain their existing behavior. A group is not an allegation.
 
 [O22](O22-scheduled-answer-sampling.md) extends this grouping to daily/weekly schedules.
 [O23](O23-group-specific-sampling-rates.md) adds unequal per-category rates.
-Numeric bins, geographic polygon strata, weighting and calibrated estimates remain separate work.
+[O24](O24-numeric-range-sampling.md) adds numeric ranges. Geographic polygon strata, weighting and calibrated estimates remain separate work.
 
 ## Validation
 

@@ -59,6 +59,6 @@ scheduled selection, clearing without period reset and rollback/reapply.
 Browser checks exercise editing both forms, retrying a manual draw, saved rule
 reload, coverage and clearing on a narrow mobile viewport.
 
-Numeric bins, geographic polygon strata, weighting and calibrated estimates
+[O24](O24-numeric-range-sampling.md) adds numeric ranges. Geographic polygon strata, weighting and calibrated estimates
 remain separate work. This completes the bounded unequal group-rate capability;
 the wider Operations area and the eight-area programme remain partial.

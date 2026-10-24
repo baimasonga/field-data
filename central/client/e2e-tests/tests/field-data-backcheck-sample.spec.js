@@ -324,6 +324,67 @@ test('group rates survive retries, schedule reloads and mobile clearing', async 
   expect(errors).toEqual([]);
 });
 
+test('numeric ranges support manual retries, schedule editing, coverage and mobile clearing', async ({ page: p }) => {
+  const posts = []; const puts = [];
+  const grouped = { ...detail, settings: { ...detail.settings, groupField: '/age', groupBreaks: ['18', '35'] },
+    groups: [{ value: 'Below 18', rate: 25, eligible: 6, sampled: 2, requested: 0, linked: 0 }, { value: null, rate: 25, eligible: 3, sampled: 1, requested: 0, linked: 0 }] };
+  let current = saved({ rate: 10, minPerCollector: 1, frequency: 'daily', enabled: true, groupField: '/age', groupBreaks: ['18', '35'], groupRates: [{ value: 'Below 18', rate: 100 }] });
+  const errors = await api(p, managerVerbs, async (route, path) => {
+    if (path === `${samplesPath}/fields`) { await route.fulfill({ json: { fields: [{ path: '/age', type: 'int' }, { path: '/district', type: 'string' }] } }); return true; }
+    if (path === schedulePath) {
+      if (route.request().method() === 'PUT') { puts.push(route.request().postDataJSON()); current = saved(puts.at(-1)); }
+      await route.fulfill({ json: current }); return true;
+    }
+    if (path === samplesPath && route.request().method() === 'POST') {
+      posts.push(route.request().postDataJSON());
+      await route.fulfill(posts.length === 1 ? { status: 503, json: { message: 'Retry numeric draw.' } } : { status: 201, json: grouped }); return true;
+    }
+    if (path === samplesPath) { await route.fulfill({ json: [grouped] }); return true; }
+    if (path === `${samplesPath}/${sampleId}`) { await route.fulfill({ json: grouped }); return true; }
+    return false;
+  });
+  await p.goto(`${appUrl}${page}`);
+  const manual = p.locator('.backcheck-sample-form').first(); const panel = p.locator('.backcheck-schedule');
+  await expect(panel.getByLabel('Range boundary 1', { exact: true })).toHaveValue('18');
+  await expect(panel.locator('.backcheck-schedule-ranges')).toContainText('18 to below 35');
+  await expect(p.locator('.backcheck-sample-ranges')).toContainText('Recorded ranges: Below 18');
+  await expect(p.locator('.backcheck-group-coverage tbody tr').first().locator('td')).toHaveText(['25%', '6', '2', '0', '0']);
+  await manual.getByRole('combobox', { name: 'Group submissions', exact: true }).selectOption('field');
+  await manual.getByRole('combobox', { name: 'Area or answer question', exact: true }).selectOption('/age');
+  await manual.getByRole('combobox', { name: 'Group numeric answers', exact: true }).selectOption('ranges');
+  await manual.getByLabel('Range boundary 1', { exact: true }).fill('18');
+  await manual.getByRole('button', { name: 'Add boundary', exact: true }).click();
+  await manual.getByLabel('Range boundary 2', { exact: true }).fill('35');
+  await expect(manual.locator('.sampling-numeric-ranges')).toContainText('Ranges: Below 18; 18 to below 35; 35 or above; Missing answer.');
+  await manual.getByRole('button', { name: 'Add group rate', exact: true }).click();
+  await manual.getByRole('combobox', { name: 'Group rate answer', exact: true }).selectOption('35 or above');
+  await manual.getByRole('button', { name: 'Draw sample', exact: true }).click();
+  await expect(p.locator('.backcheck-sample-error').first()).toContainText('Retry numeric draw.');
+  await manual.getByRole('button', { name: 'Draw sample', exact: true }).click();
+  await expect.poll(() => posts.length).toBe(2);
+  expect(posts[1]).toEqual(posts[0]); expect(posts[0].groupBreaks).toEqual(['18', '35']);
+  expect(posts[0].groupRates).toEqual([{ value: '35 or above', rate: 100 }]);
+  await manual.getByLabel('Range boundary 2', { exact: true }).fill('40');
+  await expect(manual.locator('.sampling-group-rate')).toHaveCount(0);
+  await panel.getByLabel('Range boundary 1', { exact: true }).fill('16');
+  await expect(panel.locator('.sampling-group-rate')).toHaveCount(0);
+  await panel.getByRole('button', { name: 'Add group rate', exact: true }).click();
+  await panel.getByRole('button', { name: 'Save schedule', exact: true }).click();
+  await expect(panel.locator('.backcheck-schedule-ranges')).toContainText('Below 16');
+  expect(puts[0].groupBreaks).toEqual(['16', '35']); expect(puts[0].groupRates).toEqual([{ value: 'Below 16', rate: 100 }]);
+  await p.reload();
+  await expect(panel.getByLabel('Range boundary 1', { exact: true })).toHaveValue('16');
+  await p.setViewportSize({ width: 360, height: 800 });
+  expect(await p.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  await panel.getByRole('combobox', { name: 'Group numeric answers', exact: true }).selectOption('exact');
+  await panel.getByRole('button', { name: 'Save schedule', exact: true }).click();
+  await expect.poll(() => puts.length).toBe(2); expect(puts[1]).not.toHaveProperty('groupBreaks'); expect(puts[1]).not.toHaveProperty('groupRates');
+  await expect(panel.locator('.backcheck-schedule-ranges')).toHaveCount(0);
+  await panel.getByRole('combobox', { name: 'Scheduled area or answer question', exact: true }).selectOption('/district');
+  await expect(panel.locator('.sampling-numeric-ranges')).toHaveCount(0);
+  expect(errors).toEqual([]);
+});
+
 test('a viewer sees the schedule but cannot change it', async ({ page: p }) => {
   const errors = await api(p, viewerVerbs, async (route, path) => {
     if (path === schedulePath) { await route.fulfill({ json: saved({ rate: 10, minPerCollector: 1, frequency: 'daily', enabled: true }) }); return true; }

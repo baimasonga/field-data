@@ -243,6 +243,49 @@ describe('api: O3 random backcheck sample', () => {
     draw(full.eligibleList, full.settings, full.seed).chosen.map(i => i.instanceId).sort().should.eql(sample.items.map(i => i.instanceId).sort());
   }));
 
+  it('draws numeric ranges at exact boundaries and retains only reproducible range membership', testService(async (service, c) => {
+    const alice = await service.login('alice');
+    for (const [i, value] of ['17', '17.999999999999999999', '18', '+018.00', '34.999999999999999999', '35', '9007199254740993', ''].entries())
+      await alice.post('/v1/projects/1/forms/simple/submissions').send(instance(`range${i}`).replace('<age>30</age>', `<age>${value}</age>`)).set('Content-Type', 'application/xml').expect(200);
+    const body = { requestId: requestId(60), rate: 10, minPerCollector: 0, groupField: '/age', groupBreaks: ['18.00', '35'], groupRates: [{ value: 'Below 18', rate: 100 }] };
+    const sample = (await alice.post(base).send(body).expect(201)).body;
+    sample.groups.map(g => [g.value, g.rate, g.eligible, g.sampled]).should.eql([
+      ['Below 18', 100, 2, 2], ['18 to below 35', 10, 3, 1], ['35 or above', 10, 2, 1], [null, 10, 1, 1]
+    ]);
+    const replay = await alice.post(base).send({ ...body, groupBreaks: ['+0018', '035.0'] }).expect(200);
+    replay.body.id.should.equal(sample.id);
+    await alice.post(base).send({ ...body, groupBreaks: ['18', '36'] }).expect(400);
+    const full = (await alice.get(`${base}/${sample.id}?eligible=true`).expect(200)).body;
+    full.eligibleList.forEach(e => Object.keys(e).sort().should.eql(['groupValue', 'instanceId', 'submitterId']));
+    full.eligibleList.find(e => e.instanceId === 'range1').groupValue.should.equal('Below 18');
+    draw(full.eligibleList, full.settings, full.seed).chosen.map(i => i.instanceId).sort().should.eql(sample.items.map(i => i.instanceId).sort());
+    await c.run(sql`UPDATE submission_defs SET xml = replace(xml, '<age>17</age>', '<age>99</age>') WHERE current`);
+    (await alice.get(`${base}/${sample.id}`).expect(200)).body.groups.should.eql(sample.groups);
+    const audit = await c.oneFirst(sql`SELECT details FROM audits WHERE action = 'field_data.backcheck_sample.draw'`);
+    audit.settings.groupBreaks.should.eql(['18', '35']);
+  }));
+
+  it('supports decimal questions with more than 100 distinct numeric answers', testService(async service => {
+    const alice = await service.login('alice');
+    await alice.post('/v1/projects/1/forms?publish=true').send(testData.forms.simple.replace('id="simple"', 'id="measure"').replace('type="int"', 'type="decimal"')).set('Content-Type', 'application/xml').expect(200);
+    for (let i = 0; i <= 100; i += 1)
+      await alice.post('/v1/projects/1/forms/measure/submissions').send(instance(`measure${i}`).replace('id="simple"', 'id="measure"').replace('<age>30</age>', `<age>${i}.25</age>`)).set('Content-Type', 'application/xml').expect(200);
+    const result = (await alice.post('/v1/projects/1/forms/measure/backcheck-samples').send({ requestId: requestId(62), rate: 1, minPerCollector: 0, groupField: '/age', groupBreaks: ['50.25'] }).expect(201)).body;
+    result.groups.map(g => [g.value, g.eligible, g.sampled]).should.eql([['Below 50.25', 50, 1], ['50.25 or above', 51, 1]]);
+  }));
+
+  it('refuses nonnumeric questions and unsafe numeric answers before writing any sample', testService(async (service, c) => {
+    const alice = await service.login('alice');
+    const body = { requestId: requestId(61), rate: 10, groupField: '/age', groupBreaks: ['18'] };
+    await alice.post(base).send({ ...body, groupField: '/name' }).expect(400);
+    await alice.post('/v1/projects/1/forms/simple/submissions').send(instance('bad-number').replace('<age>30</age>', '<age>not-a-number</age>')).set('Content-Type', 'application/xml').expect(200);
+    const before = await c.all(sql`SELECT id, revision FROM field_data_review_cases ORDER BY id`);
+    await alice.post(base).send(body).expect(400);
+    (await c.oneFirst(sql`SELECT count(*)::integer FROM field_data_backcheck_samples`)).should.equal(0);
+    (await c.oneFirst(sql`SELECT count(*)::integer FROM audits WHERE action = 'field_data.backcheck_sample.draw'`)).should.equal(0);
+    (await c.all(sql`SELECT id, revision FROM field_data_review_cases ORDER BY id`)).should.eql(before);
+  }));
+
   it('keeps samples on a migration rollback', testServiceFullTrx(async (service) => {
     const { alice } = await setUp(service);
     await alice.post(base).send({ requestId: requestId(1), rate: 10 }).expect(201);
