@@ -1,5 +1,6 @@
 /* global document */
 import { expect, test } from '@playwright/test';
+import { createHash } from 'node:crypto';
 
 const appUrl = process.env.ODK_URL || 'http://127.0.0.1:8989';
 const caseId = '11111111-1111-4111-8111-111111111111';
@@ -1765,6 +1766,37 @@ test('duplicate asset locations compare explicit facts, clear stale results and 
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= 320)).toBe(true);
   await expect(page.getByRole('button', { name: 'Not the same', exact: true })).toHaveCount(0);
   expect(requests).toEqual(['location', 'survey position', 'survey position', 'survey position']); expect(errors).toEqual([]);
+});
+
+test('referenced asset photos verify bytes, label equality honestly and clear previews after tampering or denied access', async ({ page }) => {
+  const { state, errors } = await setup(page);
+  const a = { id: '55555555-5555-4555-8555-555555555555', name: 'First pump', externalId: 'P-1', assetType: 'pump', xmlFormId: 'health' };
+  const b = { ...a, id: '99999999-9999-4999-8999-999999999999', name: 'Second pump', externalId: 'P-2' };
+  state.duplicatePairs.push({ a, b, reasons: ['same-name'] });
+  const bytes = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+yX3cAAAAASUVORK5CYII=', 'base64');
+  const make = value => ({ name: 'scene.jpg', contentType: 'image/png', size: value.length, sha256: createHash('sha256').update(value).digest('hex'), base64: value.toString('base64') });
+  let mode = 'equal'; const requests = [];
+  await page.route('**/assets/*/photo-comparison/*?*', route => {
+    const predicate = new URL(route.request().url()).searchParams.get('predicate'); requests.push(predicate);
+    if (mode === 'denied') return route.fulfill({ status: 404, json: { message: 'Unavailable' } });
+    const side = { status: 'usable', citation: { observationId: 'photo-observation', sourceUrl: '/v1/field-data/claim-versions/77777777-7777-4777-8777-777777777777', validFrom: '2026-10-24T12:00:00Z', recordedAt: '2026-10-24T12:01:00Z', freshness: 'fresh' }, photo: make(bytes) };
+    const other = mode === 'missing' ? { status: 'attachment-missing', citation: side.citation } : { ...side, photo: mode === 'different' ? make(Buffer.concat([bytes, Buffer.from('different bytes')])) : { ...side.photo, sha256: mode === 'tampered' ? 'a'.repeat(64) : side.photo.sha256 } };
+    return route.fulfill({ json: { method: 'asset-referenced-photo@1', checkedAt: '2026-10-24T12:05:00Z', predicate, a: side, b: other } });
+  });
+  await page.reload(); const section = page.getByRole('region', { name: 'Referenced asset photo comparison' });
+  expect(requests).toEqual([]); await section.getByRole('button', { name: 'Compare referenced photos' }).click();
+  await expect(section).toContainText('identical bytes'); await expect(section.getByRole('img')).toHaveCount(2);
+  await expect(section.getByRole('img').first()).toHaveJSProperty('naturalWidth', 1);
+  await expect(section).toContainText('File equality does not prove asset identity');
+  await expect(section).toContainText('Attachment snapshot checked at 2026-10-24T12:05:00Z');
+  mode = 'different'; await section.getByRole('button', { name: 'Compare referenced photos' }).click(); await expect(section).toContainText('different bytes');
+  await section.getByLabel('Photo fact name').fill('reference image'); await expect(section.getByRole('img')).toHaveCount(0);
+  mode = 'missing'; await section.getByRole('button', { name: 'Compare referenced photos' }).click(); await expect(section).toContainText('attachment-missing'); await expect(section).toContainText('byte comparison unavailable');
+  mode = 'tampered'; await section.getByRole('button', { name: 'Compare referenced photos' }).click(); await expect(section.getByRole('alert')).toContainText('could not be loaded or verified'); await expect(section.getByRole('img')).toHaveCount(0);
+  mode = 'denied'; await section.getByRole('button', { name: 'Compare referenced photos' }).click(); await expect(section.getByRole('img')).toHaveCount(0);
+  mode = 'equal'; await section.getByRole('button', { name: 'Compare referenced photos' }).click(); await expect(section.getByRole('img')).toHaveCount(2);
+  await page.setViewportSize({ width: 320, height: 800 }); expect(await page.evaluate(() => document.documentElement.scrollWidth <= 320)).toBe(true);
+  expect(requests).toEqual(['photo', 'photo', 'reference image', 'reference image', 'reference image', 'reference image']); expect(errors).toEqual([]);
 });
 
 test('asset status compares several facts with independent summaries, citations and historical cutoffs', async ({ page }) => {

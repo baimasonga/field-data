@@ -145,4 +145,40 @@ describe('api: suggested duplicate assets (K5)', () => {
     await service.get(target).query({ predicate: 'location' }).expect(401);
   }));
 
+  it('compares cited photo bytes and reports replacement, missing and unusable references without modifying assets', testService(async service => {
+    const { alice, register, observe } = await setup(service);
+    const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+yX3cAAAAASUVORK5CYII=', 'base64');
+    await alice.post('/v1/projects/1/forms?publish=true').set('Content-Type', 'application/xml').send(testData.forms.binaryType).expect(200);
+    await alice.post('/v1/projects/1/forms/binaryType/submissions').set('Content-Type', 'application/xml').send(testData.instances.binaryType.both).expect(200);
+    const source = '/v1/projects/1/forms/binaryType/submissions/both';
+    const claimVersionId = (await alice.get(`${source}/claim`).expect(200)).body.currentVersionId;
+    const put = (name, bytes, type = 'image/png') => alice.post(`${source}/attachments/${name}`).set('Content-Type', type).send(bytes);
+    await put('here_is_file2.jpg', png).expect(200); await put('my_file1.mp4', png).expect(200);
+    const a = await register('First pump', 'A'); const b = await register('Second pump', 'B');
+    const patch = { predicate: 'photo', claimVersionId, validFrom: new Date().toISOString() };
+    await observe(a, 'here_is_file2.jpg', patch); await observe(b, 'my_file1.mp4', patch);
+    const target = `${root}/${a}/photo-comparison/${b}`; const get = () => alice.get(target).query({ predicate: 'photo' });
+    const first = await get().expect(200); assert.equal(first.headers['cache-control'], 'private, no-store');
+    assert.equal(first.body.identicalBytes, true); assert.equal(first.body.a.status, 'usable');
+    assert.equal(Buffer.from(first.body.a.photo.base64, 'base64').equals(png), true);
+    assert.equal(first.body.a.citation.claimVersionId, claimVersionId);
+    await put('my_file1.mp4', Buffer.concat([png, Buffer.from('different retained bytes')])).expect(200);
+    const changed = (await get().expect(200)).body; assert.equal(changed.identicalBytes, false); assert.notEqual(changed.b.photo.sha256, first.body.b.photo.sha256);
+    await put('my_file1.mp4', 'not a supported photo', 'text/plain').expect(200);
+    const unsupported = (await get().expect(200)).body; assert.equal(unsupported.b.status, 'unsupported-photo'); assert.equal(unsupported.identicalBytes, null);
+    await observe(b, 'not-present.jpg', patch); assert.equal((await get().expect(200)).body.b.status, 'attachment-missing');
+    await observe(b, null, { ...patch, state: 'unknown' }); assert.equal((await get().expect(200)).body.b.status, 'unknown');
+    await alice.get(target).expect(400); await alice.get(target).query({ predicate: 'photo', extra: 1 }).expect(400);
+    await alice.get(`${root}/${a}/photo-comparison/${a}`).query({ predicate: 'photo' }).expect(400);
+    const user = await service.login('chelsea'); const { id } = (await user.get('/v1/users/current').expect(200)).body;
+    await alice.post(`/v1/projects/1/assignments/formfill/${id}`).expect(200);
+    await alice.post(`/v1/projects/1/forms/simple/assignments/viewer/${id}`).expect(200);
+    await user.get(target).query({ predicate: 'photo' }).expect(404);
+    await alice.post(`/v1/projects/1/forms/binaryType/assignments/viewer/${id}`).expect(200);
+    await user.get(target).query({ predicate: 'photo' }).expect(200);
+    await alice.delete(`/v1/projects/1/forms/binaryType/assignments/viewer/${id}`).expect(200);
+    await user.get(target).query({ predicate: 'photo' }).expect(404);
+    await service.get(target).query({ predicate: 'photo' }).expect(401);
+  }));
+
 });
