@@ -377,7 +377,7 @@ pilot is a separate acceptance activity. Product work resumes with K7 above.
 | Offline resilience | Signed encrypted assignments/itineraries, recoverable media, encrypted relay packages and receipts | Durable XML submission queues, Collect integration, background sync and delegated courier/custody transport |
 | Operations | Sampling, allocation, shared capacity, same-day/overnight UTC shifts, combined approved itineraries, manual/scheduled collector/answer sampling with group-specific rates, numeric ranges, polygon groups, inspectable design weights, conditional calibrated binary estimates, approved-stop navigation handoff and agreement counts | Additional task types, built-in/offline routing, external benchmark calibration and validated outcome inference |
 | Geospatial | Location integrity, imagery availability and cited human geospatial assessments with temporal context and outdated history | Exact footprint checks, reviewed change candidates, imagery analysis and evaluated automated change detection |
-| Fraud intelligence | Contradictions, identity reuse, similarity, collector links, investigations/outcomes, live case links and targeted backcheck questions with reviewed form drafts and same-form peer targeting | Cross-form peer targeting, multilingual/effectiveness evaluation, calibrated triage and false-positive evaluation |
+| Fraud intelligence | Contradictions, identity reuse, similarity, collector links, investigations/outcomes, live case links and targeted backcheck questions with reviewed form drafts and same-form/cross-form shared-identity peer targeting | Broader peer families, multilingual/effectiveness evaluation, calibrated triage and false-positive evaluation |
 | Adaptive surveys | Doctor, simulations, version-change analysis and recodes | Approved bounded policies, reviewed evolution/draft generation, answer uncertainty, conversational multilingual support and native-export recodes |
 | Multimodal | Provenance-preserving capture, manual evidence review and reviewed photo-text/voice extraction with correction history | Live provider/language evaluation, asset/module suggestions, guided capture, source-grounded drafts, offline models and field acceptance |
 
@@ -534,4 +534,14 @@ drafts, then dispatch an independent backcheck to that peer case. Side labels an
 write-time eligibility checks retain privacy and retry boundaries. See
 [F11-same-form-peer-backchecks.md](F11-same-form-peer-backchecks.md). Cross-form
 peer targeting, multilingual/effectiveness evaluation and calibrated triage remain
+pending; all eight areas remain partial.
+
+
+### F12 cross-form shared-identity peer backchecks
+
+Explicit shared-identity counterparts in another readable form can now supply
+neutral prompts and reviewed response-form drafts for the linked peer case. Both
+source-form grants, mapping ambiguity and retry access are checked. See
+[F12-cross-form-peer-backchecks.md](F12-cross-form-peer-backchecks.md). Broader
+peer families, multilingual/effectiveness evaluation and calibrated triage remain
 pending; all eight areas remain partial.

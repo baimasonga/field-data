@@ -14,7 +14,7 @@ const templates = [
 ];
 const suggestion = row => {
   const match = templates.find(([pattern]) => pattern.test(row.rule));
-  return match ? { findingId: row.id, targetSide: row.targetSide ?? 'primary', ruleVersion: row.ruleVersion, label: match[1], question: match[2] } : null;
+  return match ? { findingId: row.id, targetSide: row.targetSide ?? 'primary', targetScope: row.targetScope ?? 'same-form', ruleVersion: row.ruleVersion, label: match[1], question: match[2] } : null;
 };
 const checked = (body, headers) => {
   const keys = ['requestId', 'investigationRevision', 'templateVersion', 'findingIds', 'responseXmlFormId', 'assignedTo', 'question', 'dueAt'];

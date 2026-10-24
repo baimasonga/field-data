@@ -67,27 +67,44 @@ const state = async (c, auth, project, inv, before = 501) => {
       available: available(e), ...(available(e) ? { case: publicCase(byId.get(e.caseId)), reason: e.reason, actorName: e.actorName, createdAt: e.createdAt } : {}) })),
     hiddenEvents: selected.filter(e => !available(e)).length, nextBefore: page.length > selected.length ? selected.at(-1).sequence : null };
 };
-// Peer targets must resolve unambiguously to this same form and a live primary
-// record. Both sides therefore share the source read grant held by linkedScope.
-const instrumentFindings = async (db, inv, row, lock = false) => {
-  const findings = await db.any(sql`SELECT i.id,i.rule,i."ruleVersion",
-    CASE WHEN i."instanceId" = ${row.instanceId} THEN 'primary' ELSE 'peer' END AS "targetSide"
+// Resolve the named peer unambiguously, then filter by the primary form grant.
+// No primary source identifiers or evidence are returned in suggestions.
+const instrumentFindings = async (tx, auth, inv, row, lock = false) => {
+  const findings = await tx.db.any(sql`SELECT i.id,i.rule,i."ruleVersion", pf.id AS "primaryFormId", pf."xmlFormId" AS "primaryXmlFormId", pf."acteeId" AS "primaryActeeId",
+    CASE WHEN pf.id = ${row.formId} THEN 'same-form' ELSE 'cross-form' END AS "targetScope",
+    CASE WHEN pf.id = ${row.formId} AND i."instanceId" = ${row.instanceId} THEN 'primary' ELSE 'peer' END AS "targetSide"
     FROM field_data_investigation_findings x
     JOIN field_data_integrity_flags i ON i.id = x."findingId"
-    WHERE x."investigationId" = ${inv.id} AND i."formId" = ${row.formId}
-      AND (i."instanceId" = ${row.instanceId} OR (
+    JOIN forms pf ON pf.id = i."formId" AND pf."projectId" = ${inv.projectId} AND pf."deletedAt" IS NULL
+    WHERE x."investigationId" = ${inv.id}
+      AND ((pf.id = ${row.formId} AND i."instanceId" = ${row.instanceId}) OR (
         i."relatedInstanceId" = ${row.instanceId}
         AND (i.rule IN ('near-duplicate','repeated-location') OR i.rule LIKE 'identity-reused:%')
         AND (NOT (i.evidence ? 'others') OR jsonb_typeof(i.evidence->'others') = 'array')
+        AND (pf.id = ${row.formId} OR (i.rule LIKE 'identity-reused:%' AND EXISTS (
+          SELECT 1 FROM jsonb_array_elements(CASE WHEN jsonb_typeof(i.evidence->'others') = 'array' THEN i.evidence->'others' ELSE '[]'::jsonb END) o
+          WHERE o->>'instanceId' = i."relatedInstanceId" AND o->>'xmlFormId' = ${row.xmlFormId})))
         AND NOT EXISTS (SELECT 1 FROM jsonb_array_elements(CASE WHEN jsonb_typeof(i.evidence->'others') = 'array'
           THEN i.evidence->'others' ELSE '[]'::jsonb END) o
-          WHERE o->>'instanceId' = i."relatedInstanceId" AND o ? 'xmlFormId' AND o->>'xmlFormId' IS DISTINCT FROM ${row.xmlFormId})
+          WHERE o->>'instanceId' = i."relatedInstanceId" AND (pf.id <> ${row.formId} OR o ? 'xmlFormId') AND o->>'xmlFormId' IS DISTINCT FROM ${row.xmlFormId})
         AND EXISTS (SELECT 1 FROM submissions ps WHERE ps."formId" = i."formId" AND ps."instanceId" = i."instanceId"
           AND ps."deletedAt" IS NULL AND ps.draft = FALSE ${lock ? sql`FOR SHARE OF ps` : sql``})
       ))
       AND i.status IN ('open','investigating') AND i.outcome IN ('concern','inconclusive')
-    ORDER BY i.id ${lock ? sql`FOR SHARE OF i,x` : sql``}`);
-  return findings.map(instrument.suggestion).filter(Boolean);
+    ORDER BY i.id ${lock ? sql`FOR SHARE OF i,x,pf` : sql``}`);
+  const permitted = new Set([row.formId]);
+  for (const candidate of findings) {
+    if (permitted.has(candidate.primaryFormId)) continue; // eslint-disable-line no-continue
+    // eslint-disable-next-line no-await-in-loop
+    const form = (await tx.Forms.getByProjectAndXmlFormId(inv.projectId, candidate.primaryXmlFormId, Form.WithoutDef, Form.WithoutXml)).orNull();
+    // eslint-disable-next-line no-await-in-loop
+    if (form && await auth.can('submission.read', form)) {
+      // eslint-disable-next-line no-await-in-loop
+      await grantLock(tx.db, auth.actor.get().id, candidate.primaryActeeId, 'submission.read');
+      permitted.add(candidate.primaryFormId);
+    }
+  }
+  return findings.filter(candidate => permitted.has(candidate.primaryFormId)).map(instrument.suggestion).filter(Boolean);
 };
 const linkedScope = async (tx, auth, project, params, lock = false) => {
   if (!UUID_PATTERN.test(params.linkId ?? '')) throw Problem.user.notFound();
@@ -156,7 +173,7 @@ module.exports = (service, endpoint) => {
     const project = await scope(c, auth, params); if (Object.keys(query).length) throw instrument.invalid();
     const result = await c.transacting(async tx => {
       const { actor, inv, row } = await linkedScope(tx, auth, project, params);
-      const items = await instrumentFindings(tx.db, inv, row);
+      const items = await instrumentFindings(tx, auth, inv, row);
       const form = await tx.Forms.getByProjectAndXmlFormId(project.id, row.xmlFormId, Form.WithoutDef, Form.WithoutXml).then(getOrNotFound);
       const pending = await tx.db.oneFirst(sql`SELECT count(*)::integer FROM field_data_backchecks WHERE "caseId" = ${row.id} AND status = 'requested'`);
       return { templateVersion: instrument.VERSION, investigationRevision: inv.revision, caseRevision: row.revision,
@@ -174,7 +191,7 @@ module.exports = (service, endpoint) => {
       if (inv.revision !== data.investigationRevision) throw Problem.user.investigationRevisionStale();
       if (inv.status !== 'open' || actor.archived) throw Problem.user.investigationInstrumentConflict();
       // Integrity writers lock findings before cases; use that same order to avoid a cycle.
-      const suggestions = (await instrumentFindings(tx.db, inv, row, true)).slice(0, instrument.MAX_FINDINGS);
+      const suggestions = (await instrumentFindings(tx, auth, inv, row, true)).slice(0, instrument.MAX_FINDINGS);
       if (data.findingIds.some(id => !suggestions.some(item => item.findingId === id))) throw instrument.invalid();
       const current = await tx.db.one(sql`SELECT revision,status FROM field_data_review_cases WHERE id = ${row.id} FOR SHARE`);
       if (current.revision !== data.caseRevision) throw Problem.user.reviewRevisionStale();
@@ -194,10 +211,21 @@ module.exports = (service, endpoint) => {
       if (!responseForm) throw Problem.user.notFound();
       await grantLock(tx.db, actor.id, responseForm.acteeId, 'submission.read');
       const prior = await tx.db.maybeOne(sql`SELECT id FROM field_data_backchecks WHERE "caseId" = ${row.id} AND "requestId" = ${data.requestId}`);
+      if (prior) {
+        // Exact replay may outlive a finding's active state, but never source access.
+        const sources = await tx.db.any(sql`SELECT i.id,f."acteeId" FROM field_data_integrity_flags i
+          JOIN forms f ON f.id = i."formId" AND f."projectId" = ${project.id} AND f."deletedAt" IS NULL
+          WHERE i.id = ANY(${sql.array(data.findingIds, 'int4')}) ORDER BY f.id,i.id FOR SHARE OF i,f`);
+        if (sources.length !== data.findingIds.length) throw Problem.user.notFound();
+        for (const source of sources) {
+          // eslint-disable-next-line no-await-in-loop
+          await grantLock(tx.db, actor.id, source.acteeId, 'submission.read');
+        }
+      }
       if (!prior) {
         if (inv.revision !== data.investigationRevision) throw Problem.user.investigationRevisionStale();
         if (inv.status !== 'open' || actor.archived) throw Problem.user.investigationInstrumentConflict();
-        const eligible = new Set((await instrumentFindings(tx.db, inv, row, true)).slice(0, instrument.MAX_FINDINGS).map(item => item.findingId));
+        const eligible = new Set((await instrumentFindings(tx, auth, inv, row, true)).slice(0, instrument.MAX_FINDINGS).map(item => item.findingId));
         if (data.findingIds.some(id => !eligible.has(id))) throw instrument.invalid();
       }
       const requestHash = links.hash({ actorId: actor.id, investigationId: inv.id, linkId: link.linkId, ...data });
