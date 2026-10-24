@@ -549,3 +549,92 @@ describe('api: optional device-reported capture location', () => {
     assert.equal(row.status, 'issued'); assert.equal(row.captureLocation, null);
   }));
 });
+
+const withRevocationAuthority = async run => {
+  const oldKey = process.env.FIELD_DATA_OFFLINE_SIGNING_KEY; const oldOrigin = process.env.FIELD_DATA_OFFLINE_ORIGIN;
+  const keys = generateKeyPairSync('ec', { namedCurve: 'prime256v1' });
+  process.env.FIELD_DATA_OFFLINE_SIGNING_KEY = keys.privateKey.export({ type: 'pkcs8', format: 'pem' }); process.env.FIELD_DATA_OFFLINE_ORIGIN = 'https://field.example.test';
+  try { await run(keys); } finally {
+    if (oldKey == null) delete process.env.FIELD_DATA_OFFLINE_SIGNING_KEY; else process.env.FIELD_DATA_OFFLINE_SIGNING_KEY = oldKey;
+    if (oldOrigin == null) delete process.env.FIELD_DATA_OFFLINE_ORIGIN; else process.env.FIELD_DATA_OFFLINE_ORIGIN = oldOrigin;
+  }
+};
+const signedWith = (context, keys) => {
+  const fields = { requestId: randomUUID(), signedAt: new Date().toISOString(), statement: 'I personally observed this image and the matching code.' };
+  const payload = Buffer.from(JSON.stringify({ ...context, ...fields })).toString('base64url');
+  return { ...fields, payload, publicKey: keys.publicKey.export({ format: 'jwk' }), signature: sign('sha256', Buffer.from(payload, 'base64url'), { key: keys.privateKey, dsaEncoding: 'ieee-p1363' }).toString('base64url') };
+};
+describe('api: server-attested witness key revocation', () => {
+  it('signs an immutable project revocation, replays safely, blocks reused keys and keeps withdrawal possible', testService(async (service, c) => withRevocationAuthority(async authority => {
+    const { alice, path, collector } = await assessedSetup(service); const url = `${path}/witnesses`;
+    const keys = generateKeyPairSync('ec', { namedCurve: 'prime256v1' });
+    const original = signedWith((await alice.get(url).expect(200)).body.context, keys);
+    const record = (await alice.post(url).send(original).expect(200)).body.witness;
+    const view = (await alice.get(url).expect(200)).body;
+    assert.equal(view.activeCount, 1); assert.equal(view.items[0].keyTrust.canRevoke, true);
+    const fingerprint = view.items[0].keyTrust.keys[0].keyHash;
+    const body = { requestId: randomUUID(), keyHash: fingerprint, reasonCode: 'compromised', reason: 'The signing environment was compromised.' };
+    const target = `${url}/${record.id}/key-revocations`;
+    await service.post(target).set('Authorization', `Bearer ${collector.token}`).send(body).expect(404);
+    await alice.post(target).send({ ...body, keyHash: '0'.repeat(64) }).expect(404);
+    await alice.post(target).send({ ...body, extra: true }).expect(400);
+    const first = await alice.post(target).send(body).expect(200); const cert = first.body.attestation;
+    assert.equal(first.headers['idempotency-status'], 'created');
+    assert.equal(verify('sha256', Buffer.from(cert.payload, 'base64url'), { key: authority.publicKey, dsaEncoding: 'ieee-p1363' }, Buffer.from(cert.signature, 'base64url')), true);
+    const payload = JSON.parse(Buffer.from(cert.payload, 'base64url'));
+    assert.equal(payload.projectId, 1); assert.equal(payload.keyHash, fingerprint); assert.equal(payload.referenceWitnessId, record.id);
+    assert.deepEqual((await alice.post(target).send(body).expect(200)).body.attestation, cert);
+    await alice.post(target).send({ ...body, reason: 'Changed reason under the same request.' }).expect(409);
+    await alice.post(target).send({ ...body, requestId: randomUUID() }).expect(409);
+    const revoked = (await alice.get(url).expect(200)).body;
+    assert.equal(revoked.activeCount, 0); assert.equal(revoked.items[0].keyTrust.status, 'revoked'); assert.equal(revoked.items[0].canCorrect, false);
+    assert.equal(revoked.items[0].payload, original.payload);
+    assert.equal((await alice.post(url).send(original).expect(200)).body.witness.keyTrust.status, 'revoked');
+    const chelsea = await service.login('chelsea'); const { id } = (await chelsea.get('/v1/users/current').expect(200)).body;
+    await alice.post(`/v1/projects/1/assignments/manager/${id}`).expect(200);
+    const nextContext = (await chelsea.get(url).expect(200)).body.context;
+    await chelsea.post(url).send(signedWith(nextContext, keys)).expect(409);
+    await alice.post(`${url}/${record.id}/events`).send(witnessChangeBody(revoked.items[0].changeContext)).expect(409);
+    const withdrawal = witnessChangeBody(revoked.items[0].changeContext, 'withdraw');
+    assert.equal((await alice.post(`${url}/${record.id}/events`).send(withdrawal).expect(200)).body.witness.status, 'withdrawn');
+    await c.run(sql`SAVEPOINT revoke_guard`);
+    await assert.rejects(c.run(sql`UPDATE field_data_witness_key_revocations SET "requestHash" = 'changed'`), error => /append-only/.test(error.message));
+    await c.run(sql`ROLLBACK TO SAVEPOINT revoke_guard`);
+    assert.equal(await c.oneFirst(sql`SELECT count(*)::integer FROM audits WHERE action = 'field_data.capture.witness.key_revoked'`), 1);
+  })));
+
+  it('restricts revocation to owners or project managers and fails closed without authority signing', testService(async (service, c) => withRevocationAuthority(async () => {
+    const { alice, path } = await assessedSetup(service); const url = `${path}/witnesses`;
+    const owner = await service.login('chelsea'); const { id } = (await owner.get('/v1/users/current').expect(200)).body;
+    await alice.post(`/v1/projects/1/assignments/manager/${id}`).expect(200);
+    const original = witnessBody((await owner.get(url).expect(200)).body.context);
+    const record = (await owner.post(url).send(original).expect(200)).body.witness;
+    const initial = (await owner.get(url).expect(200)).body.items[0];
+    await owner.post(`${url}/${record.id}/events`).send(witnessChangeBody(initial.changeContext)).expect(200);
+    const fingerprint = (await owner.get(url).expect(200)).body.items[0].keyTrust.keys[1].keyHash;
+    await alice.post(`${url}/${record.id}/key-revocations`).send({ requestId: randomUUID(), keyHash: initial.keyTrust.keys[0].keyHash, reasonCode: 'retired', reason: 'The project manager has retired this key.' }).expect(200);
+    const body = { requestId: randomUUID(), keyHash: fingerprint, reasonCode: 'retired', reason: 'This retained signing key is being retired.' };
+    const target = `${url}/${record.id}/key-revocations`;
+    await c.run(sql`UPDATE roles SET verbs = verbs - 'project.update'`);
+    await alice.post(target).send(body).expect(404);
+    const key = process.env.FIELD_DATA_OFFLINE_SIGNING_KEY; delete process.env.FIELD_DATA_OFFLINE_SIGNING_KEY;
+    assert.equal((await owner.get(url).expect(200)).body.items[0].keyTrust.signingAvailable, false);
+    await owner.post(target).send(body).expect(400);
+    assert.equal(await c.oneFirst(sql`SELECT count(*)::integer FROM field_data_witness_key_revocations`), 1);
+    process.env.FIELD_DATA_OFFLINE_SIGNING_KEY = key;
+    await owner.post(target).send(body).expect(200);
+  })));
+
+  it('retains revocations when the source is purged and across migration rollback', testServiceFullTrx(async (service, c) => withRevocationAuthority(async () => {
+    const { alice, path, challenge } = await assessedSetup(service); const url = `${path}/witnesses`;
+    const original = witnessBody((await alice.get(url).expect(200)).body.context);
+    const record = (await alice.post(url).send(original).expect(200)).body.witness;
+    const { keyHash } = (await alice.get(url).expect(200)).body.items[0].keyTrust.keys[0];
+    await alice.post(`${url}/${record.id}/key-revocations`).send({ requestId: randomUUID(), keyHash, reasonCode: 'other', reason: 'The project has withdrawn trust in this signing key.' }).expect(200);
+    await c.run(sql`DELETE FROM field_data_capture_challenges WHERE id = ${challenge.id}`);
+    assert.equal(await c.oneFirst(sql`SELECT count(*)::integer FROM field_data_witness_key_revocations`), 1);
+    const { knexConnect } = require('../../../lib/model/knex-migrator'); const config = require('config');
+    const migration = require('../../../lib/model/migrations/20261024-03-witness-key-revocations'); const db = knexConnect(config.get('test.database'));
+    try { await db.transaction(async trx => { await migration.down(trx); await migration.up(trx); assert.equal((await trx.raw('SELECT count(*)::integer AS count FROM field_data_witness_key_revocations')).rows[0].count, 1); }); } finally { await db.destroy(); }
+  })));
+});

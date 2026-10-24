@@ -12,7 +12,8 @@
           <strong>{{ record.witnessName }}</strong> · Signature verified
           <p v-if="record.status === 'withdrawn'" role="status">Withdrawn — not active corroboration.</p>
           <p v-else-if="record.status === 'unknown'" role="status">Lifecycle history unavailable. Refresh before relying on this statement as active.</p>
-          <p v-else role="status">{{ bindingCurrent ? 'Active statement for this image.' : 'Historical statement for an earlier image or version.' }}</p>
+          <p v-else role="status">{{ record.keyTrust.status === 'clear' ? (bindingCurrent ? 'Active statement for this image.' : 'Historical statement for an earlier image or version.') : 'Retained signed statement; current key trust is withheld.' }}</p>
+          <witness-key-trust :record="record" :base="base" @refresh="load"/>
           <p v-if="record.effectiveStatement">{{ record.effectiveStatement }}</p>
           <details v-if="record.verifiedEvents.length">
             <summary>Original statement and signed change history</summary>
@@ -32,7 +33,7 @@
             <h5>Change your witness statement</h5>
             <p>The original signature remains in history. Withdrawal is final. Changes refer to the original image, including when it has been replaced.</p>
             <fieldset :disabled="busy">
-              <label>Change type <select v-model="action" class="form-control"><option value="correct" :disabled="!record.canCorrect">Correction</option><option value="withdraw">Withdrawal</option></select></label>
+              <label>Change type <select v-model="action" class="form-control"><option value="correct" :disabled="!record.canCorrect || record.keyTrust.status !== 'clear'">Correction</option><option value="withdraw">Withdrawal</option></select></label>
               <label v-if="action === 'correct'">Corrected statement <textarea v-model="replacement" class="form-control" rows="3" minlength="10" maxlength="2000" required></textarea></label>
               <label>Reason for this change <textarea v-model="reason" class="form-control" rows="2" minlength="10" maxlength="2000" required></textarea></label>
               <label class="confirmation"><input v-model="changeConfirmed" type="checkbox" required> I am signing this change to my own witness statement.</label>
@@ -61,6 +62,8 @@
 <script setup>
 import { computed, onBeforeUnmount, ref, watch } from 'vue';
 import RecordDateTime from '../record-date-time.vue';
+import WitnessKeyTrust from './witness-key-trust.vue';
+import verifyKeyTrust from '../../util/witness-key-trust';
 import useRequest from '../../composables/request';
 import { apiPaths } from '../../util/request';
 import { signWitness, signWitnessChange, verifyWitness } from '../../util/capture-witness';
@@ -71,12 +74,12 @@ const { request } = useRequest(); const loading = ref(false); const busy = ref(f
 const records = ref([]); const context = ref(null); const bindingCurrent = ref(false); const statement = ref(''); const confirmed = ref(false);
 const base = computed(() => `${apiPaths.submission(props.projectId, props.xmlFormId, props.instanceId)}/capture-challenges/${encodeURIComponent(props.item.id)}/witnesses`);
 const editing = ref(null); const action = ref('correct'); const replacement = ref(''); const reason = ref(''); const changeConfirmed = ref(false);
-const activeCount = computed(() => (bindingCurrent.value ? records.value.filter(record => record.status === 'active').length : 0));
+const activeCount = computed(() => (bindingCurrent.value ? records.value.filter(record => record.status === 'active' && record.keyTrust.status === 'clear').length : 0));
 let pendingChange = null;
 const cancelEdit = () => { editing.value = null; pendingChange = null; replacement.value = ''; reason.value = ''; changeConfirmed.value = false; };
 const edit = record => {
   if (pendingChange) { error.value = 'Retry the interrupted change or refresh its history before starting another change.'; return; }
-  editing.value = record.id; action.value = record.canCorrect ? 'correct' : 'withdraw'; replacement.value = record.effectiveStatement ?? '';
+  editing.value = record.id; action.value = record.canCorrect && record.keyTrust.status === 'clear' ? 'correct' : 'withdraw'; replacement.value = record.effectiveStatement ?? '';
   reason.value = ''; changeConfirmed.value = false; error.value = '';
 };
 let generation = 0; let pending = null;
@@ -87,7 +90,7 @@ const load = async () => {
     const response = await request({ method: 'GET', url: base.value, alert: false });
     const { data } = response;
     if (!Array.isArray(data.items) || data.items.length > 10 || typeof data.bindingCurrent !== 'boolean' || typeof data.canWitness !== 'boolean') throw new Error('Invalid witness history');
-    const verified = await Promise.all(data.items.map(record => verifyWitness(record, props.item)));
+    const verified = await Promise.all(data.items.map(async record => ({ ...await verifyWitness(record, props.item), keyTrust: await verifyKeyTrust(record, props.projectId) })));
     if (current !== generation) return;
     records.value = verified; bindingCurrent.value = data.bindingCurrent;
     context.value = data.canWitness && data.bindingCurrent && data.context?.challengeId === props.item.id && data.context?.contentHash === props.item.contentHash ? data.context : null;
@@ -135,6 +138,7 @@ const download = record => {
   const { id, witnessId, witnessName, receivedAt, algorithm, payload, publicKey, signature, events, status, revision } = record;
   const envelope = {
     id, witnessId, witnessName, receivedAt, algorithm, payload, publicKey, signature,
+    keyTrust: { status: record.keyTrust.status, checkedAt: record.keyTrust.checkedAt, keys: record.keyTrust.keys.map(key => ({ keyHash: key.keyHash, revocation: key.revocation })) },
     ...(events === undefined ? {} : { events, status, revision })
   };
   const url = URL.createObjectURL(new Blob([JSON.stringify(envelope, null, 2)], { type: 'application/json' }));

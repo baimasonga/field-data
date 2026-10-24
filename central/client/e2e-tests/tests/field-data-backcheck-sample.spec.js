@@ -1153,6 +1153,8 @@ test('a viewer reads and pages assessment history without decision controls', as
   await expect(panel.getByRole('button', { name: 'Load earlier assessments' })).toHaveCount(0);
 });
 
+const clearKeyTrust = record => ({ ...record, keyTrust: { status: 'clear', checkedAt: new Date().toISOString(), canRevoke: false, signingAvailable: true,
+  keys: [...new Set([record, ...(record.events ?? [])].map(row => createHash('sha256').update(createPublicKey({ key: row.publicKey, format: 'jwk' }).export({ type: 'spki', format: 'der' })).digest('hex')))].map(keyHash => ({ keyHash, revocation: null })) } });
 const witnessContext = { purpose: 'field-data.capture-witness@1', challengeId: sampleId, projectId: 1, submissionDefId: 7,
   xmlFormId: 'household', instanceId: 'uuid:one', name: 'scene.jpg', code: 'ABCDEF01', contentHash: 'b'.repeat(64), witnessId: 1 };
 test('a witness signs exact image bytes, retries an interrupted submission, and exports a verifiable statement on mobile', async ({ page: p }) => {
@@ -1161,7 +1163,7 @@ test('a witness signs exact image bytes, retries an interrupted submission, and 
     if (path.endsWith('/capture-challenges')) { await route.fulfill({ json: { items: [reviewCapture] } }); return true; }
     if (!path.endsWith('/witnesses')) return false;
     if (route.request().method() === 'GET') {
-      await route.fulfill({ json: { items: stored ? [stored] : [], bindingCurrent: true, canWitness: !stored, context: stored ? null : witnessContext } }); return true;
+      await route.fulfill({ json: { items: stored ? [clearKeyTrust(stored)] : [], bindingCurrent: true, canWitness: !stored, context: stored ? null : witnessContext } }); return true;
     }
     const body = route.request().postDataJSON(); posts.push(body);
     expect(verify('sha256', Buffer.from(body.payload, 'base64url'), { key: createPublicKey({ key: body.publicKey, format: 'jwk' }), dsaEncoding: 'ieee-p1363' }, Buffer.from(body.signature, 'base64url'))).toBe(true);
@@ -1225,7 +1227,7 @@ test('a witness corrects and withdraws through signed retryable history while th
     if (path.endsWith('/capture-challenges')) { await route.fulfill({ json: { items: [reviewCapture] } }); return true; }
     if (path.endsWith('/witnesses')) {
       if (route.request().method() === 'GET') {
-        await route.fulfill({ json: { items: stored ? [{ ...stored, canCorrect: true,
+        await route.fulfill({ json: { items: stored ? [{ ...clearKeyTrust(stored), canCorrect: true,
           changeContext: stored.status === 'active' ? witnessChangeContext(stored) : null }] : [],
         bindingCurrent, canWitness: !stored, context: stored ? null : witnessContext } });
       } else {
@@ -1300,7 +1302,7 @@ test('viewers see verified corrected history without change controls and a tampe
   stored.revision = 1;
   await setupAssessmentRecord(p, async (route, path) => {
     if (path.endsWith('/capture-challenges')) { await route.fulfill({ json: { items: [reviewCapture] } }); return true; }
-    if (path.endsWith('/witnesses')) { await route.fulfill({ json: { items: [stored], bindingCurrent: true, canWitness: false, context: null } }); return true; }
+    if (path.endsWith('/witnesses')) { await route.fulfill({ json: { items: [clearKeyTrust(stored)], bindingCurrent: true, canWitness: false, context: null } }); return true; }
     return false;
   });
   const section = p.getByRole('region', { name: 'Signed witness statements' });
@@ -1309,6 +1311,50 @@ test('viewers see verified corrected history without change controls and a tampe
   stored.events[0].signature = 'a'.repeat(86);
   await p.reload(); await expect(section.getByRole('alert')).toContainText('could not be loaded or verified');
   await expect(section).not.toContainText('Signature verified'); await expect(section).not.toContainText('1 active statements');
+});
+
+
+test('retained signing keys can be revoked with retry-safe attestation and exported trust checks', async ({ page: p }) => {
+  const original = signedWitnessFixture({ ...witnessContext, requestId: randomUUID(), signedAt: new Date().toISOString(), statement: 'I personally observed the pump and matching code.' });
+  const record = { ...original, id: sampleId, witnessId: 1, witnessName: 'Witness', events: [], revision: 0, status: 'active', receivedAt: new Date().toISOString() };
+  const keyHash = clearKeyTrust(record).keyTrust.keys[0].keyHash;
+  const root = generateKeyPairSync('ec', { namedCurve: 'prime256v1' }); const issuer = 'https://field.example.test';
+  const publicKey = root.publicKey.export({ format: 'jwk' });
+  const keyId = createHash('sha256').update(root.publicKey.export({ type: 'spki', format: 'der' })).digest('hex');
+  let attestation = null; let tampered = false; const requests = [];
+  const errors = await setupAssessmentRecord(p, async (route, path) => {
+    if (path.endsWith('/capture-challenges')) { await route.fulfill({ json: { items: [reviewCapture] } }); return true; }
+    if (path.endsWith('/witnesses')) {
+      const row = clearKeyTrust(record); row.keyTrust.canRevoke = !attestation;
+      if (attestation) { row.keyTrust.status = 'revoked'; row.keyTrust.keys[0].revocation = tampered ? { ...attestation, signature: 'a'.repeat(86) } : attestation; }
+      await route.fulfill({ json: { items: [row], bindingCurrent: true, canWitness: false, context: null } }); return true;
+    }
+    if (path.endsWith(`/witnesses/${sampleId}/key-revocations`)) {
+      const body = route.request().postDataJSON(); requests.push(body);
+      const bytes = Buffer.from(JSON.stringify({ ...body, purpose: 'field-data.witness-key-revocation@1', issuer, projectId: 1, referenceWitnessId: sampleId, witnessAccountId: 1, revokedBy: 1, revokedAt: new Date().toISOString() }));
+      attestation ??= { algorithm: 'ES256', keyId, publicKey, payload: bytes.toString('base64url'), signature: sign('sha256', bytes, { key: root.privateKey, dsaEncoding: 'ieee-p1363' }).toString('base64url') };
+      if (requests.length === 1) await route.abort('failed'); else await route.fulfill({ json: { attestation, replayed: true } });
+      return true;
+    }
+    return false;
+  });
+  const section = p.getByRole('region', { name: 'Signed witness statements' });
+  await expect(section).toContainText('1 active statements');
+  await section.getByLabel('Reason for key revocation').fill('The signing environment was compromised.');
+  await section.getByRole('button', { name: 'Revoke witness signing key', exact: true }).click();
+  await expect(section.getByRole('alert')).toContainText('Revocation could not be confirmed');
+  await section.getByRole('button', { name: 'Revoke witness signing key', exact: true }).click();
+  await expect(section).toContainText('0 active statements'); await expect(section).toContainText('A signing key is revoked');
+  await expect(section).toContainText('Signature verified'); expect(requests).toHaveLength(2); expect(requests[1]).toEqual(requests[0]);
+  const downloadPromise = p.waitForEvent('download'); await section.getByRole('button', { name: 'Download signed statement' }).click();
+  const exported = JSON.parse(await readFile(await (await downloadPromise).path(), 'utf8'));
+  const { verifyWitnessKeyRevocation } = await import('../../../../cloudflare/verify-witness-key-revocation.mjs');
+  expect(verifyWitnessKeyRevocation(exported.keyTrust.keys[0].revocation, { publicKey, issuer, projectId: 1, keyHash }).keyHash).toBe(keyHash);
+  expect(exported.payload).toBe(original.payload);
+  tampered = true; await p.reload(); await expect(section).toContainText('Key revocation status is unavailable');
+  await expect(section).toContainText('0 active statements'); await expect(section.getByRole('button', { name: 'Revoke witness signing key', exact: true })).toHaveCount(0);
+  await p.setViewportSize({ width: 320, height: 700 });
+  expect(await p.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true); expect(errors).toEqual([]);
 });
 
 const extractedMedia = () => ({ id: sampleId, name: 'scene.jpg', submissionDefId: 1, contentHash: 'b'.repeat(64), contentType: 'image/png', kind: 'photo',
