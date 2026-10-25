@@ -27,6 +27,8 @@ const { resolve } = require('../util/promise');
 const { isBlank, noargs } = require('../util/util');
 const { zipStreamFromParts } = require('../util/zip');
 
+const nativeRecodes = require('../util/native-csv-recodes');
+
 const XML_SUBMISSION_FILE = 'xml_submission_file';
 const ODK_CLIENT = 'odk-client';
 
@@ -340,10 +342,12 @@ module.exports = (service, endpoint, anonymousEndpoint) => {
     // TODO: as always, a lil repetitive. but it sure seems like a total nightmare
     // to merge these pieces of code?
 
-    const fullzip = async ({ Audits, ClientAudits, Keys, Forms, SubmissionAttachments, Submissions },
+    const fullzip = async ({ db, Audits, ClientAudits, Keys, Forms, SubmissionAttachments, Submissions },
       auth, params, query, passphrases, response) => {
       const form = await getForm(params, Forms).then((theForm) => auth.canOrReject('submission.read', theForm));
       const options = QueryOptions.fromSubmissionCsvRequest(query);
+      const recodes = await nativeRecodes.prepare(db, auth, form, draft, query, false);
+      if (recodes) response.set('Cache-Control', 'private, no-store');
       const submissionsEtag = await Submissions.getODataSelectionEtag(form.id, draft, options);
 
       const generateBody = () =>
@@ -365,20 +369,22 @@ module.exports = (service, endpoint, anonymousEndpoint) => {
               response.set('Content-Type', 'application/zip');
               return zipStreamFromParts(
                 // TODO: not 100% sure that these streams close right on crash.
-                streamBriefcaseCsvs(rows, fields, form.xmlFormId, selectValues, decryptor, false, options),
+                streamBriefcaseCsvs(rows, fields, form.xmlFormId, selectValues, decryptor, false, { ...options, nativeValueRecodes: recodes }),
                 streamAttachments(attachments, decryptor),
                 streamClientAudits(clientAudits, form, decryptor)
               );
             });
           });
 
-      return withEtag(submissionsEtag, generateBody, true);
+      return withEtag(nativeRecodes.etag(submissionsEtag, recodes), generateBody, true);
     };
 
-    const csv = async ({ Audits, Keys, Forms, Submissions },
+    const csv = async ({ db, Audits, Keys, Forms, Submissions },
       auth, params, query, passphrases, response, rootOnly) => {
       const form = await getForm(params, Forms).then(foundForm => auth.canOrReject('submission.read', foundForm));
       const options = QueryOptions.fromSubmissionCsvRequest(query);
+      const recodes = await nativeRecodes.prepare(db, auth, form, draft, query, rootOnly);
+      if (recodes) response.set('Cache-Control', 'private, no-store');
       const submissionsEtag = await Submissions.getSelectionEtag(form.id, draft, options.filter);
 
       const generateResponse = () => Promise.all([
@@ -394,10 +400,10 @@ module.exports = (service, endpoint, anonymousEndpoint) => {
           response.set('Content-Disposition', contentDisposition(`${filename}.${extension}`));
           response.set('Content-Type', (rootOnly === true) ? 'text/csv' : 'application/zip');
           const envelope = (rootOnly === true) ? identity : zipStreamFromParts;
-          return envelope(streamBriefcaseCsvs(rows, fields, form.xmlFormId, selectValues, decryptor, rootOnly, options));
+          return envelope(streamBriefcaseCsvs(rows, fields, form.xmlFormId, selectValues, decryptor, rootOnly, { ...options, nativeValueRecodes: recodes }));
         });
 
-      return withEtag(submissionsEtag, generateResponse, true);
+      return withEtag(nativeRecodes.etag(submissionsEtag, recodes), generateResponse, true);
     };
 
     // little utility to take nonintegers out of the queryblob, so we only have passphrases.

@@ -106,6 +106,11 @@ except according to the terms contained in the LICENSE file.
               </a>
             </div>
           </div>
+          <div v-if="formVersion.dataExists && formVersion.publishedAt != null && formVersion.keyId == null" class="submission-download-action">
+            <span class="submission-download-action-label">Approved value recodes</span>
+            <div><a :href="href('.csv.zip', { attachments: false, valueRecodes: true })" class="btn btn-primary">Download recoded CSV ZIP</a></div>
+          </div>
+          <p v-if="formVersion.dataExists && formVersion.publishedAt != null && formVersion.keyId == null">Opt-in value rules only, including repeat tables. Combined multiple-choice values; moved questions and unsupported fields are listed as skipped in field-data-recodes.json. Existing filters select stored records.</p>
         </div>
       </div>
       <div class="modal-actions">
@@ -210,6 +215,7 @@ export default {
         groupPaths: !this.removeGroupNames,
         deletedFields: this.deletedFields
       };
+      if (query?.valueRecodes === true) fullQuery.splitSelectMultiples = false;
       return apiPaths.submissions(
         this.formVersion.projectId,
         this.formVersion.xmlFormId,

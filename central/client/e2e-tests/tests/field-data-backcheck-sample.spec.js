@@ -691,6 +691,26 @@ test('a viewer reads availability without calendar edits or route coordinates', 
   await expect(section.getByRole('button', { name: 'Preview itinerary' })).toHaveCount(0);
 });
 
+test('native download offers explicit value recodes with a manifest and retains stored-answer downloads on mobile', async ({ page: p }) => {
+  const errors = await api(p, managerVerbs, async (route, path) => {
+    if (path.endsWith('.svc/Submissions')) { await route.fulfill({ json: { '@odata.count': 1, value: [{ __id: 'uuid:one', choice: 'old', __system: { submissionDate: '2026-10-13T12:00:00Z', submitterId: 1, submitterName: 'Fixture', reviewState: null, edits: 0, attachmentsPresent: 0, attachmentsExpected: 0 } }] } }); return true; }
+    if (path.endsWith('/fields')) { await route.fulfill({ json: [{ path: '/choice', name: 'choice', type: 'string', selectMultiple: true }] }); return true; }
+    return false;
+  });
+  await p.goto(`${appUrl}/projects/1/forms/household/submissions`);
+  await p.locator('#submission-download-button > button').click();
+  const panel = p.locator('#submission-download-container'); const link = panel.getByRole('link', { name: 'Download recoded CSV ZIP' });
+  await expect(link).toBeVisible(); await expect(panel).toContainText('field-data-recodes.json');
+  await expect(panel).toContainText('moved questions and unsupported fields are listed as skipped');
+  await panel.locator('input[type="checkbox"]').first().check();
+  const recoded = new URL(await link.getAttribute('href'), appUrl);
+  expect(recoded.pathname).toBe('/v1/projects/1/forms/household/submissions.csv.zip');
+  expect(recoded.searchParams.get('valueRecodes')).toBe('true'); expect(recoded.searchParams.get('attachments')).toBe('false'); expect(recoded.searchParams.get('splitSelectMultiples')).toBe('false');
+  const raw = new URL(await panel.locator('a[href*="submissions.csv?"]').first().getAttribute('href'), appUrl);
+  expect(raw.searchParams.has('valueRecodes')).toBe(false); expect(raw.searchParams.get('splitSelectMultiples')).toBe('true');
+  await p.setViewportSize({ width: 320, height: 800 }); expect(await p.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true); expect(errors).toEqual([]);
+});
+
 test('form navigation and submission pagination are readable at desktop and mobile widths', async ({ page: p }) => {
   const errors = await api(p, managerVerbs, async (route, path) => {
     if (path.endsWith('.svc/Submissions')) {

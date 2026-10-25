@@ -283,4 +283,44 @@ describe('api: S4 recode rules for exports', () => {
     (await alice.post('/v1/projects/1/analysis/query').send({ ...definition, recodes: true }).expect(200)).body.rows[0].data['/water'].should.equal('bh');
   }));
 
+  it('applies frozen opt-in value rules to native root and repeat CSV tables with a manifest and rule-aware ETag', testService(async service => {
+    const alice = await service.login('alice'); await twoVersions(alice);
+    const add = body => alice.post(`${base}/recodes`).send({ reason: 'Reviewed native CSV alignment', versions: ['1'], ...body }).expect(201);
+    const value = (await add({ kind: 'value', path: '/water', values: { borehole: 'bh' } })).body;
+    await add({ kind: 'value', path: '/lights', values: { solar: 'sun', torch: 'lamp' } });
+    await add({ kind: 'value', path: '/kids/kid_water', values: { borehole: 'bh' } });
+    const moved = (await add({ kind: 'path', path: '/age', fromPath: '/old_age' })).body;
+    const get = query => binary(alice.get(`${base}/submissions.csv.zip`).query(query));
+    const stored = await unzip((await get({ attachments: false }).expect(200)).body);
+    table(stored['recoded.csv']).find(row => row.KEY === 'uuid:old').water.should.equal('borehole');
+    should(stored['field-data-recodes.json']).equal(undefined);
+    const response = await get({ attachments: false, valueRecodes: true }).expect(200); const files = await unzip(response.body);
+    const old = table(files['recoded.csv']).find(row => row.KEY === 'uuid:old');
+    old.water.should.equal('bh'); old.lights.should.equal('sun lamp'); old.age.should.equal('');
+    table(files['recoded.csv']).find(row => row.KEY === 'uuid:new').water.should.equal('bh');
+    table(files['recoded-kids.csv'])[0].kid_water.should.equal('bh');
+    const manifest = JSON.parse(files['field-data-recodes.json']); manifest.appliedRules.should.have.length(3);
+    manifest.skippedRules.should.containEql({ id: moved.id, kind: 'path', path: '/age', reason: 'moved-question rule unsupported' });
+    response.headers['cache-control'].should.equal('private, no-store');
+    const filtered = await unzip((await get({ attachments: false, valueRecodes: true, $filter: "__system/reviewState eq 'approved'" }).expect(200)).body);
+    table(filtered['recoded.csv']).should.have.length(0);
+    await alice.get(`${base}/submissions.csv.zip`).query({ attachments: false, valueRecodes: true }).set('If-None-Match', response.headers.etag).expect(304);
+    await alice.post(`${base}/recodes/${value.id}/retire`).send({ reason: 'Stop applying the water mapping' }).expect(200);
+    const retiredResponse = await get({ attachments: false, valueRecodes: true }).set('If-None-Match', response.headers.etag).expect(200);
+    retiredResponse.headers.etag.should.not.equal(response.headers.etag);
+    table((await unzip(retiredResponse.body))['recoded.csv']).find(row => row.KEY === 'uuid:old').water.should.equal('borehole');
+    const full = await unzip((await get({ valueRecodes: true }).expect(200)).body); should.exist(full['field-data-recodes.json']);
+    const raw = await alice.get(`${base}/submissions/uuid:old.xml`).expect(200); raw.text.should.containEql('<water>borehole</water>');
+  }));
+  it('rejects unsupported native recode modes and preserves ordinary export permissions', testService(async service => {
+    const alice = await service.login('alice'); await twoVersions(alice);
+    await alice.get(`${base}/submissions.csv`).query({ valueRecodes: true }).expect(400);
+    for (const query of [{ valueRecodes: 'invalid' }, { valueRecodes: true, splitSelectMultiples: true }, { valueRecodes: true, splitSelectMultiples: 'TRUE' }]) await alice.get(`${base}/submissions.csv.zip`).query(query).expect(400);
+    await service.get(`${base}/submissions.csv.zip`).query({ valueRecodes: true }).expect(401);
+    const reader = await service.login('chelsea'); const { id } = (await reader.get('/v1/users/current').expect(200)).body;
+    await alice.post(`/v1/projects/1/assignments/viewer/${id}`).expect(200);
+    await reader.get(`${base}/submissions.csv.zip`).query({ attachments: false, valueRecodes: true }).expect(200);
+    await alice.get(`${base}/draft/submissions.csv.zip`).query({ valueRecodes: true }).expect(404);
+  }));
+
 });

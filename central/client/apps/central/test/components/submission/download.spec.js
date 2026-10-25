@@ -169,7 +169,7 @@ describe('SubmissionDownload', () => {
         url.searchParams.get('splitSelectMultiples').should.equal('false');
       await modal.get('input[type="checkbox"]').setValue(true);
       for (const url of a.map(aUrl))
-        url.searchParams.get('splitSelectMultiples').should.equal('true');
+        url.searchParams.get('splitSelectMultiples').should.equal(url.searchParams.get('valueRecodes') === 'true' ? 'false' : 'true');
     });
   });
 
@@ -294,6 +294,17 @@ describe('SubmissionDownload', () => {
       urls[1].searchParams.get('attachments').should.equal('false');
       urls[2].pathname.should.equal('/v1/projects/1/forms/a%20b/submissions.csv.zip');
       urls[2].searchParams.has('attachments').should.be.false;
+    });
+
+    it('offers an explicit manifest-bearing native value-recode ZIP while retaining the stored-answer links', async () => {
+      testData.extendedForms.createPast(1);
+      const modal = mountComponent(); const urls = modal.findAll('a[href]').map(aUrl);
+      urls.should.have.length(4);
+      urls[3].searchParams.get('valueRecodes').should.equal('true');
+      urls[3].searchParams.get('attachments').should.equal('false');
+      urls[3].searchParams.get('splitSelectMultiples').should.equal('false');
+      urls.slice(0, 3).every(url => !url.searchParams.has('valueRecodes')).should.be.true;
+      modal.text().should.contain('moved questions and unsupported fields are listed as skipped');
     });
 
     it('sets the correct href attributes for a form draft', () => {

@@ -47,3 +47,5 @@ points outside visible columns, retirement, opt-out, delegated exports, XML
 entities and avoiding duplicate export recoding. Existing import/delegation
 regressions run with these changes. Native Central exports/OData, approved
 adaptive policies, conversational collection and field acceptance remain pending.
+
+[S6](S6-native-csv-value-recodes.md) subsequently adds opt-in native CSV ZIP value rules; native moved questions and OData remain pending.

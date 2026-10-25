@@ -119,3 +119,5 @@ Locally, against real PostgreSQL 16 and the real Python export writer:
   - 6 in the writer;
   - 12 in the routes, row query, job freezing, rule loading and database guard;
   - 6 in the client.
+
+[S6](S6-native-csv-value-recodes.md) adds explicit native CSV ZIP value recodes with manifests. Native moved-question recodes and OData overlays remain pending.

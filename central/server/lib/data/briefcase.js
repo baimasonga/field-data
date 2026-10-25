@@ -17,6 +17,7 @@ const { SchemaStack } = require('./schema');
 const { rejectIfError } = require('../util/promise');
 const { PartialPipe } = require('../util/stream');
 const { zipPart } = require('../util/zip');
+const { compile: compileRecodes } = require('../util/native-csv-recodes');
 
 /* eslint-disable no-multi-spaces */
 
@@ -88,7 +89,7 @@ const generateDataFrame = (header) => header.map((col) => (col.includes('/') ? 0
 // parser, transforms the data to tabular format, and automatically streams out
 // substream rows. returns the root row as a Promise result.
 // fields is an array in depth-first tree order, and length is the width of the root table.
-const processRow = (xml, instanceId, fields, header, selectValues) => new Promise((resolve, reject) => {
+const processRow = (xml, instanceId, fields, header, selectValues, recodeValue = null) => new Promise((resolve, reject) => {
   // set up our state machine stacks:
   const schemaStack = new SchemaStack(fields);
   const dataStack = [ generateDataFrame(header) ];
@@ -152,6 +153,8 @@ const processRow = (xml, instanceId, fields, header, selectValues) => new Promis
         const field = schemaStack.pop();
         const row = dataStack.pop();
 
+        if (recodeValue && field?.idx != null && row != null) row[field.idx] = recodeValue(field, row[field.idx]);
+
         // if we popped a repeat, we need to write the subrow we just created.
         if (field?.type === 'repeat')
           field.stream.write(row);
@@ -195,7 +198,8 @@ const processRow = (xml, instanceId, fields, header, selectValues) => new Promis
 //   parsing and output streaming.
 // 3 once all the streams are set up, determine their filenames and append them
 //   to the final zip archive.
-const streamBriefcaseCsvs = (inStream, inFields, xmlFormId, selectValues, decryptor, rootOnly = false, { groupPaths = true } = {}) => {
+const streamBriefcaseCsvs = (inStream, inFields, xmlFormId, selectValues, decryptor, rootOnly = false, { groupPaths = true, nativeValueRecodes = null } = {}) => {
+  const recodes = compileRecodes(nativeValueRecodes, inFields);
   // first, we run the schema and annotate some information:
   // 1 we generate header columns and annotate their indices on the fields they correspond to.
   // 2 we generate streams for all repeat subtables.
@@ -325,7 +329,7 @@ const streamBriefcaseCsvs = (inStream, inFields, xmlFormId, selectValues, decryp
         }
 
         // write the root row we get back from parsing the xml.
-        processRow(xml, submission.instanceId, fields, rootHeader, selectValues).then((result) => {
+        processRow(xml, submission.instanceId, fields, rootHeader, selectValues, recodes ? (field, value) => recodes.value(field, submission.aux.exports.formVersion, value) : null).then((result) => {
           writeMetadata(result, rootMeta, submission, submission.aux.submitter, submission.aux.exports.formVersion, submission.aux.attachment);
           done(null, result);
         }, done); // pass through errors.
@@ -379,6 +383,7 @@ const streamBriefcaseCsvs = (inStream, inFields, xmlFormId, selectValues, decryp
       }
     }
   }
+  if (recodes) archive.append(Buffer.from(JSON.stringify(recodes.manifest, null, 2)), { name: 'field-data-recodes.json' });
   archive.finalize();
   return archive;
 };
