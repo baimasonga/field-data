@@ -238,3 +238,20 @@ describe('api: App User backcheck notifications', () => {
       await dispatchBackcheckPush(container, cancel, async () => assert.fail('disabled push delivered'), { ...env, FIELD_DATA_PUSH_ENABLED: 'false' });
     })));
 });
+
+describe('api: companion XML queue native submission transport', () => {
+  it('binds inbox identity and preserves native exact retry, conflict and revoked-grant checks', testService(async service => {
+    const { checker, alice } = await setup(service);
+    const auth = request => request.set('Authorization', `Bearer ${checker.token}`);
+    const inbox = (await auth(service.get(`${base}/backchecks`)).expect(200)).body;
+    assert.equal(inbox.appUser.actorId, checker.id); assert.equal(inbox.appUser.projectId, 1);
+    const xml = testData.instances.simple.one.replace('one</instanceID>', 'queued-instance</instanceID>');
+    const send = value => auth(service.post('/v1/projects/1/submission')).set('X-OpenRosa-Version', '1.0').attach('xml_submission_file', Buffer.from(value), { filename: 'submission.xml' });
+    await send(xml).expect(201); await send(xml).expect(201);
+    await send(xml.replace('queued-instance</instanceID>', 'queued-instance</instanceID><other>changed</other>')).expect(409);
+    const collected = (await alice.get('/v1/projects/1/forms/simple/submissions/queued-instance').expect(200)).body;
+    assert.equal(collected.submitterId, checker.id);
+    await alice.delete(`/v1/projects/1/forms/simple/assignments/app-user/${checker.id}`).expect(200);
+    await send(xml).expect(401);
+  }));
+});

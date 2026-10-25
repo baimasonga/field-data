@@ -76,7 +76,7 @@ module.exports = (service, endpoint) => {
     const items = rows.slice(0, 50);
     const last = items[items.length - 1];
     response.set('Cache-Control', 'private, no-store');
-    return { appUser: { name: user.displayName, projectName: user.projectName }, items,
+    return { appUser: { name: user.displayName, projectName: user.projectName, actorId: user.actorId, projectId: user.projectId }, items,
       nextCursor: rows.length > 50 ? Buffer.from(JSON.stringify({ id: last.id, createdAt: last.createdAt })).toString('base64url') : null };
   }));
 

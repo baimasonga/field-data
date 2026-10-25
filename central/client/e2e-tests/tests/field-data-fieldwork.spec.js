@@ -56,14 +56,14 @@ const setup = async (page, { push = false, denied = false, fail = false, delayed
       state.inboxReads += 1;
       if (wait && state.inboxReads > 1) await wait;
       if (state.failures > 0) { state.failures -= 1; return route.fulfill({ status: 503, json: {} }); }
-      return route.fulfill({ json: { appUser: { name: 'Checker', projectName: 'Project' }, nextCursor: null, items: [
+      return route.fulfill({ json: { appUser: { name: 'Checker', projectName: 'Project', actorId: state.actorId ?? 42, projectId: 7 }, nextCursor: null, items: [
         { id: taskId, question: '<img src=x onerror=alert(1)> Verify the visit.', xmlFormId: 'verification', formName: 'Independent verification',
           dueAt: null, plannedVisitDate: '2026-10-14', status: 'requested', actionable: true, seenAt: state.seen ? '2026-10-09T04:00:00Z' : null }
       ] } });
     }
     if (path.endsWith('/reverification')) {
       if (failVisits) return route.fulfill({ status: 503, json: {} });
-      return route.fulfill({ json: { appUser: { name: 'Checker', projectName: 'Project' }, items: visits, complete: true } });
+      return route.fulfill({ json: { appUser: { name: 'Checker', projectName: 'Project', actorId: 42, projectId: 7 }, items: visits, complete: true } });
     }
     if (path.endsWith('/receipts')) {
       if (failReceipts) return route.fulfill({ status: 503, json: {} });
@@ -1047,4 +1047,114 @@ test('expired challenges remain decryptable but cannot be restored for challenge
   await vault.getByLabel('Media package passphrase').fill(mediaPhrase); await vault.getByRole('button', { name: 'Unlock saved media' }).click();
   await expect(vault).toContainText('Challenge ABCDEF01'); await vault.getByRole('button', { name: 'Add unlocked files to upload queue' }).click();
   await expect(vault.getByRole('alert')).toContainText('capture challenge expired');
+});
+
+test('encrypted XML queue survives reload, retries lost acknowledgements in priority order and binds original collector', async ({ page }) => {
+  const { state, errors } = await setup(page); await connect(page);
+  const xml = id => `<data id="verification"><answer>private queue answer</answer><meta><instanceID>${id}</instanceID></meta></data>`;
+  const sent = []; let lost = true;
+  await page.route('**/v1/projects/7/submission', async route => {
+    expect(route.request().headers().authorization).toBe(`Bearer ${key}`);
+    expect(route.request().headers()['x-openrosa-version']).toBe('1.0');
+    const body = route.request().postDataBuffer().toString(); sent.push(body.includes('queue-two') ? 'two' : 'one');
+    if (lost) { lost = false; await route.abort('failed'); } else await route.fulfill({ status: 201, contentType: 'text/xml', body: '<OpenRosaResponse/>' });
+  });
+  const panel = page.locator('.offline-submissions');
+  await panel.getByLabel('New submission XML files').setInputFiles([
+    { name: 'one.xml', mimeType: 'text/xml', buffer: Buffer.from(xml('queue-one')) },
+    { name: 'two.xml', mimeType: 'text/xml', buffer: Buffer.from(xml('queue-two')) }
+  ]);
+  await panel.getByLabel('Submission queue passphrase').fill('queue-recovery-passphrase');
+  await panel.getByRole('button', { name: 'Encrypt and save submissions' }).click();
+  await expect(panel.getByText('Encrypted submissions saved.', { exact: false })).toBeVisible();
+  await panel.getByLabel('Submission priority').nth(0).selectOption('3');
+  await panel.getByLabel('Submission priority').nth(1).selectOption('1');
+  await panel.getByRole('button', { name: 'Upload queued XML now' }).click();
+  await expect(panel.getByRole('alert')).toContainText('Submission operation stopped');
+  expect(sent).toEqual(['two']);
+  await page.reload(); await connect(page);
+  await panel.getByLabel('Submission queue passphrase').fill('queue-recovery-passphrase');
+  await panel.getByRole('button', { name: 'Unlock submission queue' }).click();
+  await expect(panel.getByText('queue-two', { exact: false })).toBeVisible();
+  state.actorId = 43;
+  await page.reload(); await connect(page);
+  await panel.getByLabel('Submission queue passphrase').fill('queue-recovery-passphrase');
+  await panel.getByRole('button', { name: 'Unlock submission queue' }).click();
+  await expect(panel.getByRole('alert')).toContainText('original collector');
+  await expect(panel.getByRole('button', { name: 'Upload queued XML now' })).toBeDisabled();
+  state.actorId = 42;
+  await page.reload(); await connect(page);
+  await panel.getByLabel('Submission queue passphrase').fill('queue-recovery-passphrase');
+  await panel.getByRole('button', { name: 'Unlock submission queue' }).click();
+  await expect(panel.getByText('queue-two', { exact: false })).toBeVisible();
+  await panel.getByRole('button', { name: 'Upload queued XML now' }).click();
+  await expect(panel.getByText('XML accepted; media may still be missing', { exact: false })).toHaveCount(2);
+  expect(sent).toEqual(['two', 'two', 'one']);
+  const download = page.waitForEvent('download'); await panel.getByRole('button', { name: 'Export encrypted submissions' }).click();
+  const file = await download; expect(file.suggestedFilename()).toBe('field-data-submissions.fdsubmissions');
+  await page.setViewportSize({ width: 320, height: 700 });
+  expect(await page.evaluate(() => globalThis.document.documentElement.scrollWidth <= globalThis.window.innerWidth)).toBe(true);
+  await page.getByRole('button', { name: 'Disconnect', exact: true }).click();
+  await expect(panel.getByLabel('Submission queue passphrase')).toHaveValue('');
+  await expect(panel.getByText('queue-one', { exact: false })).toHaveCount(0);
+  expect(state.requests.every(req => !req.url.includes(key))).toBe(true); expect(errors).toEqual([]);
+});
+
+test('encrypted XML queue preserves saved data after invalid selection and server conflicts', async ({ page }) => {
+  const { errors } = await setup(page); await connect(page);
+  const panel = page.locator('.offline-submissions');
+  await panel.getByLabel('New submission XML files').setInputFiles({ name: 'one.xml', mimeType: 'text/xml', buffer: Buffer.from('<data id="verification"><meta><instanceID>conflict-one</instanceID></meta></data>') });
+  await panel.getByLabel('Submission queue passphrase').fill('queue-recovery-passphrase');
+  await panel.getByRole('button', { name: 'Encrypt and save submissions' }).click();
+  await expect(panel.getByText('Encrypted submissions saved.', { exact: false })).toBeVisible();
+  await page.route('**/v1/projects/7/submission', route => route.fulfill({ status: 409, body: 'XML conflict' }));
+  await panel.getByRole('button', { name: 'Upload queued XML now' }).click();
+  await expect(panel.getByRole('alert')).toContainText('different XML');
+  await panel.getByRole('button', { name: 'Lock submission queue', exact: true }).click();
+  await panel.getByLabel('New submission XML files').setInputFiles({ name: 'invalid.xml', mimeType: 'text/xml', buffer: Buffer.from('<broken') });
+  await panel.getByLabel('Submission queue passphrase').fill('queue-recovery-passphrase');
+  await panel.getByRole('button', { name: 'Encrypt and save submissions' }).click();
+  await expect(panel.getByRole('alert')).toContainText('Submission operation stopped');
+  await panel.getByLabel('Submission queue passphrase').fill('queue-recovery-passphrase');
+  await panel.getByRole('button', { name: 'Unlock submission queue' }).click();
+  await expect(panel.getByText('conflict-one', { exact: false })).toBeVisible();
+  await page.route('**/v1/projects/7/submission', route => route.fulfill({ status: 401, body: 'Denied' }));
+  await panel.getByRole('button', { name: 'Upload queued XML now' }).click();
+  await expect(panel.getByLabel('Submission queue passphrase')).toHaveValue('');
+  await expect(panel.getByText('conflict-one', { exact: false })).toHaveCount(0);
+  expect(errors).toEqual([]);
+});
+
+test('encrypted XML queue imports exported packages and pauses after its in-flight submission', async ({ page }) => {
+  const { errors } = await setup(page); await connect(page);
+  const panel = page.locator('.offline-submissions');
+  await panel.getByLabel('New submission XML files').setInputFiles(['alpha', 'beta'].map(id => ({ name: `${id}.xml`, mimeType: 'text/xml', buffer: Buffer.from(`<data id="verification"><meta><instanceID>${id}</instanceID></meta></data>`) })));
+  await panel.getByLabel('Submission queue passphrase').fill('queue-recovery-passphrase');
+  await panel.getByRole('button', { name: 'Encrypt and save submissions' }).click();
+  await expect(panel.getByText('Encrypted submissions saved.', { exact: false })).toBeVisible();
+  const download = page.waitForEvent('download');
+  await panel.getByRole('button', { name: 'Export encrypted submissions' }).click();
+  const file = await download; const path = await file.path();
+  await panel.getByRole('button', { name: 'Delete saved submissions' }).click();
+  await expect(panel.getByText('Saved submissions deleted.', { exact: false })).toBeVisible();
+  await panel.getByLabel('Submission queue passphrase').fill('queue-recovery-passphrase');
+  await panel.getByLabel('Import encrypted submissions').setInputFiles(path);
+  await expect(panel.getByText('Encrypted submissions imported.', { exact: false })).toBeVisible();
+  let release; let received;
+  const waiting = new Promise(resolve => { release = resolve; });
+  const arrived = new Promise(resolve => { received = resolve; });
+  let requests = 0;
+  await page.route('**/v1/projects/7/submission', async route => {
+    requests += 1; received(); await waiting;
+    await route.fulfill({ status: 201, contentType: 'text/xml', body: '<OpenRosaResponse/>' });
+  });
+  await panel.getByRole('button', { name: 'Upload queued XML now' }).click();
+  await arrived;
+  await panel.getByRole('button', { name: 'Pause after current XML' }).click(); release();
+  await expect(panel.getByText('XML accepted; media may still be missing', { exact: false })).toHaveCount(1);
+  await expect(panel.getByRole('button', { name: 'Upload queued XML now' })).toBeEnabled();
+  expect(requests).toBe(1);
+  await panel.getByRole('button', { name: 'Upload queued XML now' }).click();
+  await expect(panel.getByText('XML accepted; media may still be missing', { exact: false })).toHaveCount(2);
+  expect(requests).toBe(2); expect(errors).toEqual([]);
 });
