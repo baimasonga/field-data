@@ -638,3 +638,98 @@ describe('api: server-attested witness key revocation', () => {
     try { await db.transaction(async trx => { await migration.down(trx); await migration.up(trx); assert.equal((await trx.raw('SELECT count(*)::integer AS count FROM field_data_witness_key_revocations')).rows[0].count, 1); }); } finally { await db.destroy(); }
   })));
 });
+
+describe('api: delegated form witnesses', () => {
+  const delegationRoot = '/v1/projects/1/forms/binaryType/witness-delegations';
+  const reader = async (service, alice) => {
+    const client = await service.login('chelsea'); const { id } = (await client.get('/v1/users/current').expect(200)).body;
+    await alice.post(`/v1/projects/1/assignments/viewer/${id}`).expect(200); return { client, id };
+  };
+  const grantBody = id => ({ requestId: randomUUID(), delegateId: id, expiresAt: new Date(Date.now() + 86400000).toISOString(), reason: 'Approved independent witness visit for this form only.' });
+  it('grants only witnessing, signs scoped receipts and preserves retry and withdrawal after revocation', testService(async (service, c) => withRevocationAuthority(async authority => {
+    const { alice, path } = await assessedSetup(service); const { client, id } = await reader(service, alice); const url = `${path}/witnesses`;
+    assert.equal((await client.get(url).expect(200)).body.canWitness, false);
+    const body = grantBody(id); const grant = (await alice.post(delegationRoot).send(body).expect(200)).body.item;
+    assert.equal((await alice.post(delegationRoot).send(body).expect(200)).body.replayed, true);
+    await alice.post(delegationRoot).send({ ...body, reason: 'Different request content.' }).expect(409);
+    const envelope = witnessBody((await client.get(url).expect(200)).body.context);
+    const original = (await client.post(url).send(envelope).expect(200)).body.witness;
+    assert.equal(original.authorization.kind, 'delegated-witness');
+    // eslint-disable-next-line import/extensions, import/no-relative-packages
+    const { verifyWitnessAuthorization } = await import('../../../../../cloudflare/verify-witness-authorization.mjs');
+    const expected = { publicKey: authority.publicKey.export({ format: 'jwk' }), issuer: 'https://field.example.test', projectId: 1, xmlFormId: 'binaryType', delegateId: id };
+    assert.equal((await verifyWitnessAuthorization(original.authorization, original, expected)).grant.delegationId, grant.id);
+    assert.throws(() => verifyWitnessAuthorization(original.authorization, original, { ...expected, delegateId: id + 1 }));
+    assert.throws(() => verifyWitnessAuthorization(original.authorization, { ...original, signature: 'a'.repeat(86) }, expected));
+    await client.post(delegationRoot).send(grantBody(id)).expect(403);
+    await client.post(`${path}/assessments`).set('If-Match', '"capture-0"').send({}).expect(404);
+    const item = (await client.get(url).expect(200)).body.items[0];
+    await client.post(`${url}/${original.id}/events`).send(witnessChangeBody(item.changeContext)).expect(200);
+    const revoke = { requestId: randomUUID(), reason: 'The approved witness visit has ended.' };
+    await alice.post(`${delegationRoot}/${grant.id}/revoke`).send(revoke).expect(200);
+    assert.equal((await alice.post(`${delegationRoot}/${grant.id}/revoke`).send(revoke).expect(200)).body.replayed, true);
+    const view = (await client.get(url).expect(200)).body; assert.equal(view.items[0].canCorrect, false); assert.ok(view.items[0].changeContext);
+    await client.post(`${url}/${original.id}/events`).send(witnessChangeBody(view.items[0].changeContext)).expect(404);
+    assert.equal((await client.post(url).send(envelope).expect(200)).body.replayed, true);
+    await client.post(`${url}/${original.id}/events`).send(witnessChangeBody(view.items[0].changeContext, 'withdraw')).expect(200);
+    assert.equal((await alice.get(url).expect(200)).body.activeCount, 0);
+    assert.equal((await alice.get(delegationRoot).expect(200)).body.active.length, 0);
+    await c.run(sql`SAVEPOINT delegation_guard`);
+    await assert.rejects(c.run(sql`UPDATE field_data_witness_delegations SET details='{}'::jsonb`), /append-only/);
+    await c.run(sql`ROLLBACK TO SAVEPOINT delegation_guard`);
+  })));
+  it('checks live readers, expiry bounds, signing readiness and archived projects', testService(async (service, c) => withRevocationAuthority(async () => {
+    const { alice, path, collector } = await assessedSetup(service); const { client, id } = await reader(service, alice);
+    const body = grantBody(id);
+    for (const patch of [{ expiresAt: new Date(Date.now() - 1000).toISOString() }, { expiresAt: new Date(Date.now() + 31 * 86400000).toISOString() }, { delegateId: collector.id }, { reason: 'short' }, { extra: true }]) await alice.post(delegationRoot).send({ ...body, ...patch }).expect(patch.delegateId ? 404 : 400);
+    await client.get(delegationRoot).expect(403);
+    const grant = (await alice.post(delegationRoot).send(body).expect(200)).body.item;
+    await alice.post(delegationRoot).send(grantBody(id)).expect(409);
+    const pending = witnessBody((await client.get(`${path}/witnesses`).expect(200)).body.context);
+    await alice.delete(`/v1/projects/1/assignments/viewer/${id}`).expect(200);
+    await client.post(`${path}/witnesses`).send(pending).expect(404);
+    await alice.post(delegationRoot).send(grantBody(id)).expect(404);
+    await alice.post(`/v1/projects/1/assignments/viewer/${id}`).expect(200);
+    const priorOrigin = process.env.FIELD_DATA_OFFLINE_ORIGIN; process.env.FIELD_DATA_OFFLINE_ORIGIN = 'https://different-authority.test';
+    try {
+      assert.equal((await client.get(`${path}/witnesses`).expect(200)).body.canWitness, false);
+      await client.post(`${path}/witnesses`).send(pending).expect(404);
+    } finally { process.env.FIELD_DATA_OFFLINE_ORIGIN = priorOrigin; }
+    const key = process.env.FIELD_DATA_OFFLINE_SIGNING_KEY; delete process.env.FIELD_DATA_OFFLINE_SIGNING_KEY;
+    try {
+      assert.equal((await client.get(`${path}/witnesses`).expect(200)).body.canWitness, false);
+      await client.post(`${path}/witnesses`).send(pending).expect(404);
+      await alice.post(`${delegationRoot}/${grant.id}/revoke`).send({ requestId: randomUUID(), reason: 'Authority signing is unavailable.' }).expect(400);
+    } finally { process.env.FIELD_DATA_OFFLINE_SIGNING_KEY = key; }
+    await c.run(sql`UPDATE projects SET archived=TRUE WHERE id=1`);
+    await alice.post(`${delegationRoot}/${grant.id}/revoke`).send({ requestId: randomUUID(), reason: 'Project archived for review.' }).expect(400);
+    await alice.get('/v1/projects/x/forms/binaryType/witness-delegations').expect(400);
+  })));
+});
+
+describe('api: witness delegation durability and expiry', () => {
+  it('serializes exact retries, ignores expired grants and retains immutable permissions through source purge and rollback', testServiceFullTrx(async (service, c) => withRevocationAuthority(async () => {
+    const { alice, path, challenge } = await assessedSetup(service); const client = await service.login('chelsea');
+    const { id } = (await client.get('/v1/users/current').expect(200)).body; await alice.post(`/v1/projects/1/assignments/viewer/${id}`).expect(200);
+    const delegationRoot = '/v1/projects/1/forms/binaryType/witness-delegations';
+    const body = { requestId: randomUUID(), delegateId: id, expiresAt: new Date(Date.now() + 3600000).toISOString(), reason: 'Authorize the bounded witness review visit.' };
+    const responses = await Promise.all([alice.post(delegationRoot).send(body), alice.post(delegationRoot).send(body)]);
+    assert.deepEqual(responses.map(response => response.status), [200, 200]);
+    assert.deepEqual(responses.map(response => response.body.replayed).sort(), [false, true]);
+    const grant = responses[0].body.item; const { context } = (await client.get(`${path}/witnesses`).expect(200)).body;
+    await alice.post(`${delegationRoot}/${grant.id}/revoke`).send({ requestId: randomUUID(), reason: 'The approved visit window has closed.' }).expect(200);
+    const utility = require('../../../lib/util/witness-delegations');
+    const expiredId = randomUUID(); const requestId = randomUUID();
+    const details = { ...JSON.parse(Buffer.from(grant.attestation.payload, 'base64url')), delegationId: expiredId, requestId, grantedAt: new Date(Date.now() - 120000).toISOString(), expiresAt: new Date(Date.now() - 60000).toISOString() };
+    const attestation = utility.attest(utility.config(), 'delegation', details);
+    await c.run(sql`INSERT INTO field_data_witness_delegations(id,"projectId","formId","delegateId","delegationId",kind,"requestId","requestHash",details,attestation) VALUES(${expiredId},1,${grant.formId},${id},${expiredId},'grant',${requestId},'historical-fixture',${sql.json(details)},${sql.json(attestation)})`);
+    assert.equal((await client.get(`${path}/witnesses`).expect(200)).body.canWitness, false);
+    await client.post(`${path}/witnesses`).send(witnessBody(context)).expect(404);
+    assert.equal((await alice.get(delegationRoot).expect(200)).body.active.length, 0);
+    await c.run(sql`DELETE FROM field_data_capture_challenges WHERE id=${challenge.id}`);
+    assert.equal(await c.oneFirst(sql`SELECT count(*)::integer FROM field_data_witness_delegations`), 3);
+    const config = require('config'); const { knexConnect } = require('../../../lib/model/knex-migrator');
+    const migration = require('../../../lib/model/migrations/20261025-02-witness-delegations'); const db = knexConnect(config.get('test.database'));
+    try { await db.transaction(async trx => { await migration.down(trx); await migration.up(trx); assert.equal((await trx.raw('SELECT count(*)::integer AS count FROM field_data_witness_delegations')).rows[0].count, 3); }); } finally { await db.destroy(); }
+  })));
+});

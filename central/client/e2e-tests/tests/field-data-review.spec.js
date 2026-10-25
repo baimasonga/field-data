@@ -2335,3 +2335,53 @@ test('Knowledge stale definition saves recover through a fresh workspace without
   await expect(panel.getByRole('alert')).toHaveCount(0);
   expect(knowledge.writes).toHaveLength(1); expect(knowledge.definitions).toHaveLength(0); expect(errors).toEqual([]);
 });
+
+const setupWitnessDelegation = async page => {
+  const context = await setup(page, { manageProject: true });
+  const { generateKeyPairSync, sign, randomUUID } = await import('node:crypto');
+  const authority = generateKeyPairSync('ec', { namedCurve: 'prime256v1' }); const publicKey = authority.publicKey.export({ format: 'jwk' });
+  const keyId = createHash('sha256').update(authority.publicKey.export({ type: 'spki', format: 'der' })).digest('hex');
+  const state = { history: [], active: [], writes: [], seen: new Map(), lost: false, tamper: false, denied: false };
+  const attest = details => { const bytes = Buffer.from(JSON.stringify({ ...details, purpose: `field-data.witness-${details.kind === 'grant' ? 'delegation' : 'delegation-revocation'}@1`, issuer: 'https://field.example.test' })); return { algorithm: 'ES256', keyId, publicKey, payload: bytes.toString('base64url'), signature: sign('sha256', bytes, { key: authority.privateKey, dsaEncoding: 'ieee-p1363' }).toString('base64url') }; };
+  await page.route('**/forms/health/witness-delegations**', async route => {
+    if (state.denied) return route.fulfill({ status: 403, json: { message: 'Access lost' } });
+    if (route.request().method() === 'GET') return route.fulfill({ json: { method: 'form-witness-delegations@1', signingAvailable: true, candidates: [{ id: 9, displayName: 'Visiting witness' }], candidatesTruncated: false, active: state.active, history: { items: state.history.map(item => state.tamper ? { ...item, reason: 'Tampered reason' } : item), nextBefore: null } } });
+    const body = route.request().postDataJSON(); const revoke = new URL(route.request().url()).pathname.endsWith('/revoke'); state.writes.push(body);
+    if (state.seen.has(body.requestId)) { const prior = state.seen.get(body.requestId); expect(body).toEqual(prior.body); return route.fulfill({ json: { item: prior.item, replayed: true } }); }
+    const id = randomUUID(); const details = { id, sequence: state.history.length + 1, kind: revoke ? 'revoke' : 'grant', projectId: 7, formId: 11, xmlFormId: 'health', delegationId: revoke ? state.active[0].id : id, delegateId: 9, delegateName: 'Visiting witness', reason: body.reason, requestId: body.requestId, ...(revoke ? { revokedAt: new Date().toISOString(), revokedBy: 1 } : { grantedAt: new Date().toISOString(), grantedBy: 1, expiresAt: body.expiresAt }) };
+    const item = { ...details, attestation: attest(details) }; state.history.unshift(item); state.active = revoke ? [] : [item]; state.seen.set(body.requestId, { body, item });
+    if (state.lost) { state.lost = false; return route.abort('failed'); }
+    return route.fulfill({ json: { item, replayed: false } });
+  });
+  const panel = page.getByRole('region', { name: 'Form witness delegation', exact: true });
+  await panel.getByRole('button', { name: 'Open witness delegation', exact: true }).click();
+  return { ...context, delegation: state, panel };
+};
+test('Witness delegation grants bounded form permission, retries lost acknowledgements and records revocation on mobile', async ({ page }) => {
+  const { panel, delegation, errors } = await setupWitnessDelegation(page);
+  await page.setViewportSize({ width: 320, height: 780 });
+  await panel.getByLabel('Reader account', { exact: true }).selectOption('9');
+  await panel.getByLabel('Permission expires (UTC)').fill('2026-10-26T12:00');
+  await panel.getByLabel('Reason for delegated witnessing').fill('Approved witness review for this form only.');
+  await panel.getByLabel('I authorize this reader to witness challenged photos for this form until expiry or revocation.').check();
+  delegation.lost = true; await panel.getByRole('button', { name: 'Grant witness permission', exact: true }).click();
+  await expect(panel.getByRole('alert')).toContainText('could not be confirmed');
+  await panel.getByRole('button', { name: 'Retry exact delegation change' }).click();
+  await expect(panel.getByRole('alert')).toHaveCount(0); expect(delegation.writes[0]).toEqual(delegation.writes[1]);
+  await expect(panel).toContainText('Visiting witness');
+  await panel.getByLabel('Reason to revoke Visiting witness').fill('The approved witness visit has ended.');
+  await panel.getByRole('button', { name: 'Revoke permission for Visiting witness', exact: true }).click();
+  await expect(panel).toContainText('No active delegated witnesses.'); await expect(panel).toContainText('Revoked');
+  const download = page.waitForEvent('download'); await panel.getByRole('button', { name: 'Download signed permission event' }).first().click();
+  expect((await download).suggestedFilename()).toContain('witness-permission-'); expect(delegation.seen.size).toBe(2);
+  delegation.tamper = true; await panel.getByRole('button', { name: 'Refresh witness delegations' }).click();
+  await expect(panel.getByRole('alert')).toContainText('could not be loaded or verified');
+  await expect(panel.getByRole('button', { name: 'Download signed permission event' })).toHaveCount(0); expect(errors).toEqual([]);
+});
+test('Witness delegation hides unverifiable or access-revoked history and is absent for project readers', async ({ page }) => {
+  const { panel, delegation, errors } = await setupWitnessDelegation(page);
+  delegation.denied = true; await panel.getByRole('button', { name: 'Refresh witness delegations' }).click();
+  await expect(panel.getByRole('alert')).toContainText('could not be loaded or verified');
+  await expect(panel.getByLabel('Reader account', { exact: true })).toHaveCount(0); expect(errors).toEqual([]);
+  await setup(page); await expect(page.getByRole('region', { name: 'Form witness delegation', exact: true })).toHaveCount(0);
+});

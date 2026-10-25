@@ -42,9 +42,9 @@ const checkedChange = (body, scope) => {
   } catch { throw Problem.user.captureWitnessInvalid(); }
 };
 const metadata = row => ({ id: row.id, witnessId: row.witnessId, witnessName: row.witnessName, receivedAt: row.receivedAt,
-  algorithm: 'ES256', payload: row.payload, publicKey: row.publicKey, signature: row.signature });
+  ...(row.authorization == null ? {} : { authorization: row.authorization }), algorithm: 'ES256', payload: row.payload, publicKey: row.publicKey, signature: row.signature });
 const eventMetadata = row => ({ id: row.id, sequence: row.sequence, action: row.action, actorId: row.actorId,
-  actorName: row.actorName, receivedAt: row.receivedAt, algorithm: 'ES256', payload: row.payload, publicKey: row.publicKey, signature: row.signature });
+  actorName: row.actorName, receivedAt: row.receivedAt, ...(row.authorization == null ? {} : { authorization: row.authorization }), algorithm: 'ES256', payload: row.payload, publicKey: row.publicKey, signature: row.signature });
 const lifecycle = (witness, events) => ({ ...metadata(witness), events: events.map(eventMetadata), revision: events.length,
   status: events.at(-1)?.action === 'withdraw' ? 'withdrawn' : 'active' });
 module.exports = { context, payload, checked, metadata, payloadHash, changeContext, changePayload, checkedChange, eventMetadata, lifecycle };

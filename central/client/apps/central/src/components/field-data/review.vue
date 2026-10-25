@@ -41,6 +41,7 @@
           :can-investigate="canManageProject" @investigate="investigationPrefill = $event"/>
         <field-data-investigations v-if="projectId && canManageProject" :key="`investigations:${projectId}`"
           :project-id="projectId" :prefill="investigationPrefill"/>
+        <field-data-witness-delegations v-if="projectId && xmlFormId && canManageProject" :key="`witness-delegations:${projectId}:${xmlFormId}`" :project-id="projectId" :xml-form-id="xmlFormId"/>
         <field-data-knowledge-workspace v-if="projectId" :key="`knowledge:${projectId}`" :project-id="projectId" @open="openFromQueue"/>
         <field-data-project-search v-if="projectId" :key="`search:${projectId}`" :project-id="projectId" @open="openFromQueue"/>
         <field-data-asset-status v-if="projectId" :key="`status:${projectId}`" :project-id="projectId" @open="openFromQueue"/>
@@ -70,6 +71,7 @@ import FieldDataReverificationQueue from './reverification-queue.vue';
 import FieldDataFindingsInbox from './findings-inbox.vue';
 import FieldDataCollectorGroups from './collector-groups.vue';
 import FieldDataInvestigations from './investigations.vue';
+import FieldDataWitnessDelegations from './witness-delegations.vue';
 import FieldDataKnowledgeWorkspace from './knowledge-workspace.vue';
 import FieldDataProjectSearch from './project-search.vue';
 import FieldDataAssetStatus from './asset-status.vue';

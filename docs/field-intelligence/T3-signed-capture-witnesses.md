@@ -72,3 +72,5 @@ T5 also extends JSON downloads and the standalone verifier with signed lifecycle
 history. A legacy export without that history establishes only its original
 signature, with unknown active status. Even a verified history requires a current
 authenticated server read to establish that no later event has been omitted.
+
+[T7](T7-witness-delegation.md) now adds bounded form witness delegation for existing web readers without submission-edit access, with signed authorization receipts. The original T3 permissions described above remain the legacy baseline.

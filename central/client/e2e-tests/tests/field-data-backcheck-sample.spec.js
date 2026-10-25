@@ -1554,3 +1554,34 @@ test('geospatial review allows unavailable evidence with no location and refresh
   await section.getByRole('button', { name: 'Refresh geospatial history' }).click(); await fill(); await section.getByRole('button', { name: 'Save geospatial assessment', exact: true }).click();
   await expect(section).toContainText('Unavailable · Latest assessment for current evidence'); expect(posts[1].citation).toBeNull(); expect(posts[1].reviewedImage).toBe(false); expect(posts[1].requestId).not.toBe(posts[0].requestId);
 });
+
+test('delegated witness receipts bind the signed photo statement and survive downloadable export', async ({ page: p }) => {
+  const authority = generateKeyPairSync('ec', { namedCurve: 'prime256v1' }); const publicKey = authority.publicKey.export({ format: 'jwk' });
+  const keyId = createHash('sha256').update(authority.publicKey.export({ type: 'spki', format: 'der' })).digest('hex');
+  const hashBytes = bytes => createHash('sha256').update(bytes).digest('hex');
+  const attested = (purpose, data) => { const bytes = Buffer.from(JSON.stringify({ ...data, purpose: `field-data.witness-${purpose}@1`, issuer: 'https://field.example.test' })); return { algorithm: 'ES256', keyId, publicKey, payload: bytes.toString('base64url'), signature: sign('sha256', bytes, { key: authority.privateKey, dsaEncoding: 'ieee-p1363' }).toString('base64url') }; };
+  const delegationId = randomUUID(); const grant = attested('delegation', { projectId: 1, formId: 11, xmlFormId: 'household', delegateId: 1, delegationId, grantedAt: new Date(Date.now() - 60000).toISOString(), expiresAt: new Date(Date.now() + 86400000).toISOString() });
+  let stored = null;
+  const errors = await setupAssessmentRecord(p, async (route, path) => {
+    if (path.endsWith('/capture-challenges')) { await route.fulfill({ json: { items: [reviewCapture] } }); return true; }
+    if (!path.endsWith('/witnesses')) return false;
+    if (route.request().method() === 'GET') { await route.fulfill({ json: { items: stored ? [clearKeyTrust(stored)] : [], bindingCurrent: true, canWitness: !stored, context: stored ? null : witnessContext } }); return true; }
+    const body = route.request().postDataJSON(); const receivedAt = new Date().toISOString();
+    const receipt = attested('authorization', { projectId: 1, formId: 11, xmlFormId: 'household', delegateId: 1, delegationId, delegationPayloadHash: hashBytes(Buffer.from(grant.payload, 'base64url')), witnessPayloadHash: hashBytes(Buffer.from(body.payload, 'base64url')), witnessSignatureHash: hashBytes(body.signature), witnessKeyHash: hashBytes(createPublicKey({ key: body.publicKey, format: 'jwk' }).export({ type: 'spki', format: 'der' })), receivedAt });
+    stored = { id: sampleId, witnessId: 1, witnessName: 'Visiting witness', receivedAt, algorithm: 'ES256', payload: body.payload, publicKey: body.publicKey, signature: body.signature, events: [], status: 'active', revision: 0, authorization: { kind: 'delegated-witness', delegation: grant, receipt } };
+    await route.fulfill({ json: { witness: stored, replayed: false, bindingCurrent: true } }); return true;
+  });
+  const section = p.getByRole('region', { name: 'Signed witness statements' });
+  await section.getByLabel('Describe what you personally observed').fill('I observed the paper code; the scene location was not independently checked.');
+  await section.getByLabel('I reviewed the original challenged image and am signing my own statement for this photo.').check();
+  await section.getByRole('button', { name: 'Sign and submit witness statement' }).click();
+  await expect(section).toContainText('Authorized as a delegated form witness');
+  const download = p.waitForEvent('download'); await section.getByRole('button', { name: 'Download signed statement', exact: true }).click();
+  const exported = JSON.parse(await readFile(await (await download).path(), 'utf8'));
+  const { verifyWitnessAuthorization } = await import('../../../../cloudflare/verify-witness-authorization.mjs');
+  const expected = { publicKey, issuer: 'https://field.example.test', projectId: 1, xmlFormId: 'household', delegateId: 1 };
+  expect((await verifyWitnessAuthorization(exported.authorization, exported, expected)).grant.delegationId).toBe(delegationId);
+  stored.authorization.receipt.signature = 'a'.repeat(86);
+  await p.reload(); await expect(p.getByRole('region', { name: 'Signed witness statements' }).getByRole('alert')).toContainText('could not be loaded or verified');
+  expect(errors).toEqual([]);
+});
