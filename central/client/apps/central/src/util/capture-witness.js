@@ -1,3 +1,4 @@
+import { verifyAuthorization } from './witness-delegations';
 // Copyright 2026 Field Data Developers. Licensed under the Apache License, Version 2.0.
 const encode = bytes => btoa(Array.from(new Uint8Array(bytes), b => String.fromCharCode(b)).join('')).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 const decode = value => Uint8Array.from(atob(value.replace(/-/g, '+').replace(/_/g, '/')), c => c.charCodeAt(0));
@@ -40,6 +41,7 @@ export const verifyWitness = async (record, context) => {
   const key = await crypto.subtle.importKey('jwk', record.publicKey, { name: 'ECDSA', namedCurve: 'P-256' }, false, ['verify']);
   const valid = await crypto.subtle.verify({ name: 'ECDSA', hash: 'SHA-256' }, key, decode(record.signature), bytes);
   if (!valid) throw new Error('Invalid witness signature');
+  const authorization = await verifyAuthorization(record.authorization, record);
   const events = record.events === undefined ? null : record.events;
   if (record.events !== undefined && (!Array.isArray(events) || events.length > 21)) throw new Error('Invalid change history');
   let status = events === null ? 'unknown' : 'active'; let effectiveStatement = data.statement; let previous = record;
@@ -64,6 +66,8 @@ export const verifyWitness = async (record, context) => {
       typeof change.reason !== 'string' || change.reason !== change.reason.trim() || change.reason.length < 10 || change.reason.length > 2000 ||
       (change.action === 'withdraw' ? change.statement !== null : typeof change.statement !== 'string' || change.statement !== change.statement.trim() || change.statement.length < 10 || change.statement.length > 2000) ||
       !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(change.requestId ?? '') || !Number.isFinite(Date.parse(change.signedAt))) throw new Error('Invalid change scope or sequence');
+    // eslint-disable-next-line no-await-in-loop
+    await verifyAuthorization(event.authorization, { ...event, payload: event.payload });
     status = change.action === 'withdraw' ? 'withdrawn' : 'active';
     effectiveStatement = change.statement;
     verifiedEvents.push({ ...event, reason: change.reason, statement: change.statement, signedAt: change.signedAt }); previous = event;
@@ -75,7 +79,7 @@ export const verifyWitness = async (record, context) => {
   };
   if (record.changeContext != null && JSON.stringify(record.changeContext) !== JSON.stringify(expectedChangeContext)) throw new Error('Invalid signing context');
   return {
-    ...record, statement: data.statement, signedAt: data.signedAt, status, effectiveStatement,
+    ...record, verifiedAuthorization: authorization, statement: data.statement, signedAt: data.signedAt, status, effectiveStatement,
     verifiedEvents, revision: verifiedEvents.length
   };
 };

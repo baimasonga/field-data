@@ -10,6 +10,7 @@
       <ol v-if="records.length">
         <li v-for="record of records" :key="record.id">
           <strong>{{ record.witnessName }}</strong> · Signature verified
+          <p v-if="record.verifiedAuthorization">Authorized as a delegated form witness until {{ record.verifiedAuthorization.grant.expiresAt }}. The signed server receipt binds this statement to that permission; it does not certify personal identity or presence.</p>
           <p v-if="record.status === 'withdrawn'" role="status">Withdrawn — not active corroboration.</p>
           <p v-else-if="record.status === 'unknown'" role="status">Lifecycle history unavailable. Refresh before relying on this statement as active.</p>
           <p v-else role="status">{{ record.keyTrust.status === 'clear' ? (bindingCurrent ? 'Active statement for this image.' : 'Historical statement for an earlier image or version.') : 'Retained signed statement; current key trust is withheld.' }}</p>
@@ -138,6 +139,7 @@ const download = record => {
   const { id, witnessId, witnessName, receivedAt, algorithm, payload, publicKey, signature, events, status, revision } = record;
   const envelope = {
     id, witnessId, witnessName, receivedAt, algorithm, payload, publicKey, signature,
+    ...(record.authorization == null ? {} : { authorization: record.authorization }),
     keyTrust: { status: record.keyTrust.status, checkedAt: record.keyTrust.checkedAt, keys: record.keyTrust.keys.map(key => ({ keyHash: key.keyHash, revocation: key.revocation })) },
     ...(events === undefined ? {} : { events, status, revision })
   };
