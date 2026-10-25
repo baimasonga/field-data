@@ -2386,3 +2386,29 @@ test('Witness delegation hides unverifiable or access-revoked history and is abs
   await expect(panel.getByLabel('Reader account', { exact: true })).toHaveCount(0); expect(errors).toEqual([]);
   await setup(page); await expect(page.getByRole('region', { name: 'Form witness delegation', exact: true })).toHaveCount(0);
 });
+
+test('sensor key registry enrolls external keys with exact retries, signed history and permanent revocation', async ({ page }) => {
+  const { errors } = await setup(page, { manageProject: true }); const { generateKeyPairSync, sign, randomUUID } = await import('node:crypto');
+  const authority = generateKeyPairSync('ec', { namedCurve: 'prime256v1' }); const external = generateKeyPairSync('ec', { namedCurve: 'prime256v1' }); const publicKey = authority.publicKey.export({ format: 'jwk' });
+  const keyId = createHash('sha256').update(authority.publicKey.export({ type: 'spki', format: 'der' })).digest('hex'); const deviceId = randomUUID(); const state = { devices: [], history: [], writes: [], seen: new Map(), lost: true, denied: false };
+  const attest = (kind, data) => { const bytes = Buffer.from(JSON.stringify({ ...data, purpose: `field-data.sensor-${kind}@1`, issuer: 'https://field.example.test' })); return { algorithm: 'ES256', keyId, publicKey, payload: bytes.toString('base64url'), signature: sign('sha256', bytes, { key: authority.privateKey, dsaEncoding: 'ieee-p1363' }).toString('base64url') }; };
+  await page.route('**/v1/projects/7/sensor-keys**', async route => {
+    if (state.denied) return route.fulfill({ status: 403, json: { message: 'Access lost' } });
+    if (route.request().method() === 'GET') return route.fulfill({ json: { method: 'sensor-key-registry@1', signingAvailable: true, revocationAvailable: true, devices: state.devices, history: { items: state.history, nextBefore: null } } });
+    const body = route.request().postDataJSON(); state.writes.push(body); const previous = state.seen.get(body.requestId); if (previous) { expect(body).toEqual(previous.body); return route.fulfill({ json: { item: previous.item, replayed: true } }); }
+    const revoke = new URL(route.request().url()).pathname.endsWith('/revoke');
+    const details = revoke ? { projectId: 7, deviceId, keyHash: state.devices[0].keyHash, revokedBy: 1, revokedAt: new Date().toISOString(), reason: body.reason } : { projectId: 7, deviceId, publicKey: body.publicKey, keyHash: createHash('sha256').update(external.publicKey.export({ type: 'spki', format: 'der' })).digest('hex'), label: body.label, operatorLabel: body.operatorLabel, sensorKind: body.sensorKind, expiresAt: body.expiresAt, verificationNote: body.verificationNote, enrolledBy: 1, enrolledAt: new Date().toISOString() };
+    const item = { id: revoke ? randomUUID() : deviceId, deviceId, kind: revoke ? 'revoke' : 'enroll', ...details, attestation: attest(revoke ? 'key-revocation' : 'enrollment', details) };
+    state.history.unshift(item); state.devices = revoke ? [] : [item]; state.seen.set(body.requestId, { body, item });
+    if (state.lost) { state.lost = false; return route.abort('failed'); } return route.fulfill({ json: { item, replayed: false } });
+  });
+  const panel = page.getByRole('region', { name: 'Sensor signing keys', exact: true }); await panel.getByRole('button', { name: 'Open sensor key registry', exact: true }).click();
+  await page.setViewportSize({ width: 320, height: 780 }); await panel.getByLabel('Sensor label', { exact: true }).fill('Range beacon'); await panel.getByLabel('External operator label').fill('Independent sensor operator');
+  await panel.getByLabel('Public P-256 key JSON').fill(JSON.stringify(external.publicKey.export({ format: 'jwk' }))); await panel.getByLabel('Sensor key expires (UTC)').fill(new Date(Date.now() + 86400000).toISOString().slice(0,16));
+  await panel.getByLabel('Provisioning and independence review note').fill('Checked the external operator provisioning record and reported independence.'); await panel.getByLabel('I checked the external public key, operator provenance and stated sensor type.').check();
+  await panel.getByRole('button', { name: 'Enroll sensor signing key', exact: true }).click(); await expect(panel.getByRole('alert')).toContainText('could not be confirmed'); await panel.getByRole('button', { name: 'Retry exact sensor key change' }).click();
+  await expect(panel.getByRole('alert')).toHaveCount(0); expect(state.writes[1]).toEqual(state.writes[0]);
+  const download = page.waitForEvent('download'); await panel.getByRole('button', { name: 'Download signed enrollment' }).click(); expect((await download).suggestedFilename()).toContain('sensor-enrollment-');
+  await panel.getByLabel('Revocation reason for Range beacon').fill('The external signing environment was compromised.'); await panel.getByRole('button', { name: 'Revoke sensor key Range beacon', exact: true }).click(); await expect(panel).toContainText('No active sensor keys.');
+  state.denied = true; await panel.getByRole('button', { name: 'Refresh sensor key registry', exact: true }).click(); await expect(panel.getByRole('alert')).toContainText('could not be loaded or verified'); expect(errors).toEqual([]);
+});

@@ -8,6 +8,7 @@ const Problem = require('../util/problem');
 const { UUID_PATTERN } = require('../util/claim-versioning');
 const keyTrust = require('../util/witness-key-trust');
 const certificates = require('../util/witness-certificates');
+const sensors = require('../util/sensor-corroboration');
 
 const eventsFor = (db, id) => db.any(sql`SELECT * FROM field_data_capture_witness_events WHERE "witnessRecordId" = ${id} ORDER BY sequence LIMIT 21`);
 module.exports = (service, endpoint) => {
@@ -55,6 +56,7 @@ module.exports = (service, endpoint) => {
         return { witness: { ...lifecycle(prior, await eventsFor(tx.db, prior.id)), keyTrust: await keyTrust.trustFor(tx.db, params.projectId, prior, await eventsFor(tx.db, prior.id)) }, replayed: true, bindingCurrent: current };
       }
       witness = await delegation.lockSigner(tx, auth, form);
+      await sensors.assertNotSensorKey(tx.db, params.projectId, data.publicKey);
       await certificates.assertOwner(tx.db, params.projectId, data.publicKey, actor.id);
       if (await keyTrust.keyRevoked(tx.db, params.projectId, data.publicKey)) throw Problem.user.captureWitnessConflict();
       if (!current || row.archived) throw Problem.user.captureAssessmentTargetChanged();
@@ -96,6 +98,7 @@ module.exports = (service, endpoint) => {
       }
       if (data.action === 'correct' && row.archived && witness.authorization != null) throw Problem.user.captureAssessmentTargetChanged();
       if (data.action === 'correct') signer = await delegation.lockSigner(tx, auth, form);
+      await sensors.assertNotSensorKey(tx.db, params.projectId, data.publicKey);
       await certificates.assertOwner(tx.db, params.projectId, data.publicKey, actor.id);
       const trust = await keyTrust.trustFor(tx.db, params.projectId, witness, events);
       if (await keyTrust.keyRevoked(tx.db, params.projectId, data.publicKey) || (trust.status === 'revoked' && data.action === 'correct')) throw Problem.user.captureWitnessChangeConflict();
