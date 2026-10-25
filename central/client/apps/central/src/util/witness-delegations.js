@@ -9,7 +9,8 @@ export const verifyDelegationEnvelope = async (record, purpose) => {
   const key = await crypto.subtle.importKey('jwk', record.publicKey, { name: 'ECDSA', namedCurve: 'P-256' }, true, ['verify']);
   if (record.keyId !== await hash(await crypto.subtle.exportKey('spki', key)) || !await crypto.subtle.verify({ name: 'ECDSA', hash: 'SHA-256' }, key, signature, bytes)) throw new Error('Invalid delegation signature');
   const data = JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(bytes));
-  if (data.purpose !== `field-data.witness-${purpose}@1` || typeof data.issuer !== 'string' || !/^https:\/\//.test(data.issuer)) throw new Error('Invalid delegation purpose');
+  const issuer = new URL(data.issuer);
+  if (data.purpose !== `field-data.witness-${purpose}@1` || issuer.origin !== data.issuer || issuer.username || issuer.password || (issuer.protocol !== 'https:' && !(issuer.protocol === 'http:' && ['localhost', '127.0.0.1', '[::1]'].includes(issuer.hostname)))) throw new Error('Invalid delegation purpose or issuer');
   return data;
 };
 export const verifyAuthorization = async (authorization, witness) => {

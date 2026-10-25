@@ -2341,8 +2341,8 @@ const setupWitnessDelegation = async page => {
   const { generateKeyPairSync, sign, randomUUID } = await import('node:crypto');
   const authority = generateKeyPairSync('ec', { namedCurve: 'prime256v1' }); const publicKey = authority.publicKey.export({ format: 'jwk' });
   const keyId = createHash('sha256').update(authority.publicKey.export({ type: 'spki', format: 'der' })).digest('hex');
-  const state = { history: [], active: [], writes: [], seen: new Map(), lost: false, tamper: false, denied: false };
-  const attest = details => { const bytes = Buffer.from(JSON.stringify({ ...details, purpose: `field-data.witness-${details.kind === 'grant' ? 'delegation' : 'delegation-revocation'}@1`, issuer: 'https://field.example.test' })); return { algorithm: 'ES256', keyId, publicKey, payload: bytes.toString('base64url'), signature: sign('sha256', bytes, { key: authority.privateKey, dsaEncoding: 'ieee-p1363' }).toString('base64url') }; };
+  const state = { history: [], active: [], writes: [], seen: new Map(), lost: false, tamper: false, denied: false, issuer: 'https://field.example.test' };
+  const attest = details => { const bytes = Buffer.from(JSON.stringify({ ...details, purpose: `field-data.witness-${details.kind === 'grant' ? 'delegation' : 'delegation-revocation'}@1`, issuer: state.issuer })); return { algorithm: 'ES256', keyId, publicKey, payload: bytes.toString('base64url'), signature: sign('sha256', bytes, { key: authority.privateKey, dsaEncoding: 'ieee-p1363' }).toString('base64url') }; };
   await page.route('**/forms/health/witness-delegations**', async route => {
     if (state.denied) return route.fulfill({ status: 403, json: { message: 'Access lost' } });
     if (route.request().method() === 'GET') return route.fulfill({ json: { method: 'form-witness-delegations@1', signingAvailable: true, candidates: [{ id: 9, displayName: 'Visiting witness' }], candidatesTruncated: false, active: state.active, history: { items: state.history.map(item => state.tamper ? { ...item, reason: 'Tampered reason' } : item), nextBefore: null } } });
@@ -2359,6 +2359,7 @@ const setupWitnessDelegation = async page => {
 };
 test('Witness delegation grants bounded form permission, retries lost acknowledgements and records revocation on mobile', async ({ page }) => {
   const { panel, delegation, errors } = await setupWitnessDelegation(page);
+  delegation.issuer = 'http://localhost:8989';
   await page.setViewportSize({ width: 320, height: 780 });
   await panel.getByLabel('Reader account', { exact: true }).selectOption('9');
   await panel.getByLabel('Permission expires (UTC)').fill('2026-10-26T12:00');
