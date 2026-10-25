@@ -48,7 +48,7 @@ const { request, awaitingResponse: busy } = useRequest();
 let alive = true; onBeforeUnmount(() => { alive = false; });
 const certified = computed(() => props.record.keyTrust.keys.filter(key => key.certificate != null));
 const uncertified = computed(() => props.record.keyTrust.keys.filter(key => key.certificate == null && key.revocation === null));
-const available = computed(() => props.record.keyTrust.keys.filter(key => key.revocation === null));
+const available = computed(() => props.record.keyTrust.keys.filter(key => key.revocation === null && key.canRevoke !== false));
 const revoked = computed(() => props.record.keyTrust.keys.filter(key => key.revocation !== null));
 const selected = ref(available.value[0]?.keyHash ?? ''); const reasonCode = ref('compromised'); const reason = ref(''); const error = ref(false); const pending = ref(null);
 const certificateKey = ref(uncertified.value[0]?.keyHash ?? ''); const identityLabel = ref(''); const method = ref('account-control'); const verificationNote = ref(''); const certificateExpiry = ref(''); const reviewed = ref(false); const pendingCertificate = ref(null); const certificateError = ref(false);

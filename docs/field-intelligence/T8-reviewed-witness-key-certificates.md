@@ -39,7 +39,7 @@ certificate never bypasses current source grants, witness permissions, distinct
 collector checks or signing-key revocation.
 
 The existing project signing-key revocation workflow applies to certified keys.
-An owner or authorized manager can revoke a retained key with a reason. Revocation
+A certified key's owner or a project manager with current source read access can revoke it with a reason, without submission-edit permission. Uncertified legacy keys retain their existing permission requirements. Revocation
 is permanent, prevents new use/certification, and excludes statements using it
 from active corroboration. The historical certificate/signatures remain readable;
 an exact certification retry can return its historical certificate after

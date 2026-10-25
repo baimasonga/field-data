@@ -743,7 +743,11 @@ describe('api: reviewed witness key certificates', () => {
     const record = (await owner.post(url).send(original).expect(200)).body.witness; const hashKey = require('../../../lib/util/witness-key-trust').keyHash;
     const body = certificateBody(hashKey(record.publicKey)); const target = `${url}/${record.id}/key-certificates`;
     await owner.post(target).send(body).expect(404);
+    const roles = await c.db.any(sql`SELECT id,verbs FROM roles`);
+    await c.run(sql`UPDATE roles SET verbs=verbs-'submission.update'`);
+    assert.equal((await alice.get(url).expect(200)).body.items[0].keyTrust.canCertify, true);
     const first = await alice.post(target).send(body).expect(200); const { attestation } = first.body;
+    for (const role of roles) await c.run(sql`UPDATE roles SET verbs=${sql.json(role.verbs)} WHERE id=${role.id}`);
     assert.deepEqual((await alice.post(target).send(body).expect(200)).body.attestation, attestation);
     await alice.post(target).send({ ...body, verificationNote: 'Conflicting review under the same request identity.' }).expect(409);
     const item = (await alice.get(url).expect(200)).body.items[0]; assert.deepEqual(item.keyTrust.keys[0].certificate, attestation); assert.equal(item.keyTrust.canCertify, true);
@@ -754,6 +758,10 @@ describe('api: reviewed witness key certificates', () => {
     assert.throws(() => verifyWitnessKeyCertificate(attestation, { ...expected, subjectAccountId: 999 }, record));
     await alice.post(url).send(signedWith((await alice.get(url).expect(200)).body.context, keys)).expect(409);
     const revoke = { requestId: randomUUID(), keyHash: body.keyHash, reasonCode: 'compromised', reason: 'The reviewed signing environment was compromised.' };
+    await c.run(sql`UPDATE roles SET verbs=verbs-'project.update'`);
+    await alice.post(`${url}/${record.id}/key-revocations`).send(revoke).expect(404);
+    for (const role of roles) await c.run(sql`UPDATE roles SET verbs=${sql.json(role.verbs.filter(verb => verb !== 'submission.update'))} WHERE id=${role.id}`);
+    const readManagerView = (await alice.get(url).expect(200)).body.items[0]; assert.equal(readManagerView.keyTrust.keys[0].canRevoke, true);
     const revocation = (await alice.post(`${url}/${record.id}/key-revocations`).send(revoke).expect(200)).body.attestation;
     assert.equal(verifyWitnessKeyCertificate(attestation, { ...expected, revocation }, record).revocationStatus, 'revoked');
     assert.equal((await alice.get(url).expect(200)).body.activeCount, 0);

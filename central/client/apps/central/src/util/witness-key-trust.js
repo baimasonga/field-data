@@ -15,7 +15,7 @@ const verifyKeyTrust = async (record, projectId) => {
     if (state.keys.length !== hashes.length || new Set(state.keys.map(row => row.keyHash)).size !== hashes.length || state.keys.some(row => !hashes.includes(row.keyHash))) return unknown;
     const keys = await Promise.all(state.keys.map(async row => {
       const checked = await checkedCertificate(row.certificate, projectId, row.keyHash, record.witnessId, state.checkedAt);
-      const certificate = { certificate: row.certificate ?? null, certificateDetails: checked?.details ?? null, certificateStatus: checked?.status ?? 'uncertified' };
+      const certificate = { canRevoke: row.canRevoke === undefined ? state.canRevoke === true : row.canRevoke === true, certificate: row.certificate ?? null, certificateDetails: checked?.details ?? null, certificateStatus: checked?.status ?? 'uncertified' };
       if (row.revocation === null) return { keyHash: row.keyHash, revocation: null, ...certificate };
       const cert = row.revocation;
       if (cert?.algorithm !== 'ES256' || typeof cert.payload !== 'string' || cert.payload.length > 12000 || !/^[A-Za-z0-9_-]{86}$/.test(cert.signature) || cert.publicKey?.d != null || cert.keyId !== await fingerprint(cert.publicKey)) throw new Error();
