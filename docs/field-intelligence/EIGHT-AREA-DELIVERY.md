@@ -378,7 +378,7 @@ pilot is a separate acceptance activity. Product work resumes with K7 above.
 | Operations | Sampling, allocation, shared capacity, same-day/overnight UTC shifts, combined approved itineraries, manual/scheduled collector/answer sampling with group-specific rates, numeric ranges, polygon groups, inspectable design weights, conditional calibrated binary estimates, approved-stop navigation handoff and agreement counts | Additional task types, built-in/offline routing, external benchmark calibration and validated outcome inference |
 | Geospatial | Location integrity, imagery availability and cited human geospatial assessments with temporal context and outdated history | Exact footprint checks, reviewed change candidates, imagery analysis and evaluated automated change detection |
 | Fraud intelligence | Contradictions, identity reuse, similarity, collector links, investigations/outcomes, live case links and targeted backcheck questions with reviewed form drafts and same-form/cross-form shared-identity peer targeting | Broader peer families, multilingual/effectiveness evaluation, calibrated triage and false-positive evaluation |
-| Adaptive surveys | Doctor, simulations, version-change analysis and recodes | Approved bounded policies, reviewed evolution/draft generation, answer uncertainty, conversational multilingual support and native-export recodes |
+| Adaptive surveys | Doctor, simulations, version-change analysis, analysis recodes and opt-in native CSV ZIP value recodes | Approved bounded policies, reviewed evolution/draft generation, answer uncertainty, conversational multilingual support, native moved-question recodes and OData overlays |
 | Multimodal | Provenance-preserving capture, manual evidence review and reviewed photo-text/voice extraction with correction history | Live provider/language evaluation, asset/module suggestions, guided capture, source-grounded drafts, offline models and field acceptance |
 
 Each implementation needs its actual API and user workflow, permission and
@@ -567,3 +567,14 @@ states accompany the comparison. See
 does not infer image-content identity or certify capture time/presence. Asset
 maps, evaluated photo identity inference and field acceptance remain pending;
 all eight areas remain partial.
+
+
+### S6 opt-in native CSV ZIP value recodes
+
+Published unencrypted form downloads can explicitly apply version-bound value
+rules to native root/repeat CSV tables with a frozen manifest. Unsupported moved
+questions/fields are listed as skipped, source answers remain intact, and rule
+retirement changes the export validator. See
+[S6-native-csv-value-recodes.md](S6-native-csv-value-recodes.md). Native moved-question
+recodes, OData overlays and approved adaptive policies remain pending; all eight
+areas remain partial.

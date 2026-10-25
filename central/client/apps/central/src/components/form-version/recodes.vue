@@ -10,7 +10,7 @@ never changed. Contract: docs/field-intelligence/S4-export-recodes.md -->
       <p class="recodes-intro">
         When a question's codes or place changed between versions, a rule makes exports that span versions use one set of codes.
         Rules can apply to the analysis table, charts and map, as well as analysis exports (CSV, Excel, SPSS, Stata), and are listed in each export's manifest.
-        They do not change submissions, and Central's own CSV and OData downloads are not recoded.
+        They do not change submissions, and standard CSV and OData downloads retain stored answers. Native CSV ZIP downloads offer opt-in value rules with a manifest; moved-question rules remain unsupported there.
       </p>
       <p v-if="error" role="alert" class="recodes-error">{{ error }}</p>
       <button v-if="error" type="button" class="btn btn-default" :disabled="busy" @click="load">Reload rules</button>

@@ -1,4 +1,4 @@
-/* global localStorage */
+/* global localStorage, window, document */
 // S4 recode rules for exports in the browser: docs/field-intelligence/S4-export-recodes.md
 import { expect, test } from '@playwright/test';
 
@@ -76,7 +76,7 @@ test('lists rules, adds a value rule and a moved-question rule, and retires one'
   const { errors, posts } = await api(page);
   await page.goto(versionsPage);
   const section = page.locator('#form-version-recodes');
-  await expect(section).toContainText("Central's own CSV and OData downloads are not recoded");
+  await expect(section).toContainText("standard CSV and OData downloads retain stored answers");
   const first = section.locator('.recodes-rule').first();
   await expect(first).toContainText('/water');
   await expect(first).toContainText('Codes · version 1');
