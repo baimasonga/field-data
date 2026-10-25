@@ -41,6 +41,7 @@
           :can-investigate="canManageProject" @investigate="investigationPrefill = $event"/>
         <field-data-investigations v-if="projectId && canManageProject" :key="`investigations:${projectId}`"
           :project-id="projectId" :prefill="investigationPrefill"/>
+        <field-data-knowledge-workspace v-if="projectId" :key="`knowledge:${projectId}`" :project-id="projectId" @open="openFromQueue"/>
         <field-data-project-search v-if="projectId" :key="`search:${projectId}`" :project-id="projectId" @open="openFromQueue"/>
         <field-data-asset-status v-if="projectId" :key="`status:${projectId}`" :project-id="projectId" @open="openFromQueue"/>
         <field-data-duplicate-assets v-if="projectId" :key="`duplicates:${projectId}`" :project-id="projectId"
@@ -69,6 +70,7 @@ import FieldDataReverificationQueue from './reverification-queue.vue';
 import FieldDataFindingsInbox from './findings-inbox.vue';
 import FieldDataCollectorGroups from './collector-groups.vue';
 import FieldDataInvestigations from './investigations.vue';
+import FieldDataKnowledgeWorkspace from './knowledge-workspace.vue';
 import FieldDataProjectSearch from './project-search.vue';
 import FieldDataAssetStatus from './asset-status.vue';
 import FieldDataDuplicateAssets from './duplicate-assets.vue';
