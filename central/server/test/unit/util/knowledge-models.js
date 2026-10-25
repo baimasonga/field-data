@@ -36,6 +36,8 @@ describe('complete Knowledge models', () => {
     assert.equal(causal(missing, contract()).excluded.unavailable, 1);
     assert.equal(causal(sample(), contract({ assumptions: { ...contract().assumptions, exchangeability: false } })).estimate, null);
     const bad = sample(); bad.assets[0].facts.Y.value = '0x10'; assert.equal(causal(bad, contract()).excluded.invalidValue, 1);
+    const overflow = sample(); for (const asset of overflow.assets) asset.facts.Y.value = '1e308';
+    assert.match(causal(overflow, contract()).withheldReasons.join(' '), /finite estimate/);
   });
   it('evaluates action rules from fresh evidence without turning unknown or invalid numbers into matches', () => {
     const definition = checkedDefinition({ kind: 'decision', rules: [{ predicate: 'condition', operator: 'eq', value: 'broken', priority: 1, action: 'Review repair.' }, { predicate: 'age', operator: 'gte', value: '5', priority: 2, action: 'Inspect age.' }] });

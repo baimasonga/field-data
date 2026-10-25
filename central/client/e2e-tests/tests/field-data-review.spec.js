@@ -2293,6 +2293,7 @@ test('Knowledge image review selects arbitrary assets and withholds identity dec
   const { panel, state, errors } = await setupKnowledge(page);
   await page.route('**/assets/*/photo-comparison/*?*', route => route.fulfill({ json: { method: 'asset-referenced-photo@1', checkedAt: '2026-10-25T01:00:00Z', predicate: 'photo', a: { status: 'missing' }, b: { status: 'missing' } } }));
   await panel.getByRole('button', { name: 'Image identity review', exact: true }).click();
+  await expect(panel.getByLabel('Facts valid at')).toHaveCount(0);
   await panel.getByLabel(/^First asset/).selectOption('55555555-5555-4555-8555-555555555555');
   await panel.getByLabel(/^Second asset/).selectOption('99999999-9999-4999-8999-999999999999');
   await expect(panel.getByRole('button', { name: 'Open first asset passport' })).toBeVisible();

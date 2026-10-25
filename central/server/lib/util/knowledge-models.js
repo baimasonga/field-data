@@ -120,7 +120,8 @@ const causal = (snapshot, definition) => {
       se2 += weight ** 2 * ((variance(cell.treated) / cell.treated.length) + (variance(cell.control) / cell.control.length));
     }
     const standardError = Math.sqrt(se2);
-    if ([effect, standardError].every(Number.isFinite)) estimate = { effect, standardError, conditional95: [effect - 1.96 * standardError, effect + 1.96 * standardError] };
+    const conditional95 = [effect - 1.96 * standardError, effect + 1.96 * standardError];
+    if ([effect, standardError, ...conditional95].every(Number.isFinite)) estimate = { effect, standardError, conditional95 };
     else reasons.push('Numeric range prevents a finite estimate.');
   }
   const sourceGroups = new Map(); for (const row of included) if (row.outcomeSource) sourceGroups.set(row.outcomeSource, (sourceGroups.get(row.outcomeSource) ?? 0) + 1);
