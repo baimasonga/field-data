@@ -21,19 +21,19 @@ export const challengeContext = row => {
 const fields = (value, keys) => value != null && typeof value === 'object' && !Array.isArray(value) &&
   Object.keys(value).length === keys.length && Object.keys(value).every(key => keys.includes(key));
 const text = (value, max) => typeof value === 'string' && value.length > 0 && value.length <= max;
-const encode = value => {
+export const encode = value => {
   const bytes = new Uint8Array(value); let result = '';
   for (let i = 0; i < bytes.length; i += 32768) result += String.fromCharCode(...bytes.subarray(i, i + 32768));
   return btoa(result);
 };
-const decode = (value, max) => {
+export const decode = (value, max) => {
   if (typeof value !== 'string' || value.length > Math.ceil(max / 3) * 4 || value.length % 4 !== 0 || /[^A-Za-z0-9+/=]/.test(value)) throw new Error('Invalid encoding');
   const raw = atob(value);
   if (raw.length > max) throw new Error('Archive exceeds its limit');
   return Uint8Array.from(raw, c => c.charCodeAt(0));
 };
-const hash = async bytes => Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', bytes)), b => b.toString(16).padStart(2, '0')).join('');
-const derive = async (passphrase, salt) => {
+export const hash = async bytes => Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', bytes)), b => b.toString(16).padStart(2, '0')).join('');
+export const derive = async (passphrase, salt) => {
   if (!text(passphrase, 128) || passphrase.length < 12) throw new Error('Use a passphrase of 12 to 128 characters');
   const material = await crypto.subtle.importKey('raw', encoder.encode(passphrase), 'PBKDF2', false, ['deriveKey']);
   return crypto.subtle.deriveKey(
@@ -97,9 +97,9 @@ export const decryptMedia = async (record, passphrase, now = Date.now(), origin 
   if (data.schemaVersion !== record.schemaVersion) throw new Error('Package version mismatch');
   return validateMedia(data, now, origin);
 };
-export const storedMedia = async (operation, value = null, isCurrent = () => true) => {
+export const storedMedia = async (operation, value = null, isCurrent = () => true, database = 'field-data-media') => {
   const db = await new Promise((resolve, reject) => {
-    const open = indexedDB.open('field-data-media', 1);
+    const open = indexedDB.open(database, 1);
     open.onupgradeneeded = () => open.result.createObjectStore('packages');
     open.onsuccess = () => resolve(open.result); open.onerror = () => reject(open.error);
     open.onblocked = () => reject(new Error('Storage blocked'));

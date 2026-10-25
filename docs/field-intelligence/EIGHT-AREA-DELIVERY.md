@@ -594,3 +594,14 @@ A different project manager can review a retained account/key binding and issue 
 ### T9 signed external sensor corroboration
 
 Managers can enroll/revoke external sensor public keys; reviewers export a nonce/image-bound context, import signed proximity/location/scalar readings, inspect timing/key/byte diagnostics and retain signed assessments/exports. Replay tombstones survive source purge, and sensor nodes link into the evidence graph without asserting presence. See [T9-signed-sensor-corroboration.md](T9-signed-sensor-corroboration.md). Hardware commissioning and calibrated independence/presence acceptance remain separate from software protocol delivery.
+
+### R5 encrypted XML submission queue
+
+The companion Fieldwork page can retain encrypted, origin/project/collector-bound
+new submission XML across reloads, export/import recovery packages, prioritize
+foreground native OpenRosa uploads and durably checkpoint acknowledgements without
+extending expiry. Exact retries recover lost acknowledgements; conflicts and
+revoked permissions stop delivery. See
+[R5-encrypted-xml-submission-queue.md](R5-encrypted-xml-submission-queue.md).
+Background synchronization, delegated courier/custody transport, Collect-native
+queue changes and real-device acceptance remain separate remaining work.

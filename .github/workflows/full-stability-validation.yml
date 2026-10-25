@@ -83,12 +83,12 @@ jobs:
             | tee ../../client-karma.log
           sed -r 's/\x1b\[[0-9;]*m//g' ../../client-karma.log \
             | grep -Eq 'Executed [1-9][0-9]* of [1-9][0-9]* SUCCESS'
-      - name: Require encrypted media integrity tests to pass
+      - name: Require encrypted offline package integrity tests to pass
         run: |
           set -o pipefail
           cd apps/central
           CHROME_BIN="$(command -v google-chrome || command -v chromium || command -v chromium-browser)" \
-            TEST_PATTERN='encrypted offline media' NODE_ENV=test npx karma start karma.nosandbox.js \
+            TEST_PATTERN='encrypted offline (media|submissions)' NODE_ENV=test npx karma start karma.nosandbox.js \
             2>&1 | tee ../../encrypted-media-karma.log
           sed -r 's/\x1b\[[0-9;]*m//g' ../../encrypted-media-karma.log \
             | grep -Eq 'Executed [1-9][0-9]* of [1-9][0-9]* SUCCESS'

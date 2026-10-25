@@ -95,6 +95,7 @@ Acknowledge request
     <p v-if="error" role="alert">{{ error }}</p>
     <field-data-media-uploads v-if="connected" :key="sessionId" ref="mediaUploads" :send="mediaSend" @protect="protectMedia"/>
     <field-data-capture-challenge v-if="connected" :key="`capture-${sessionId}`" :send="captureSend" @capture="restoreMedia"/>
+    <field-data-offline-submissions :connected="connected" :session-id="sessionId" :identity="identity" :send="submissionSend"/>
     <field-data-offline-media ref="offlineMedia" :connected="connected" :session-id="sessionId" @restore="restoreMedia"/>
     <field-data-offline-page/>
     <field-data-offline-assignments :connected="connected" :session-id="sessionId"
@@ -104,6 +105,8 @@ Acknowledge request
 <script setup>
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import FieldDataMediaUploads from './media-uploads.vue';
+import FieldDataOfflineSubmissions from './offline-submissions.vue';
+import { decode } from '../../util/offline-media';
 import FieldDataCaptureChallenge from './capture-challenge.vue';
 import FieldDataOfflineMedia from './offline-media.vue';
 import FieldDataItineraryStops from './itinerary-stops.vue';
@@ -201,6 +204,23 @@ const mediaRequest = async (session, path, method, body, chunkHash, resource = '
   }
   return response.json();
 };
+const submissionSend = computed(() => {
+  const session = sessionId.value;
+  return async (projectId, row) => {
+    if (session !== sessionId.value || !connected.value || !token || projectId !== identity.value.projectId) throw new Error('Submission session ended');
+    const current = generation;
+    const body = new FormData();
+    body.append('xml_submission_file', new Blob([decode(row.bytes, 1024 * 1024)], { type: 'application/xml' }), 'submission.xml');
+    const response = await fetch(`/v1/projects/${projectId}/submission`, {
+      method: 'POST', credentials: 'omit', cache: 'no-store', redirect: 'error', signal: controller.signal,
+      headers: { Authorization: `Bearer ${token}`, 'X-OpenRosa-Version': '1.0' }, body
+    });
+    if (!response.ok || response.status !== 201) {
+      if ([401, 403].includes(response.status) && current === generation) { offlineRevocation.value += 1; clear(); error.value = 'Submission access changed. Reconnect with an active App User key.'; }
+      const failure = new Error('Submission failed'); failure.status = response.status; throw failure;
+    }
+  };
+});
 const mediaSend = computed(() => { const session = sessionId.value; return (...args) => mediaRequest(session, ...args); });
 const captureSend = computed(() => { const session = sessionId.value; return (path, method, body) => mediaRequest(session, path, method, body, null, 'capture-challenges'); });
 const parseKey = (value) => {
