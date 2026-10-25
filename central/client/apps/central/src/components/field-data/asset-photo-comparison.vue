@@ -10,23 +10,34 @@
     <template v-if="result">
       <p>Attachment snapshot checked at {{ result.checkedAt }}.</p>
       <p role="status">{{ result.identicalBytes === null ? 'Photo byte comparison unavailable.' : result.identicalBytes ? 'The two retained files have identical bytes.' : 'The two retained files have different bytes.' }}</p>
-      <div class="photos"><figure v-for="(side, index) in [result.a, result.b]" :key="index">
+      <div v-if="result.contentComparison" class="photo-content-comparison" aria-label="Image content comparison">
+        <p role="status">Image content: {{ result.contentComparison.status }}.</p>
+        <p v-if="result.contentComparison.reason">{{ result.contentComparison.reason }}</p>
+        <p v-if="result.contentComparison.perceptualBitsDifferent != null">Perceptual differences: {{ result.contentComparison.perceptualBitsDifferent }} / 63 low-frequency bits; {{ result.contentComparison.edgeBitsDifferent }} / 64 edge bits; color distance {{ result.contentComparison.colorDistance.toFixed(3) }}.</p>
+        <p v-if="result.contentComparison.limitations">{{ result.contentComparison.limitations }} Similar-content thresholds: ≤12 perceptual bits, ≤16 edge bits and ≤0.5 color distance.</p>
+      </div>
+      <div class="photos">
+<figure v-for="(side, index) in [result.a, result.b]" :key="index">
         <figcaption>{{ index === 0 ? aName : bName }}: {{ side.status }}</figcaption>
         <img v-if="side.url" :src="side.url" :alt="`${index === 0 ? aName : bName}: ${side.photo.name}`" @error="failedPreview(side.url)">
         <p v-if="side.photo">{{ side.photo.name }} · SHA-256 <code>{{ side.photo.sha256 }}</code></p>
         <p v-if="side.citation"><a :href="side.citation.sourceUrl" target="_blank" rel="noopener">Source claim</a> · observation {{ side.citation.observationId }} · valid from {{ side.citation.validFrom }} · recorded {{ side.citation.recordedAt }} · freshness {{ side.citation.freshness }}</p>
-      </figure></div>
+      </figure>
+</div>
       <p>These are the attachment bytes retained when this comparison was checked. File equality does not prove asset identity, capture time, presence or truth. Different files may show the same asset; identical files may have been reused. Inspect context and source history before deciding.</p>
     </template>
   </section>
 </template>
 <script setup>
 import { onBeforeUnmount, ref } from 'vue';
+import compareContent from '../../util/knowledge-photo';
 import useRequest from '../../composables/request';
+
 defineOptions({ name: 'FieldDataAssetPhotoComparison' });
+const emit = defineEmits(['ready']);
 const props = defineProps({ projectId: { type: [String, Number], required: true }, aId: { type: String, required: true }, bId: { type: String, required: true }, aName: { type: String, required: true }, bName: { type: String, required: true } });
 const { request } = useRequest(); const predicate = ref('photo'); const result = ref(null); const error = ref(false); const busy = ref(false); let generation = 0; let urls = [];
-const clear = () => { generation += 1; urls.forEach(url => URL.revokeObjectURL(url)); urls = []; result.value = null; error.value = false; busy.value = false; };
+const clear = () => { emit('ready', false); generation += 1; urls.forEach(url => URL.revokeObjectURL(url)); urls = []; result.value = null; error.value = false; busy.value = false; };
 const failedImage = () => { clear(); error.value = true; };
 const failedPreview = url => { if (urls.includes(url)) failedImage(); };
 const verify = async side => {
@@ -46,9 +57,11 @@ const load = async () => {
     const { data } = await request({ method: 'GET', url: `/v1/field-data/projects/${encodeURIComponent(props.projectId)}/assets/${props.aId}/photo-comparison/${props.bId}`, params: { predicate: predicate.value.trim() }, alert: false });
     if (data?.method !== 'asset-referenced-photo@1' || !Number.isFinite(Date.parse(data.checkedAt)) || data.predicate !== predicate.value.trim()) throw new Error();
     const checked = await Promise.all([data.a, data.b].map(verify));
+    const contentComparison = checked.every(item => item.bytes) ? await compareContent({ bytes: checked[0].bytes, type: checked[0].side.photo.contentType }, { bytes: checked[1].bytes, type: checked[1].side.photo.contentType }) : null;
     if (current !== generation) return;
     const sides = checked.map(({ side, bytes }) => { if (!bytes) return side; const url = URL.createObjectURL(new Blob([bytes], { type: side.photo.contentType })); urls.push(url); return { ...side, url }; });
-    result.value = { checkedAt: data.checkedAt, a: sides[0], b: sides[1], identicalBytes: checked.every(item => item.bytes) ? sides[0].photo.sha256 === sides[1].photo.sha256 : null };
+    emit('ready', sides.every(side => side.url != null));
+    result.value = { contentComparison, checkedAt: data.checkedAt, a: sides[0], b: sides[1], identicalBytes: checked.every(item => item.bytes) ? sides[0].photo.sha256 === sides[1].photo.sha256 : null };
   } catch { if (current === generation) failedImage(); } finally { if (current === generation) busy.value = false; }
 };
 onBeforeUnmount(clear);

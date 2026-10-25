@@ -366,13 +366,17 @@ acceptance remain pending.
 
 ### Product implementation priorities after the reliability work
 
-All eight areas remain partial. The maintenance releases (#117–#122) establish
-validation gates; they are not counted as completion of any area. The device
-pilot is a separate acceptance activity. Product work resumes with K7 above.
+Knowledge now has software workflows for the five gaps below, under the
+[completion contract](KNOWLEDGE-COMPLETION.md) and
+[workspace methods and user guide](KNOWLEDGE-WORKSPACE.md). The other seven areas
+remain partial. The maintenance releases (#117–#122) establish validation gates;
+they do not establish product completion. Device/pilot and model-effectiveness
+acceptance remain separate from software delivery. Later release notes that say
+“all eight remain partial” describe their historical release state.
 
 | Area | Current delivery | Further implementation required |
 | --- | --- | --- |
-| Knowledge | Asset facts, ownership history, freshness, cited search and multi-fact historical projections and cited recorded-location/retained-photo pair comparisons | Image-content identity matching, asset maps/location areas, broader decision projections, answer/semantic retrieval, causal contracts and diagnostics |
+| Knowledge | Asset identities/facts/history/freshness; cited maps and named areas; verified local perceptual photo review; scoped answer/latent-semantic retrieval; shared versioned decision projections; declared causal contracts, diagnostics and conditional adjusted estimates | Release acceptance is tracked in the completion contract. Field effectiveness, identity-threshold calibration and empirical causal assumptions remain separate evaluation activities |
 | Evidence/trust | Evidence graph, challenges/replay checks, signed witnesses with correction/withdrawal history and server-attested project key revocation, human assessments and device-reported location | Delegation, certified key revocation, independent sensor/hardware corroboration, calibrated presence limitations |
 | Offline resilience | Signed encrypted assignments/itineraries, recoverable media, encrypted relay packages and receipts | Durable XML submission queues, Collect integration, background sync and delegated courier/custody transport |
 | Operations | Sampling, allocation, shared capacity, same-day/overnight UTC shifts, combined approved itineraries, manual/scheduled collector/answer sampling with group-specific rates, numeric ranges, polygon groups, inspectable design weights, conditional calibrated binary estimates, approved-stop navigation handoff and agreement counts | Additional task types, built-in/offline routing, external benchmark calibration and validated outcome inference |

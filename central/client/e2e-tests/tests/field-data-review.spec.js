@@ -2160,3 +2160,178 @@ test('generated response form keeps compiler diagnostics reviewable and clears s
   await expect(region.getByRole('alert')).toContainText('Instrument access changed'); await expect(region.locator('.case-inspection')).toHaveCount(0);
   expect(errors).toEqual([]);
 });
+
+const setupKnowledge = async (page, canManage = true) => {
+  const context = await setup(page, { manageProject: canManage });
+  const source = { claimVersionId: versionId, xmlFormId: 'health', instanceId: 'uuid:one', url: `/v1/field-data/claim-versions/${versionId}` };
+  const fact = value => ({ id: `observation-${value}`, value, state: 'known', validFrom: '2026-10-01T00:00:00Z', recordedAt: '2026-10-02T00:00:00Z', integrityStatus: 'verified', freshness: { status: 'fresh' }, source });
+  const asset = { id: '55555555-5555-4555-8555-555555555555', name: 'Kissy pump', externalId: 'KP-1', assetType: 'pump', xmlFormId: 'health', facts: { condition: fact('broken'), location: fact('8.4 -13.2 0 10'), T: fact('1'), Y: fact('14'), C: fact('north') } };
+  const state = { definitions: [], events: [], writes: [], requests: [], seen: new Map(), lostSave: false, denied: false, stale: false, canManage, asset, source };
+  await page.route('**/v1/projects/7/knowledge**', async route => {
+    const path = new URL(route.request().url()).pathname; const body = route.request().method() === 'POST' ? route.request().postDataJSON() : null;
+    state.requests.push({ path, body });
+    if (state.denied) return route.fulfill({ status: 404, json: { message: 'Source access unavailable' } });
+    if (path.endsWith('/knowledge')) return route.fulfill({ json: { method: 'knowledge-workspace@1', availablePredicates: ['condition', 'location', 'T', 'Y', 'C'], visibleAssets: 1, assets: [asset, { ...asset, id: '99999999-9999-4999-8999-999999999999', name: 'Second pump', externalId: 'KP-2' }], withheldAssets: 0, truncated: false, definitions: state.definitions, canManage: state.canManage } });
+    if (path.endsWith('/history')) return route.fulfill({ json: { items: [...state.events].reverse(), nextBefore: null } });
+    if (path.includes('/definitions/')) {
+      const id = path.split('/').at(-1); state.writes.push({ id, body });
+      const prior = state.seen.get(body.requestId); if (prior) { expect(body).toEqual(prior.body); return route.fulfill({ json: { ...prior.saved, replayed: true } }); }
+      if (state.stale) { state.stale = false; return route.fulfill({ status: 412, json: { message: 'Definition changed' } }); }
+      const saved = { id, title: body.title, definition: body.definition, revision: body.expectedRevision + 1, archived: body.archived };
+      state.definitions = [...state.definitions.filter(item => item.id !== id), saved]; state.events.push({ revision: saved.revision, actorId: 1, reason: body.reason, snapshot: saved, createdAt: '2026-10-25T01:00:00Z' }); state.seen.set(body.requestId, { body, saved });
+      if (state.lostSave) { state.lostSave = false; return route.abort('failed'); }
+      return route.fulfill({ json: { ...saved, replayed: false } });
+    }
+    if (path.endsWith('/retrieval')) return route.fulfill({ json: { method: body.mode === 'semantic' ? 'request-local-latent-semantic@1' : 'literal-corpus@1', corpusDocuments: 12, latentDimensions: body.mode === 'semantic' ? 3 : 0, matched: 1, q: body.q, knownAt: '2026-10-25T01:00:00Z', queryTermsOutsideCorpus: [], limitations: 'Corpus association, not a confidence score. No external model is used.', corpus: { offset: body.offset ?? 0, sources: 100, totalSources: 200, nextOffset: body.offset ? null : 100, fieldsPerSource: 30, repeatValuesPerField: 8, documentLimit: 768, sourceXmlByteLimit: 262144 }, results: [{ id: 'answer-one', kind: 'answer', excerpt: 'Water access and pump repair recorded independently.', semanticCosine: body.mode === 'semantic' ? 0.81 : null, literalMatch: body.mode !== 'semantic', integrityStatus: 'verified', source: { ...source, path: '/household/member/water', repeatIndex: 2 } }] } });
+    if (path.endsWith('/evaluate')) {
+      const saved = state.definitions.find(item => item.id === body.definitionId); const definition = body.definition ?? saved.definition;
+      const snapshot = { method: 'knowledge-snapshot@1', at: body.at ?? '2026-10-25T01:00:00Z', knownAt: body.knownAt ?? '2026-10-25T01:00:00Z', rebuiltAt: new Date().toISOString(), assets: [asset], withheldAssets: 0, truncated: false };
+      let evaluation;
+      if (definition.kind === 'geography') evaluation = { method: 'cited-asset-geography@1', type: 'FeatureCollection', features: [{ type: 'Feature', geometry: { type: 'Point', coordinates: [-13.2, 8.4] }, properties: { assetId: asset.id, xmlFormId: 'health', name: asset.name, area: definition.areas[0]?.value ?? 'No areas supplied', reportedAccuracyM: 10, boundaryUncertain: true, accuracyKnown: true, source } }], areas: definition.areas, counts: { [definition.areas[0]?.value ?? 'No areas supplied']: 1 }, unavailable: [] };
+      else if (definition.kind === 'decision') evaluation = { method: 'cited-decision-projection@1', rows: [{ assetId: asset.id, name: asset.name, status: 'review-action', priority: 1, matched: [{ ...definition.rules[0], source }], unavailable: [] }] };
+      else { const approved = Object.values(definition.assumptions).every(Boolean); evaluation = { method: 'declared-backdoor-stratified-ate@1', estimate: approved ? { effect: 4, conditional95: [1, 7] } : null, eligible: 8, sharedOutcomeSourceGroups: 0, excluded: { unavailable: 1, invalidValue: 0, timing: 0 }, graph: { openBackdoorPaths: [] }, withheldReasons: approved ? [] : ['Required identification assumptions have not all been declared.'], targetPopulation: 'Complete visible assets only.', limitations: 'Conditional on unverified assumptions; not proof of causality.', strata: [{ values: ['north'], treated: 4, control: 4, difference: 4 }] }; }
+      return route.fulfill({ json: { method: 'knowledge-evaluation@1', definition, definitionSource: saved ?? null, snapshot, evaluation } });
+    }
+    return route.fulfill({ status: 404, json: { message: 'Unknown fixture route' } });
+  });
+  const panel = page.getByRole('region', { name: 'Knowledge workspace', exact: true });
+  await panel.getByRole('button', { name: 'Open Knowledge workspace', exact: true }).click();
+  return { ...context, knowledge: state, panel };
+};
+
+test('Knowledge maps import named areas, retain points when optional tiles fail and export cited snapshots on mobile', async ({ page }) => {
+  const { panel, knowledge, errors } = await setupKnowledge(page);
+  const area = { type: 'FeatureCollection', features: [{ type: 'Feature', properties: { name: 'Kissy area' }, geometry: { type: 'Polygon', coordinates: [[[-14, 8], [-13, 8], [-13, 9], [-14, 9], [-14, 8]]] } }] };
+  await panel.getByLabel('Import named area GeoJSON').setInputFiles({ name: 'areas.geojson', mimeType: 'application/geo+json', buffer: Buffer.from(JSON.stringify(area)) });
+  await expect(panel.getByLabel('Area 1 name')).toHaveValue('Kissy area');
+  await panel.getByRole('button', { name: 'Rebuild cited evaluation' }).click();
+  const map = panel.getByRole('region', { name: 'Cited asset map' }); await expect(map).toContainText('Kissy area: 1 assets.');
+  await map.getByRole('button', { name: 'Next asset' }).click(); await expect(map).toContainText('Selected: Kissy pump'); await expect(map).toContainText('boundary uncertain');
+  await page.route('https://tile.openstreetmap.org/**', route => route.abort('failed'));
+  await map.getByLabel('Load OpenStreetMap background (external tile requests)').click();
+  await expect(map).toContainText('Background tiles unavailable'); await expect(map.locator('.leaflet-interactive').first()).toBeVisible();
+  const download = page.waitForEvent('download'); await panel.getByRole('button', { name: 'Download cited asset GeoJSON' }).click();
+  const fs = await import('node:fs/promises'); const exported = JSON.parse(await fs.readFile(await (await download).path(), 'utf8'));
+  expect(exported.features[0].properties.source.claimVersionId).toBe(versionId);
+  expect(knowledge.requests.find(item => item.path.endsWith('/evaluate')).body.definition.areas[0].value).toBe('Kissy area');
+  await page.setViewportSize({ width: 320, height: 800 }); expect(await page.evaluate(() => document.documentElement.scrollWidth <= 320)).toBe(true); expect(errors).toEqual([]);
+});
+
+test('Knowledge decision definitions retry exact lost saves, retain revision history and rebuild pinned source actions', async ({ page }) => {
+  const { panel, knowledge, errors } = await setupKnowledge(page);
+  await panel.getByRole('button', { name: 'Decision projections', exact: true }).click();
+  await panel.getByLabel('Definition title').fill('Repair review'); await panel.getByLabel('Reason for this definition revision').fill('Review the condition and source before deciding a repair.');
+  await panel.getByLabel('I intend to share this specification with project readers.').check(); knowledge.lostSave = true;
+  await panel.getByRole('button', { name: 'Save shared definition', exact: true }).click();
+  await expect(panel.getByRole('alert')).toContainText('could not be confirmed'); await expect(panel.getByLabel('Rule 1 fact', { exact: true })).toBeDisabled();
+  await panel.getByRole('button', { name: 'Retry same definition save' }).click();
+  await expect(panel).toContainText('Loaded revision 1'); expect(knowledge.writes[1]).toEqual(knowledge.writes[0]); expect(knowledge.seen.size).toBe(1);
+  await panel.getByRole('button', { name: 'Rebuild cited evaluation' }).click(); await expect(panel.getByRole('region', { name: 'Decision projection table' })).toContainText('Inspect evidence');
+  expect(knowledge.requests.filter(item => item.path.endsWith('/evaluate')).at(-1).body.definitionId).toBe(knowledge.definitions[0].id);
+  await panel.getByRole('button', { name: 'Inspect definition history' }).click(); await expect(panel).toContainText('Revision 1 ·');
+  await panel.getByLabel('Rule 1 value', { exact: true }).fill('damaged'); await expect(panel.getByRole('region', { name: 'Decision projection table' })).toHaveCount(0);
+  await panel.getByLabel('Reason for this definition revision').fill('Update the explicit condition code.'); await panel.getByLabel('I intend to share this specification with project readers.').check();
+  await panel.getByRole('button', { name: 'Save definition revision', exact: true }).click(); await expect(panel).toContainText('Loaded revision 2');
+  await panel.getByRole('button', { name: 'Inspect definition history' }).click(); await expect(panel.getByRole('button', { name: 'Load revision as draft' })).toHaveCount(2);
+  expect(knowledge.definitions[0].definition.rules[0].value).toBe('damaged'); expect(errors).toEqual([]);
+});
+
+test('Knowledge causal contracts require explicit assumptions and expose withholding and overlap diagnostics', async ({ page }) => {
+  const { panel, knowledge, errors } = await setupKnowledge(page);
+  await panel.getByRole('button', { name: 'Causal contracts', exact: true }).click();
+  await panel.getByLabel('Treatment fact', { exact: true }).fill('T'); await panel.getByLabel('Outcome fact', { exact: true }).fill('Y');
+  await panel.getByLabel('Adjustment facts (comma separated, up to five)').fill('C');
+  await panel.getByRole('button', { name: 'Propose confounder arrows for review' }).click();
+  await panel.getByLabel('Assumption rationale').fill('Measured baseline categories are declared sufficient; timing and independent-unit assumptions require substantive review.');
+  await panel.getByRole('button', { name: 'Rebuild cited evaluation' }).click(); await expect(panel).toContainText('Causal estimate withheld');
+  const group = panel.getByRole('group', { name: 'Declared causal contract' }); const checks = group.locator('input[type="checkbox"]'); expect(await checks.count()).toBe(6);
+  for (let i = 0; i < await checks.count(); i += 1) await checks.nth(i).check();
+  await panel.getByRole('button', { name: 'Rebuild cited evaluation' }).click(); await expect(panel).toContainText('Conditional adjusted ATE: 4.0000');
+  await expect(panel).toContainText('Conditional on unverified assumptions'); await expect(panel.getByRole('region', { name: 'Causal overlap diagnostics' })).toContainText('north');
+  const body = knowledge.requests.filter(item => item.path.endsWith('/evaluate')).at(-1).body;
+  expect(body.definition.edges).toEqual([['T', 'Y'], ['C', 'T'], ['C', 'Y']]);
+  await checks.first().uncheck(); await expect(panel).not.toContainText('Conditional adjusted ATE');
+  await panel.getByRole('button', { name: 'Rebuild cited evaluation' }).click(); await expect(panel).toContainText('Causal estimate withheld'); expect(errors).toEqual([]);
+});
+
+test('Knowledge retrieval preserves corpus cutoffs, displays repeat citations and clears data after access loss', async ({ page }) => {
+  const { panel, knowledge, errors } = await setupKnowledge(page, false);
+  await panel.getByRole('button', { name: 'Answer and semantic retrieval', exact: true }).click();
+  await panel.getByLabel('Knowledge query').fill('pump'); await panel.getByLabel('Retrieval method').selectOption('semantic');
+  await panel.getByRole('button', { name: 'Search cited knowledge', exact: true }).click();
+  await expect(panel).toContainText('latent semantic association'); await expect(panel).toContainText('repeat position 2'); await expect(panel).toContainText('(not confidence)');
+  await panel.getByRole('button', { name: 'Search next corpus window', exact: true }).click();
+  const searches = knowledge.requests.filter(item => item.path.endsWith('/retrieval')); expect(searches[1].body.offset).toBe(100); expect(searches[1].body.knownAt).toBe('2026-10-25T01:00:00Z');
+  await expect(panel.getByRole('button', { name: 'Save shared definition', exact: true })).toHaveCount(0);
+  knowledge.denied = true; await panel.getByRole('button', { name: 'Search cited knowledge', exact: true }).click();
+  await expect(panel.getByRole('alert')).toContainText('could not be completed'); await expect(panel).not.toContainText('Water access and pump repair');
+  await expect(panel.getByRole('button', { name: 'Open Knowledge workspace', exact: true })).toBeVisible(); expect(errors).toEqual([]);
+});
+
+test('Knowledge perceptual comparison finds similar content despite different encodings and withholds flat imagery', async ({ page }) => {
+  const { state, errors } = await setup(page);
+  const pictures = await page.evaluate(() => {
+    const canvas = document.createElement('canvas'); canvas.width = 64; canvas.height = 64; const context = canvas.getContext('2d');
+    for (let y = 0; y < 64; y += 1) for (let x = 0; x < 64; x += 1) { context.fillStyle = `rgb(${(x * 7 + y * 3) % 256},${(x * 2 + y * 11) % 256},${(x * 13 + y * 5) % 256})`; context.fillRect(x, y, 1, 1); }
+    const png = canvas.toDataURL('image/png'); const jpeg = canvas.toDataURL('image/jpeg', 0.95);
+    context.fillStyle = '#fff'; context.fillRect(0, 0, 64, 64); const flat = canvas.toDataURL('image/png');
+    return { png, jpeg, flat };
+  });
+  const a = { id: '55555555-5555-4555-8555-555555555555', name: 'Pump photo A', externalId: 'PA', assetType: 'pump', xmlFormId: 'health' };
+  const b = { ...a, id: '99999999-9999-4999-8999-999999999999', name: 'Pump photo B', externalId: 'PB' }; state.duplicatePairs.push({ a, b, reasons: ['same-name'] }); let flat = false;
+  const photo = url => { const bytes = Buffer.from(url.split(',')[1], 'base64'); return { name: url.startsWith('data:image/jpeg') ? 'view.jpg' : 'view.png', contentType: url.startsWith('data:image/jpeg') ? 'image/jpeg' : 'image/png', size: bytes.length, sha256: createHash('sha256').update(bytes).digest('hex'), base64: bytes.toString('base64') }; };
+  await page.route('**/assets/*/photo-comparison/*?*', route => route.fulfill({ json: { method: 'asset-referenced-photo@1', checkedAt: '2026-10-25T01:00:00Z', predicate: 'photo', a: { status: 'usable', citation: { observationId: 'photo-a', sourceUrl: `/v1/field-data/claim-versions/${versionId}`, validFrom: '2026-10-01T00:00:00Z', recordedAt: '2026-10-02T00:00:00Z', freshness: 'fresh' }, photo: photo(pictures.png) }, b: { status: 'usable', citation: { observationId: 'photo-b', sourceUrl: `/v1/field-data/claim-versions/${versionId}`, validFrom: '2026-10-01T00:00:00Z', recordedAt: '2026-10-02T00:00:00Z', freshness: 'fresh' }, photo: photo(flat ? pictures.flat : pictures.jpeg) } } }));
+  await page.reload(); const panel = page.getByRole('region', { name: 'Referenced asset photo comparison' });
+  await panel.getByRole('button', { name: 'Compare referenced photos' }).click();
+  await expect(panel).toContainText('different bytes'); await expect(panel).toContainText('similar-visual-content'); await expect(panel).toContainText('not an identity probability');
+  flat = true; await panel.getByRole('button', { name: 'Compare referenced photos' }).click(); await expect(panel).toContainText('inconclusive'); await expect(panel).toContainText('too little visual variation');
+  expect(errors).toEqual([]);
+});
+
+
+test('Knowledge image review selects arbitrary assets and withholds identity decisions when photos are missing', async ({ page }) => {
+  const { panel, state, errors } = await setupKnowledge(page);
+  await page.route('**/assets/*/photo-comparison/*?*', route => route.fulfill({ json: { method: 'asset-referenced-photo@1', checkedAt: '2026-10-25T01:00:00Z', predicate: 'photo', a: { status: 'missing' }, b: { status: 'missing' } } }));
+  await panel.getByRole('button', { name: 'Image identity review', exact: true }).click();
+  await expect(panel.getByLabel('Facts valid at')).toHaveCount(0);
+  await panel.getByLabel(/^First asset/).selectOption('55555555-5555-4555-8555-555555555555');
+  await panel.getByLabel(/^Second asset/).selectOption('99999999-9999-4999-8999-999999999999');
+  await expect(panel.getByRole('button', { name: 'Open first asset passport' })).toBeVisible();
+  await expect(panel.getByRole('button', { name: 'Record distinct asset identities' })).toBeDisabled();
+  await panel.getByRole('button', { name: 'Compare referenced photos' }).click();
+  await expect(panel.getByLabel('I reviewed both cited photos and their source context.')).toBeDisabled();
+  expect(state.duplicateWrites).toHaveLength(0);
+  const dataUrl = await page.evaluate(() => { const canvas = document.createElement('canvas'); canvas.width = 32; canvas.height = 32; return canvas.toDataURL('image/png'); });
+  const bytes = Buffer.from(dataUrl.split(',')[1], 'base64');
+  const photo = { name: 'view.png', contentType: 'image/png', size: bytes.length, sha256: createHash('sha256').update(bytes).digest('hex'), base64: bytes.toString('base64') };
+  const side = { status: 'usable', citation: { observationId: 'photo-one', sourceUrl: `/v1/field-data/claim-versions/${versionId}`, validFrom: '2026-10-01T00:00:00Z', recordedAt: '2026-10-02T00:00:00Z', freshness: 'fresh' }, photo };
+  await page.route('**/assets/*/photo-comparison/*?*', route => route.fulfill({ json: { method: 'asset-referenced-photo@1', checkedAt: '2026-10-25T01:00:00Z', predicate: 'photo', a: side, b: side } }));
+  await page.route('**/assets/duplicates/dismissals', route => { state.duplicateWrites.push(route.request().postDataJSON()); return route.fulfill({ status: 201, json: { id: 'distinct-one' } }); });
+  await panel.getByRole('button', { name: 'Compare referenced photos' }).click();
+  await expect(panel.getByLabel('I reviewed both cited photos and their source context.')).toBeEnabled();
+  await panel.getByLabel('I reviewed both cited photos and their source context.').check();
+  await panel.getByLabel('Reason these assets are distinct').fill('Reviewed source context identifies two separately registered pumps.');
+  await panel.getByRole('button', { name: 'Record distinct asset identities' }).click();
+  await expect(panel).toContainText('Distinct-asset decision recorded.');
+  expect(state.duplicateWrites).toHaveLength(1);
+  await expect(panel.getByRole('button', { name: 'Record distinct asset identities' })).toBeDisabled();
+  await panel.getByLabel(/^Second asset/).selectOption('55555555-5555-4555-8555-555555555555');
+  await expect(panel).toContainText('Choose two different assets.');
+  await expect(panel.getByRole('button', { name: 'Compare referenced photos' })).toHaveCount(0);
+  expect(errors).toEqual([]);
+});
+
+test('Knowledge stale definition saves recover through a fresh workspace without replaying the rejected revision', async ({ page }) => {
+  const { panel, knowledge, errors } = await setupKnowledge(page);
+  await panel.getByRole('button', { name: 'Decision projections', exact: true }).click();
+  await panel.getByLabel('Definition title').fill('Repair review');
+  await panel.getByLabel('Reason for this definition revision').fill('Review the source before any action.');
+  await panel.getByLabel('I intend to share this specification with project readers.').check();
+  knowledge.stale = true;
+  await panel.getByRole('button', { name: 'Save shared definition', exact: true }).click();
+  await expect(panel.getByRole('alert')).toContainText('Refresh the workspace before saving another revision.');
+  await expect(panel.getByRole('button', { name: 'Retry same definition save' })).toHaveCount(0);
+  await panel.getByRole('button', { name: 'Refresh workspace and discard unsaved changes' }).click();
+  await expect(panel.getByRole('alert')).toHaveCount(0);
+  expect(knowledge.writes).toHaveLength(1); expect(knowledge.definitions).toHaveLength(0); expect(errors).toEqual([]);
+});
