@@ -140,7 +140,7 @@ const download = record => {
   const envelope = {
     id, witnessId, witnessName, receivedAt, algorithm, payload, publicKey, signature,
     ...(record.authorization == null ? {} : { authorization: record.authorization }),
-    keyTrust: { status: record.keyTrust.status, checkedAt: record.keyTrust.checkedAt, keys: record.keyTrust.keys.map(key => ({ keyHash: key.keyHash, revocation: key.revocation })) },
+    keyTrust: { status: record.keyTrust.status, checkedAt: record.keyTrust.checkedAt, keys: record.keyTrust.keys.map(key => ({ keyHash: key.keyHash, revocation: key.revocation, ...(key.certificate == null ? {} : { certificate: key.certificate }) })) },
     ...(events === undefined ? {} : { events, status, revision })
   };
   const url = URL.createObjectURL(new Blob([JSON.stringify(envelope, null, 2)], { type: 'application/json' }));

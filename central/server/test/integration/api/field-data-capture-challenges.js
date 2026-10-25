@@ -733,3 +733,64 @@ describe('api: witness delegation durability and expiry', () => {
     try { await db.transaction(async trx => { await migration.down(trx); await migration.up(trx); assert.equal((await trx.raw('SELECT count(*)::integer AS count FROM field_data_witness_delegations')).rows[0].count, 3); }); } finally { await db.destroy(); }
   })));
 });
+
+describe('api: reviewed witness key certificates', () => {
+  const certificateBody = keyHash => ({ requestId: randomUUID(), keyHash, identityLabel: 'Reviewed project witness account', method: 'organization-record', verificationNote: 'The second manager checked the organization account record and retained signature.', expiresAt: new Date(Date.now() + 86400000).toISOString(), reviewed: true });
+  const createOwner = async (service, alice) => { const client = await service.login('chelsea'); const { id } = (await client.get('/v1/users/current').expect(200)).body; await alice.post(`/v1/projects/1/assignments/manager/${id}`).expect(200); return client; };
+  it('certifies a second account key, verifies independent exports, replays exactly and integrates permanent revocation', testService(async (service, c) => withRevocationAuthority(async authority => {
+    const { alice, path } = await assessedSetup(service); const owner = await createOwner(service, alice); const url = `${path}/witnesses`;
+    const keys = generateKeyPairSync('ec', { namedCurve: 'prime256v1' }); const original = signedWith((await owner.get(url).expect(200)).body.context, keys);
+    const record = (await owner.post(url).send(original).expect(200)).body.witness; const hashKey = require('../../../lib/util/witness-key-trust').keyHash;
+    const body = certificateBody(hashKey(record.publicKey)); const target = `${url}/${record.id}/key-certificates`;
+    await owner.post(target).send(body).expect(404);
+    const first = await alice.post(target).send(body).expect(200); const { attestation } = first.body;
+    assert.deepEqual((await alice.post(target).send(body).expect(200)).body.attestation, attestation);
+    await alice.post(target).send({ ...body, verificationNote: 'Conflicting review under the same request identity.' }).expect(409);
+    const item = (await alice.get(url).expect(200)).body.items[0]; assert.deepEqual(item.keyTrust.keys[0].certificate, attestation); assert.equal(item.keyTrust.canCertify, true);
+    // eslint-disable-next-line import/extensions, import/no-relative-packages
+    const { verifyWitnessKeyCertificate } = await import('../../../../../cloudflare/verify-witness-key-certificate.mjs');
+    const expected = { publicKey: authority.publicKey.export({ format: 'jwk' }), issuer: 'https://field.example.test', projectId: 1, subjectAccountId: record.witnessId, keyHash: body.keyHash, revocation: null };
+    assert.equal(verifyWitnessKeyCertificate(attestation, expected, record).proofChecked, true);
+    assert.throws(() => verifyWitnessKeyCertificate(attestation, { ...expected, subjectAccountId: 999 }, record));
+    await alice.post(url).send(signedWith((await alice.get(url).expect(200)).body.context, keys)).expect(409);
+    const revoke = { requestId: randomUUID(), keyHash: body.keyHash, reasonCode: 'compromised', reason: 'The reviewed signing environment was compromised.' };
+    const revocation = (await alice.post(`${url}/${record.id}/key-revocations`).send(revoke).expect(200)).body.attestation;
+    assert.equal(verifyWitnessKeyCertificate(attestation, { ...expected, revocation }, record).revocationStatus, 'revoked');
+    assert.equal((await alice.get(url).expect(200)).body.activeCount, 0);
+    assert.deepEqual((await alice.post(target).send(body).expect(200)).body.attestation, attestation);
+    await c.run(sql`SAVEPOINT certificate_guard`);
+    await assert.rejects(c.run(sql`UPDATE field_data_witness_key_certificates SET "requestHash"='tampered'`), /append-only/);
+    await c.run(sql`ROLLBACK TO SAVEPOINT certificate_guard`);
+  })));
+  it('rejects ambiguous keys, malformed reviews, unavailable signing and revoked or expired certification use', testService(async (service, c) => withRevocationAuthority(async () => {
+    const { alice, path } = await assessedSetup(service); const owner = await createOwner(service, alice); const url = `${path}/witnesses`;
+    const keys = generateKeyPairSync('ec', { namedCurve: 'prime256v1' });
+    const record = (await owner.post(url).send(signedWith((await owner.get(url).expect(200)).body.context, keys)).expect(200)).body.witness;
+    const keyHash = require('../../../lib/util/witness-key-trust').keyHash(record.publicKey); const body = certificateBody(keyHash); const target = `${url}/${record.id}/key-certificates`;
+    for (const patch of [{ reviewed: false }, { method: 'automatic' }, { verificationNote: 'short' }, { extra: true }, { expiresAt: new Date(Date.now() - 1000).toISOString() }]) await alice.post(target).send({ ...body, ...patch }).expect(400);
+    await alice.post(target).send({ ...body, keyHash: 'a'.repeat(64) }).expect(404);
+    const savedKey = process.env.FIELD_DATA_OFFLINE_SIGNING_KEY; delete process.env.FIELD_DATA_OFFLINE_SIGNING_KEY;
+    try { await alice.post(target).send(body).expect(400); } finally { process.env.FIELD_DATA_OFFLINE_SIGNING_KEY = savedKey; }
+    const ownerView = (await owner.get(url).expect(200)).body.items[0];
+    await owner.post(`${url}/${record.id}/events`).send(witnessChangeBody(ownerView.changeContext)).expect(200);
+    const changeKey = (await owner.get(url).expect(200)).body.items[0].keyTrust.keys[1].keyHash;
+    await owner.post(`${url}/${record.id}/key-revocations`).send({ requestId: randomUUID(), keyHash: changeKey, reasonCode: 'retired', reason: 'Retire this signing key before a certificate is issued.' }).expect(200);
+    await alice.post(target).send({ ...body, requestId: randomUUID(), keyHash: changeKey }).expect(409);
+    await alice.post(url).send(signedWith((await alice.get(url).expect(200)).body.context, keys)).expect(200);
+    await alice.post(target).send(body).expect(409);
+    assert.equal(await c.oneFirst(sql`SELECT count(*)::integer FROM field_data_witness_key_certificates`), 0);
+  })));
+  it('retains certified key bindings through source purge and migration rollback', testServiceFullTrx(async (service, c) => withRevocationAuthority(async () => {
+    const { alice, path, challenge } = await assessedSetup(service); const owner = await createOwner(service, alice); const url = `${path}/witnesses`;
+    const record = (await owner.post(url).send(witnessBody((await owner.get(url).expect(200)).body.context)).expect(200)).body.witness;
+    const keyHash = require('../../../lib/util/witness-key-trust').keyHash(record.publicKey);
+    const body = certificateBody(keyHash); const target = `${url}/${record.id}/key-certificates`;
+    const responses = await Promise.all([alice.post(target).send(body), alice.post(target).send(body)]);
+    assert.deepEqual(responses.map(response => response.status), [200, 200]); assert.deepEqual(responses.map(response => response.body.replayed).sort(), [false, true]);
+    await c.run(sql`DELETE FROM field_data_capture_challenges WHERE id=${challenge.id}`);
+    assert.equal(await c.oneFirst(sql`SELECT count(*)::integer FROM field_data_witness_key_certificates`), 1);
+    const { knexConnect } = require('../../../lib/model/knex-migrator'); const config = require('config'); const db = knexConnect(config.get('test.database'));
+    const migration = require('../../../lib/model/migrations/20261025-03-witness-key-certificates');
+    try { await db.transaction(async trx => { await migration.down(trx); await migration.up(trx); assert.equal((await trx.raw('SELECT count(*)::integer AS count FROM field_data_witness_key_certificates')).rows[0].count, 1); }); } finally { await db.destroy(); }
+  })));
+});

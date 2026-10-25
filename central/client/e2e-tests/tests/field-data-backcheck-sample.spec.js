@@ -1585,3 +1585,48 @@ test('delegated witness receipts bind the signed photo statement and survive dow
   await p.reload(); await expect(p.getByRole('region', { name: 'Signed witness statements' }).getByRole('alert')).toContainText('could not be loaded or verified');
   expect(errors).toEqual([]);
 });
+
+test('reviewed key certificates retry exact requests, export pinned proofs and retain revoked and expired history', async ({ page: p }) => {
+  const keys = generateKeyPairSync('ec', { namedCurve: 'prime256v1' }); const fields = { requestId: randomUUID(), signedAt: new Date().toISOString(), statement: 'I observed the challenged image and its paper code.' };
+  const bytes = Buffer.from(JSON.stringify({ ...witnessContext, witnessId: 9, ...fields }));
+  const record = { id: sampleId, witnessId: 9, witnessName: 'Remote witness', receivedAt: new Date(Date.now() - 60000).toISOString(), algorithm: 'ES256', payload: bytes.toString('base64url'), publicKey: keys.publicKey.export({ format: 'jwk' }), signature: sign('sha256', bytes, { key: keys.privateKey, dsaEncoding: 'ieee-p1363' }).toString('base64url'), events: [], status: 'active', revision: 0 };
+  const authority = generateKeyPairSync('ec', { namedCurve: 'prime256v1' }); const publicKey = authority.publicKey.export({ format: 'jwk' }); const issuer = 'https://field.example.test';
+  const keyId = createHash('sha256').update(authority.publicKey.export({ type: 'spki', format: 'der' })).digest('hex');
+  const hash = value => createHash('sha256').update(value).digest('hex'); const keyHash = clearKeyTrust(record).keyTrust.keys[0].keyHash;
+  const attest = (purpose, data) => { const payload = Buffer.from(JSON.stringify({ ...data, purpose: `field-data.witness-${purpose}@1`, issuer })); return { algorithm: 'ES256', publicKey, keyId, payload: payload.toString('base64url'), signature: sign('sha256', payload, { key: authority.privateKey, dsaEncoding: 'ieee-p1363' }).toString('base64url') }; };
+  let certificate = null; let revocation = null; let tampered = false; let expired = false; const writes = [];
+  const errors = await setupAssessmentRecord(p, async (route, path) => {
+    if (path.endsWith('/capture-challenges')) { await route.fulfill({ json: { items: [reviewCapture] } }); return true; }
+    if (path.endsWith('/witnesses')) {
+      const row = clearKeyTrust(record); row.keyTrust.canCertify = true; row.keyTrust.canRevoke = !revocation; row.keyTrust.keys[0].certificate = tampered && certificate ? { ...certificate, signature: 'a'.repeat(86) } : certificate;
+      if (certificate && expired) row.keyTrust.checkedAt = new Date(Date.now() + 2 * 86400000).toISOString();
+      if (revocation) { row.keyTrust.status = 'revoked'; row.keyTrust.keys[0].revocation = revocation; }
+      await route.fulfill({ json: { items: [row], bindingCurrent: true, canWitness: false, context: null } }); return true;
+    }
+    if (path.endsWith(`/witnesses/${sampleId}/key-certificates`)) {
+      const body = route.request().postDataJSON(); writes.push(body);
+      certificate ??= attest('key-certificate', { certificateId: randomUUID(), projectId: 1, keyHash, subjectAccountId: 9, subjectAccountName: 'Remote witness', identityLabel: body.identityLabel, assuranceMethod: body.method, verificationNote: body.verificationNote, reviewedBy: 1, reviewerName: 'Project manager', certifiedAt: new Date().toISOString(), expiresAt: body.expiresAt, proofReceivedAt: record.receivedAt, referenceWitnessId: sampleId, proofPayloadHash: hash(bytes), proofSignatureHash: hash(record.signature) });
+      if (writes.length === 1) await route.abort('failed'); else await route.fulfill({ json: { attestation: certificate, replayed: true } }); return true;
+    }
+    if (path.endsWith(`/witnesses/${sampleId}/key-revocations`)) { const body = route.request().postDataJSON(); revocation = attest('key-revocation', { ...body, projectId: 1, revokedAt: new Date().toISOString(), revokedBy: 1 }); await route.fulfill({ json: { attestation: revocation } }); return true; }
+    return false;
+  });
+  const section = p.getByRole('region', { name: 'Signed witness statements' }); await p.setViewportSize({ width: 320, height: 780 });
+  await section.getByLabel('Reviewed identity label').fill('Staff witness W-9'); await section.getByLabel('Identity review method').selectOption('organization-record');
+  await section.getByLabel('Identity review note').fill('Checked the organization account record and retained key proof.');
+  await section.getByLabel('Certificate expires (UTC)').fill(new Date(Date.now() + 86400000).toISOString().slice(0, 16));
+  await section.getByLabel('I reviewed this account identity and retained signing-key proof using the stated method.').check();
+  await section.getByRole('button', { name: 'Issue witness key certificate', exact: true }).click(); await expect(section.getByRole('alert')).toContainText('certification could not be confirmed');
+  await section.getByRole('button', { name: 'Retry exact key certification' }).click(); expect(writes[1]).toEqual(writes[0]);
+  await expect(section).toContainText('Reviewed signing-key certificate: within-window');
+  const pending = p.waitForEvent('download'); await section.getByRole('button', { name: 'Download signed statement', exact: true }).click();
+  const exported = JSON.parse(await readFile(await (await pending).path(), 'utf8'));
+  const { verifyWitnessKeyCertificate } = await import('../../../../cloudflare/verify-witness-key-certificate.mjs');
+  const expected = { publicKey, issuer, projectId: 1, keyHash, subjectAccountId: 9, revocation: null };
+  expect(verifyWitnessKeyCertificate(exported.keyTrust.keys[0].certificate, expected, exported).proofChecked).toBe(true);
+  expired = true; await p.reload(); await expect(section).toContainText('Reviewed signing-key certificate: expired'); expired = false;
+  await section.getByLabel('Reason for key revocation').fill('The reviewed signing environment was compromised.'); await section.getByRole('button', { name: 'Revoke witness signing key', exact: true }).click();
+  await expect(section).toContainText('The certified key is revoked.'); await expect(section).toContainText('0 active statements');
+  tampered = true; await p.reload(); await expect(section).toContainText('Key revocation status is unavailable');
+  expect(await p.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true); expect(errors).toEqual([]);
+});
