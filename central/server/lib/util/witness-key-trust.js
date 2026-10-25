@@ -9,8 +9,9 @@ const keyRevoked = async (db, projectId, publicKey) => (await db.maybeOne(sql`SE
 const trustFor = async (db, projectId, witness, events) => {
   const hashes = [...new Set([witness, ...events].map(row => keyHash(row.publicKey)))];
   const rows = await db.any(sql`SELECT "keyHash", attestation FROM field_data_witness_key_revocations WHERE "projectId" = ${Number(projectId)} AND "keyHash" = ANY(${sql.array(hashes, 'text')})`);
-  return { status: rows.length ? 'revoked' : 'clear', checkedAt: new Date().toISOString(),
-    keys: hashes.map(hash => ({ keyHash: hash, revocation: rows.find(row => row.keyHash === hash)?.attestation ?? null })) };
+  const certificates = await db.any(sql`SELECT "keyHash",attestation FROM field_data_witness_key_certificates WHERE "projectId"=${Number(projectId)} AND "keyHash"=ANY(${sql.array(hashes, 'text')})`);
+  return { status: rows.length ? 'revoked' : 'clear', checkedAt: new Date(await db.oneFirst(sql`SELECT clock_timestamp()`)).toISOString(),
+    keys: hashes.map(hash => ({ keyHash: hash, revocation: rows.find(row => row.keyHash === hash)?.attestation ?? null, certificate: certificates.find(row => row.keyHash === hash)?.attestation ?? null })) };
 };
 const validateRevocation = body => {
   if (!body || Object.keys(body).length !== 4 || Object.keys(body).some(k => !['requestId', 'keyHash', 'reasonCode', 'reason'].includes(k)) || !UUID_PATTERN.test(body.requestId ?? '') ||

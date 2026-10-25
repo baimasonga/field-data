@@ -7,6 +7,7 @@ const { context, checked, changeContext, checkedChange, lifecycle } = require('.
 const Problem = require('../util/problem');
 const { UUID_PATTERN } = require('../util/claim-versioning');
 const keyTrust = require('../util/witness-key-trust');
+const certificates = require('../util/witness-certificates');
 
 const eventsFor = (db, id) => db.any(sql`SELECT * FROM field_data_capture_witness_events WHERE "witnessRecordId" = ${id} ORDER BY sequence LIMIT 21`);
 module.exports = (service, endpoint) => {
@@ -20,11 +21,13 @@ module.exports = (service, endpoint) => {
     const events = rows.length === 0 ? [] : await container.db.any(sql`SELECT * FROM field_data_capture_witness_events
       WHERE "witnessRecordId" = ANY(${sql.array(rows.map(record => record.id), 'uuid')}) ORDER BY sequence`);
     const project = (await container.Projects.getById(params.projectId)).orNull();
-    const mayRevokeOthers = mayChange && project != null && await auth.can('project.update', project);
+    const mayCertifyOthers = actor?.type === 'user' && project != null && await auth.can('project.update', project);
+    const mayRevokeOthers = mayChange && mayCertifyOthers;
     const items = await Promise.all(rows.map(async record => {
       const changes = events.filter(event => event.witnessRecordId === record.id);
       const trust = await keyTrust.trustFor(container.db, params.projectId, record, changes);
-      const item = { ...lifecycle(record, changes), keyTrust: { ...trust, signingAvailable: keyTrust.config() != null, canRevoke: actor?.type === 'user' && ((record.witnessId === actor.id && (mayChange || record.authorization != null)) || mayRevokeOthers) } };
+      const keys = trust.keys.map(key => ({ ...key, canRevoke: actor?.type === 'user' && ((record.witnessId === actor.id && (mayChange || record.authorization != null || key.certificate != null)) || mayRevokeOthers || (mayCertifyOthers && key.certificate != null)) }));
+      const item = { ...lifecycle(record, changes), keyTrust: { ...trust, keys, signingAvailable: keyTrust.config() != null, canCertify: mayCertifyOthers && actor.id !== record.witnessId && !row.archived, canRevoke: keys.some(key => key.canRevoke) } };
       return { ...item, canCorrect: mayChange && record.witnessId === actor.id && item.status === 'active' && item.keyTrust.status === 'clear' && item.revision < 20, changeContext: actor?.type === 'user' && (mayChange || record.authorization != null) && record.witnessId === actor.id && item.status === 'active'
         ? changeContext(row, record, changes.at(-1)) : null };
     }));
@@ -52,6 +55,7 @@ module.exports = (service, endpoint) => {
         return { witness: { ...lifecycle(prior, await eventsFor(tx.db, prior.id)), keyTrust: await keyTrust.trustFor(tx.db, params.projectId, prior, await eventsFor(tx.db, prior.id)) }, replayed: true, bindingCurrent: current };
       }
       witness = await delegation.lockSigner(tx, auth, form);
+      await certificates.assertOwner(tx.db, params.projectId, data.publicKey, actor.id);
       if (await keyTrust.keyRevoked(tx.db, params.projectId, data.publicKey)) throw Problem.user.captureWitnessConflict();
       if (!current || row.archived) throw Problem.user.captureAssessmentTargetChanged();
       if (Math.abs(Date.now() - Date.parse(data.signedAt)) > 10 * 60000) throw Problem.user.captureWitnessInvalid();
@@ -59,6 +63,7 @@ module.exports = (service, endpoint) => {
       if (counts.total >= 10 || counts.own > 0) throw Problem.user.captureWitnessConflict();
       await image(tx, row);
       const receivedAt = new Date(await tx.db.oneFirst(sql`SELECT clock_timestamp()`));
+      await certificates.assertOwner(tx.db, params.projectId, data.publicKey, actor.id, receivedAt);
       const authorization = delegation.receipt(witness, data, receivedAt);
       const record = await tx.db.one(sql`INSERT INTO field_data_capture_witnesses (id, "challengeId", "witnessId", "witnessName", "requestId", "requestHash", payload, "publicKey", signature,"authorization","receivedAt")
         VALUES (${randomUUID()}, ${row.id}, ${witness.id}, ${witness.displayName}, ${data.requestId}, ${data.requestHash}, ${data.payload}, ${sql.json(data.publicKey)}, ${data.signature},${authorization == null ? null : sql.json(authorization)},${receivedAt.toISOString()}) RETURNING *`);
@@ -91,11 +96,13 @@ module.exports = (service, endpoint) => {
       }
       if (data.action === 'correct' && row.archived && witness.authorization != null) throw Problem.user.captureAssessmentTargetChanged();
       if (data.action === 'correct') signer = await delegation.lockSigner(tx, auth, form);
+      await certificates.assertOwner(tx.db, params.projectId, data.publicKey, actor.id);
       const trust = await keyTrust.trustFor(tx.db, params.projectId, witness, events);
       if (await keyTrust.keyRevoked(tx.db, params.projectId, data.publicKey) || (trust.status === 'revoked' && data.action === 'correct')) throw Problem.user.captureWitnessChangeConflict();
       if (events.at(-1)?.action === 'withdraw' || (events.length >= 20 && data.action !== 'withdraw')) throw Problem.user.captureWitnessChangeConflict();
       if (Math.abs(Date.now() - Date.parse(data.signedAt)) > 10 * 60000) throw Problem.user.captureWitnessInvalid();
       const receivedAt = new Date(await tx.db.oneFirst(sql`SELECT clock_timestamp()`));
+      await certificates.assertOwner(tx.db, params.projectId, data.publicKey, actor.id, receivedAt);
       const authorization = delegation.receipt(signer, data, receivedAt);
       const event = await tx.db.one(sql`INSERT INTO field_data_capture_witness_events
         (id, "witnessRecordId", sequence, action, "actorId", "actorName", "requestId", "requestHash", payload, "publicKey", signature,"authorization","receivedAt")
@@ -120,11 +127,12 @@ module.exports = (service, endpoint) => {
       const row = await source(tx.db, params, form, true); if (!row) throw Problem.user.notFound();
       const witness = await tx.db.maybeOne(sql`SELECT * FROM field_data_capture_witnesses WHERE id = ${params.witnessRecordId} AND "challengeId" = ${row.id}`);
       if (!witness) throw Problem.user.notFound();
-      if (witness.authorization == null) await delegation.lockSigner(tx, auth, form);
       const project = (await tx.Projects.getById(params.projectId)).orNull();
       if (witness.witnessId !== actor.id && !await keyTrust.lockProjectManager(tx, actor.id, project)) throw Problem.user.notFound();
       const events = await eventsFor(tx.db, witness.id);
       if (![witness, ...events].some(item => keyTrust.keyHash(item.publicKey) === data.keyHash)) throw Problem.user.notFound();
+      const certified = await tx.db.maybeOne(sql`SELECT id FROM field_data_witness_key_certificates WHERE "projectId"=${Number(params.projectId)} AND "keyHash"=${data.keyHash}`);
+      if (witness.authorization == null && !certified) await delegation.lockSigner(tx, auth, form);
       const hash = keyTrust.revocationHash(data, actor.id);
       const priorRows = await tx.db.any(sql`SELECT * FROM field_data_witness_key_revocations WHERE "projectId" = ${Number(params.projectId)} AND ("requestId" = ${data.requestId} OR "keyHash" = ${data.keyHash})`);
       if (priorRows.length > 1) throw Problem.user.captureWitnessConflict();

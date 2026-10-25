@@ -157,6 +157,7 @@ module.exports = (container) => {
   require('../resources/field-data-capture-challenges')(service, endpoint);
   require('../resources/field-data-capture-assessments')(service, endpoint);
   require('../resources/field-data-capture-witnesses')(service, endpoint);
+  require('../resources/field-data-witness-certificates')(service, endpoint);
   require('../resources/field-data-witness-delegations')(service, endpoint);
   require('../resources/field-data-media-extractions')(service, endpoint);
   require('../resources/field-data-geo-assessments')(service, endpoint);
