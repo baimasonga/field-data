@@ -78,6 +78,13 @@ const projectGraph = (claim, rows) => {
       else lineageComplete = false;
     }
   }
+  for (const sensor of rows.sensors ?? []) {
+    const id = node('signed-sensor-reading', sensor.id, { deviceId: sensor.deviceId, challengeId: sensor.challengeId, measurement: sensor.measurement, integrityStatus: 'unverified', keyRevoked: sensor.keyRevoked, reviewOutcome: sensor.reviewOutcome,
+      sourceUrl: `/v1/projects/${sensor.projectId}/forms/${encodeURIComponent(sensor.xmlFormId)}/submissions/${encodeURIComponent(sensor.instanceId)}/capture-challenges/${sensor.challengeId}/sensors` });
+    edges.push({ id: `${id}:claim`, from: id, to: claimId, relation: 'reports-context-for' });
+    event(`sensor-sample:${sensor.id}`, id, 'sensor-reported-sample', sensor.sampledAt, 'reported');
+    event(`sensor-receipt:${sensor.id}`, id, 'sensor-server-receipt', sensor.receivedAt, 'server');
+  }
   timeline.sort((a, b) => (a.at == null && b.at == null ? 0 : a.at == null ? 1 : b.at == null ? -1
     : new Date(a.at) - new Date(b.at)) || a.id.localeCompare(b.id));
   const completeness = { ...rows.completeness, lineage: lineageComplete };

@@ -1630,3 +1630,39 @@ test('reviewed key certificates retry exact requests, export pinned proofs and r
   tampered = true; await p.reload(); await expect(section).toContainText('Key revocation status is unavailable');
   expect(await p.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true); expect(errors).toEqual([]);
 });
+
+test('signed sensor readings import and review with exact retries, pinned exports, revoked-key withholding and read-only boundaries', async ({ page: p }) => {
+  const authority = generateKeyPairSync('ec', { namedCurve: 'prime256v1' }); const deviceKeys = generateKeyPairSync('ec', { namedCurve: 'prime256v1' }); const publicKey = authority.publicKey.export({ format: 'jwk' }); const deviceKey = deviceKeys.publicKey.export({ format: 'jwk' });
+  const hash = value => createHash('sha256').update(value).digest('hex'); const keyId = hash(authority.publicKey.export({ type: 'spki', format: 'der' })); const keyHash = hash(deviceKeys.publicKey.export({ type: 'spki', format: 'der' }));
+  const attest = (kind, data) => { const bytes = Buffer.from(JSON.stringify({ ...data, purpose: `field-data.sensor-${kind}@1`, issuer: 'https://field.example.test' })); return { algorithm: 'ES256', publicKey, keyId, payload: bytes.toString('base64url'), signature: sign('sha256', bytes, { key: authority.privateKey, dsaEncoding: 'ieee-p1363' }).toString('base64url') }; };
+  const context = { projectId: 1, challengeId: sampleId, submissionDefId: 7, xmlFormId: 'household', instanceId: 'uuid:one', name: 'scene.jpg', contentHash: reviewCapture.contentHash, nonceHash: 'a'.repeat(64), issuedAt: new Date(Date.now() - 60000).toISOString(), expiresAt: new Date(Date.now() + 20 * 60000).toISOString() };
+  const deviceId = randomUUID(); const enrollment = attest('enrollment', { projectId: 1, deviceId, keyHash, publicKey: deviceKey, sensorKind: 'proximity', label: 'Range beacon', operatorLabel: 'External operator', enrolledAt: new Date(Date.now() - 120000).toISOString(), expiresAt: new Date(Date.now() + 86400000).toISOString() });
+  const { signSensorReading, verifySensorRecord } = await import('../../../../cloudflare/sensor-reading.mjs');
+  const envelope = signSensorReading(context, { deviceId, readingId: randomUUID(), counter: 1, sampledAt: new Date().toISOString(), measurement: { kind: 'proximity', distanceM: 2, uncertaintyM: 1 } }, deviceKeys.privateKey);
+  let stored = null; let revoked = false; let denied = false; let readOnly = false; const writes = []; const errors = await setupAssessmentRecord(p, async (route, path) => {
+    if (path.endsWith('/capture-challenges')) { await route.fulfill({ json: { items: [reviewCapture] } }); return true; }
+    if (!path.includes('/sensors')) return false;
+    if (denied) { await route.fulfill({ status: 404, json: { message: 'Access lost' } }); return true; }
+    if (route.request().method() === 'GET') {
+      const revocation = revoked ? attest('key-revocation', { projectId: 1, deviceId, keyHash, revokedAt: new Date().toISOString(), reason: 'The external signing environment was compromised.' }) : null;
+      const item = stored ? { ...stored, revocation, diagnostics: { eligibleForReview: !revoked, reasons: revoked ? ['sensor-key-revoked'] : [], limitations: 'Signatures do not prove physical presence.' } } : null;
+      await route.fulfill({ json: { method: 'signed-sensor-corroboration@1', context, bindingCurrent: true, sourceIntegrity: 'verified', canWrite: !readOnly, canReview: !readOnly, items: item ? [item] : [], activeSupported: !revoked && stored?.latestReview?.outcome === 'supports' ? 1 : 0 } }); return true;
+    }
+    const body = route.request().postDataJSON(); writes.push(body);
+    if (path.endsWith('/reviews')) { const details = { projectId: 1, recordId: stored.id, revision: 1, reviewerId: 1, reviewerName: 'Project reviewer', reviewedAt: new Date().toISOString(), readingPayloadHash: hash(Buffer.from(envelope.payload, 'base64url')), outcome: body.outcome, reason: body.reason, reviewedOriginal: true }; stored.reviews = [{ ...details, attestation: attest('review', details) }]; stored.latestReview = details; stored.revision = 1; await route.fulfill({ json: { attestation: stored.reviews[0].attestation, replayed: false } }); return true; }
+    const data = JSON.parse(Buffer.from(envelope.payload, 'base64url')); const receivedAt = new Date().toISOString();
+    stored ??= { id: randomUUID(), envelope, enrollment, receipt: null, data, reviews: [], revision: 0, latestReview: null, receivedAt };
+    stored.receipt ??= attest('receipt', { projectId: 1, recordId: stored.id, challengeId: sampleId, deviceId, readingId: data.readingId, counter: 1, payloadHash: hash(Buffer.from(envelope.payload, 'base64url')), signatureHash: hash(envelope.signature), enrollmentPayloadHash: hash(Buffer.from(enrollment.payload, 'base64url')), receivedAt });
+    if (writes.length === 1) await route.abort('failed'); else { expect(body).toEqual(writes[0]); await route.fulfill({ json: { id: stored.id, replayed: true } }); } return true;
+  });
+  const panel = p.getByRole('region', { name: 'Signed sensor corroboration', exact: true }); await panel.getByRole('button', { name: 'Open sensor corroboration', exact: true }).click();
+  await p.setViewportSize({ width: 320, height: 780 }); const challengeDownload = p.waitForEvent('download'); await panel.getByRole('button', { name: 'Download sensor challenge context', exact: true }).click(); expect((await challengeDownload).suggestedFilename()).toContain('sensor-context-');
+  await panel.getByLabel('Import signed sensor envelope JSON').setInputFiles({ name: 'reading.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(envelope)) }); await expect(panel.getByRole('alert')).toContainText('could not be confirmed');
+  await panel.getByRole('button', { name: 'Retry exact sensor change' }).click(); await expect(panel).toContainText('Range beacon'); expect(writes[1]).toEqual(writes[0]);
+  await panel.getByLabel('Sensor assessment', { exact: true }).selectOption('supports'); await panel.getByLabel('Sensor review reason').fill('The original image and reported sensor uncertainty are consistent.'); await panel.getByLabel('I inspected the original challenged image and the sensor provenance, timing and uncertainty.').check(); await panel.getByRole('button', { name: 'Save sensor assessment', exact: true }).click();
+  await expect(panel).toContainText('1 current readings have a supporting human review');
+  const download = p.waitForEvent('download'); await panel.getByRole('button', { name: 'Download signed sensor proof', exact: true }).click(); const proof = JSON.parse(await readFile(await (await download).path(), 'utf8'));
+  expect(verifySensorRecord(proof, { publicKeys: [publicKey], issuer: 'https://field.example.test', context }).reviews[0].outcome).toBe('supports');
+  revoked = true; readOnly = true; await panel.getByRole('button', { name: 'Refresh sensor readings', exact: true }).click(); await expect(panel).toContainText('Supporting corroboration withheld'); await expect(panel).toContainText('0 current readings'); await expect(panel.getByRole('button', { name: 'Save sensor assessment', exact: true })).toHaveCount(0);
+  denied = true; await panel.getByRole('button', { name: 'Refresh sensor readings', exact: true }).click(); await expect(panel.getByRole('alert')).toContainText('could not be loaded or verified'); await expect(panel).not.toContainText('Range beacon'); expect(errors).toEqual([]);
+});

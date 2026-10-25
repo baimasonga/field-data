@@ -802,3 +802,81 @@ describe('api: reviewed witness key certificates', () => {
     try { await db.transaction(async trx => { await migration.down(trx); await migration.up(trx); assert.equal((await trx.raw('SELECT count(*)::integer AS count FROM field_data_witness_key_certificates')).rows[0].count, 1); }); } finally { await db.destroy(); }
   })));
 });
+
+describe('api: signed sensor corroboration', () => {
+  const enrollBody = keys => ({ requestId: randomUUID(), publicKey: keys.publicKey.export({ format: 'jwk' }), label: 'External range sensor', operatorLabel: 'Independent operator team', sensorKind: 'proximity', expiresAt: new Date(Date.now() + 86400000).toISOString(), verificationNote: 'Checked external provisioning record and the stated operator independence.', reviewed: true });
+  const envelopeFor = async (keys, context, deviceId, patch = {}) => {
+    // eslint-disable-next-line import/extensions, import/no-relative-packages
+    const { signSensorReading } = await import('../../../../../cloudflare/sensor-reading.mjs');
+    return signSensorReading(context, { deviceId, readingId: randomUUID(), counter: 1, sampledAt: new Date().toISOString(), measurement: { kind: 'proximity', distanceM: 2, uncertaintyM: 1 }, ...patch }, keys.privateKey);
+  };
+  it('enrolls external keys, verifies signed context/receipt, replays exactly, reviews with optimistic history and withholds revoked keys', testService(async (service, c) => withRevocationAuthority(async authority => {
+    const { alice, path } = await assessedSetup(service); const url = `${path}/sensors`; const keys = generateKeyPairSync('ec', { namedCurve: 'prime256v1' }); const body = enrollBody(keys);
+    const device = (await alice.post('/v1/projects/1/sensor-keys').send(body).expect(200)).body.item;
+    assert.equal((await alice.post('/v1/projects/1/sensor-keys').send(body).expect(200)).body.replayed, true);
+    const initial = (await alice.get(url).expect(200)).body; assert.equal(initial.items.length, 0); assert.equal(initial.sourceIntegrity, 'verified');
+    const envelope = await envelopeFor(keys, initial.context, device.deviceId); const write = { requestId: randomUUID(), envelope };
+    const imported = (await alice.post(url).send(write).expect(200)).body;
+    assert.equal((await alice.post(url).send(write).expect(200)).body.id, imported.id);
+    await alice.post(url).send({ ...write, requestId: randomUUID() }).expect(409);
+    const snapshot = (await alice.get(url).expect(200)).body; assert.equal(snapshot.items[0].diagnostics.eligibleForReview, true); assert.equal(snapshot.activeSupported, 0);
+    // eslint-disable-next-line import/extensions, import/no-relative-packages
+    const { verifySensorRecord } = await import('../../../../../cloudflare/sensor-reading.mjs');
+    const expected = { publicKeys: [authority.publicKey.export({ format: 'jwk' })], issuer: 'https://field.example.test', context: initial.context };
+    assert.equal(verifySensorRecord(snapshot.items[0], expected).data.measurement.distanceM, 2);
+    const review = { requestId: randomUUID(), expectedRevision: 0, outcome: 'supports', reason: 'Original photo and external sensor context are consistent within reported uncertainty.', reviewedOriginal: true };
+    await alice.post(`${url}/${imported.id}/reviews`).send(review).expect(200);
+    assert.equal((await alice.post(`${url}/${imported.id}/reviews`).send(review).expect(200)).body.replayed, true);
+    await alice.post(`${url}/${imported.id}/reviews`).send({ ...review, requestId: randomUUID() }).expect(412);
+    assert.equal((await alice.get(url).expect(200)).body.activeSupported, 1);
+    await c.run(sql`UPDATE blobs SET content=${sql.binary(Buffer.from('corrupt'))} WHERE id=(SELECT "blobId" FROM field_data_capture_challenges WHERE id=${initial.context.challengeId})`);
+    const corrupt = (await alice.get(url).expect(200)).body; assert.equal(corrupt.activeSupported, 0); assert.equal(corrupt.sourceIntegrity, 'unavailable-or-mismatch');
+    await c.run(sql`UPDATE blobs SET content=${sql.binary(png)} WHERE id=(SELECT "blobId" FROM field_data_capture_challenges WHERE id=${initial.context.challengeId})`);
+    const claimId = await c.oneFirst(sql`SELECT cv.id FROM field_data_claim_versions cv JOIN field_data_capture_challenges ch ON ch."submissionDefId"=cv."submissionDefId" WHERE ch.id=${initial.context.challengeId}`);
+    const graph = (await alice.get(`/v1/field-data/claim-versions/${claimId}/graph`).expect(200)).body;
+    assert.equal(graph.nodes.filter(node => node.type === 'signed-sensor-reading').length, 1); assert.equal(graph.presence.status, 'insufficient_evidence');
+    const revoke = { requestId: randomUUID(), reason: 'The sensor signing environment was compromised.' };
+    await alice.post(`/v1/projects/1/sensor-keys/${device.deviceId}/revoke`).send(revoke).expect(200);
+    const revoked = (await alice.get(url).expect(200)).body; assert.equal(revoked.activeSupported, 0); assert.ok(revoked.items[0].diagnostics.reasons.includes('sensor-key-revoked'));
+    assert.equal(verifySensorRecord(revoked.items[0], expected).revocationStatus, 'revoked');
+    await alice.post(url).send({ requestId: randomUUID(), envelope: await envelopeFor(keys, initial.context, device.deviceId, { counter: 2 }) }).expect(409);
+    await alice.post(`${url}/${imported.id}/reviews`).send({ ...review, requestId: randomUUID(), expectedRevision: 1, outcome: 'withdraw', reviewedOriginal: false }).expect(200);
+    await c.run(sql`SAVEPOINT sensor_guard`);
+    await assert.rejects(c.run(sql`UPDATE field_data_sensor_reviews SET details='{}'::jsonb`), /append-only/);
+    await c.run(sql`ROLLBACK TO SAVEPOINT sensor_guard`);
+  })));
+  it('rejects tampering, cross-context replay, purpose/key reuse and source-revoked writes while retaining clock diagnostics', testService(async (service, c) => withRevocationAuthority(async () => {
+    const { alice, path } = await assessedSetup(service); const url = `${path}/sensors`; const keys = generateKeyPairSync('ec', { namedCurve: 'prime256v1' });
+    const body = enrollBody(keys); const device = (await alice.post('/v1/projects/1/sensor-keys').send(body).expect(200)).body.item;
+    await alice.post('/v1/projects/1/sensor-keys').send({ ...body, requestId: randomUUID() }).expect(409);
+    await alice.post('/v1/projects/1/sensor-keys').send({ ...body, publicKey: { ...body.publicKey, d: 'private' } }).expect(400);
+    const { context } = (await alice.get(url).expect(200)).body;
+    await alice.post(url).send({ requestId: randomUUID(), envelope: await envelopeFor(keys, { ...context, contentHash: 'a'.repeat(64) }, device.deviceId) }).expect(400);
+    const envelope = await envelopeFor(keys, context, device.deviceId);
+    await alice.post(url).send({ requestId: randomUUID(), envelope: { ...envelope, signature: 'a'.repeat(86) } }).expect(400);
+    const viewer = await service.login('chelsea'); const { id } = (await viewer.get('/v1/users/current').expect(200)).body; await alice.post(`/v1/projects/1/assignments/viewer/${id}`).expect(200);
+    await viewer.get('/v1/projects/1/sensor-keys').expect(403); await viewer.post(url).send({ requestId: randomUUID(), envelope }).expect(404);
+    const old = await envelopeFor(keys, context, device.deviceId, { counter: 2, sampledAt: new Date(Date.parse(context.issuedAt) - 60000).toISOString() });
+    const record = (await alice.post(url).send({ requestId: randomUUID(), envelope: old }).expect(200)).body;
+    await alice.post(url).send({ requestId: randomUUID(), envelope }).expect(200); // A lower, previously unused counter is valid.
+    assert.ok((await viewer.get(url).expect(200)).body.items[0].diagnostics.reasons.includes('sensor-clock-outside-challenge-window'));
+    await alice.post(`${url}/${record.id}/reviews`).send({ requestId: randomUUID(), expectedRevision: 0, outcome: 'supports', reason: 'This invalid clock cannot support the source.', reviewedOriginal: true }).expect(409);
+    await alice.post(`${url}/${record.id}/reviews`).send({ requestId: randomUUID(), expectedRevision: 0, outcome: 'inconclusive', reason: 'The sensor clock is outside the challenge interval.', reviewedOriginal: true }).expect(200);
+    const witnessUrl = `${path}/witnesses`; await alice.post(witnessUrl).send(signedWith((await alice.get(witnessUrl).expect(200)).body.context, keys)).expect(409);
+    const setting = process.env.FIELD_DATA_OFFLINE_SIGNING_KEY; delete process.env.FIELD_DATA_OFFLINE_SIGNING_KEY;
+    try { await alice.post(url).send({ requestId: randomUUID(), envelope: await envelopeFor(keys, context, device.deviceId, { counter: 2 }) }).expect(400); } finally { process.env.FIELD_DATA_OFFLINE_SIGNING_KEY = setting; }
+    await alice.delete(`/v1/projects/1/assignments/viewer/${id}`).expect(200); await viewer.get(url).expect(404);
+    await c.run(sql`UPDATE projects SET archived=TRUE WHERE id=1`);
+    await alice.post(url).send({ requestId: randomUUID(), envelope: await envelopeFor(keys, context, device.deviceId, { counter: 2 }) }).expect(409);
+  })));
+  it('retains replay tombstones and trust history after source purge and rollback, and serializes concurrent import retries', testServiceFullTrx(async (service, c) => withRevocationAuthority(async () => {
+    const { alice, path, challenge } = await assessedSetup(service); const keys = generateKeyPairSync('ec', { namedCurve: 'prime256v1' });
+    const device = (await alice.post('/v1/projects/1/sensor-keys').send(enrollBody(keys)).expect(200)).body.item; const url = `${path}/sensors`;
+    const { context } = (await alice.get(url).expect(200)).body; const body = { requestId: randomUUID(), envelope: await envelopeFor(keys, context, device.deviceId) };
+    const responses = await Promise.all([alice.post(url).send(body), alice.post(url).send(body)]); assert.deepEqual(responses.map(value => value.status), [200, 200]); assert.deepEqual(responses.map(value => value.body.replayed).sort(), [false, true]);
+    await c.run(sql`DELETE FROM field_data_capture_challenges WHERE id=${challenge.id}`);
+    assert.equal(await c.oneFirst(sql`SELECT count(*)::integer FROM field_data_sensor_readings`), 0); assert.equal(await c.oneFirst(sql`SELECT count(*)::integer FROM field_data_sensor_replays`), 1);
+    const { knexConnect } = require('../../../lib/model/knex-migrator'); const config = require('config'); const db = knexConnect(config.get('test.database')); const migration = require('../../../lib/model/migrations/20261025-04-sensor-corroboration');
+    try { await db.transaction(async trx => { await migration.down(trx); await migration.up(trx); assert.equal((await trx.raw('SELECT count(*)::integer AS count FROM field_data_sensor_keys')).rows[0].count, 1); }); } finally { await db.destroy(); }
+  })));
+});

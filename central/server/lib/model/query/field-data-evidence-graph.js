@@ -52,6 +52,13 @@ const read = (versionId) => ({ one }) => one(sql`
       d."policyVersion", d."evidenceSnapshotHash"
     FROM field_data_review_decisions d WHERE d."claimVersionId" = ${versionId}
     ORDER BY d."createdAt", d.id LIMIT 501
+  ), sensors AS MATERIALIZED (
+    SELECT r.id,r."challengeId",r."deviceId",r."receivedAt",ch."xmlFormId",ch."instanceId",ch."projectId",
+      r."sampledAt",r.measurement,
+      EXISTS(SELECT 1 FROM field_data_sensor_keys k WHERE k."deviceId"=r."deviceId" AND k.kind='revoke') AS "keyRevoked",
+      (SELECT s.details->>'outcome' FROM field_data_sensor_reviews s WHERE s."readingRecordId"=r.id ORDER BY s.revision DESC LIMIT 1) AS "reviewOutcome"
+    FROM field_data_sensor_readings r JOIN field_data_capture_challenges ch ON ch.id=r."challengeId" JOIN field_data_claim_versions v ON v."submissionDefId"=ch."submissionDefId" WHERE v.id=${versionId}
+    ORDER BY r."receivedAt",r.id LIMIT 501
   )
   SELECT statement_timestamp() AS "generatedAt",
     COALESCE((SELECT jsonb_agg(to_jsonb(l) ORDER BY l."createdAt", l.id)
@@ -62,7 +69,8 @@ const read = (versionId) => ({ one }) => one(sql`
       FROM (SELECT * FROM derived ORDER BY "createdAt", id LIMIT 500) d), '[]'::jsonb) AS derived,
     COALESCE((SELECT jsonb_agg(to_jsonb(d) ORDER BY d."createdAt", d.id)
       FROM (SELECT * FROM decisions ORDER BY "createdAt", id LIMIT 500) d), '[]'::jsonb) AS decisions,
-    jsonb_build_object('links', (SELECT count(*) <= 500 FROM links),
+    COALESCE((SELECT jsonb_agg(to_jsonb(s) ORDER BY s."receivedAt",s.id) FROM (SELECT * FROM sensors ORDER BY "receivedAt",id LIMIT 500) s), '[]'::jsonb) AS sensors,
+    jsonb_build_object('sensors',(SELECT count(*)<=500 FROM sensors),'links', (SELECT count(*) <= 500 FROM links),
       'derivations', (SELECT count(*) <= 500 FROM derived),
       'decisions', (SELECT count(*) <= 500 FROM decisions)) AS completeness`);
 

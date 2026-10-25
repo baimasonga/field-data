@@ -23,6 +23,7 @@
           </div>
           <p v-else-if="item.status === 'bound'">No location reading was included with this challenged image.</p>
           <submission-capture-assessment :item="item" :project-id="projectId" :xml-form-id="xmlFormId" :instance-id="instanceId" @saved="reload('Photo assessment saved.')" @refresh="reload('The attachment or assessment changed. Review the refreshed history before saving again.')"/>
+          <submission-sensor-corroboration v-if="item.status === 'bound'" :key="`sensors:${item.id}:${item.contentHash}`" :item="item" :project-id="projectId" :xml-form-id="xmlFormId" :instance-id="instanceId"/>
           <submission-capture-witness v-if="item.status === 'bound'" :item="item" :project-id="projectId" :xml-form-id="xmlFormId" :instance-id="instanceId"/>
           <details v-if="item.contentHash"><summary>Bound image fingerprint</summary><code>{{ item.contentHash }}</code></details>
         </li>
@@ -34,6 +35,7 @@
 import { onBeforeUnmount, ref, watch } from 'vue';
 import RecordDateTime from '../record-date-time.vue';
 import SubmissionCaptureAssessment from './capture-assessment.vue';
+import SubmissionSensorCorroboration from './sensor-corroboration.vue';
 import SubmissionCaptureWitness from './capture-witness.vue';
 import useRequest from '../../composables/request';
 import { apiPaths } from '../../util/request';
