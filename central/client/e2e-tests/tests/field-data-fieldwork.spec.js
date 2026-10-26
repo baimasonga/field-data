@@ -1158,3 +1158,93 @@ test('encrypted XML queue imports exported packages and pauses after its in-flig
   await expect(panel.getByText('XML accepted; media may still be missing', { exact: false })).toHaveCount(2);
   expect(requests).toBe(2); expect(errors).toEqual([]);
 });
+
+const prepareAutomaticXml = async (page, ids = ['automatic-one']) => {
+  const result = await setup(page); await connect(page); await page.clock.install();
+  const panel = page.locator('.offline-submissions');
+  await panel.getByLabel('New submission XML files').setInputFiles(ids.map(id => ({ name: `${id}.xml`, mimeType: 'text/xml', buffer: Buffer.from(`<data id="verification"><meta><instanceID>${id}</instanceID></meta></data>`) })));
+  await panel.getByLabel('Submission queue passphrase').fill('automatic-sync-passphrase');
+  await panel.getByRole('button', { name: 'Encrypt and save submissions' }).click();
+  await expect(panel.getByText('Encrypted submissions saved.', { exact: false })).toBeVisible();
+  return { ...result, panel, automatic: panel.getByLabel('Automatically sync unlocked XML while this page is open') };
+};
+
+test('automatic XML sync waits for online, honors Retry-After and never duplicates on online events', async ({ page }) => {
+  const { panel, automatic, errors } = await prepareAutomaticXml(page);
+  let requests = 0; const payloads = [];
+  await page.route('**/v1/projects/7/submission', async route => {
+    requests += 1;
+    expect(route.request().headers().authorization).toBe(`Bearer ${key}`);
+    payloads.push(route.request().postDataBuffer().toString().match(/<data[\s\S]*<\/data>/)[0]);
+    if (requests === 1) await route.fulfill({ status: 503, headers: { 'Retry-After': '30' }, body: 'Try later' });
+    else await route.fulfill({ status: 201, contentType: 'text/xml', body: '<OpenRosaResponse/>' });
+  });
+  await page.context().setOffline(true);
+  await automatic.check(); await expect(panel).toContainText('waiting for connectivity'); expect(requests).toBe(0);
+  await page.context().setOffline(false);
+  await expect(panel).toContainText('retry 1 of 5'); expect(requests).toBe(1);
+  await page.evaluate(() => { for (let i = 0; i < 5; i += 1) globalThis.window.dispatchEvent(new Event('online')); });
+  await page.clock.fastForward(29000); expect(requests).toBe(1);
+  await page.clock.fastForward(2000);
+  await expect(panel).toContainText('Automatic XML sync finished'); expect(requests).toBe(2);
+  expect(payloads[0]).toBe(payloads[1]); await expect(automatic).not.toBeChecked();
+  await expect(panel).toContainText('XML accepted; media may still be missing');
+  expect(errors).toEqual([]);
+});
+
+test('automatic XML sync stops on conflict and bounds transient retries without losing pending XML', async ({ page }) => {
+  const { panel, automatic, errors } = await prepareAutomaticXml(page);
+  let requests = 0; let status = 409;
+  await page.route('**/v1/projects/7/submission', route => { requests += 1; return route.fulfill({ status, body: 'Unavailable' }); });
+  await automatic.check(); await expect(panel.getByRole('alert')).toContainText('different XML');
+  await expect(automatic).not.toBeChecked(); await page.clock.fastForward(3600000); expect(requests).toBe(1);
+  status = 503; await automatic.check(); await expect(panel).toContainText('retry 1 of 5');
+  for (const [index, delay] of [6000, 18000, 72000, 144000, 360000].entries()) {
+    await page.clock.fastForward(delay);
+    if (index < 4) await expect(panel).toContainText(`retry ${index + 2} of 5`);
+  }
+  await expect(automatic).not.toBeChecked(); await expect(panel).toContainText('Automatic sync stopped');
+  expect(requests).toBe(7); await page.clock.fastForward(3600000); expect(requests).toBe(7);
+  await expect(panel).toContainText('automatic-one'); await expect(panel.getByRole('button', { name: 'Export encrypted submissions' })).toBeEnabled();
+  expect(errors).toEqual([]);
+});
+
+test('automatic XML sync pauses after current XML and cancels pending retries on lock and reload', async ({ page }) => {
+  const { panel, automatic, errors } = await prepareAutomaticXml(page, ['automatic-one', 'automatic-two']);
+  let release; const waiting = new Promise(resolve => { release = resolve; }); let requests = 0;
+  await page.route('**/v1/projects/7/submission', async route => {
+    requests += 1;
+    if (requests === 1) { await waiting; await route.fulfill({ status: 201, body: '<OpenRosaResponse/>' }); }
+    else await route.abort('failed');
+  });
+  await automatic.check(); await expect.poll(() => requests).toBe(1);
+  await panel.getByRole('button', { name: 'Pause after current XML' }).click(); release();
+  await expect(panel.getByText('XML accepted; media may still be missing', { exact: false })).toHaveCount(1);
+  await expect(automatic).not.toBeChecked(); await page.clock.fastForward(600000); expect(requests).toBe(1);
+  await automatic.check(); await expect(panel).toContainText('retry 1 of 5');
+  await panel.getByRole('button', { name: 'Lock submission queue', exact: true }).click();
+  await page.clock.fastForward(600000); expect(requests).toBe(2);
+  await expect(panel.getByLabel('Submission queue passphrase')).toHaveValue(''); await expect(automatic).not.toBeChecked();
+  await page.reload(); await connect(page);
+  await panel.getByLabel('Submission queue passphrase').fill('automatic-sync-passphrase');
+  await panel.getByRole('button', { name: 'Unlock submission queue' }).click();
+  await expect(panel).toContainText('Queue unlocked'); await expect(automatic).not.toBeChecked(); expect(requests).toBe(2);
+  expect(errors).toEqual([]);
+});
+
+test('automatic XML sync times out a stalled request and clears its unlocked session on denied retry', async ({ page }) => {
+  const { panel, automatic, errors } = await prepareAutomaticXml(page);
+  let requests = 0; let release; const waiting = new Promise(resolve => { release = resolve; });
+  await page.route('**/v1/projects/7/submission', async route => {
+    requests += 1;
+    if (requests === 1) { await waiting; await route.abort('failed').catch(() => {}); }
+    else await route.fulfill({ status: 401, body: 'Access revoked' });
+  });
+  await automatic.check(); await expect.poll(() => requests).toBe(1);
+  await page.clock.fastForward(60001); await expect(panel).toContainText('retry 1 of 5'); release();
+  await page.clock.fastForward(6000);
+  await expect(panel.getByLabel('Submission queue passphrase')).toHaveValue('');
+  await expect(automatic).not.toBeChecked(); await expect(panel).not.toContainText('automatic-one');
+  await expect(page.getByLabel('App User access key or Collect server URL')).toHaveValue('');
+  await page.clock.fastForward(3600000); expect(requests).toBe(2); expect(errors).toEqual([]);
+});

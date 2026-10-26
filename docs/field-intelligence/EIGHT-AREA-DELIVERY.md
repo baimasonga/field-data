@@ -605,3 +605,13 @@ revoked permissions stop delivery. See
 [R5-encrypted-xml-submission-queue.md](R5-encrypted-xml-submission-queue.md).
 Background synchronization, delegated courier/custody transport, Collect-native
 queue changes and real-device acceptance remain separate remaining work.
+
+### R6 session-bound automatic XML synchronization
+
+An explicit Fieldwork queue opt-in can wait for connectivity and retry temporary
+failures while the page remains open, with request timeouts, five bounded jittered
+retries, respected server pauses and cancellation on pause/lock/logout/expiry.
+Exact XML and encrypted acknowledgement checkpoints retain R5's original deadline.
+See [R6-session-automatic-xml-sync.md](R6-session-automatic-xml-sync.md).
+Closed-page background delivery, delegated courier/custody transport and device
+acceptance remain pending; this does not change Collect's native queue.
