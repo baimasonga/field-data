@@ -28,6 +28,7 @@
 import { onBeforeUnmount, ref, watch } from 'vue';
 import verifyCourierProof from '../../util/media-couriers';
 defineOptions({ name: 'FieldDataMediaCouriers' });
+const emit = defineEmits(['target']);
 const props = defineProps({ send: { type: Function, required: true }, identity: { type: Object, required: true } });
 const uploadId = ref(''); const courierId = ref(null); const minutes = ref(60); const acknowledged = ref(false); const reason = ref('');
 const busy = ref(false); const pending = ref(null); const proof = ref(null); const verified = ref(null); const message = ref(''); const error = ref(''); let generation = 0;
@@ -37,7 +38,7 @@ const path = () => `/${encodeURIComponent(uploadId.value)}/courier`;
 const load = async current => {
   const data = await props.send(path(), 'GET'); const checked = await verifyCourierProof(data, props.identity.projectId);
   if (data.grant.uploadId !== uploadId.value || ![data.grant.ownerId, data.grant.courierId].includes(props.identity.actorId)) throw new Error('Wrong courier proof target');
-  if (current === generation) { proof.value = data; verified.value = checked; }
+  if (current === generation) { proof.value = data; verified.value = checked; emit('target', data.grant.uploadId); }
 };
 const perform = async action => {
   if (busy.value) return;

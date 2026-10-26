@@ -48,7 +48,9 @@ to export the files; send the package and passphrase separately.
 
 The courier connects with their own App User key, imports/unlocks the package,
 adds it to the queue, then uploads/resumes. Exact full-file matching discovers the
-authorized reservation; incomplete chunks resume. Either participant may inspect
+authorized reservation; incomplete chunks resume. The list shows up to 50 transfers.
+For a known transfer outside that list, inspect its courier proof first, then add
+the matching file and resume; up to ten inspected transfer IDs are checked directly. Either participant may inspect
 and download the source-scoped proof. The owner may permanently revoke it; changing
 recipient requires canceling a pending transfer and reserving a new UUID. A courier
 can remove local files but cannot cancel the owner's server reservation. Original

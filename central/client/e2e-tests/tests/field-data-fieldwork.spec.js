@@ -1,9 +1,12 @@
 /* global document, localStorage, sessionStorage */
 import { expect, test } from '@playwright/test';
-import { createHash, createPublicKey, generateKeyPairSync } from 'node:crypto';
+import { createHash, createPublicKey, generateKeyPairSync, sign } from 'node:crypto';
 import offlineAssignments from '../../../server/lib/util/offline-assignments.js';
-import mediaCourier from '../../../server/lib/util/media-couriers.js';
 import { readFile } from 'node:fs/promises';
+const courierAttest = (settings, kind, details) => {
+  const bytes = Buffer.from(JSON.stringify({ ...details, purpose: `field-data.media-courier-${kind}@1`, issuer: settings.origin }));
+  return { algorithm: 'ES256', keyId: settings.keyId, publicKey: settings.publicKey, payload: bytes.toString('base64url'), signature: sign('sha256', bytes, { key: settings.key, dsaEncoding: 'ieee-p1363' }).toString('base64url') };
+};
 const appUrl = process.env.ODK_URL || 'http://127.0.0.1:8989';
 const taskId = '11111111-1111-4111-8111-111111111111';
 const pushId = '22222222-2222-4222-8222-222222222222';
@@ -1263,7 +1266,7 @@ test('media couriers reserve, authorize with exact retry, carry encrypted files 
     const req = route.request(); const path = new URL(req.url()).pathname; const body = req.method() === 'POST' && req.postData() ? req.postDataJSON() : null;
     if (path.endsWith('/courier/revoke')) {
       const details = { grantId: grant.id, uploadId: transfer.id, projectId: 7, revokedBy: 42, revokedAt: new Date().toISOString(), reason: body.reason, grantPayloadHash: grantHash() };
-      events.push({ grantId: grant.id, kind: 'revoke', details, attestation: mediaCourier.attest(authority, 'revoke', details) });
+      events.push({ grantId: grant.id, kind: 'revoke', details, attestation: courierAttest(authority, 'revoke', details) });
       return route.fulfill({ json: { event: events.at(-1) } });
     }
     if (path.endsWith('/courier')) {
@@ -1273,7 +1276,7 @@ test('media couriers reserve, authorize with exact retry, carry encrypted files 
         const expiresAt = new Date(Date.now() + 3600000).toISOString(); const id = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc';
         const manifest = Object.fromEntries(['id', 'xmlFormId', 'instanceId', 'name', 'size', 'sha256', 'contentType', 'priority'].map(k => [k, transfer[k]]));
         const details = { id, uploadId: transfer.id, projectId: 7, submissionDefId: 99, ownerId: 42, courierId: body.courierId, manifest, issuedAt: new Date().toISOString(), expiresAt };
-        grant = { id, uploadId: transfer.id, projectId: 7, submissionDefId: 99, ownerId: 42, courierId: body.courierId, manifest, expiresAt, attestation: mediaCourier.attest(authority, 'grant', details) };
+        grant = { id, uploadId: transfer.id, projectId: 7, submissionDefId: 99, ownerId: 42, courierId: body.courierId, manifest, expiresAt, attestation: courierAttest(authority, 'grant', details) };
       }
       if (lost) { lost = false; return route.abort('failed'); }
       return route.fulfill({ json: { grant } });
@@ -1282,10 +1285,11 @@ test('media couriers reserve, authorize with exact retry, carry encrypted files 
     if (path.endsWith('/complete')) {
       transfer.status = 'completed';
       const details = { grantId: grant.id, uploadId: transfer.id, projectId: 7, submissionDefId: 99, ownerId: 42, receivedBy: 43, sha256: transfer.sha256, size: transfer.size, blobId: 123, grantPayloadHash: grantHash(), receivedAt: new Date().toISOString() };
-      events.push({ grantId: grant.id, kind: 'delivery', details, attestation: mediaCourier.attest(authority, 'delivery', details) });
+      events.push({ grantId: grant.id, kind: 'delivery', details, attestation: courierAttest(authority, 'delivery', details) });
       return route.fulfill({ json: transfer });
     }
-    if (req.method() === 'GET') return route.fulfill({ json: { items: transfer ? [transfer] : [] } });
+    if (req.method() === 'GET' && transfer && path.endsWith(`/${transfer.id}`)) return route.fulfill({ json: transfer });
+    if (req.method() === 'GET') return route.fulfill({ json: { items: transfer && state.actorId !== 43 ? [transfer] : [] } });
     transfer = { ...body, ownerId: 42, offset: 0, status: 'pending', expiresAt: new Date(Date.now() + 86400000).toISOString(), chunkSize: 262144 };
     return route.fulfill({ json: transfer });
   });
@@ -1302,6 +1306,9 @@ test('media couriers reserve, authorize with exact retry, carry encrypted files 
   await vault.getByRole('button', { name: 'Encrypt and save files' }).click(); await expect(vault).toContainText('Encrypted media saved');
   await vault.getByLabel('Media package passphrase').fill(mediaPhrase); const exported = page.waitForEvent('download'); await vault.getByRole('button', { name: 'Export encrypted package' }).click(); const encrypted = await exported;
   state.actorId = 43; await page.reload(); await connect(page);
+  // Select a known grant outside the first server list page before resuming it.
+  await courier.getByLabel('Courier transfer ID').fill(transfer.id); await courier.getByRole('button', { name: 'Inspect courier proof' }).click();
+  await expect(courier).toContainText('No delivery receipt recorded.');
   await vault.getByLabel('Media package passphrase').fill(mediaPhrase); await vault.getByLabel('Import encrypted media package').setInputFiles(await encrypted.path());
   await expect(vault).toContainText('Encrypted package imported'); await vault.getByRole('button', { name: 'Add unlocked files to upload queue' }).click();
   await queue.getByRole('button', { name: 'Upload or resume queue' }).click(); await expect(queue).toContainText('Queue finished');

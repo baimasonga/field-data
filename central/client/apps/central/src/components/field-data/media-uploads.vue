@@ -47,7 +47,7 @@
       </li>
 </ul>
     </details>
-    <field-data-media-couriers :send="send" :identity="identity"/>
+    <field-data-media-couriers :send="send" :identity="identity" @target="selectCourierTransfer"/>
   </section>
 </template>
 <script setup>
@@ -62,9 +62,11 @@ defineOptions({ name: 'FieldDataMediaUploads' });
 const emit = defineEmits(['protect']);
 const props = defineProps({ send: { type: Function, required: true }, identity: { type: Object, default: () => ({}) } });
 const xmlFormId = ref(''); const instanceId = ref(''); const queue = ref([]); const saved = ref([]);
+const explicitTransfers = ref([]);
+const selectCourierTransfer = id => { if (!explicitTransfers.value.includes(id) && explicitTransfers.value.length < 10) explicitTransfers.value.push(id); };
 const busy = ref(false); const paused = ref(false); const message = ref(''); const error = ref('');
 let generation = 0;
-onBeforeUnmount(() => { generation += 1; paused.value = true; queue.value = []; saved.value = []; });
+onBeforeUnmount(() => { generation += 1; paused.value = true; queue.value = []; saved.value = []; explicitTransfers.value = []; });
 const digest = async bytes => Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', bytes)), b => b.toString(16).padStart(2, '0')).join('');
 const valid = row => row != null && /^[0-9a-f-]{36}$/i.test(row.id ?? '') && Number.isInteger(row.offset) && Number.isInteger(row.size) &&
   row.size > 0 && row.size <= 20 * 1024 * 1024 && row.offset >= 0 && row.offset <= row.size && row.chunkSize === 262144 &&
@@ -74,7 +76,13 @@ const accept = row => { if (row?.captureLocation != null) checkedLocation(row.ca
 const readSaved = async () => {
   const data = await props.send('', 'GET');
   if (!Array.isArray(data.items) || data.items.length > 50) throw new Error('Invalid upload list');
-  return data.items.map(accept);
+  const rows = data.items.map(accept);
+  // An inspected, known transfer may be outside the first bounded list page.
+  for (const id of explicitTransfers.value) {
+    if (rows.some(row => row.id === id)) continue;
+    try { rows.push(accept(await props.send(`/${encodeURIComponent(id)}`, 'GET'))); } catch (failure) { if (failure.status !== 404) throw failure; }
+  }
+  return rows;
 };
 const fail = failure => {
   if (failure.code === 'COURIER_CHALLENGE') { error.value = 'Challenged camera photos must be uploaded by the original collector. Reserve ordinary files separately.'; return; }
