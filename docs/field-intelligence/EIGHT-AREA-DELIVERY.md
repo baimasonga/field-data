@@ -378,7 +378,7 @@ acceptance remain separate from software delivery. Later release notes that say
 | --- | --- | --- |
 | Knowledge | Asset identities/facts/history/freshness; cited maps and named areas; verified local perceptual photo review; scoped answer/latent-semantic retrieval; shared versioned decision projections; declared causal contracts, diagnostics and conditional adjusted estimates | Release acceptance is tracked in the completion contract. Field effectiveness, identity-threshold calibration and empirical causal assumptions remain separate evaluation activities |
 | Evidence/trust | Evidence graph, challenges/replay checks, signed witnesses with correction/withdrawal history and server-attested project key revocation, time-bounded form witness delegation with signed receipts, second-manager reviewed account/key certificates with expiry and revocation, enrolled external sensor keys, signed source-bound readings and review/receipt history, human assessments and device-reported location | Independent identity-provider/document validation; physical sensor commissioning, anti-relay/hardware assurance and calibrated presence evaluation |
-| Offline resilience | Signed encrypted assignments/itineraries, recoverable media, encrypted relay packages and receipts | Durable XML submission queues, Collect integration, background sync and delegated courier/custody transport |
+| Offline resilience | Signed encrypted assignments/itineraries; recoverable resumable media; encrypted XML queues and open-page automatic sync; delegated XML/media couriers with signed custody, native encrypted-envelope transport and version-bound edit delivery | Closed-page background delivery, Collect-native queue integration and physical/device acceptance |
 | Operations | Sampling, allocation, shared capacity, same-day/overnight UTC shifts, combined approved itineraries, manual/scheduled collector/answer sampling with group-specific rates, numeric ranges, polygon groups, inspectable design weights, conditional calibrated binary estimates, approved-stop navigation handoff and agreement counts | Additional task types, built-in/offline routing, external benchmark calibration and validated outcome inference |
 | Geospatial | Location integrity, imagery availability and cited human geospatial assessments with temporal context and outdated history | Exact footprint checks, reviewed change candidates, imagery analysis and evaluated automated change detection |
 | Fraud intelligence | Contradictions, identity reuse, similarity, collector links, investigations/outcomes, live case links and targeted backcheck questions with reviewed form drafts and same-form/cross-form shared-identity peer targeting | Broader peer families, multilingual/effectiveness evaluation, calibrated triage and false-positive evaluation |
@@ -652,3 +652,17 @@ receipts explicitly do not confirm all attachments or decryption. See
 [R9-native-encrypted-xml-couriers.md](R9-native-encrypted-xml-couriers.md).
 Closed-page background transport, edit delegation and real-device acceptance
 remain pending.
+
+
+### R10 version-bound XML edit couriers
+
+Collectors can review an owned prior XML fingerprint and authorize exact ordinary
+or encrypted replacement XML for a same-project courier. Native version history,
+claim lineage and collector attribution are preserved; competing newer edits
+conflict, and exact already-received replacements are acknowledged. Version-2
+signed custody binds the prior instance/hash/definition. Ordinary unchanged media
+is retained; encrypted edits require fresh ciphertext with native indices, and
+receipted current courier edits can use scoped media recovery. See
+[R10-version-bound-xml-edit-couriers.md](R10-version-bound-xml-edit-couriers.md).
+Closed-page background delivery, Collect-native integration and real-device
+acceptance remain pending.

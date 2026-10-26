@@ -2,7 +2,7 @@
 <template>
   <section class="xml-couriers" aria-labelledby="xml-couriers-title">
     <h3 id="xml-couriers-title">XML courier delivery</h3>
-    <p>Authorize exact XML before handing off its encrypted package. The courier connects with their own App User key and imports the package above. No collector access key is shared. Each delivery keeps the original collector attribution; missing media is delivered separately.</p>
+    <p>Authorize exact XML before handing off its encrypted package. For an edit, first review the prior XML version and its fingerprint. The courier connects with their own App User key and imports the package above. No collector access key is shared. Each delivery keeps the original collector attribution; missing media is delivered separately.</p>
     <p v-if="connected">Your collector ID: {{ identity.actorId }} · Project {{ identity.projectId }}. Grants can be revoked; a new recipient requires expiry or revocation of the previous grant.</p>
     <p v-if="!connected">Connect as an App User to authorize, inspect or deliver XML.</p>
     <fieldset :disabled="busy || parentBusy || pending != null">
@@ -13,7 +13,10 @@
       <label>XML courier grant ID <input v-model.trim="grantId" class="form-control" maxlength="36"></label>
       <label>XML courier revocation reason <textarea v-model="reason" class="form-control" maxlength="2000"/></label>
     </fieldset>
+    <p v-if="manifest?.deprecatedId">Replacement for {{ manifest.deprecatedId }}. The authorization binds the exact prior XML hash; a newer competing edit stops delivery.</p>
+    <p v-if="baseSummary">Reviewed prior definition {{ baseSummary.baseSubmissionDefId }} · SHA-256 {{ baseSummary.baseSha256 }} · {{ baseSummary.current ? 'Current at review time' : 'Historical; only an exact already-received replacement can be acknowledged' }}.</p>
     <div class="actions">
+      <button v-if="manifest?.deprecatedId" type="button" class="btn btn-default" :disabled="busy || parentBusy || pending != null || !connected || opened?.actorId !== identity.actorId" @click="reviewBase">Review prior XML version</button>
       <button type="button" class="btn btn-primary" :disabled="busy || parentBusy || !canAuthorize || (pending && pending.kind !== 'grant')" @click="write('grant')">Authorize XML courier</button>
       <button type="button" class="btn btn-default" :disabled="busy || parentBusy || pending != null || !connected || !manifest" @click="recover">Find XML courier grant</button>
       <button type="button" class="btn btn-default" :disabled="busy || parentBusy || pending != null || !connected || !grantId" @click="inspect">Inspect XML courier proof</button>
@@ -26,13 +29,14 @@
     <p v-if="pending">An acknowledgement is uncertain. Retry this exact operation or discard its retry before changing details. After reload, unlock the package and use Find XML courier grant.</p>
     <p v-if="busy || message" role="status">{{ busy ? 'Checking XML courier delivery…' : message }}</p><p v-if="error" role="alert">{{ error }}</p>
     <template v-if="checked">
+      <p v-if="checked.details.manifest.deprecatedId">Signed prior instance {{ checked.details.manifest.deprecatedId }} · Definition {{ checked.details.baseSubmissionDefId }} · SHA-256 {{ checked.details.manifest.baseSha256 }}</p>
       <p>Grant {{ checked.details.id }} · Owner {{ checked.details.ownerId }} → Courier {{ checked.details.courierId }} · Expires {{ new Date(checked.details.expiresAt).toLocaleString() }}</p>
       <p>{{ checked.details.manifest.xmlFormId }} · {{ checked.details.manifest.instanceId }} · {{ checked.details.manifest.size }} bytes · SHA-256 {{ checked.details.manifest.sha256 }}</p>
       <p>{{ checked.revoked ? 'XML courier permission revoked.' : 'No revocation recorded in this snapshot.' }} {{ checked.delivery ? (checked.delivery.alreadyReceived ? 'XML was already received; a courier receipt is recorded.' : 'Signed XML delivery receipt recorded.') : 'No delivery receipt recorded.' }}<span v-if="checked.unsignedRevocation"> Revocation is effective server-side; signing was unavailable.</span></p>
       <p v-if="checked.delivery && proof.sourceAvailable !== true">The signed receipt is historical; retained XML is no longer current or available.</p>
       <p v-if="manifest && !matches">The selected XML does not match this grant. Select the authorized submission.</p>
     </template>
-    <p>This page must stay open for delivery. Package expiry is unchanged. Proofs attest account actions and exact bytes, not physical custody or absence of later events.</p>
+    <p>Edits use the collector’s current collection permission and preserve native version history. This page must stay open for delivery. Package expiry is unchanged. Proofs attest account actions and exact bytes, not physical custody or absence of later events.</p>
   </section>
 </template>
 <script setup>
@@ -45,20 +49,23 @@ defineOptions({ name: 'FieldDataXmlCouriers' });
 const props = defineProps({ connected: Boolean, parentBusy: Boolean, identity: { type: Object, required: true }, opened: { type: Object, default: null }, send: { type: Function, required: true } });
 const emit = defineEmits(['delivered']);
 const selected = ref(0); const recipient = ref(null); const minutes = ref(60); const acknowledged = ref(false); const grantId = ref(''); const reason = ref('');
+const baseHash = ref(''); const baseSummary = ref(null);
 const busy = ref(false); const pending = ref(null); const proof = ref(null); const checked = ref(null); const message = ref(''); const error = ref(''); let generation = 0;
 const row = computed(() => props.opened?.items[selected.value]);
 const manifest = computed(() => {
   if (!row.value) return null;
   const bytes = decode(row.value.bytes, XML_LIMIT);
-  return { ...submissionIdentity(bytes, true), size: bytes.length, sha256: row.value.sha256 };
+  const identity = submissionIdentity(bytes, true);
+  return { ...identity, ...(identity.deprecatedId ? { baseSha256: baseHash.value || checked.value?.details.manifest.baseSha256 || '' } : {}), size: bytes.length, sha256: row.value.sha256 };
 });
 const matches = computed(() => checked.value && manifest.value && props.opened?.actorId === checked.value.details.ownerId && props.opened?.projectId === checked.value.details.projectId && Object.keys(manifest.value).every(key => manifest.value[key] === checked.value.details.manifest[key]));
 const unexpiredPackage = () => props.opened && props.opened.expiresAt > Date.now();
-const canAuthorize = computed(() => props.connected && row.value && !row.value.delivered && props.opened?.actorId === props.identity.actorId && props.opened?.projectId === props.identity.projectId && acknowledged.value && Number.isSafeInteger(recipient.value) && recipient.value > 0 && recipient.value !== props.identity.actorId);
+const canAuthorize = computed(() => props.connected && row.value && !row.value.delivered && props.opened?.actorId === props.identity.actorId && props.opened?.projectId === props.identity.projectId && (!manifest.value?.deprecatedId || /^[a-f0-9]{64}$/.test(manifest.value.baseSha256)) && acknowledged.value && Number.isSafeInteger(recipient.value) && recipient.value > 0 && recipient.value !== props.identity.actorId);
 const canDeliver = computed(() => props.connected && (pending.value?.kind === 'deliver' || (matches.value && checked.value.details.courierId === props.identity.actorId && !checked.value.revoked && row.value && !row.value.delivered)));
-const clear = () => { generation += 1; selected.value = 0; recipient.value = null; grantId.value = ''; reason.value = ''; acknowledged.value = false; proof.value = null; checked.value = null; pending.value = null; busy.value = false; error.value = ''; message.value = ''; };
+const clear = () => { generation += 1; baseHash.value = ''; baseSummary.value = null; selected.value = 0; recipient.value = null; grantId.value = ''; reason.value = ''; acknowledged.value = false; proof.value = null; checked.value = null; pending.value = null; busy.value = false; error.value = ''; message.value = ''; };
 watch(() => props.opened ? `${props.opened.createdAt}/${props.opened.actorId}/${props.opened.projectId}` : null, clear);
 watch(() => props.connected, value => { if (!value) clear(); }); onBeforeUnmount(clear);
+watch(selected, () => { baseHash.value = ''; baseSummary.value = null; });
 watch([grantId, selected], () => { proof.value = null; checked.value = null; });
 const accept = async (data, current) => {
   const verified = await verifyXmlCourierProof(data, props.identity.projectId);
@@ -72,6 +79,13 @@ const perform = async action => {
     if (current === generation) { proof.value = null; checked.value = null; error.value = failure.status === 409 ? 'XML or target ownership conflicts with the server. Keep the package and resolve it with your supervisor.' : 'XML courier operation failed. Check access, expiry, signing availability and the exact authorized file. Saved XML remains available for retry.'; if (failure.status >= 400 && failure.status < 500) pending.value = null; }
   } finally { if (current === generation) busy.value = false; }
 };
+const reviewBase = () => perform(async current => {
+  const m = manifest.value;
+  if (!m?.deprecatedId || props.opened?.actorId !== props.identity.actorId) return;
+  const data = await props.send(`/edit-base?xmlFormId=${encodeURIComponent(m.xmlFormId)}&version=${encodeURIComponent(m.version)}&deprecatedId=${encodeURIComponent(m.deprecatedId)}&instanceId=${encodeURIComponent(m.instanceId)}`, 'GET');
+  if (data.deprecatedId !== m.deprecatedId || !/^[a-f0-9]{64}$/.test(data.baseSha256) || !Number.isSafeInteger(data.baseSubmissionDefId)) throw new Error('Invalid edit base');
+  if (current === generation) { baseHash.value = data.baseSha256; baseSummary.value = data; acknowledged.value = false; message.value = 'Prior submission version checked. Review its fingerprint before authorizing this edit.'; }
+});
 const inspect = () => perform(async current => {
   const id = grantId.value; const data = await props.send(`/${encodeURIComponent(id)}`, 'GET');
   if (data.grant.id !== id) throw new Error('Wrong grant response'); await accept(data, current);

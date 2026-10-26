@@ -31,8 +31,8 @@ describe('encrypted offline submissions', function submissions() {
     await rejects(() => validateSubmissions({ ...data, actorId: '42' }, now, origin));
     await rejects(() => validateSubmissions({ ...data, items: [{ ...data.items[0], sha256: '0'.repeat(64) }] }, now, origin));
   });
-  it('refuses ambiguous, edited, malformed or oversized XML and duplicate targets', async () => {
-    for (const value of ['<data', '<data id="x"/>', xml.replace('</meta>', '<instanceID>two</instanceID></meta>'), xml.replace('</meta>', '<deprecatedID>old</deprecatedID></meta>'), `<!DOCTYPE data [<!ENTITY x "value">]>${xml}`])
+  it('refuses ambiguous, malformed or oversized XML and duplicate targets', async () => {
+    for (const value of ['<data', '<data id="x"/>', xml.replace('</meta>', '<instanceID>two</instanceID></meta>'), xml.replace('</meta>', '<deprecatedID/><deprecatedID>old</deprecatedID></meta>'), `<!DOCTYPE data [<!ENTITY x "value">]>${xml}`])
       await rejects(async () => submissionIdentity(new TextEncoder().encode(value)));
     for (const list of [[], [...files(), ...files()], [new File(['x'.repeat(XML_LIMIT + 1)], 'big.xml')], Array.from({ length: 11 }, () => files()[0])])
       await rejects(() => prepareSubmissions(list, identity, now, origin));
@@ -49,4 +49,15 @@ describe('encrypted offline submissions', function submissions() {
     }
     for (const value of [envelope.replace('a2V5', '!'), envelope.replace('<encryptedXmlFile>submission.xml.enc</encryptedXmlFile>', ''), envelope.replace('submission.xml.enc', '../submission.enc'), envelope.replace('</data>', '<instanceID>other</instanceID></data>'), envelope.replace('</data>', '<base64EncryptedKey>a2V5</base64EncryptedKey></data>'), envelope.replace('a2V5', '<nested>a2V5</nested>')]) await rejects(async () => submissionIdentity(new TextEncoder().encode(value)));
   });
+  it('keeps edit bytes and prior identity inside the encrypted package while rejecting ambiguous edit chains', async () => {
+    const value = xml.replace('</meta>', '<deprecatedID>uuid:prior</deprecatedID></meta>');
+    const data = await prepareSubmissions([new File([value], 'edit.xml')], identity, now, origin);
+    const restored = await decryptSubmissions(await encryptSubmissions(data, phrase, now, origin), phrase, now, origin);
+    const bytes = decode(restored.items[0].bytes, XML_LIMIT);
+    new TextDecoder().decode(bytes).should.equal(value);
+    submissionIdentity(bytes, true).deprecatedId.should.equal('uuid:prior');
+    Object.hasOwn(restored.items[0], 'deprecatedId').should.be.false;
+    for (const invalid of [xml.replace('</meta>', '<deprecatedID/></meta>'), xml.replace('</meta>', '<deprecatedID>uuid:one</deprecatedID></meta>'), xml.replace('</data>', '<deprecatedID>old</deprecatedID></data>')]) await rejects(async () => submissionIdentity(new TextEncoder().encode(invalid)));
+  });
+
 });

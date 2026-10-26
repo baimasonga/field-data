@@ -203,3 +203,141 @@ describe('api: XML courier competing delivery', () => {
     assert.equal(await c.db.oneFirst(sql`SELECT count(*)::integer FROM field_data_xml_courier_events WHERE kind='delivery'`), 1);
   })));
 });
+
+
+const editSetup = async service => {
+  const f = await setup(service);
+  await service.post('/v1/projects/1/submission').set('Authorization', `Bearer ${f.owner.token}`).set('X-OpenRosa-Version', '1.0').attach('xml_submission_file', f.data, { filename: 'submission.xml' })
+    .expect(201);
+  const editBytes = Buffer.from(f.data.toString().replace('xml-courier-new', 'xml-courier-edited').replace('</meta>', '<deprecatedID>xml-courier-new</deprecatedID></meta>'));
+  const parsed = await xml.parse(editBytes);
+  const editManifest = { ...parsed.manifest, deprecatedId: parsed.deprecatedId, baseSha256: xml.digest(f.data) };
+  const editBody = { ...f.body, manifest: editManifest };
+  return { ...f, editBytes, editManifest, editBody };
+};
+describe('api: version-bound XML edit couriers', () => {
+  it('reviews owned prior metadata, binds its exact bytes and retains native edit lineage and signed v2 custody', testService(async (service, c) => withSigning(async keys => {
+    const { owner, courier, editBytes, editManifest, editBody, as, deliver } = await editSetup(service);
+    const query = '/edit-base?xmlFormId=simple&version=&deprecatedId=xml-courier-new&instanceId=xml-courier-edited';
+    const reviewed = (await as(owner, 'get', query).expect(200)).body;
+    assert.equal(reviewed.baseSha256, editManifest.baseSha256); assert.equal(reviewed.current, true); assert.equal(Object.hasOwn(reviewed, 'xml'), false);
+    await as(courier, 'get', query).expect(404);
+    await as(owner, 'post').send({ ...editBody, requestId: randomUUID(), manifest: { ...editManifest, baseSha256: '0'.repeat(64) } }).expect(409);
+    const issued = (await as(owner, 'post').send(editBody).expect(200)).body;
+    assert.equal((await as(owner, 'post').send(editBody).expect(200)).body.grant.id, issued.grant.id);
+    const accepted = (await deliver(courier, issued.grant.id, editBytes).expect(200)).body;
+    const receipt = accepted.events[0].details;
+    assert.equal(receipt.baseSubmissionDefId, reviewed.baseSubmissionDefId); assert.equal(receipt.baseSha256, editManifest.baseSha256); assert.equal(accepted.sourceAvailable, true);
+    await deliver(courier, issued.grant.id, editBytes).expect(200);
+    const versions = await c.db.any(sql`SELECT sd.id,sd.current,sd.root,sd."submitterId",cv.ordinal,previous."submissionDefId" AS "baseId" FROM submission_defs sd JOIN field_data_claim_versions cv ON cv."submissionDefId"=sd.id LEFT JOIN field_data_claim_versions previous ON previous.id=cv."previousVersionId" WHERE sd.id IN (${reviewed.baseSubmissionDefId},${receipt.submissionDefId}) ORDER BY cv.ordinal`);
+    assert.equal(versions.length, 2); assert.equal(versions[0].current, false); assert.equal(versions[1].current, true); assert.equal(versions[1].root, null); assert.equal(versions[1].submitterId, owner.id); assert.equal(versions[1].baseId, versions[0].id);
+    const audit = await c.db.one(sql`SELECT "actorId" FROM audits WHERE action='submission.update.version' AND details->>'submissionDefId'=${String(receipt.submissionDefId)}`); assert.equal(audit.actorId, owner.id);
+    // eslint-disable-next-line import/extensions, import/no-relative-packages
+    const { verifyXmlCourierProof } = await import('../../../../../cloudflare/verify-xml-courier.mjs');
+    const pins = { issuer: 'https://xml-courier.example', projectId: 1, publicKeys: [keys.publicKey.export({ format: 'jwk' })] };
+    const checked = verifyXmlCourierProof(accepted, pins); assert.equal(checked.grant.purpose, 'field-data.xml-courier-grant@2');
+    assert.equal(checked.events[0].baseSubmissionDefId, reviewed.baseSubmissionDefId);
+    const forged = JSON.parse(JSON.stringify(accepted)); forged.target.manifest.baseSha256 = 'f'.repeat(64); assert.throws(() => verifyXmlCourierProof(forged, pins));
+    const wrongLineage = JSON.parse(JSON.stringify(accepted)); wrongLineage.events[0].details.baseSubmissionDefId += 1; wrongLineage.events[0].attestation = xml.attest(xml.config(), 'delivery', wrongLineage.events[0].details, true); assert.throws(() => verifyXmlCourierProof(wrongLineage, pins));
+    await as(owner, 'post', `/${issued.grant.id}/revoke`).send({ requestId: randomUUID(), reason: 'Close this edit courier permission after acknowledgement.' }).expect(200);
+    const revoked = (await as(owner, 'get', `/${issued.grant.id}`).expect(200)).body; assert.equal(verifyXmlCourierProof(revoked, pins).revocation, 'recorded'); await deliver(courier, issued.grant.id, editBytes).expect(404);
+  })));
+  it('refuses a stale base after a competing native edit and cannot grant against another collector’s source', testService(async (service, c) => withSigning(async () => {
+    const { alice, owner, courier, editBytes, editManifest, editBody, as, deliver } = await editSetup(service);
+    await alice.post(`/v1/projects/1/forms/simple/assignments/app-user/${courier.id}`).expect(200);
+    await as(courier, 'post').send({ ...editBody, courierId: owner.id }).expect(404);
+    const issued = (await as(owner, 'post').send(editBody).expect(200)).body;
+    const competing = Buffer.from(editBytes.toString().replace('xml-courier-edited', 'native-competing-edit'));
+    await service.post('/v1/projects/1/submission').set('Authorization', `Bearer ${owner.token}`).set('X-OpenRosa-Version', '1.0').attach('xml_submission_file', competing, { filename: 'edit.xml' })
+      .expect(201);
+    await deliver(courier, issued.grant.id, editBytes).expect(409);
+    await as(owner, 'post').send({ ...editBody, requestId: randomUUID(), manifest: { ...editManifest, instanceId: 'later-attempt' } }).expect(409);
+    assert.equal(await c.db.oneFirst(sql`SELECT count(*)::integer FROM field_data_xml_courier_events WHERE "grantId"=${issued.grant.id} AND kind='delivery'`), 0);
+    const current = await c.db.one(sql`SELECT sd."instanceId" FROM submission_defs sd JOIN submissions s ON s.id=sd."submissionId" WHERE s."instanceId"='xml-courier-new' AND sd.current`); assert.equal(current.instanceId, 'native-competing-edit');
+  })));
+  it('serializes competing edit couriers and exact retries without creating two native versions', testServiceFullTrx(async (service, c) => withSigning(async () => {
+    const { owner, courier, editBytes, editBody, as, deliver } = await editSetup(service);
+    const issued = (await as(owner, 'post').send(editBody).expect(200)).body;
+    const other = Buffer.from(editBytes.toString().replace('xml-courier-edited', 'another-courier-edit'));
+    const otherManifest = { ...(await xml.parse(other)).manifest, deprecatedId: editBody.manifest.deprecatedId, baseSha256: editBody.manifest.baseSha256 };
+    const otherGrant = (await as(owner, 'post').send({ ...editBody, requestId: randomUUID(), manifest: otherManifest }).expect(200)).body;
+    const responses = await Promise.all([deliver(courier, issued.grant.id, editBytes), deliver(courier, otherGrant.grant.id, other)]);
+    assert.deepEqual(responses.map(r => r.status).sort(), [200, 409]);
+    const winner = responses[0].status === 200 ? { id: issued.grant.id, bytes: editBytes } : { id: otherGrant.grant.id, bytes: other };
+    const retries = await Promise.all([deliver(courier, winner.id, winner.bytes), deliver(courier, winner.id, winner.bytes)]); assert.deepEqual(retries.map(r => r.status), [200, 200]);
+    assert.equal(await c.db.oneFirst(sql`SELECT count(*)::integer FROM submission_defs sd JOIN submissions s ON s.id=sd."submissionId" WHERE s."instanceId"='xml-courier-new'`), 2);
+  })));
+  it('acknowledges an exact already-received native edit and preserves historical proofs after purge', testService(async (service, c) => withSigning(async () => {
+    const { owner, courier, editBytes, editBody, as, deliver } = await editSetup(service);
+    await service.post('/v1/projects/1/submission').set('Authorization', `Bearer ${owner.token}`).set('X-OpenRosa-Version', '1.0').attach('xml_submission_file', editBytes, { filename: 'edit.xml' })
+      .expect(201);
+    const issued = (await as(owner, 'post').send(editBody).expect(200)).body;
+    const accepted = (await deliver(courier, issued.grant.id, editBytes).expect(200)).body; assert.equal(accepted.events[0].details.alreadyReceived, true);
+    await c.db.query(sql`DELETE FROM submissions WHERE "instanceId"='xml-courier-new'`);
+    const historical = (await as(owner, 'get', `/${issued.grant.id}`).expect(200)).body; assert.equal(historical.sourceAvailable, false);
+    await deliver(courier, issued.grant.id, editBytes).expect(404);
+    await as(owner, 'post').send({ ...editBody, requestId: randomUUID() }).expect(409);
+    assert.equal(await c.db.oneFirst(sql`SELECT count(*)::integer FROM field_data_xml_courier_events WHERE "grantId"=${issued.grant.id} AND kind='delivery'`), 1);
+  })));
+  it('retains unchanged ordinary media and creates recoverable placeholders for a courier edit’s new files', testService(async (service, c) => withSigning(async () => {
+    const { alice, owner, courier, body, as, deliver } = await setup(service);
+    await alice.post('/v1/projects/1/forms?publish=true').set('Content-Type', 'application/xml').send(testData.forms.binaryType).expect(200);
+    await alice.post(`/v1/projects/1/forms/binaryType/assignments/app-user/${owner.id}`).expect(200);
+    const before = Buffer.from(testData.instances.binaryType.both); const retained = Buffer.from('retain this original media');
+    await service.post('/v1/projects/1/submission').set('Authorization', `Bearer ${owner.token}`).set('X-OpenRosa-Version', '1.0').attach('xml_submission_file', before, { filename: 'submission.xml' })
+      .attach('my_file1.mp4', retained, { filename: 'my_file1.mp4' })
+      .expect(201);
+    const bytes = Buffer.from(before.toString().replace('<instanceID>both</instanceID>', '<instanceID>binary-edited</instanceID><deprecatedID>both</deprecatedID>').replace('here_is_file2.jpg', 'new_file.mp4'));
+    const parsed = await xml.parse(bytes); const manifest = { ...parsed.manifest, deprecatedId: parsed.deprecatedId, baseSha256: xml.digest(before) };
+    const issued = (await as(owner, 'post').send({ ...body, requestId: randomUUID(), manifest }).expect(200)).body;
+    const accepted = (await deliver(courier, issued.grant.id, bytes).expect(200)).body; const defId = accepted.events[0].details.submissionDefId;
+    const files = await c.db.any(sql`SELECT sa.name,sa."blobId",b.content FROM submission_attachments sa LEFT JOIN blobs b ON b.id=sa."blobId" WHERE sa."submissionDefId"=${defId} ORDER BY sa.name`);
+    assert.equal(xml.digest(files[0].content), xml.digest(retained)); assert.equal(files[1].name, 'new_file.mp4'); assert.equal(files[1].blobId, null);
+    const mediaRoot = '/v1/field-data/app-user/media-uploads'; const request = (user, method, path = '') => service[method](mediaRoot + path).set('Authorization', `Bearer ${user.token}`);
+    const media = Buffer.from('new media after version-bound edit'); const transfer = { id: randomUUID(), xmlFormId: 'binaryType', instanceId: 'binary-edited', name: 'new_file.mp4', size: media.length, sha256: xml.digest(media), contentType: 'video/mp4', priority: 2 };
+    await request(owner, 'post').send(transfer).expect(200); await request(owner, 'post', `/${transfer.id}/courier`).send({ requestId: randomUUID(), courierId: courier.id, minutes: 60 }).expect(200);
+    await request(courier, 'put', `/${transfer.id}/chunks/0`).set('Content-Type', 'application/octet-stream').set('X-Chunk-Sha256', transfer.sha256).send(media)
+      .expect(200);
+    await request(courier, 'post', `/${transfer.id}/complete`).expect(200);
+    const stored = await c.db.oneFirst(sql`SELECT b.content FROM submission_attachments sa JOIN blobs b ON b.id=sa."blobId" WHERE sa."submissionDefId"=${defId} AND sa.name='new_file.mp4'`); assert.equal(xml.digest(stored), transfer.sha256);
+  })));
+  it('does not inherit old ciphertext across an encrypted edit and allows its independently authorized fresh files', testService(async (service, c) => withSigning(async () => {
+    const { owner, courier, body, as, deliver } = await setup(service);
+    const before = Buffer.from('<data id="simple"><base64EncryptedKey>a2V5</base64EncryptedKey><encryptedXmlFile>submission.xml.enc</encryptedXmlFile><media><file>photo.jpg.enc</file></media><base64EncryptedElementSignature>c2ln</base64EncryptedElementSignature><meta><instanceID>sealed-before</instanceID></meta></data>');
+    const oldCiphertext = Buffer.from([0, 10, 255]);
+    await service.post('/v1/projects/1/submission').set('Authorization', `Bearer ${owner.token}`).set('X-OpenRosa-Version', '1.0').attach('xml_submission_file', before, { filename: 'submission.xml' })
+      .attach('submission.xml.enc', oldCiphertext, { filename: 'submission.xml.enc' })
+      .attach('photo.jpg.enc', oldCiphertext, { filename: 'photo.jpg.enc' })
+      .expect(201);
+    const bytes = Buffer.from(before.toString().replace('a2V5', 'bmV3LWtleQ==').replace('<instanceID>sealed-before</instanceID>', '<instanceID>sealed-after</instanceID><deprecatedID>sealed-before</deprecatedID>'));
+    const parsed = await xml.parse(bytes); const manifest = { ...parsed.manifest, deprecatedId: parsed.deprecatedId, baseSha256: xml.digest(before) };
+    const issued = (await as(owner, 'post').send({ ...body, requestId: randomUUID(), manifest }).expect(200)).body;
+    const accepted = (await deliver(courier, issued.grant.id, bytes).expect(200)).body; const defId = accepted.events[0].details.submissionDefId;
+    const files = await c.db.any(sql`SELECT name,index,"blobId" FROM submission_attachments WHERE "submissionDefId"=${defId} ORDER BY index`);
+    assert.deepEqual(files, [{ name: 'photo.jpg.enc', index: 0, blobId: null }, { name: 'submission.xml.enc', index: 1, blobId: null }]);
+    const mediaRoot = '/v1/field-data/app-user/media-uploads'; const request = (user, method, path = '') => service[method](mediaRoot + path).set('Authorization', `Bearer ${user.token}`);
+    for (const file of files) {
+      const ciphertext = Buffer.from([128, 0, 254, file.index]); const transfer = { id: randomUUID(), xmlFormId: 'simple', instanceId: 'sealed-after', name: file.name, size: ciphertext.length, sha256: xml.digest(ciphertext), contentType: 'application/octet-stream', priority: 2 };
+      await request(owner, 'post').send(transfer).expect(200); await request(owner, 'post', `/${transfer.id}/courier`).send({ requestId: randomUUID(), courierId: courier.id, minutes: 60 }).expect(200);
+      await request(courier, 'put', `/${transfer.id}/chunks/0`).set('Content-Type', 'application/octet-stream').set('X-Chunk-Sha256', transfer.sha256).send(ciphertext)
+        .expect(200);
+      await request(courier, 'post', `/${transfer.id}/complete`).expect(200);
+      const stored = await c.db.oneFirst(sql`SELECT b.content FROM submission_attachments sa JOIN blobs b ON b.id=sa."blobId" WHERE sa."submissionDefId"=${defId} AND sa.name=${file.name}`); assert.equal(xml.digest(stored), transfer.sha256);
+    }
+    const prior = await c.db.oneFirst(sql`SELECT b.content FROM submission_attachments sa JOIN blobs b ON b.id=sa."blobId" WHERE sa."submissionDefId"=${accepted.events[0].details.baseSubmissionDefId} AND sa.name='submission.xml.enc'`); assert.equal(xml.digest(prior), xml.digest(oldCiphertext));
+  })));
+
+  it('preserves one native version when Collect and an edit courier submit the exact replacement concurrently', testServiceFullTrx(async (service, c) => withSigning(async () => {
+    const { owner, courier, editBytes, editBody, as, deliver } = await editSetup(service);
+    const issued = (await as(owner, 'post').send(editBody).expect(200)).body;
+    const responses = await Promise.all([
+      service.post('/v1/projects/1/submission').set('Authorization', `Bearer ${owner.token}`).set('X-OpenRosa-Version', '1.0').attach('xml_submission_file', editBytes, { filename: 'edit.xml' }),
+      deliver(courier, issued.grant.id, editBytes)
+    ]);
+    assert.ok([201, 409].includes(responses[0].status)); assert.equal(responses[1].status, 200);
+    await deliver(courier, issued.grant.id, editBytes).expect(200);
+    assert.equal(await c.db.oneFirst(sql`SELECT count(*)::integer FROM submission_defs sd JOIN submissions s ON s.id=sd."submissionId" WHERE s."instanceId"='xml-courier-new'`), 2);
+    assert.equal(await c.db.oneFirst(sql`SELECT count(*)::integer FROM field_data_xml_courier_events WHERE "grantId"=${issued.grant.id} AND kind='delivery'`), 1);
+  })));
+
+});

@@ -1345,8 +1345,8 @@ test('media couriers cannot reserve challenged camera photos for another account
   await expect(queue).toContainText('challenged.jpg');
 });
 
-const xmlCourierAttest = (settings, kind, details) => {
-  const bytes = Buffer.from(JSON.stringify({ ...details, purpose: `field-data.xml-courier-${kind}@1`, issuer: settings.origin }));
+const xmlCourierAttest = (settings, kind, details, edit = false) => {
+  const bytes = Buffer.from(JSON.stringify({ ...details, purpose: `field-data.xml-courier-${kind}@${edit ? 2 : 1}`, issuer: settings.origin }));
   return { algorithm: 'ES256', keyId: settings.keyId, publicKey: settings.publicKey, payload: bytes.toString('base64url'), signature: sign('sha256', bytes, { key: settings.key, dsaEncoding: 'ieee-p1363' }).toString('base64url') };
 };
 const prepareXmlCourier = async (page, envelope = null) => {
@@ -1358,16 +1358,17 @@ const prepareXmlCourier = async (page, envelope = null) => {
   await queue.getByLabel('New submission XML files').setInputFiles({ name: 'courier.xml', mimeType: 'text/xml', buffer: bytes });
   await queue.getByLabel('Submission queue passphrase').fill('xml-courier-package-passphrase');
   await queue.getByRole('button', { name: 'Encrypt and save submissions' }).click(); await expect(queue).toContainText('Encrypted submissions saved.');
-  const wire = { proof: null, requests: [], deliveries: [], lostGrant: true, lostDelivery: true, denied: false };
+  const wire = { proof: null, requests: [], deliveries: [], lostGrant: true, lostDelivery: true, denied: false, baseReads: 0 };
   await page.route('**/v1/field-data/app-user/xml-couriers**', async route => {
     const request = route.request(); const url = new URL(request.url());
     if (wire.denied) return route.fulfill({ status: 401, json: {} });
     expect(request.headers().authorization).toBe(`Bearer ${key}`);
+    if (url.pathname.endsWith('/edit-base')) { wire.baseReads += 1; return route.fulfill({ json: { deprecatedId: url.searchParams.get('deprecatedId'), baseSha256: 'b'.repeat(64), baseSubmissionDefId: 100, current: true, checkedAt: new Date().toISOString() } }); }
     if (request.method() === 'GET') return route.fulfill({ json: url.search ? { items: wire.proof ? [wire.proof] : [] } : wire.proof });
     if (url.pathname.endsWith('/revoke')) {
       const body = request.postDataJSON(); const p = wire.proof;
       const details = { targetId: p.target.id, grantId: p.grant.id, projectId: 7, ownerId: 42, revokedBy: 42, reason: body.reason, revokedAt: new Date().toISOString(), grantPayloadHash: createHash('sha256').update(Buffer.from(p.grant.attestation.payload, 'base64url')).digest('hex') };
-      p.events.push({ targetId: p.target.id, grantId: p.grant.id, kind: 'revoke', details, attestation: xmlCourierAttest(authority, 'revoke', details) });
+      p.events.push({ targetId: p.target.id, grantId: p.grant.id, kind: 'revoke', details, attestation: xmlCourierAttest(authority, 'revoke', details, Boolean(p.target.manifest.deprecatedId)) });
       return route.fulfill({ json: { event: p.events.at(-1) } });
     }
     if (request.method() === 'PUT') {
@@ -1375,8 +1376,8 @@ const prepareXmlCourier = async (page, envelope = null) => {
       const p = wire.proof;
       if (!p.events.some(event => event.kind === 'delivery')) {
         const now = new Date().toISOString(); const details = { targetId: p.target.id, grantId: p.grant.id, projectId: 7, formId: 12, formDefId: 22, submissionDefId: 101, ownerId: 42, receivedBy: 43, sha256: p.target.manifest.sha256, size: bytes.length,
-          alreadyReceived: false, submissionReceivedAt: now, acceptedAt: now, grantPayloadHash: createHash('sha256').update(Buffer.from(p.grant.attestation.payload, 'base64url')).digest('hex') };
-        p.events.push({ targetId: p.target.id, grantId: p.grant.id, kind: 'delivery', details, attestation: xmlCourierAttest(authority, 'delivery', details) }); p.sourceAvailable = true;
+          ...(p.target.manifest.deprecatedId ? { deprecatedId: p.target.manifest.deprecatedId, baseSha256: p.target.manifest.baseSha256, baseSubmissionDefId: 100 } : {}), alreadyReceived: false, submissionReceivedAt: now, acceptedAt: now, grantPayloadHash: createHash('sha256').update(Buffer.from(p.grant.attestation.payload, 'base64url')).digest('hex') };
+        p.events.push({ targetId: p.target.id, grantId: p.grant.id, kind: 'delivery', details, attestation: xmlCourierAttest(authority, 'delivery', details, Boolean(p.target.manifest.deprecatedId)) }); p.sourceAvailable = true;
       }
       if (wire.lostDelivery) { wire.lostDelivery = false; return route.abort('failed'); }
       return route.fulfill({ json: p });
@@ -1385,8 +1386,8 @@ const prepareXmlCourier = async (page, envelope = null) => {
     if (!wire.proof) {
       const targetId = 'dddddddd-dddd-4ddd-8ddd-dddddddddddd'; const id = 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee';
       const target = { id: targetId, projectId: 7, formId: 12, formDefId: 22, ownerId: 42, manifest: body.manifest };
-      const details = { id, targetId, projectId: 7, formId: 12, formDefId: 22, ownerId: 42, courierId: body.courierId, manifest: body.manifest, issuedAt: new Date().toISOString(), expiresAt: new Date(Date.now() + 3600000).toISOString() };
-      wire.proof = { target, grant: { id, targetId, ownerId: 42, courierId: body.courierId, expiresAt: details.expiresAt, attestation: xmlCourierAttest(authority, 'grant', details) }, events: [], sourceAvailable: null };
+      const details = { id, targetId, projectId: 7, formId: 12, formDefId: 22, ownerId: 42, courierId: body.courierId, manifest: body.manifest, ...(body.manifest.deprecatedId ? { baseSubmissionDefId: 100 } : {}), issuedAt: new Date().toISOString(), expiresAt: new Date(Date.now() + 3600000).toISOString() };
+      wire.proof = { target, grant: { id, targetId, ownerId: 42, courierId: body.courierId, expiresAt: details.expiresAt, attestation: xmlCourierAttest(authority, 'grant', details, Boolean(body.manifest.deprecatedId)) }, events: [], sourceAvailable: null };
     }
     if (wire.lostGrant) { wire.lostGrant = false; return route.abort('failed'); }
     return route.fulfill({ json: wire.proof });
@@ -1463,4 +1464,28 @@ test('native encrypted XML envelopes survive package handoff and exact courier r
   await panel.getByRole('button', { name: 'Deliver authorized XML' }).click(); await expect(panel.getByRole('alert')).toContainText('operation failed');
   await panel.getByRole('button', { name: 'Deliver authorized XML' }).click(); await expect(queue).toContainText('Courier delivery acknowledgement saved in the encrypted queue.');
   expect(wire.deliveries).toEqual([Buffer.from(envelope), Buffer.from(envelope)]); expect(errors).toEqual([]);
+});
+
+
+for (const encrypted of [false, true]) test(`version-bound ${encrypted ? 'encrypted' : 'ordinary'} XML edits require prior-version review and survive courier package recovery`, async ({ page }) => {
+  test.setTimeout(60000);
+  const envelope = `<data id="verification" version="1">${encrypted ? '<base64EncryptedKey>a2V5</base64EncryptedKey><encryptedXmlFile>submission.xml.enc</encryptedXmlFile><base64EncryptedElementSignature>c2ln</base64EncryptedElementSignature>' : '<answer>private revised answer</answer>'}<meta><instanceID>edited-browser-courier</instanceID><deprecatedID>prior-browser-version</deprecatedID></meta></data>`;
+  const { state, queue, panel, wire, authority, errors } = await prepareXmlCourier(page, envelope); wire.lostGrant = false;
+  await panel.getByLabel('XML courier recipient ID').fill('43'); await panel.getByLabel('I verified the recipient').check();
+  await expect(panel.getByRole('button', { name: 'Authorize XML courier' })).toBeDisabled();
+  await panel.getByRole('button', { name: 'Review prior XML version' }).click(); await expect(panel).toContainText('Prior submission version checked.');
+  await expect(panel.getByLabel('I verified the recipient')).not.toBeChecked();
+  await panel.getByLabel('I verified the recipient').check(); await panel.getByRole('button', { name: 'Authorize XML courier' }).click(); await expect(panel).toContainText('XML courier authorized.');
+  expect(wire.baseReads).toBe(1); expect(wire.requests[0].manifest.baseSha256).toBe('b'.repeat(64)); expect(JSON.stringify(wire.requests)).not.toContain('private revised answer');
+  await page.reload(); await connect(page); await queue.getByLabel('Submission queue passphrase').fill('xml-courier-package-passphrase'); await queue.getByRole('button', { name: 'Unlock submission queue' }).click();
+  await panel.getByRole('button', { name: 'Find XML courier grant' }).click(); await expect(panel).toContainText('Signed prior instance prior-browser-version');
+  const download = page.waitForEvent('download'); await queue.getByRole('button', { name: 'Export encrypted submissions', exact: true }).click(); const packageFile = await download;
+  state.actorId = 43; await page.reload(); await connect(page); await queue.getByLabel('Submission queue passphrase').fill('xml-courier-package-passphrase'); await queue.getByLabel('Import encrypted submissions', { exact: true }).setInputFiles(await packageFile.path());
+  await expect(queue).toContainText('Encrypted submissions imported.'); await expect(panel.getByRole('button', { name: 'Review prior XML version' })).toBeDisabled();
+  await panel.getByLabel('XML courier grant ID').fill(wire.proof.grant.id); await panel.getByRole('button', { name: 'Inspect XML courier proof' }).click();
+  await panel.getByRole('button', { name: 'Deliver authorized XML' }).click(); await expect(panel.getByRole('alert')).toContainText('operation failed');
+  await panel.getByRole('button', { name: 'Deliver authorized XML' }).click(); await expect(queue).toContainText('Courier delivery acknowledgement saved in the encrypted queue.');
+  const { verifyXmlCourierProof } = await import('../../../../cloudflare/verify-xml-courier.mjs'); const pins = { issuer: authority.origin, projectId: 7, publicKeys: [authority.publicKey] };
+  expect(verifyXmlCourierProof(wire.proof, pins).events[0].baseSubmissionDefId).toBe(100); expect(wire.deliveries).toEqual([Buffer.from(envelope), Buffer.from(envelope)]);
+  await page.setViewportSize({ width: 320, height: 700 }); expect(await page.evaluate(() => document.documentElement.scrollWidth <= globalThis.innerWidth)).toBe(true); expect(errors).toEqual([]);
 });

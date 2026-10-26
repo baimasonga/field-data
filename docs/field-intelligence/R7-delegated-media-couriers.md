@@ -72,3 +72,5 @@ UUIDs, append-only history, source purge, rollback retention and concurrent writ
 Browser tests cover reservation, lost-acknowledgement retry, encrypted package
 handoff, courier delivery, verified export, revocation, forged proof rejection,
 access-loss clearing, challenged-photo exclusion and narrow screens.
+
+[R10](R10-version-bound-xml-edit-couriers.md) adds media recovery for current collector-owned courier edits with a recorded XML delivery receipt; use the replacement instance ID.
