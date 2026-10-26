@@ -11,13 +11,17 @@ export const backgroundWorker = async (requireSync = false) => {
     candidate.addEventListener('statechange', change); change();
   });
   if (requireSync && typeof registration.sync?.register !== 'function') throw new Error('Background Sync is unavailable; use open-page automatic sync');
-  return registration.active ?? candidate;
+  if (requireSync) await registration.sync.register('field-data-xml-background@1');
+  return registration;
 };
 export const backgroundRequest = async (kind, data = {}, requireSync = false) => {
-  const worker = await backgroundWorker(requireSync);
-  return new Promise((resolve, reject) => {
+  const registration = await backgroundWorker(requireSync);
+  const worker = registration.active;
+  const result = await new Promise((resolve, reject) => {
     const channel = new MessageChannel(); const timer = setTimeout(() => { channel.port1.close(); reject(new Error('Background worker did not respond')); }, 30000);
     channel.port1.onmessage = event => { clearTimeout(timer); channel.port1.close(); if (event.data?.ok) resolve(event.data.result); else reject(new Error('Background operation failed')); };
     worker.postMessage({ ...data, type: `background-xml-${kind}` }, [channel.port2]);
   });
+  if (['authorize', 'schedule'].includes(kind)) await registration.sync.register('field-data-xml-background@1');
+  return result;
 };

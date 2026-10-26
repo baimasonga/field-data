@@ -4,6 +4,8 @@ import { createServer } from 'node:http';
 import { existsSync, readFileSync } from 'node:fs';
 import { resolve, extname } from 'node:path';
 import { createHash, generateKeyPairSync, randomUUID, sign } from 'node:crypto';
+// The minimal headless shell disables Background Sync; use Chromium's full browser implementation.
+test.use({ channel: 'chromium' });
 const dist = resolve(import.meta.dirname, '../../dist');
 const key = 'fixture-background-app-user-key'; const phrase = 'background-original-package-passphrase';
 const xml = '<data id="verify" version="1"><answer>private closed-page XML</answer><meta><instanceID>background-browser</instanceID></meta></data>';
@@ -87,11 +89,19 @@ const controller = async context => {
   cdp.on('ServiceWorker.workerRegistrationUpdated', event => { registrations = event.registrations; }); await cdp.send('ServiceWorker.enable');
   return { page, cdp, id: async () => { await expect.poll(() => registrations.find(r => r.scopeURL === `${origin}/fieldwork`)?.registrationId).toBeTruthy(); return registrations.find(r => r.scopeURL === `${origin}/fieldwork`).registrationId; } };
 };
-const stored = page => page.evaluate(() => new Promise((resolveRows, reject) => { const open = globalThis.indexedDB.open('field-data-background-xml', 1); open.onupgradeneeded = () => { open.transaction.abort(); resolveRows([]); }; open.onerror = reject; open.onsuccess = () => { const db = open.result; const tx = db.transaction('jobs', 'readonly'); const read = tx.objectStore('jobs').getAll(); read.onsuccess = async () => { const rows = read.result; const info = []; for (const row of rows) { let extractable; try { if (row.key) await crypto.subtle.exportKey('raw', row.key); extractable = true; } catch { extractable = false; } info.push({ raw: JSON.stringify(row), keyPresent: row.key != null, keyExtractable: extractable, ciphertextPresent: row.ciphertext != null, status: row.status, body: row.body }); } db.close(); resolveRows(info); }; }; }));
+const wake = async page => {
+  const cdp = await page.context().newCDPSession(page); let registrations = [];
+  cdp.on('ServiceWorker.workerRegistrationUpdated', event => { registrations = event.registrations; }); await cdp.send('ServiceWorker.enable');
+  try {
+    await expect.poll(() => registrations.find(r => r.scopeURL === `${origin}/fieldwork`)?.registrationId).toBeTruthy();
+    await cdp.send('ServiceWorker.dispatchSyncEvent', { origin, registrationId: registrations.find(r => r.scopeURL === `${origin}/fieldwork`).registrationId, tag: 'field-data-xml-background@1', lastChance: false });
+  } finally { await cdp.detach(); }
+};
+const stored = page => page.evaluate(() => new Promise((resolveRows, reject) => { const open = globalThis.indexedDB.open('field-data-background-xml', 1); open.onupgradeneeded = () => { open.transaction.abort(); resolveRows([]); }; open.onerror = reject; open.onsuccess = () => { const db = open.result; const tx = db.transaction('jobs', 'readonly'); const read = tx.objectStore('jobs').getAll(); read.onsuccess = async () => { const rows = read.result; const info = []; for (const row of rows) { let extractable; try { if (row.key) await crypto.subtle.exportKey('raw', row.key); extractable = true; } catch { extractable = false; } info.push({ raw: JSON.stringify(row), keyPresent: row.key != null, keyExtractable: row.key != null && extractable, ciphertextPresent: row.ciphertext != null, status: row.status, body: row.body }); } db.close(); resolveRows(info); }; }; }));
 
 test('a restarted real service worker delivers exact encrypted outbound XML after every Fieldwork page closes, then recovers a signed acknowledgement', async ({ page, context }) => {
   test.setTimeout(90000); const control = await controller(context); const { panel } = await prepare(page);
-  await panel.getByRole('button', { name: 'Authorize background XML', exact: true }).click(); await expect(panel).toContainText('Background XML authorized.'); await expect.poll(async () => (await stored(page))[0]?.status).toBe('retry');
+  await panel.getByRole('button', { name: 'Authorize background XML', exact: true }).click(); await expect(panel).toContainText('Background XML authorized.'); await wake(page); await expect.poll(async () => (await stored(page))[0]?.status).toBe('retry');
   const rows = await stored(page); expect(rows).toHaveLength(1); expect(rows[0].keyPresent).toBe(true); expect(rows[0].keyExtractable).toBe(false); expect(rows[0].ciphertextPresent).toBe(true);
   for (const value of [key, phrase, 'private closed-page XML', '<data']) expect(rows[0].raw).not.toContain(value);
   const originalExpiry = rows[0].body.expiresAt; const registrationId = await control.id(); await page.close(); state.closed = true;
@@ -109,7 +119,7 @@ test('a restarted real service worker delivers exact encrypted outbound XML afte
 });
 
 test('local cancellation drops delivery secrets even when server revocation loses connectivity, and unsigned revocation is explicit', async ({ page, context }) => {
-  test.setTimeout(60000); const control = await controller(context); const { panel } = await prepare(page); await panel.getByRole('button', { name: 'Authorize background XML', exact: true }).click(); await expect(panel).toContainText('Background XML authorized.'); await expect.poll(async () => (await stored(page))[0]?.status).toBe('retry');
+  test.setTimeout(60000); const control = await controller(context); const { panel } = await prepare(page); await panel.getByRole('button', { name: 'Authorize background XML', exact: true }).click(); await expect(panel).toContainText('Background XML authorized.'); await wake(page); await expect.poll(async () => (await stored(page))[0]?.status).toBe('retry');
   state.revokeFailure = true; await panel.getByRole('button', { name: 'Cancel background authorization' }).click(); await expect(panel.getByRole('alert')).toBeVisible(); const rows = await stored(page); expect(rows[0].keyPresent).toBe(false); expect(rows[0].ciphertextPresent).toBe(false);
   state.unsignedRevocation = true; await panel.getByRole('button', { name: 'Cancel background authorization' }).click(); await expect(panel).toContainText('permanently revoked'); await panel.getByRole('button', { name: 'Inspect background receipt' }).click(); await expect(panel).toContainText('its signature was unavailable');
   const registrationId = await control.id(); await page.close(); state.deliveryMode = 'accept'; await control.cdp.send('ServiceWorker.stopAllWorkers'); await control.cdp.send('ServiceWorker.dispatchSyncEvent', { origin, registrationId, tag: 'field-data-xml-background@1', lastChance: false });
@@ -118,7 +128,7 @@ test('local cancellation drops delivery secrets even when server revocation lose
 
 test('an uncertain authorization survives reload and retries the same token hash, manifest and deadline', async ({ page }) => {
   test.setTimeout(60000); const { panel } = await prepare(page); state.lostAuthorization = true; await panel.getByRole('button', { name: 'Authorize background XML', exact: true }).click(); await expect(panel.getByRole('alert')).toBeVisible(); expect(state.deliveries).toHaveLength(0);
-  await page.reload(); await connect(page); await panel.getByRole('button', { name: 'Refresh background deliveries' }).click(); await panel.getByRole('button', { name: 'Retry exact background authorization' }).click(); await expect(panel).toContainText('Background XML authorized.'); expect(state.requests).toHaveLength(2); expect(state.requests[0]).toEqual(state.requests[1]); await expect.poll(async () => (await stored(page))[0]?.status).toBe('retry');
+  await page.reload(); await connect(page); await panel.getByRole('button', { name: 'Refresh background deliveries' }).click(); await panel.getByRole('button', { name: 'Retry exact background authorization' }).click(); await expect(panel).toContainText('Background XML authorized.'); await wake(page); expect(state.requests).toHaveLength(2); expect(state.requests[0]).toEqual(state.requests[1]); await expect.poll(async () => (await stored(page))[0]?.status).toBe('retry');
 });
 
 test('an unsupported Background Sync browser creates no authorization and retains foreground delivery', async ({ page }) => {
@@ -133,7 +143,7 @@ const makeDue = page => page.evaluate(() => new Promise(done => {
 }));
 
 test('temporary failures stop after five retries without extending the authorization or retaining delivery secrets', async ({ page, context }) => {
-  test.setTimeout(60000); const control = await controller(context); const { panel } = await prepare(page); await panel.getByRole('button', { name: 'Authorize background XML', exact: true }).click(); await expect(panel).toContainText('Background XML authorized.'); await expect.poll(async () => (await stored(page))[0]?.status).toBe('retry'); const deadline = (await stored(page))[0].body.expiresAt; const registrationId = await control.id();
+  test.setTimeout(60000); const control = await controller(context); const { panel } = await prepare(page); await panel.getByRole('button', { name: 'Authorize background XML', exact: true }).click(); await expect(panel).toContainText('Background XML authorized.'); await wake(page); await expect.poll(async () => (await stored(page))[0]?.status).toBe('retry'); const deadline = (await stored(page))[0].body.expiresAt; const registrationId = await control.id();
   for (let attempt = 2; attempt <= 6; attempt += 1) {
     await makeDue(page); await control.cdp.send('ServiceWorker.dispatchSyncEvent', { origin, registrationId, tag: 'field-data-xml-background@1', lastChance: false });
     await expect.poll(async () => (await stored(page))[0]?.status).toBe(attempt === 6 ? 'stopped' : 'retry');
@@ -142,9 +152,10 @@ test('temporary failures stop after five retries without extending the authoriza
 });
 
 test('a browser deadline scrubs an expired outbound copy without another delivery attempt', async ({ page, context }) => {
-  test.setTimeout(60000); const control = await controller(context); const { panel } = await prepare(page); await panel.getByRole('button', { name: 'Authorize background XML', exact: true }).click(); await expect(panel).toContainText('Background XML authorized.'); await expect.poll(async () => (await stored(page))[0]?.status).toBe('retry');
+  test.setTimeout(60000); const control = await controller(context); const { panel } = await prepare(page); await panel.getByRole('button', { name: 'Authorize background XML', exact: true }).click(); await expect(panel).toContainText('Background XML authorized.'); await wake(page); await expect.poll(async () => (await stored(page))[0]?.status).toBe('retry');
   await page.evaluate(() => new Promise(done => { const open = globalThis.indexedDB.open('field-data-background-xml', 1); open.onsuccess = () => { const db = open.result; const tx = db.transaction('jobs', 'readwrite'); const store = tx.objectStore('jobs'); store.getAll().onsuccess = event => { for (const row of event.target.result) store.put({ ...row, expiresAt: Date.now() - 1 }); }; tx.oncomplete = () => { db.close(); done(); }; }; }));
   const registrationId = await control.id(); await page.close(); await control.cdp.send('ServiceWorker.stopAllWorkers'); await control.cdp.send('ServiceWorker.dispatchSyncEvent', { origin, registrationId, tag: 'field-data-xml-background@1', lastChance: false });
+  await expect.poll(async () => (await stored(control.page))[0]?.status).toBe('expired');
   const row = (await stored(control.page))[0]; expect(row.status).toBe('expired'); expect(row.keyPresent).toBe(false); expect(state.deliveries).toHaveLength(1);
 });
 
@@ -154,8 +165,14 @@ test('an encrypted background edit requires a reviewed prior hash and verifies b
   state.deliveryMode = 'accept'; const { panel, queue } = await prepare(page, source);
   await expect(panel.getByRole('button', { name: 'Authorize background XML', exact: true })).toBeDisabled(); await panel.getByRole('button', { name: 'Review background edit base' }).click(); await expect(panel).toContainText('Background edit base reviewed.');
   await expect(panel.getByLabel('I authorize this exact XML after the page closes')).not.toBeChecked(); await panel.getByLabel('I authorize this exact XML after the page closes').check();
-  await panel.getByRole('button', { name: 'Authorize background XML', exact: true }).click(); await expect(panel).toContainText('Signed background delivery receipt recorded.');
+  await panel.getByRole('button', { name: 'Authorize background XML', exact: true }).click(); await expect(panel).toContainText('Background XML authorized.'); await wake(page); await expect(panel).toContainText('Signed background delivery receipt recorded.');
   expect(state.requests[0].manifest.deprecatedId).toBe('background-sealed-prior'); expect(state.requests[0].manifest.baseSha256).toBe('b'.repeat(64)); expect(state.deliveries[0].bytes).toEqual(Buffer.from(source));
   await panel.getByRole('button', { name: 'Save background delivery acknowledgement' }).click(); await expect(queue).toContainText('Background delivery acknowledgement saved in the encrypted queue.');
   const { verifyXmlBackgroundProof } = await import('../../../../cloudflare/verify-xml-background.mjs'); expect(verifyXmlBackgroundProof([...state.proofs.values()][0], { issuer: origin, projectId: 1, publicKeys: [authority.publicKey] }).events[0].baseSubmissionDefId).toBe(100);
+});
+
+
+test('a present but disabled Background Sync API creates no outbound copy or server authorization', async ({ page }) => {
+  await page.addInitScript(() => { Object.defineProperty(globalThis.ServiceWorkerRegistration.prototype, 'sync', { configurable: true, get: () => ({ register: async () => { throw new DOMException('Background Sync is disabled.', 'UnknownError'); } }) }); });
+  const { panel } = await prepare(page); await panel.getByRole('button', { name: 'Authorize background XML', exact: true }).click(); await expect(panel.getByRole('alert')).toBeVisible(); expect(state.requests).toHaveLength(0); expect(await stored(page)).toHaveLength(0);
 });

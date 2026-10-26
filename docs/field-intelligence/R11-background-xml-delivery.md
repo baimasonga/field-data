@@ -24,7 +24,8 @@ Background Sync where the browser supports it; browser/OS scheduling is best eff
    exact bytes only. For an edit, use its replacement instance ID; ordinary
    unchanged files are retained, encrypted edits need all fresh ciphertext files.
 
-Unsupported browsers create no background authorization. Existing foreground and
+The page preflights sync registration before staging or authorization. Browsers
+with an absent or disabled Background Sync API create no background authorization. Existing foreground and
 open-page automatic sync remain available. No notification permission is needed.
 Closing all browser processes, device power policies, unavailable connectivity or
 browser scheduling can delay or prevent the sync event; reopening Fieldwork and
@@ -42,7 +43,8 @@ Passphrase-protected queue storage and expiry remain independent.
 The local copy is staged before the metadata-only authorization request. If that
 request's acknowledgement is uncertain, **Retry exact background authorization**
 reuses the same UUID, token hash, manifest and deadline across reloads. Confirmation
-verifies the server's signed authorization before scheduling. No raw XML or token
+verifies the server's signed authorization before the page schedules its sync
+event. The worker performs the later delivery. No raw XML or token
 appears in authorization requests, grant history, custody proofs, URLs or caches.
 
 Locking, disconnecting, closing the page or deleting the passphrase queue does
@@ -124,8 +126,8 @@ Real production-build browser cases close every Fieldwork page, restart the work
 dispatch a sync wakeup and verify byte-exact delivery without an App User key. They
 also cover encrypted edit review, encrypted/non-extractable local storage, lost
 acknowledgements, cancellation during connectivity failure, unsigned revocation,
-bounded retries, expiry cleanup, fresh-source acknowledgement and unsupported
-browser fallback. Controlled sync dispatch verifies the protocol, not real-device
+bounded retries, expiry cleanup, fresh-source acknowledgement and absent/disabled
+browser-API fallback. Controlled sync dispatch verifies the protocol, not real-device
 OS scheduling or guaranteed delivery time.
 
 Closed-page delegated-courier/media transport, Collect-native queue integration

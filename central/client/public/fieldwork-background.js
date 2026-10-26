@@ -92,7 +92,7 @@
       const next = { ...current, proof, expiresAt: Date.parse(checked.details.expiresAt), status: 'queued' };
       return checked.revoked ? scrub(next, 'cancelled') : checked.delivery ? scrub(next, 'accepted') : next;
     });
-    await self.registration.sync.register(TAG); return list();
+    return list();
   };
   const retryAfter = response => {
     const value = response.headers.get('Retry-After'); if (!value) return 0;
@@ -155,7 +155,7 @@
         else if (data.type === 'background-xml-list') result = await list();
         else if (data.type === 'background-xml-cancel') { await change(data.id, current => current && scrub(current, 'cancelled')); result = await list(); }
         else if (data.type === 'background-xml-forget') { const row = await get(data.id); if (row?.ciphertext) throw new Error('Cancel delivery before deleting history'); await dbOperation('readwrite', s => s.delete(data.id)); result = await list(); }
-        else if (data.type === 'background-xml-schedule') { await self.registration.sync.register(TAG); result = await list(); }
+        else if (data.type === 'background-xml-schedule') result = await list();
         else if (data.type === 'background-xml-verify') result = await verify(data.proof, data.projectId);
         else throw new Error('Unsupported background operation');
         port.postMessage({ ok: true, result });
