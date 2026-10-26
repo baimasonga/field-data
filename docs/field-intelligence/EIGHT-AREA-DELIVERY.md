@@ -627,3 +627,15 @@ and file hashes, with independent pinned-key verification and explicit unsigned
 revocation handling. See [R7-delegated-media-couriers.md](R7-delegated-media-couriers.md).
 XML courier delivery, closed-page background transport, multi-hop delegation and
 physical/device acceptance remain pending.
+
+### R8 XML courier delivery
+
+A collector can authorize exact new XML for a same-project courier without
+sharing a key or transmitting answers during grant creation. Courier delivery
+preserves native collector attribution and records signed transport custody;
+encrypted package import/export, recovered grants, exact retries, revocation,
+current source/role checks and failed-checkpoint recovery are integrated. Target
+receipts survive submission purge and prevent replay resurrection. See
+[R8-xml-courier-delivery.md](R8-xml-courier-delivery.md). Closed-page background
+transport, native encrypted-envelope/edit delegation and real-device acceptance
+remain pending.

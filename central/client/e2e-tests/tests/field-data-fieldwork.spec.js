@@ -1080,7 +1080,7 @@ test('encrypted XML queue survives reload, retries lost acknowledgements in prio
   await page.reload(); await connect(page);
   await panel.getByLabel('Submission queue passphrase').fill('queue-recovery-passphrase');
   await panel.getByRole('button', { name: 'Unlock submission queue' }).click();
-  await expect(panel.getByText('queue-two', { exact: false })).toBeVisible();
+  await expect(panel.getByRole('listitem').filter({ hasText: 'queue-two' })).toBeVisible();
   state.actorId = 43;
   await page.reload(); await connect(page);
   await panel.getByLabel('Submission queue passphrase').fill('queue-recovery-passphrase');
@@ -1091,7 +1091,7 @@ test('encrypted XML queue survives reload, retries lost acknowledgements in prio
   await page.reload(); await connect(page);
   await panel.getByLabel('Submission queue passphrase').fill('queue-recovery-passphrase');
   await panel.getByRole('button', { name: 'Unlock submission queue' }).click();
-  await expect(panel.getByText('queue-two', { exact: false })).toBeVisible();
+  await expect(panel.getByRole('listitem').filter({ hasText: 'queue-two' })).toBeVisible();
   await panel.getByRole('button', { name: 'Upload queued XML now' }).click();
   await expect(panel.getByText('XML accepted; media may still be missing', { exact: false })).toHaveCount(2);
   expect(sent).toEqual(['two', 'two', 'one']);
@@ -1122,7 +1122,7 @@ test('encrypted XML queue preserves saved data after invalid selection and serve
   await expect(panel.getByRole('alert')).toContainText('Submission operation stopped');
   await panel.getByLabel('Submission queue passphrase').fill('queue-recovery-passphrase');
   await panel.getByRole('button', { name: 'Unlock submission queue' }).click();
-  await expect(panel.getByText('conflict-one', { exact: false })).toBeVisible();
+  await expect(panel.getByRole('listitem').filter({ hasText: 'conflict-one' })).toBeVisible();
   await page.route('**/v1/projects/7/submission', route => route.fulfill({ status: 401, body: 'Denied' }));
   await panel.getByRole('button', { name: 'Upload queued XML now' }).click();
   await expect(panel.getByLabel('Submission queue passphrase')).toHaveValue('');
@@ -1343,4 +1343,107 @@ test('media couriers cannot reserve challenged camera photos for another account
   await queue.getByRole('button', { name: 'Reserve files for courier delivery' }).click();
   await expect(queue.getByRole('alert')).toContainText('must be uploaded by the original collector');
   await expect(queue).toContainText('challenged.jpg');
+});
+
+const xmlCourierAttest = (settings, kind, details) => {
+  const bytes = Buffer.from(JSON.stringify({ ...details, purpose: `field-data.xml-courier-${kind}@1`, issuer: settings.origin }));
+  return { algorithm: 'ES256', keyId: settings.keyId, publicKey: settings.publicKey, payload: bytes.toString('base64url'), signature: sign('sha256', bytes, { key: settings.key, dsaEncoding: 'ieee-p1363' }).toString('base64url') };
+};
+const prepareXmlCourier = async page => {
+  const { state, errors } = await setup(page); await connect(page);
+  const { privateKey, publicKey } = generateKeyPairSync('ec', { namedCurve: 'prime256v1' });
+  const authority = { key: privateKey, publicKey: publicKey.export({ format: 'jwk' }), keyId: createHash('sha256').update(publicKey.export({ type: 'spki', format: 'der' })).digest('hex'), origin: new URL(appUrl).origin };
+  const bytes = Buffer.from('<data id="verification" version="1"><answer>private XML handoff</answer><meta><instanceID>xml-browser-courier</instanceID></meta></data>');
+  const queue = page.locator('.offline-submissions'); const panel = page.locator('.xml-couriers');
+  await queue.getByLabel('New submission XML files').setInputFiles({ name: 'courier.xml', mimeType: 'text/xml', buffer: bytes });
+  await queue.getByLabel('Submission queue passphrase').fill('xml-courier-package-passphrase');
+  await queue.getByRole('button', { name: 'Encrypt and save submissions' }).click(); await expect(queue).toContainText('Encrypted submissions saved.');
+  const wire = { proof: null, requests: [], deliveries: [], lostGrant: true, lostDelivery: true, denied: false };
+  await page.route('**/v1/field-data/app-user/xml-couriers**', async route => {
+    const request = route.request(); const url = new URL(request.url());
+    if (wire.denied) return route.fulfill({ status: 401, json: {} });
+    expect(request.headers().authorization).toBe(`Bearer ${key}`);
+    if (request.method() === 'GET') return route.fulfill({ json: url.search ? { items: wire.proof ? [wire.proof] : [] } : wire.proof });
+    if (url.pathname.endsWith('/revoke')) {
+      const body = request.postDataJSON(); const p = wire.proof;
+      const details = { targetId: p.target.id, grantId: p.grant.id, projectId: 7, ownerId: 42, revokedBy: 42, reason: body.reason, revokedAt: new Date().toISOString(), grantPayloadHash: createHash('sha256').update(Buffer.from(p.grant.attestation.payload, 'base64url')).digest('hex') };
+      p.events.push({ targetId: p.target.id, grantId: p.grant.id, kind: 'revoke', details, attestation: xmlCourierAttest(authority, 'revoke', details) });
+      return route.fulfill({ json: { event: p.events.at(-1) } });
+    }
+    if (request.method() === 'PUT') {
+      expect(request.headers()['content-type']).toBe('application/octet-stream'); const submitted = request.postDataBuffer(); expect(submitted).toEqual(bytes); wire.deliveries.push(submitted);
+      const p = wire.proof;
+      if (!p.events.some(event => event.kind === 'delivery')) {
+        const now = new Date().toISOString(); const details = { targetId: p.target.id, grantId: p.grant.id, projectId: 7, formId: 12, formDefId: 22, submissionDefId: 101, ownerId: 42, receivedBy: 43, sha256: p.target.manifest.sha256, size: bytes.length,
+          alreadyReceived: false, submissionReceivedAt: now, acceptedAt: now, grantPayloadHash: createHash('sha256').update(Buffer.from(p.grant.attestation.payload, 'base64url')).digest('hex') };
+        p.events.push({ targetId: p.target.id, grantId: p.grant.id, kind: 'delivery', details, attestation: xmlCourierAttest(authority, 'delivery', details) }); p.sourceAvailable = true;
+      }
+      if (wire.lostDelivery) { wire.lostDelivery = false; return route.abort('failed'); }
+      return route.fulfill({ json: p });
+    }
+    const body = request.postDataJSON(); wire.requests.push(body);
+    if (!wire.proof) {
+      const targetId = 'dddddddd-dddd-4ddd-8ddd-dddddddddddd'; const id = 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee';
+      const target = { id: targetId, projectId: 7, formId: 12, formDefId: 22, ownerId: 42, manifest: body.manifest };
+      const details = { id, targetId, projectId: 7, formId: 12, formDefId: 22, ownerId: 42, courierId: body.courierId, manifest: body.manifest, issuedAt: new Date().toISOString(), expiresAt: new Date(Date.now() + 3600000).toISOString() };
+      wire.proof = { target, grant: { id, targetId, ownerId: 42, courierId: body.courierId, expiresAt: details.expiresAt, attestation: xmlCourierAttest(authority, 'grant', details) }, events: [], sourceAvailable: null };
+    }
+    if (wire.lostGrant) { wire.lostGrant = false; return route.abort('failed'); }
+    return route.fulfill({ json: wire.proof });
+  });
+  return { state, errors, authority, bytes, queue, panel, wire };
+};
+
+test('XML couriers recover grants after reload, transport encrypted XML without collector credentials and verify custody receipts', async ({ page }) => {
+  test.setTimeout(60000);
+  const { state, errors, authority, queue, panel, wire } = await prepareXmlCourier(page);
+  await panel.getByLabel('XML courier recipient ID').fill('43'); await panel.getByLabel('I verified the recipient').check();
+  await panel.getByRole('button', { name: 'Authorize XML courier' }).click(); await expect(panel.getByRole('alert')).toContainText('operation failed');
+  await expect(panel.getByLabel('XML courier recipient ID')).toBeDisabled(); await panel.getByRole('button', { name: 'Authorize XML courier' }).click();
+  await expect(panel).toContainText('XML courier authorized.'); expect(wire.requests[0]).toEqual(wire.requests[1]);
+  expect(JSON.stringify(wire.requests)).not.toContain('private XML handoff');
+  await page.reload(); await connect(page); await queue.getByLabel('Submission queue passphrase').fill('xml-courier-package-passphrase'); await queue.getByRole('button', { name: 'Unlock submission queue' }).click();
+  await panel.getByRole('button', { name: 'Find XML courier grant' }).click(); await expect(panel).toContainText('Latest accessible XML courier grant recovered.');
+  const download = page.waitForEvent('download'); await queue.getByRole('button', { name: 'Export encrypted submissions', exact: true }).click(); const packageFile = await download;
+  state.actorId = 43; await page.reload(); await connect(page);
+  await queue.getByLabel('Submission queue passphrase').fill('xml-courier-package-passphrase'); await queue.getByLabel('Import encrypted submissions', { exact: true }).setInputFiles(await packageFile.path());
+  await expect(queue).toContainText('Encrypted submissions imported.'); await expect(queue.getByRole('button', { name: 'Upload queued XML now' })).toBeDisabled();
+  await panel.getByLabel('XML courier grant ID').fill(wire.proof.grant.id); await panel.getByRole('button', { name: 'Inspect XML courier proof' }).click();
+  await expect(panel).toContainText('No delivery receipt recorded.'); await panel.getByRole('button', { name: 'Deliver authorized XML' }).click();
+  await expect(panel.getByRole('alert')).toContainText('operation failed'); await panel.getByRole('button', { name: 'Deliver authorized XML' }).click();
+  await expect(queue).toContainText('Courier delivery acknowledgement saved in the encrypted queue.'); expect(wire.deliveries).toHaveLength(2);
+  await expect(panel).toContainText('Signed XML delivery receipt recorded.');
+  const proofDownload = page.waitForEvent('download'); await panel.getByRole('button', { name: 'Download XML custody proof' }).click(); const proofFile = await proofDownload;
+  const proof = JSON.parse(await readFile(await proofFile.path(), 'utf8'));
+  const { verifyXmlCourierProof } = await import('../../../../cloudflare/verify-xml-courier.mjs');
+  expect(verifyXmlCourierProof(proof, { issuer: authority.origin, projectId: 7, publicKeys: [authority.publicKey] }).events[0].receivedBy).toBe(43);
+  await page.setViewportSize({ width: 320, height: 700 }); expect(await page.evaluate(() => document.documentElement.scrollWidth <= globalThis.innerWidth)).toBe(true);
+  await page.getByRole('button', { name: 'Disconnect', exact: true }).click(); await expect(panel.getByLabel('XML courier grant ID')).toHaveValue(''); expect(errors).toEqual([]);
+});
+
+test('XML courier receipts can recover a failed encrypted checkpoint without another delivery and withhold purged sources', async ({ page }) => {
+  const { state, panel, queue, wire, errors } = await prepareXmlCourier(page); wire.lostGrant = false; wire.lostDelivery = false;
+  await panel.getByLabel('XML courier recipient ID').fill('43'); await panel.getByLabel('I verified the recipient').check(); await panel.getByRole('button', { name: 'Authorize XML courier' }).click(); await expect(panel).toContainText('XML courier authorized.');
+  state.actorId = 43; await page.reload(); await connect(page); await queue.getByLabel('Submission queue passphrase').fill('xml-courier-package-passphrase'); await queue.getByRole('button', { name: 'Unlock submission queue' }).click();
+  await panel.getByLabel('XML courier grant ID').fill(wire.proof.grant.id); await panel.getByRole('button', { name: 'Inspect XML courier proof' }).click(); await expect(panel).toContainText('No delivery receipt recorded.');
+  await page.evaluate(() => {
+    const original = globalThis.IDBObjectStore.prototype.put; let fail = true;
+    globalThis.IDBObjectStore.prototype.put = function checkpoint(...args) { if (fail && this.transaction.db.name === 'field-data-submissions') { fail = false; throw new DOMException('Quota', 'QuotaExceededError'); } return original.apply(this, args); };
+  });
+  await panel.getByRole('button', { name: 'Deliver authorized XML' }).click();
+  await expect(queue.getByText('Submission operation stopped.', { exact: false })).toBeVisible(); await expect(panel.getByRole('button', { name: 'Save XML delivery acknowledgement' })).toBeEnabled();
+  wire.proof.sourceAvailable = false; await panel.getByRole('button', { name: 'Inspect XML courier proof' }).click(); await expect(panel).toContainText('retained XML is no longer current or available');
+  await expect(panel.getByRole('button', { name: 'Save XML delivery acknowledgement' })).toBeDisabled();
+  wire.proof.sourceAvailable = true; await panel.getByRole('button', { name: 'Inspect XML courier proof' }).click(); await panel.getByRole('button', { name: 'Save XML delivery acknowledgement' }).click();
+  await expect(queue).toContainText('Courier delivery acknowledgement saved'); expect(wire.deliveries).toHaveLength(1); expect(errors).toEqual([]);
+});
+
+test('XML couriers revoke authority, reject forged custody and clear grant details when access is denied', async ({ page }) => {
+  const { panel, wire, errors } = await prepareXmlCourier(page); wire.lostGrant = false;
+  await panel.getByLabel('XML courier recipient ID').fill('43'); await panel.getByLabel('I verified the recipient').check(); await panel.getByRole('button', { name: 'Authorize XML courier' }).click(); await expect(panel).toContainText('XML courier authorized.');
+  await panel.getByLabel('XML courier revocation reason').fill('The intended handoff has been cancelled.'); await panel.getByRole('button', { name: 'Revoke XML courier' }).click(); await expect(panel).toContainText('XML courier permission revoked.');
+  wire.proof.grant.attestation.signature = 'forged'; await panel.getByRole('button', { name: 'Inspect XML courier proof' }).click(); await expect(panel.getByRole('alert')).toContainText('operation failed');
+  await expect(panel.getByRole('button', { name: 'Download XML custody proof' })).toBeDisabled();
+  wire.denied = true; await panel.getByRole('button', { name: 'Inspect XML courier proof' }).click(); await expect(panel.getByLabel('XML courier grant ID')).toHaveValue('');
+  await expect(page.getByLabel('App User access key or Collect server URL')).toHaveValue(''); expect(errors).toEqual([]);
 });
