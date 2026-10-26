@@ -38,4 +38,15 @@ describe('encrypted offline submissions', function submissions() {
       await rejects(() => prepareSubmissions(list, identity, now, origin));
     await rejects(() => prepareSubmissions(files(), {}, now, origin));
   });
+  it('retains encrypted native envelopes byte for byte and rejects ambiguous or incomplete envelope identities', async () => {
+    const envelope = '<data id="verify" version="1"><base64EncryptedKey>a2V5</base64EncryptedKey><encryptedXmlFile>submission.xml.enc</encryptedXmlFile><base64EncryptedElementSignature>c2ln</base64EncryptedElementSignature><meta><instanceID>uuid:sealed</instanceID></meta></data>';
+    for (const value of [envelope, envelope.replace('<meta><instanceID>uuid:sealed</instanceID></meta>', '<instanceID>uuid:sealed</instanceID>')]) {
+      const data = await prepareSubmissions([new File([value], 'envelope.xml')], identity, now, origin);
+      const record = await encryptSubmissions(data, phrase, now, origin);
+      const restored = await decryptSubmissions(record, phrase, now, origin);
+      new TextDecoder().decode(decode(restored.items[0].bytes, XML_LIMIT)).should.equal(value);
+      submissionIdentity(decode(restored.items[0].bytes, XML_LIMIT), true).should.deep.equal({ xmlFormId: 'verify', instanceId: 'uuid:sealed', version: '1' });
+    }
+    for (const value of [envelope.replace('a2V5', '!'), envelope.replace('<encryptedXmlFile>submission.xml.enc</encryptedXmlFile>', ''), envelope.replace('submission.xml.enc', '../submission.enc'), envelope.replace('</data>', '<instanceID>other</instanceID></data>'), envelope.replace('</data>', '<base64EncryptedKey>a2V5</base64EncryptedKey></data>'), envelope.replace('a2V5', '<nested>a2V5</nested>')]) await rejects(async () => submissionIdentity(new TextEncoder().encode(value)));
+  });
 });

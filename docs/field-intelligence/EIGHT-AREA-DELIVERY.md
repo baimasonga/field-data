@@ -639,3 +639,16 @@ receipts survive submission purge and prevent replay resurrection. See
 [R8-xml-courier-delivery.md](R8-xml-courier-delivery.md). Closed-page background
 transport, native encrypted-envelope/edit delegation and real-device acceptance
 remain pending.
+
+
+### R9 native encrypted XML envelope couriers
+
+The encrypted submission queue and XML courier route now retain and transport
+native encrypted envelopes, checking complete unambiguous envelope metadata and
+agreement with Central's native parser. Native missing ciphertext attachment
+indices and original collector attribution are preserved; existing per-file media
+couriers can deliver the encrypted XML and media files separately. Envelope
+receipts explicitly do not confirm all attachments or decryption. See
+[R9-native-encrypted-xml-couriers.md](R9-native-encrypted-xml-couriers.md).
+Closed-page background transport, edit delegation and real-device acceptance
+remain pending.

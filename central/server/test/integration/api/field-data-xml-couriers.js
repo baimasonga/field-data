@@ -122,6 +122,34 @@ describe('api: XML courier integration boundaries', () => {
     await request(courier, 'post', `/${transfer.id}/complete`).expect(200);
     const received = await alice.get('/v1/projects/1/forms/binaryType/submissions/both/attachments/my_file1.mp4').expect(200); assert.equal(xml.digest(received.body), transfer.sha256);
   })));
+
+  it('delivers encrypted envelopes without decrypting and recovers their exact indexed ciphertext through a media courier', testService(async (service, c) => withSigning(async () => {
+    const { alice, owner, courier, body, as, deliver } = await setup(service);
+    const bytes = Buffer.from('<data id="simple"><base64EncryptedKey>a2V5</base64EncryptedKey><encryptedXmlFile>submission.xml.enc</encryptedXmlFile><media><file>photo.jpg.enc</file></media><base64EncryptedElementSignature>c2ln</base64EncryptedElementSignature><meta><instanceID>sealed-courier</instanceID></meta></data>');
+    const { manifest } = await xml.parse(bytes);
+    const issued = (await as(owner, 'post').send({ ...body, requestId: randomUUID(), manifest }).expect(200)).body;
+    const accepted = (await deliver(courier, issued.grant.id, bytes).expect(200)).body;
+    await deliver(courier, issued.grant.id, bytes).expect(200);
+    const defId = accepted.events[0].details.submissionDefId;
+    const source = await c.db.one(sql`SELECT xml,"localKey","encDataAttachmentName",signature,"submitterId" FROM submission_defs WHERE id=${defId}`);
+    assert.equal(xml.digest(source.xml), manifest.sha256); assert.equal(source.localKey, 'a2V5'); assert.equal(source.encDataAttachmentName, 'submission.xml.enc'); assert.equal(source.signature, 'c2ln'); assert.equal(source.submitterId, owner.id);
+    const attachments = await c.db.any(sql`SELECT name,index,"blobId" FROM submission_attachments WHERE "submissionDefId"=${defId} ORDER BY index`);
+    assert.deepEqual(attachments, [{ name: 'photo.jpg.enc', index: 0, blobId: null }, { name: 'submission.xml.enc', index: 1, blobId: null }]);
+    const mediaRoot = '/v1/field-data/app-user/media-uploads';
+    const request = (user, method, path = '') => service[method](mediaRoot + path).set('Authorization', `Bearer ${user.token}`);
+    for (const attachment of attachments) {
+      const ciphertext = Buffer.from([0, 255, 128, 42, attachment.index]);
+      const transfer = { id: randomUUID(), xmlFormId: 'simple', instanceId: 'sealed-courier', name: attachment.name, size: ciphertext.length, sha256: xml.digest(ciphertext), contentType: 'application/octet-stream', priority: 2 };
+      await request(owner, 'post').send(transfer).expect(200);
+      await request(owner, 'post', `/${transfer.id}/courier`).send({ requestId: randomUUID(), courierId: courier.id, minutes: 60 }).expect(200);
+      await request(courier, 'put', `/${transfer.id}/chunks/0`).set('Content-Type', 'application/octet-stream').set('X-Chunk-Sha256', transfer.sha256).send(ciphertext)
+        .expect(200);
+      await request(courier, 'post', `/${transfer.id}/complete`).expect(200);
+      const received = await alice.get(`/v1/projects/1/forms/simple/submissions/sealed-courier/attachments/${attachment.name}`).expect(200);
+      assert.equal(xml.digest(received.body), transfer.sha256);
+    }
+    assert.equal((await as(courier, 'get', `/${issued.grant.id}`).expect(200)).body.sourceAvailable, true);
+  })));
   it('denies unrelated projects, malformed XML, signing outages and closed forms without widening collection rights', testService(async service => withSigning(async () => {
     const { alice, owner, courier, data, body, as, deliver } = await setup(service);
     await service.post(root).send(body).expect(401); await alice.post(root).send(body).expect(403);
