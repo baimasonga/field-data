@@ -107,6 +107,7 @@ import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import FieldDataMediaUploads from './media-uploads.vue';
 import FieldDataOfflineSubmissions from './offline-submissions.vue';
 import { decode } from '../../util/offline-media';
+import { submissionRetryAfter } from '../../util/submission-sync';
 import FieldDataCaptureChallenge from './capture-challenge.vue';
 import FieldDataOfflineMedia from './offline-media.vue';
 import FieldDataItineraryStops from './itinerary-stops.vue';
@@ -211,13 +212,28 @@ const submissionSend = computed(() => {
     const current = generation;
     const body = new FormData();
     body.append('xml_submission_file', new Blob([decode(row.bytes, 1024 * 1024)], { type: 'application/xml' }), 'submission.xml');
-    const response = await fetch(`/v1/projects/${projectId}/submission`, {
-      method: 'POST', credentials: 'omit', cache: 'no-store', redirect: 'error', signal: controller.signal,
-      headers: { Authorization: `Bearer ${token}`, 'X-OpenRosa-Version': '1.0' }, body
-    });
-    if (!response.ok || response.status !== 201) {
-      if ([401, 403].includes(response.status) && current === generation) { offlineRevocation.value += 1; clear(); error.value = 'Submission access changed. Reconnect with an active App User key.'; }
-      const failure = new Error('Submission failed'); failure.status = response.status; throw failure;
+    const requestController = new AbortController();
+    const parentSignal = controller.signal;
+    const abort = () => requestController.abort();
+    parentSignal.addEventListener('abort', abort, { once: true });
+    const timeout = setTimeout(abort, 60000);
+    try {
+      const response = await fetch(`/v1/projects/${projectId}/submission`, {
+        method: 'POST', credentials: 'omit', cache: 'no-store', redirect: 'error', signal: requestController.signal,
+        headers: { Authorization: `Bearer ${token}`, 'X-OpenRosa-Version': '1.0' }, body
+      });
+      if (!response.ok || response.status !== 201) {
+        if ([401, 403].includes(response.status) && current === generation) { offlineRevocation.value += 1; clear(); error.value = 'Submission access changed. Reconnect with an active App User key.'; }
+        const failure = new Error('Submission failed'); failure.status = response.status;
+        failure.retryable = [408, 425, 429, 500, 502, 503, 504].includes(response.status);
+        failure.retryAfterMs = submissionRetryAfter(response.headers.get('Retry-After'), Date.now(), response.headers.get('Date'));
+        throw failure;
+      }
+    } catch (failure) {
+      if (failure.status == null) failure.retryable = !parentSignal.aborted && session === sessionId.value && (failure instanceof TypeError || failure.name === 'AbortError');
+      throw failure;
+    } finally {
+      clearTimeout(timeout); parentSignal.removeEventListener('abort', abort);
     }
   };
 });

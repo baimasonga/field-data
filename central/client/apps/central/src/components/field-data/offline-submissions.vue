@@ -23,36 +23,46 @@
       </li></ul>
     </template>
     <div class="actions">
-      <button type="button" class="btn btn-primary" :disabled="busy || !canUpload" @click="upload">Upload queued XML now</button>
-      <button type="button" class="btn btn-default" :disabled="!busy || !uploading" @click="paused = true">Pause after current XML</button>
+      <button type="button" class="btn btn-primary" :disabled="busy || !canUpload || automatic" @click="upload()">Upload queued XML now</button>
+      <button type="button" class="btn btn-default" :disabled="!busy || !uploading" @click="pause">Pause after current XML</button>
       <button type="button" class="btn btn-default" @click="lock">Lock submission queue</button>
       <button type="button" class="btn btn-default" :disabled="busy" @click="remove">Delete saved submissions</button>
     </div>
+    <label><input type="checkbox" :checked="automatic" :disabled="!automatic && (busy || !canUpload)" @change="toggleSync"> Automatically sync unlocked XML while this page is open</label>
+    <p>Automatic sync is optional and ends on pause, lock, logout, reload or expiry. This page must remain open; mobile browsers may suspend it. Media recovery remains separate.</p>
+    <p v-if="syncMessage" role="status">{{ syncMessage }}</p>
     <p v-if="opened && connected && !sameCollector" role="alert">Reconnect as the original collector in the saved project before uploading.</p>
     <p v-if="message" role="status">{{ message }}</p><p v-if="error" role="alert">{{ error }}</p>
   </section>
 </template>
 <script setup>
 /* eslint-disable no-await-in-loop */
-import { computed, onBeforeUnmount, ref, watch } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import { submissionRetryDelay } from '../../util/submission-sync';
 import { decryptSubmissions, encryptSubmissions, prepareSubmissions, storedSubmissions } from '../../util/offline-submissions';
 
 defineOptions({ name: 'FieldDataOfflineSubmissions' });
 const props = defineProps({ connected: Boolean, sessionId: { type: Number, required: true }, identity: { type: Object, required: true }, send: { type: Function, required: true } });
 const selected = ref([]); const opened = ref(null); const passphrase = ref(''); const busy = ref(false); const uploading = ref(false); const paused = ref(false); const message = ref(''); const error = ref('');
-let generation = 0; let expiryTimer;
+const automatic = ref(false); const syncMessage = ref('');
+let generation = 0; let expiryTimer; let retryTimer; let retryAt = 0; let retryCount = 0;
+const stopSync = (status = '') => { automatic.value = false; clearTimeout(retryTimer); retryTimer = null; retryAt = 0; retryCount = 0; syncMessage.value = status; };
+const pause = () => { paused.value = true; stopSync('Automatic sync paused. An in-flight XML request may still finish.'); };
 const sameCollector = computed(() => opened.value?.actorId === props.identity.actorId && opened.value?.projectId === props.identity.projectId);
 const canUpload = computed(() => props.connected && sameCollector.value && opened.value?.items.some(row => !row.delivered));
 const lock = () => {
-  generation += 1; clearTimeout(expiryTimer); selected.value = []; opened.value = null; passphrase.value = ''; busy.value = false; uploading.value = false; paused.value = true; error.value = ''; message.value = 'Submission queue locked. The encrypted saved copy remains.';
+  stopSync(); generation += 1; clearTimeout(expiryTimer); selected.value = []; opened.value = null; passphrase.value = ''; busy.value = false; uploading.value = false; paused.value = true; error.value = ''; message.value = 'Submission queue locked. The encrypted saved copy remains.';
 };
 watch(() => props.sessionId, lock); onBeforeUnmount(lock);
-const perform = async action => {
+const perform = async (action, onFailure = null) => {
   if (busy.value) return;
   const current = generation; const isCurrent = () => generation === current;
   busy.value = true; error.value = ''; message.value = '';
   try { await action(isCurrent); } catch (failure) {
-    if (isCurrent()) error.value = failure.status === 409 ? 'The server has different XML for this instance. Keep this package and ask your supervisor to resolve the conflict.' : 'Submission operation stopped. Check access, connectivity, passphrase, package expiry and storage. Retained XML can be retried with exactly the same bytes.';
+    if (isCurrent()) {
+      if (onFailure) onFailure(failure);
+      error.value = failure.status === 409 ? 'The server has different XML for this instance. Keep this package and ask your supervisor to resolve the conflict.' : 'Submission operation stopped. Check access, connectivity, passphrase, package expiry and storage. Retained XML can be retried with exactly the same bytes.';
+    }
   } finally { if (isCurrent()) { busy.value = false; uploading.value = false; if (!opened.value) passphrase.value = ''; } }
 };
 const show = data => { opened.value = data; clearTimeout(expiryTimer); expiryTimer = setTimeout(lock, Math.max(0, data.expiresAt - Date.now())); };
@@ -62,6 +72,7 @@ const persist = async (data, isCurrent) => {
 };
 const select = event => { selected.value = Array.from(event.target.files ?? []); event.target.value = ''; };
 const save = () => perform(async isCurrent => {
+  stopSync();
   const data = await prepareSubmissions(selected.value, props.identity);
   await persist(data, isCurrent);
   if (isCurrent()) { selected.value = []; show(data); message.value = 'Encrypted submissions saved. Nothing has been uploaded.'; }
@@ -87,7 +98,7 @@ const exportPackage = () => perform(async isCurrent => {
   const link = document.createElement('a'); link.href = url; link.download = 'field-data-submissions.fdsubmissions'; link.click(); setTimeout(() => URL.revokeObjectURL(url), 1000);
   message.value = 'Encrypted submissions exported. Share the passphrase separately.';
 });
-const upload = () => perform(async isCurrent => {
+const upload = (onFailure = null) => perform(async isCurrent => {
   if (!canUpload.value) return;
   uploading.value = true; paused.value = false;
   // Persist priority changes before sending; expiry never extends on retry/save.
@@ -105,7 +116,37 @@ const upload = () => perform(async isCurrent => {
     if (!isCurrent()) return;
     show(next); message.value = 'XML accepted. Recover referenced media separately; receipt history can be checked after refresh.';
   }
-});
+}, onFailure);
+const runSync = async () => {
+  if (!automatic.value) return;
+  if (busy.value) { retryTimer = setTimeout(runSync, 1000); return; }
+  if (!canUpload.value) { stopSync('Automatic sync finished or its collector session is unavailable.'); return; }
+  if (Date.now() < retryAt) { retryTimer = setTimeout(runSync, retryAt - Date.now()); return; }
+  if (!navigator.onLine) { syncMessage.value = 'Automatic sync is waiting for connectivity.'; return; }
+  const current = generation;
+  let failure = null;
+  syncMessage.value = 'Automatically synchronizing queued XML…';
+  await upload(errorValue => { failure = errorValue; });
+  if (!automatic.value || current !== generation) return;
+  if (!failure) { stopSync('Automatic XML sync finished. Referenced media may still be missing.'); return; }
+  const delay = submissionRetryDelay(failure, retryCount);
+  if (delay == null) { stopSync('Automatic sync stopped. Resolve the error, then explicitly enable it again.'); return; }
+  retryCount += 1; retryAt = Date.now() + delay;
+  syncMessage.value = `Automatic sync retry ${retryCount} of 5 is scheduled for ${new Date(retryAt).toLocaleTimeString()}.`;
+  retryTimer = setTimeout(runSync, delay);
+};
+const toggleSync = event => {
+  if (!event.target.checked) { pause(); return; }
+  if (busy.value || !canUpload.value) return;
+  stopSync(); automatic.value = true; paused.value = false; runSync();
+};
+const online = () => {
+  if (!automatic.value || busy.value) return;
+  clearTimeout(retryTimer); retryTimer = null; runSync();
+};
+onMounted(() => window.addEventListener('online', online));
+onBeforeUnmount(() => window.removeEventListener('online', online));
+watch(sameCollector, value => { if (!value && automatic.value) pause(); });
 const remove = () => perform(async isCurrent => {
   await storedSubmissions('delete', null, isCurrent);
   if (isCurrent()) { lock(); message.value = 'Saved submissions deleted. Server submissions remain.'; }
