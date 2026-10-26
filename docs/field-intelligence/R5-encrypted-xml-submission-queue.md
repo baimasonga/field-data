@@ -53,3 +53,5 @@ checks; browser reload, priority, lost acknowledgement, conflict, invalid-save
 preservation, access-loss clearing, export and narrow-screen checks. The mandatory
 encrypted-package CI gate includes both media and submission cryptography suites.
 No migration or native submission protocol change is required.
+
+Version-bound edit queue/courier support is added by [R10](R10-version-bound-xml-edit-couriers.md).

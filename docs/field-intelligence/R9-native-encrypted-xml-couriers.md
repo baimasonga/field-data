@@ -60,3 +60,5 @@ Closed-page background transport, edit delegation, Collect-native queue changes
 and physical-device/decryption acceptance remain pending. This release implements
 opaque ciphertext transport; it does not assert independently validated capture,
 identity, content integrity after decryption, or physical presence.
+
+Version-bound edit queue/courier support is added by [R10](R10-version-bound-xml-edit-couriers.md).

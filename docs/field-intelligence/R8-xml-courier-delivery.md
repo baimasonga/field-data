@@ -76,3 +76,5 @@ revocation. Source availability and absence of later events remain authenticated
 snapshot information, not independent cryptographic guarantees.
 
 Native encrypted envelope support is added by [R9](R9-native-encrypted-xml-couriers.md); its ciphertext attachments require separate delivery.
+
+Version-bound edit queue/courier support is added by [R10](R10-version-bound-xml-edit-couriers.md).

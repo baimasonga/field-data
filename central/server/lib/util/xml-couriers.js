@@ -11,12 +11,14 @@ const digest = bytes => createHash('sha256').update(bytes).digest('hex');
 const invalid = reason => Problem.user.unexpectedValue({ field: 'xmlCourier', reason });
 const manifestFor = body => {
   const keys = ['xmlFormId', 'instanceId', 'version', 'size', 'sha256'];
+  const edit = Object.hasOwn(body ?? {}, 'deprecatedId'); if (edit) keys.push('deprecatedId', 'baseSha256');
   const text = (value, empty = false) => typeof value === 'string' && (empty || value.length > 0) && value.length <= 1000 && value.trim() === value && !/[\u0000-\u001f\u007f]/.test(value); // eslint-disable-line no-control-regex
   if (!body || Object.keys(body).length !== keys.length || !keys.every(key => Object.hasOwn(body, key)) || !text(body.xmlFormId) || !text(body.instanceId) || !text(body.version, true) || !Number.isInteger(body.size) || body.size < 1 || body.size > LIMIT || !/^[a-f0-9]{64}$/.test(body.sha256 ?? '')) throw invalid('Provide a bounded form/version/instance, byte size and SHA-256 manifest.');
+  if (edit && (!text(body.deprecatedId) || body.deprecatedId === body.instanceId || !/^[a-f0-9]{64}$/.test(body.baseSha256 ?? ''))) throw invalid('Bind the edit to a different prior instance and its exact SHA-256.');
   return Object.fromEntries(keys.map(key => [key, body[key]]));
 };
-const attest = (settings, kind, details) => {
-  const bytes = Buffer.from(JSON.stringify({ ...details, purpose: `field-data.xml-courier-${kind}@1`, issuer: settings.origin }));
+const attest = (settings, kind, details, edit = false) => {
+  const bytes = Buffer.from(JSON.stringify({ ...details, purpose: `field-data.xml-courier-${kind}@${edit ? 2 : 1}`, issuer: settings.origin }));
   return { algorithm: 'ES256', keyId: settings.keyId, publicKey: settings.publicKey, payload: bytes.toString('base64url'), signature: sign('sha256', bytes, { key: settings.key, dsaEncoding: 'ieee-p1363' }).toString('base64url') };
 };
 const readBytes = async request => {
@@ -30,6 +32,7 @@ const parse = async bytes => {
   let text; try { text = new TextDecoder('utf-8', { fatal: true }).decode(bytes); } catch { throw invalid('Use valid UTF-8 XML.'); }
   if (/<!DOCTYPE|<!ENTITY/i.test(text)) throw invalid('External entities and document types are unsupported.');
   const envelope = new Map(); const fields = new Set(['base64EncryptedKey', 'encryptedXmlFile', 'base64EncryptedElementSignature']);
+  let deprecatedCount = 0; let deprecatedId = '';
   const stack = []; let rootInstanceCount = 0; let rootInstance = ''; let metaCount = 0; let instanceCount = 0; let instance = ''; let formId; let version = '';
   try {
     const parser = new SaxesParser();
@@ -43,11 +46,13 @@ const parse = async bytes => {
       }
       if (stack.length > 2 && (fields.has(stack[1]) || stack[1] === 'instanceID')) throw new Error('Nested envelope value');
       if (stack.length === 2 && local === 'meta') metaCount += 1;
-      if (local === 'deprecatedID' || (stack.length > 3 && stack[1] === 'meta' && stack[2] === 'instanceID')) throw new Error('Edited or ambiguous XML');
+      if (local === 'deprecatedID') { if (stack.length !== 3 || stack[1] !== 'meta') throw new Error('Ambiguous edit'); deprecatedCount += 1; }
+      if (stack.length > 3 && stack[1] === 'meta' && ['instanceID', 'deprecatedID'].includes(stack[2])) throw new Error('Ambiguous XML');
       if (stack.length === 3 && stack[1] === 'meta' && local === 'instanceID') instanceCount += 1;
     });
     const append = value => {
       if (stack.length === 3 && stack[1] === 'meta' && stack[2] === 'instanceID') instance += value;
+      if (stack.length === 3 && stack[1] === 'meta' && stack[2] === 'deprecatedID') deprecatedId += value;
       if (stack.length === 2 && stack[1] === 'instanceID') rootInstance += value;
       if (stack.length === 2 && fields.has(stack[1])) envelope.set(stack[1], envelope.get(stack[1]) + value);
     };
@@ -64,10 +69,11 @@ const parse = async bytes => {
   instance = instanceCount === 1 ? instance : rootInstance;
   if (!instance.trim()) throw invalid('One instanceID is required.');
   const manifest = manifestFor({ xmlFormId: formId, instanceId: instance.trim(), version, size: bytes.length, sha256: digest(bytes) });
+  if (deprecatedCount > 1 || (deprecatedCount && (!deprecatedId.trim() || deprecatedId.trim() === manifest.instanceId || deprecatedId.trim().length > 1000))) throw invalid('Provide one different prior instance for an edit.');
   const partial = await Submission.fromXml(bytes);
-  if (partial.deprecatedId.isDefined() || partial.xmlFormId !== manifest.xmlFormId || partial.instanceId !== manifest.instanceId || partial.def.version !== manifest.version) throw invalid('XML identity differs from its native interpretation, or contains an edit.');
+  if (partial.deprecatedId.orNull() !== (deprecatedCount ? deprecatedId.trim() : null) || partial.xmlFormId !== manifest.xmlFormId || partial.instanceId !== manifest.instanceId || partial.def.version !== manifest.version) throw invalid('XML identity differs from its native interpretation.');
   if (encrypted && (partial.def.localKey !== envelope.get('base64EncryptedKey') || partial.def.encDataAttachmentName !== envelope.get('encryptedXmlFile') || partial.def.signature !== envelope.get('base64EncryptedElementSignature'))) throw invalid('Envelope metadata differs from its native interpretation.');
-  return { partial, manifest };
+  return { partial, manifest, deprecatedId: deprecatedCount ? deprecatedId.trim() : null };
 };
 const scope = async (tx, ownerId, projectId, manifest, pinned = null) => {
   if (!await account(tx, ownerId, projectId)) throw Problem.user.notFound();
@@ -77,4 +83,25 @@ const scope = async (tx, ownerId, projectId, manifest, pinned = null) => {
   const grant = await tx.db.maybeOne(sql`SELECT ass."actorId" FROM assignments ass JOIN roles r ON r.id=ass."roleId" WHERE ass."actorId"=${ownerId} AND ass."acteeId"=${form.acteeId} AND r.verbs ? 'submission.create' LIMIT 1 FOR SHARE OF ass,r`);
   if (!grant) throw Problem.user.notFound(); return form;
 };
-module.exports = { LIMIT, config, digest, invalid, manifestFor, attest, readBytes, parse, scope, account };
+const editBase = async (tx, ownerId, formId, manifest, reviewOnly = false) => {
+  if (!manifest.deprecatedId) return null;
+  const ref = await tx.db.maybeOne(sql`SELECT sd.id,sd."submissionId" FROM submission_defs sd JOIN submissions s ON s.id=sd."submissionId"
+    WHERE s."formId"=${formId} AND s.draft=FALSE AND s."deletedAt" IS NULL AND s."submitterId"=${ownerId} AND sd."submitterId"=${ownerId} AND sd."instanceId"=${manifest.deprecatedId}`);
+  if (!ref) throw Problem.user.notFound();
+  await tx.db.query(sql`SELECT id FROM field_data_claims WHERE "submissionId"=${ref.submissionId} FOR UPDATE`);
+  const base = await tx.db.maybeOne(sql`SELECT sd.*,s."deletedAt",s."submitterId" AS "rootOwnerId" FROM submission_defs sd JOIN submissions s ON s.id=sd."submissionId"
+    WHERE sd.id=${ref.id} AND s."deletedAt" IS NULL AND s."submitterId"=${ownerId} AND sd."submitterId"=${ownerId} FOR UPDATE OF s,sd`);
+  if (!base) throw Problem.user.notFound();
+  const sha256 = digest(base.xml);
+  if (!reviewOnly) {
+    if (sha256 !== manifest.baseSha256) throw Problem.user.mediaUploadConflict();
+    if (!base.current) {
+      const received = await tx.db.maybeOne(sql`SELECT sd.* FROM submission_defs sd JOIN field_data_claim_versions cv ON cv."submissionDefId"=sd.id
+        JOIN field_data_claim_versions previous ON previous.id=cv."previousVersionId" AND previous."submissionDefId"=${base.id}
+        WHERE sd."submissionId"=${base.submissionId} AND sd.current AND sd."submitterId"=${ownerId} AND sd."instanceId"=${manifest.instanceId}`);
+      if (!received || digest(received.xml) !== manifest.sha256) throw Problem.user.mediaUploadConflict();
+    }
+  }
+  return { ...base, sha256 };
+};
+module.exports = { LIMIT, config, digest, invalid, manifestFor, attest, readBytes, parse, scope, account, editBase };

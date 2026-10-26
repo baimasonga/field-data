@@ -36,9 +36,10 @@ export const submissionIdentity = (bytes, includeVersion = false) => {
   }
   const metas = named('meta');
   const instances = [...metas.flatMap(meta => Array.from(meta.children).filter(node => node.localName === 'instanceID')), ...named('instanceID')];
-  if (metas.length > 1 || instances.length !== 1 || (!encrypted && (metas.length !== 1 || named('instanceID').length)) || instances[0].children.length || !id(instances[0].textContent.trim()) || !id(root.getAttribute('id')) ||
-    document.getElementsByTagNameNS('*', 'deprecatedID').length) throw new Error('Choose a new submission with one instanceID; edited submissions are unsupported');
-  return { xmlFormId: root.getAttribute('id'), instanceId: instances[0].textContent.trim(), ...(includeVersion ? { version: root.getAttribute('version') ?? '' } : {}) };
+  const deprecated = Array.from(document.getElementsByTagNameNS('*', 'deprecatedID'));
+  if (deprecated.length > 1 || (deprecated.length && (deprecated[0].parentElement !== metas[0] || deprecated[0].children.length || !id(deprecated[0].textContent.trim()) || deprecated[0].textContent.trim() === instances[0]?.textContent.trim()))) throw new Error('Choose one different prior instance for an edit');
+  if (metas.length > 1 || instances.length !== 1 || (!encrypted && (metas.length !== 1 || named('instanceID').length)) || instances[0].children.length || !id(instances[0].textContent.trim()) || !id(root.getAttribute('id'))) throw new Error('Choose a submission with one unambiguous instanceID');
+  return { xmlFormId: root.getAttribute('id'), instanceId: instances[0].textContent.trim(), ...(includeVersion ? { version: root.getAttribute('version') ?? '', ...(deprecated.length ? { deprecatedId: deprecated[0].textContent.trim() } : {}) } : {}) };
 };
 export const validateSubmissions = async (data, now = Date.now(), origin = window.location.origin) => {
   if (!exact(data, ['schemaVersion', 'origin', 'actorId', 'projectId', 'createdAt', 'expiresAt', 'items']) || data.schemaVersion !== schema || data.origin !== origin ||
