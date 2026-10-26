@@ -2,10 +2,9 @@
 const { randomUUID } = require('node:crypto');
 const { sql } = require('slonik');
 const { Form } = require('../model/frames');
-const Option = require('../util/option');
 const Problem = require('../util/problem');
 const { UUID_PATTERN } = require('../util/claim-versioning');
-const { buildEnvelope } = require('../util/provenance');
+const delivery = require('../util/xml-delivery');
 const xml = require('../util/xml-couriers');
 const conflict = () => Problem.user.mediaUploadConflict();
 const actorFor = auth => { const actor = auth.actor.orNull(); if (actor?.type !== 'field_key') throw Problem.user.insufficientRights(); return actor; };
@@ -53,7 +52,7 @@ module.exports = (service, endpoint) => {
       const settings = xml.config(); if (!settings) throw xml.invalid('XML courier signing is unavailable.');
       let target = await tx.db.maybeOne(sql`SELECT * FROM field_data_xml_courier_targets WHERE "formId"=${form.id} AND manifest->>'instanceId'=${manifest.instanceId} FOR UPDATE`);
       if (target && (target.ownerId !== owner.id || target.formDefId !== form.formDefId || !same(target.manifest, manifest))) throw conflict();
-      if (target && await tx.db.oneFirst(sql`SELECT EXISTS(SELECT 1 FROM field_data_xml_courier_events WHERE "targetId"=${target.id} AND kind='delivery')`)) throw conflict();
+      if (target && await delivery.consumed(tx, target.id)) throw conflict();
       const base = await xml.editBase(tx, owner.id, form.id, manifest);
       if (!target) {
         if (await tx.db.oneFirst(sql`SELECT count(*)::integer FROM field_data_xml_courier_targets WHERE "projectId"=${user.projectId}`) >= 1000) throw xml.invalid('Project XML courier history limit reached.');
@@ -145,49 +144,21 @@ module.exports = (service, endpoint) => {
       if (!await active(tx, grant.id)) throw Problem.user.notFound();
       const settings = xml.config(); if (!settings || JSON.parse(Buffer.from(grant.attestation.payload, 'base64url')).issuer !== settings.origin) throw xml.invalid('The XML courier signing authority is unavailable or changed.');
       const prior = await tx.db.maybeOne(sql`SELECT * FROM field_data_xml_courier_events WHERE "targetId"=${target.id} AND kind='delivery'`);
-      const base = await xml.editBase(tx, target.ownerId, target.formId, target.manifest);
-      const existing = await tx.db.maybeOne(sql`SELECT s.id,s."submitterId",s."deletedAt",sd.id AS "submissionDefId",sd.xml,sd.current,sd.root,sd."formDefId",sd."createdAt"
-        FROM submissions s JOIN submission_defs sd ON sd."submissionId"=s.id AND sd.current
-        WHERE s."formId"=${target.formId} AND sd."instanceId"=${target.manifest.instanceId} AND s.draft=FALSE FOR SHARE OF s,sd`);
-      if (prior) {
-        if (!existing || existing.deletedAt || (!existing.root && !base) || existing.submissionDefId !== prior.details.submissionDefId || xml.digest(existing.xml) !== target.manifest.sha256) throw Problem.user.notFound();
-        return proof(tx, target, grant);
-      }
-      if (existing && ((base && existing.id !== base.submissionId) || existing.deletedAt || (!existing.root && !base) || existing.submitterId !== target.ownerId || existing.formDefId !== target.formDefId || xml.digest(existing.xml) !== target.manifest.sha256)) throw conflict();
-      let submissionDefId = existing?.submissionDefId; let submittedAt = existing?.createdAt;
-      if (!existing) {
-        const form = (await tx.Forms.getByProjectAndXmlFormId(target.projectId, target.manifest.xmlFormId, target.manifest.version)).orNull();
-        if (!form || form.def.id !== formScope.formDefId) throw Problem.user.notFound();
-        const owner = (await tx.Actors.getById(target.ownerId)).orNull(); if (!owner) throw Problem.user.notFound();
-        // Scoped attribution only: all source/recipient/grant checks above use the real courier.
-        // Native workers retain collector attribution; the separate custody audit records transport.
-        const collector = tx.with({ context: { ...tx.context, auth: { actor: Option.of(owner), isAuthenticated: true } } });
-        const provenance = buildEnvelope({ origin: 'collected', sourceRef: `xml-courier:${grant.id}`, xml: bytes, transformVersion: base ? 'xml-edit-courier@1' : 'xml-courier@1' });
-        if (base) {
-          const deprecated = (await collector.Submissions.getAnyDefByFormAndInstanceId(target.formId, target.manifest.deprecatedId, false)).orNull();
-          if (!deprecated || !deprecated.current || deprecated.id !== base.id) throw conflict();
-          const saved = await collector.Submissions.createVersion(parsed.partial, deprecated, form, null, 'Field Data XML edit courier', null, provenance);
-          const definition = saved.aux.currentVersion.with({ def: saved.aux.currentVersion });
-          // A new encrypted envelope has a new key/IV schedule: all ciphertext must be supplied afresh.
-          const inherited = parsed.partial.def.localKey == null ? await collector.SubmissionAttachments.getForFormAndInstanceId(target.formId, target.manifest.deprecatedId, false) : [];
-          await collector.SubmissionAttachments.create(definition, form, await collector.Forms.getBinaryFields(form.def.id), [], inherited);
-          submissionDefId = definition.id; submittedAt = definition.createdAt;
-        } else {
-          const submission = await collector.Submissions.createNew(parsed.partial, form, null, 'Field Data XML courier', null, provenance);
-          await collector.SubmissionAttachments.create(submission, form, await collector.Forms.getBinaryFields(form.def.id));
-          submissionDefId = submission.def.id; submittedAt = submission.createdAt;
-        }
-      }
+      const used = await delivery.consumed(tx, target.id);
+      const { submissionDefId, submittedAt, alreadyReceived, base } = await delivery.accept(tx, target, parsed, {
+        sourceRef: `xml-courier:${grant.id}`, consumed: used != null, expectedDefId: used?.details.submissionDefId
+      });
+      if (prior) return proof(tx, target, grant);
       const { at } = await tx.db.one(sql`SELECT clock_timestamp() AS at`);
       if (new Date(at).getTime() >= new Date(grant.expiresAt).getTime()) throw Problem.user.notFound();
       const details = { targetId: target.id, grantId: grant.id, projectId: target.projectId, formId: target.formId, formDefId: target.formDefId,
         submissionDefId, ...(base ? { deprecatedId: target.manifest.deprecatedId, baseSha256: target.manifest.baseSha256, baseSubmissionDefId: base.id } : {}), ownerId: target.ownerId, receivedBy: actor.id, sha256: target.manifest.sha256, size: target.manifest.size,
-        alreadyReceived: existing != null, submissionReceivedAt: new Date(submittedAt).toISOString(), acceptedAt: new Date(at).toISOString(),
+        alreadyReceived, submissionReceivedAt: new Date(submittedAt).toISOString(), acceptedAt: new Date(at).toISOString(),
         grantPayloadHash: xml.digest(Buffer.from(grant.attestation.payload, 'base64url')) };
       await tx.db.query(sql`INSERT INTO field_data_xml_courier_events(id,"targetId","grantId",kind,"requestId","requestHash",details,attestation)
         VALUES(${randomUUID()},${target.id},${grant.id},'delivery',${randomUUID()},${target.manifest.sha256},${JSON.stringify(details)},${JSON.stringify(xml.attest(settings, 'delivery', details, Boolean(base)))})`);
       await tx.Audits.log(auth.actor, 'field_data.xml.courier.delivery', new Form({ id: target.formId, acteeId: formScope.acteeId }),
-        { grantId: grant.id, targetId: target.id, submissionDefId, ...(base ? { deprecatedId: target.manifest.deprecatedId, baseSha256: target.manifest.baseSha256, baseSubmissionDefId: base.id } : {}), ownerId: target.ownerId, receivedBy: actor.id, alreadyReceived: existing != null });
+        { grantId: grant.id, targetId: target.id, submissionDefId, ...(base ? { deprecatedId: target.manifest.deprecatedId, baseSha256: target.manifest.baseSha256, baseSubmissionDefId: base.id } : {}), ownerId: target.ownerId, receivedBy: actor.id, alreadyReceived });
       return proof(tx, target, grant);
     });
     response.set('Cache-Control', 'private, no-store'); return result;

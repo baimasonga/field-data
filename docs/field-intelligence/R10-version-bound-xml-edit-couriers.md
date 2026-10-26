@@ -83,3 +83,5 @@ package handoff, lost acknowledgements and mobile layout.
 Closed-page background delivery, Collect-native queue integration and real-device
 acceptance remain pending. These proofs attest account actions and exact bytes;
 they do not establish physical custody, capture truth or successful decryption.
+
+Opt-in original-collector closed-page delivery is added by [R11](R11-background-xml-delivery.md), using a separate exact-file capability and browser-held outbound key.

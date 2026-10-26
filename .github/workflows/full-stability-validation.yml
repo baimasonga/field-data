@@ -201,6 +201,7 @@ jobs:
               test/integration/api/field-data-investigation-cases.js \
               test/integration/api/field-data-media-uploads.js \
               test/integration/api/field-data-xml-couriers.js \
+              test/integration/api/field-data-xml-background.js \
               test/integration/api/field-data-capture-challenges.js \
               test/integration/api/field-data-media-extractions.js \
               test/integration/api/field-data-app-user-backchecks.js

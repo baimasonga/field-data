@@ -55,3 +55,5 @@ encrypted-package CI gate includes both media and submission cryptography suites
 No migration or native submission protocol change is required.
 
 Version-bound edit queue/courier support is added by [R10](R10-version-bound-xml-edit-couriers.md).
+
+Opt-in original-collector closed-page delivery is added by [R11](R11-background-xml-delivery.md), using a separate exact-file capability and browser-held outbound key.
