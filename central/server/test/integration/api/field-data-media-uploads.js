@@ -156,3 +156,132 @@ describe('api: OpenRosa multipart retry with companion recovery', () => {
     assert.equal(hash(response.body), body.sha256);
   }));
 });
+
+const withCourierSigning = async action => {
+  const { generateKeyPairSync } = require('node:crypto');
+  const keys = generateKeyPairSync('ec', { namedCurve: 'prime256v1' });
+  const saved = { key: process.env.FIELD_DATA_OFFLINE_SIGNING_KEY, origin: process.env.FIELD_DATA_OFFLINE_ORIGIN };
+  process.env.FIELD_DATA_OFFLINE_SIGNING_KEY = keys.privateKey.export({ type: 'pkcs8', format: 'pem' }); process.env.FIELD_DATA_OFFLINE_ORIGIN = 'https://courier.example';
+  try { await action(keys); } finally {
+    for (const [name, value] of [['FIELD_DATA_OFFLINE_SIGNING_KEY', saved.key], ['FIELD_DATA_OFFLINE_ORIGIN', saved.origin]]) {
+      if (value == null) delete process.env[name]; else process.env[name] = value;
+    }
+  }
+};
+describe('api: delegated media couriers', () => {
+  it('delegates exact bytes without owner credentials, retains signed custody and verifies independent exports', testService(async (service, c) => withCourierSigning(async keys => {
+    const { collector, other, as, manifest, data, put, alice } = await setup(service);
+    await alice.delete(`/v1/projects/1/forms/binaryType/assignments/app-user/${other.id}`).expect(200);
+    await as(collector, 'post').send(manifest).expect(200);
+    const body = { requestId: randomUUID(), courierId: other.id, minutes: 60 };
+    const path = `/${manifest.id}/courier`;
+    const granted = (await as(collector, 'post', path).send(body).expect(200)).body;
+    await as(collector, 'post', path).send(body).expect(200);
+    await as(other, 'post', path).send({ ...body, requestId: randomUUID(), courierId: collector.id }).expect(404);
+    const transfers = (await as(other, 'get').expect(200)).body.items; assert.equal(transfers.length, 1); assert.equal(transfers[0].ownerId, collector.id);
+    await put(other, manifest.id, 0, data.subarray(0, CHUNK)).expect(200);
+    await put(other, manifest.id, 0, data.subarray(0, CHUNK)).expect(200);
+    await put(other, manifest.id, CHUNK, data.subarray(CHUNK)).expect(200);
+    const signing = process.env.FIELD_DATA_OFFLINE_SIGNING_KEY; delete process.env.FIELD_DATA_OFFLINE_SIGNING_KEY;
+    await as(other, 'post', `/${manifest.id}/complete`).expect(400); process.env.FIELD_DATA_OFFLINE_SIGNING_KEY = signing;
+    await alice.get('/v1/projects/1/forms/binaryType/submissions/both/attachments/my_file1.mp4').expect(404);
+    await as(other, 'post', `/${manifest.id}/complete`).expect(200);
+    await as(other, 'post', `/${manifest.id}/complete`).expect(200);
+    await as(collector, 'post', path).send(body).expect(200);
+    const proof = (await as(other, 'get', path).expect(200)).body;
+    // eslint-disable-next-line import/extensions, import/no-relative-packages
+    const { verifyMediaCourierProof } = await import('../../../../../cloudflare/verify-media-courier.mjs');
+    const expected = { issuer: 'https://courier.example', projectId: 1, publicKeys: [keys.publicKey.export({ format: 'jwk' })] };
+    const checked = verifyMediaCourierProof(proof, expected); assert.equal(checked.events[0].receivedBy, other.id); assert.equal(checked.grant.ownerId, collector.id);
+    assert.throws(() => verifyMediaCourierProof(proof, { ...expected, projectId: 2 }));
+    assert.throws(() => verifyMediaCourierProof({ ...proof, grant: { ...proof.grant, manifest: { ...proof.grant.manifest, size: 1 } } }, expected));
+    assert.equal(hash((await alice.get('/v1/projects/1/forms/binaryType/submissions/both/attachments/my_file1.mp4').expect(200)).body), manifest.sha256);
+    await as(other, 'delete', `/${manifest.id}`).expect(404);
+    const revoke = { requestId: randomUUID(), reason: 'The handoff has now completed.' };
+    await as(collector, 'post', `${path}/revoke`).send(revoke).expect(200);
+    await as(collector, 'post', `${path}/revoke`).send(revoke).expect(200);
+    await as(other, 'get', `/${manifest.id}`).expect(404);
+    const revoked = (await as(collector, 'get', path).expect(200)).body;
+    assert.equal(verifyMediaCourierProof(revoked, expected).revocation, 'recorded');
+    assert.equal(await c.db.oneFirst(sql`SELECT count(*)::integer FROM field_data_media_courier_events WHERE "grantId"=${granted.grant.id}`), 2);
+    await assert.rejects(c.db.query(sql`UPDATE field_data_media_courier_events SET details='{}'::jsonb WHERE "grantId"=${granted.grant.id}`));
+  })));
+  it('stops on revocation and source grants, preserves revocation without signing, and refuses expired or unrelated delegation', testService(async service => withCourierSigning(async () => {
+    const { collector, other, as, manifest, data, put, alice } = await setup(service);
+    await as(collector, 'post').send(manifest).expect(200);
+    const path = `/${manifest.id}/courier`; const body = { requestId: randomUUID(), courierId: other.id, minutes: 5 };
+    await as(collector, 'post', path).send({ ...body, courierId: collector.id }).expect(400);
+    await as(collector, 'post', path).send({ ...body, minutes: 1441 }).expect(400);
+    const project = (await alice.post('/v1/projects').send({ name: 'Other courier project' }).expect(200)).body;
+    const stranger = (await alice.post(`/v1/projects/${project.id}/app-users`).send({ displayName: 'Other project courier' }).expect(200)).body;
+    await as(collector, 'post', path).send({ ...body, courierId: stranger.id }).expect(400);
+    await as(collector, 'post', path).send(body).expect(200);
+    await as(collector, 'post', path).send({ ...body, requestId: randomUUID() }).expect(409);
+    await alice.delete(`/v1/projects/1/forms/binaryType/assignments/app-user/${collector.id}`).expect(200);
+    await put(other, manifest.id, 0, data.subarray(0, CHUNK)).expect(404);
+    await as(other, 'get', path).expect(404);
+    delete process.env.FIELD_DATA_OFFLINE_SIGNING_KEY;
+    const revoke = (await as(collector, 'post', `${path}/revoke`).send({ requestId: randomUUID(), reason: 'Permission withdrawn while offline signing is unavailable.' }).expect(200)).body;
+    assert.equal(revoke.event.attestation, null);
+    await alice.post(`/v1/projects/1/forms/binaryType/assignments/app-user/${collector.id}`).expect(200);
+    await as(other, 'get', `/${manifest.id}`).expect(404);
+    assert.equal((await as(other, 'get').expect(200)).body.items.length, 0);
+  })));
+  it('enforces database expiry, signing availability and retains custody when temporary upload rows are cleaned', testServiceFullTrx(async (service, c) => withCourierSigning(async () => {
+    const { collector, other, as, manifest, data, put } = await setup(service);
+    await as(collector, 'post').send(manifest).expect(200);
+    const path = `/${manifest.id}/courier`; const body = { requestId: randomUUID(), courierId: other.id, minutes: 5 };
+    const signingKey = process.env.FIELD_DATA_OFFLINE_SIGNING_KEY; delete process.env.FIELD_DATA_OFFLINE_SIGNING_KEY;
+    await as(collector, 'post', path).send(body).expect(400); process.env.FIELD_DATA_OFFLINE_SIGNING_KEY = signingKey;
+    await as(collector, 'post', path).send(body).expect(200);
+    await c.db.query(sql`UPDATE field_data_media_uploads SET "expiresAt"=clock_timestamp()-interval '1 second' WHERE id=${manifest.id}`);
+    await put(other, manifest.id, 0, data.subarray(0, CHUNK)).expect(404);
+    // Quota cleanup removes only expired temporary chunks/uploads, preserving the signed grant.
+    await as(collector, 'post').send({ ...manifest, id: randomUUID() }).expect(200);
+    assert.equal(await c.db.oneFirst(sql`SELECT count(*)::integer FROM field_data_media_uploads WHERE id=${manifest.id}`), 0);
+    assert.equal(await c.db.oneFirst(sql`SELECT count(*)::integer FROM field_data_media_couriers WHERE "uploadId"=${manifest.id}`), 1);
+    await as(collector, 'get', path).expect(200);
+    await as(collector, 'post').send(manifest).expect(409);
+    const migration = require('../../../lib/model/migrations/20261026-01-media-couriers');
+    const { knexConnect } = require('../../../lib/model/knex-migrator'); const config = require('config'); const db = knexConnect(config.get('test.database'));
+    try { await db.transaction(async trx => { await migration.down(trx); await migration.up(trx); }); } finally { await db.destroy(); }
+    assert.equal(await c.db.oneFirst(sql`SELECT count(*)::integer FROM field_data_media_couriers WHERE "uploadId"=${manifest.id}`), 1);
+  })));
+});
+
+describe('api: courier concurrency', () => {
+  it('serializes grant retries and revocation against native attachment completion', testServiceFullTrx(async (service, c) => withCourierSigning(async () => {
+    const { collector, other, as, manifest, put } = await setup(service); const data = Buffer.from('courier-concurrency');
+    const body = { ...manifest, size: data.length, sha256: hash(data) };
+    await as(collector, 'post').send(body).expect(200);
+    const path = `/${manifest.id}/courier`; const grant = { requestId: randomUUID(), courierId: other.id, minutes: 60 };
+    const grants = await Promise.all([as(collector, 'post', path).send(grant), as(collector, 'post', path).send(grant)]);
+    assert.deepEqual(grants.map(r => r.status), [200, 200]); assert.equal(grants[0].body.grant.id, grants[1].body.grant.id);
+    await put(other, manifest.id, 0, data).expect(200);
+    const results = await Promise.all([as(other, 'post', `/${manifest.id}/complete`), as(collector, 'post', `${path}/revoke`).send({ requestId: randomUUID(), reason: 'Revoke courier transport during final delivery.' })]);
+    assert.equal(results[1].status, 200); assert([200, 404].includes(results[0].status));
+    await as(other, 'get', `/${manifest.id}`).expect(404);
+    assert.equal(await c.db.oneFirst(sql`SELECT count(*)::integer FROM field_data_media_courier_events WHERE kind='delivery'`), results[0].status === 200 ? 1 : 0);
+    await c.db.query(sql`DELETE FROM submissions WHERE "instanceId"='both'`);
+    assert.equal(await c.db.oneFirst(sql`SELECT count(*)::integer FROM field_data_media_couriers`), 0);
+    assert.equal(await c.db.oneFirst(sql`SELECT count(*)::integer FROM field_data_media_courier_events`), 0);
+  })));
+});
+
+describe('api: courier grant expiry', () => {
+  it('denies an expired signed grant even while its upload and original collection permission remain valid', testService(async (service, c) => withCourierSigning(async () => {
+    const { collector, other, as, manifest, data, put } = await setup(service);
+    await as(collector, 'post').send(manifest).expect(200);
+    const courier = require('../../../lib/util/media-couriers'); const source = await c.db.one(sql`SELECT * FROM field_data_media_uploads WHERE id=${manifest.id}`);
+    const id = randomUUID(); const expiresAt = new Date(Date.now() - 300000).toISOString();
+    const details = { id, uploadId: manifest.id, projectId: source.projectId, submissionDefId: source.submissionDefId, ownerId: collector.id, courierId: other.id,
+      manifest: source.manifest, issuedAt: new Date(Date.now() - 600000).toISOString(), expiresAt };
+    // A retained historical grant fixture exercises database time independently of upload expiry.
+    await c.db.query(sql`INSERT INTO field_data_media_couriers(id,"uploadId","projectId","submissionDefId","ownerId","courierId","requestId","requestHash","expiresAt",manifest,attestation)
+      VALUES(${id},${manifest.id},${source.projectId},${source.submissionDefId},${collector.id},${other.id},${randomUUID()},${'a'.repeat(64)},${expiresAt},${JSON.stringify(source.manifest)},${JSON.stringify(courier.attest(courier.config(), 'grant', details))})`);
+    await as(collector, 'get', `/${manifest.id}`).expect(200);
+    await as(other, 'get', `/${manifest.id}`).expect(404);
+    await put(other, manifest.id, 0, data.subarray(0, CHUNK)).expect(404);
+    assert.equal((await as(other, 'get').expect(200)).body.items.length, 0);
+  })));
+});

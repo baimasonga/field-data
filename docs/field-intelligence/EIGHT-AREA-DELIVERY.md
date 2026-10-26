@@ -615,3 +615,15 @@ Exact XML and encrypted acknowledgement checkpoints retain R5's original deadlin
 See [R6-session-automatic-xml-sync.md](R6-session-automatic-xml-sync.md).
 Closed-page background delivery, delegated courier/custody transport and device
 acceptance remain pending; this does not change Collect's native queue.
+
+### R7 delegated media couriers
+
+An original App User can authorize one same-project courier for a reserved,
+hash-bound ordinary missing-media transfer, without sharing an access key. The
+existing encrypted package and resumable queue carry the bytes; live source and
+owner grants, permanent revocation, database expiry and create-only attachment
+locks remain authoritative. Signed grant/delivery proofs retain account actions
+and file hashes, with independent pinned-key verification and explicit unsigned
+revocation handling. See [R7-delegated-media-couriers.md](R7-delegated-media-couriers.md).
+XML courier delivery, closed-page background transport, multi-hop delegation and
+physical/device acceptance remain pending.

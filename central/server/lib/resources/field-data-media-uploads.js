@@ -7,6 +7,7 @@ const { blobContent } = require('../util/blob');
 const Problem = require('../util/problem');
 const { UUID_PATTERN } = require('../util/claim-versioning');
 const target = require('../util/media-upload-target');
+const courier = require('../util/media-couriers');
 const { bindCapture } = require('../util/capture-challenges');
 const { checkedLocation } = require('../util/capture-location');
 const CHUNK = 262144; const MAX_FILE = 20 * 1024 * 1024;
@@ -36,13 +37,14 @@ const identity = async auth => {
   if (actor?.type !== 'field_key') throw Problem.user.insufficientRights();
   return actor;
 };
-const present = row => ({ ...row.manifest, offset: row.offset, status: row.status, expiresAt: row.expiresAt, chunkSize: CHUNK });
+const present = row => ({ ...row.manifest, ownerId: row.actorId, offset: row.offset, status: row.status, expiresAt: row.expiresAt, chunkSize: CHUNK });
 const load = async (tx, actor, id) => {
   if (!UUID_PATTERN.test(id ?? '')) throw Problem.user.notFound();
   const row = await tx.db.maybeOne(sql`SELECT * FROM field_data_media_uploads
-    WHERE id = ${id} AND "actorId" = ${actor.id} AND "expiresAt" > clock_timestamp() FOR UPDATE`);
+    WHERE id = ${id} AND ("actorId" = ${actor.id} OR EXISTS(SELECT 1 FROM field_data_media_couriers g WHERE g."uploadId"=field_data_media_uploads.id AND g."courierId"=${actor.id})) AND "expiresAt" > clock_timestamp() FOR UPDATE`);
   if (row == null) throw Problem.user.notFound();
-  await target(tx, actor, row.manifest, row);
+  await courier.authorize(tx, actor, row);
+  await target(tx, { id: row.actorId }, row.manifest, row);
   return row;
 };
 const chunkBytes = async request => {
@@ -71,6 +73,7 @@ module.exports = (service, endpoint) => {
         if (JSON.stringify(manifest) !== JSON.stringify(manifestFor(existing.manifest))) throw conflict();
         await target(tx, actor, manifest, existing); return present(existing);
       }
+      if (await courier.grantFor(tx, manifest.id)) throw conflict();
       const source = await target(tx, actor, manifest);
       const stats = await tx.db.one(sql`SELECT count(*) FILTER (WHERE "actorId" = ${actor.id})::integer AS count,
         COALESCE(sum((manifest->>'size')::bigint) FILTER (WHERE "actorId" = ${actor.id}), 0)::bigint AS own,
@@ -87,7 +90,7 @@ module.exports = (service, endpoint) => {
   }));
   service.get(root, endpoint(async (container, { auth }, _, response) => {
     const actor = await identity(auth);
-    const rows = await container.db.any(sql`SELECT id FROM field_data_media_uploads WHERE "actorId" = ${actor.id}
+    const rows = await container.db.any(sql`SELECT id FROM field_data_media_uploads WHERE ("actorId" = ${actor.id} OR EXISTS(SELECT 1 FROM field_data_media_couriers g WHERE g."uploadId"=field_data_media_uploads.id AND g."courierId"=${actor.id}))
       AND "expiresAt" > clock_timestamp() ORDER BY status DESC, (manifest->>'priority')::integer, "createdAt" DESC LIMIT 50`);
     const items = [];
     for (const row of rows) {
@@ -139,7 +142,8 @@ module.exports = (service, endpoint) => {
       const storedBlob = (await tx.Blobs.getById(blobId)).orNull();
       const storedBytes = storedBlob == null ? null : await blobContent(tx.s3, storedBlob);
       if (!Buffer.isBuffer(storedBytes) || storedBytes.length !== bytes.length || hash(storedBytes) !== row.manifest.sha256) throw invalid();
-      const source = await target(tx, actor, row.manifest, { ...row, blobId }, true);
+      const source = await target(tx, { id: row.actorId }, row.manifest, { ...row, blobId }, true);
+      await courier.delivery(tx, actor, row, blobId);
       if (row.manifest.challengeId != null) await bindCapture(tx, actor, row, source, bytes, blobId);
       if (source.attachmentBlobId == null) {
         await tx.SubmissionAttachments.attach(row.submissionDefId, row.manifest.name, blobId);
@@ -148,7 +152,7 @@ module.exports = (service, endpoint) => {
             uploadId: row.id, sha256: row.manifest.sha256 });
       }
       await tx.Audits.log(auth.actor, 'field_data.media.upload.complete', new Form({ id: source.formId, acteeId: source.acteeId }),
-        { uploadId: row.id, submissionDefId: row.submissionDefId, sha256: row.manifest.sha256, alreadyAttached: source.attachmentBlobId != null });
+        { uploadId: row.id, submissionDefId: row.submissionDefId, sha256: row.manifest.sha256, alreadyAttached: source.attachmentBlobId != null, ownerId: row.actorId, transportedBy: actor.id });
       await tx.db.query(sql`DELETE FROM field_data_media_upload_chunks WHERE "uploadId" = ${row.id}`);
       return present(await tx.db.one(sql`UPDATE field_data_media_uploads SET status = 'completed', "blobId" = ${blobId} WHERE id = ${row.id} RETURNING *`));
     });
