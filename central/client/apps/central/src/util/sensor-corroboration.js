@@ -3,8 +3,8 @@ const decode = text => Uint8Array.from(atob(text.replace(/-/g, '+').replace(/_/g
 const hash = async bytes => Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', bytes)), b => b.toString(16).padStart(2, '0')).join('');
 const encode = bytes => btoa(Array.from(bytes, b => String.fromCharCode(b)).join('')).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 const imported = key => crypto.subtle.importKey('jwk', key, { name: 'ECDSA', namedCurve: 'P-256' }, true, ['verify']);
-const fingerprint = async key => hash(new Uint8Array(await crypto.subtle.exportKey('spki', await imported(key))));
-const verifyEnvelope = async (record, publicKey) => {
+export const fingerprint = async key => hash(new Uint8Array(await crypto.subtle.exportKey('spki', await imported(key))));
+export const verifyEnvelope = async (record, publicKey) => {
   if (record?.algorithm !== 'ES256' || typeof record.payload !== 'string' || record.payload.length > 24000 || !/^[A-Za-z0-9_-]{86}$/.test(record.signature ?? '') || publicKey?.d != null || publicKey?.kty !== 'EC' || publicKey?.crv !== 'P-256') throw new Error('Invalid sensor envelope');
   const bytes = decode(record.payload); const signature = decode(record.signature);
   if (encode(bytes) !== record.payload || encode(signature) !== record.signature || !await crypto.subtle.verify({ name: 'ECDSA', hash: 'SHA-256' }, await imported(publicKey), signature, bytes)) throw new Error('Invalid sensor signature');

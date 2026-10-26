@@ -93,7 +93,7 @@ Acknowledge request
     </template>
     <p v-if="loading" role="status">Loading your inbox…</p>
     <p v-if="error" role="alert">{{ error }}</p>
-    <field-data-media-uploads v-if="connected" :key="sessionId" ref="mediaUploads" :send="mediaSend" @protect="protectMedia"/>
+    <field-data-media-uploads v-if="connected" :key="sessionId" ref="mediaUploads" :send="mediaSend" :identity="identity" @protect="protectMedia"/>
     <field-data-capture-challenge v-if="connected" :key="`capture-${sessionId}`" :send="captureSend" @capture="restoreMedia"/>
     <field-data-offline-submissions :connected="connected" :session-id="sessionId" :identity="identity" :send="submissionSend"/>
     <field-data-offline-media ref="offlineMedia" :connected="connected" :session-id="sessionId" @restore="restoreMedia"/>

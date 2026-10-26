@@ -1,7 +1,12 @@
 /* global document, localStorage, sessionStorage */
 import { expect, test } from '@playwright/test';
-import { createHash, createPublicKey, generateKeyPairSync } from 'node:crypto';
+import { createHash, createPublicKey, generateKeyPairSync, sign } from 'node:crypto';
 import offlineAssignments from '../../../server/lib/util/offline-assignments.js';
+import { readFile } from 'node:fs/promises';
+const courierAttest = (settings, kind, details) => {
+  const bytes = Buffer.from(JSON.stringify({ ...details, purpose: `field-data.media-courier-${kind}@1`, issuer: settings.origin }));
+  return { algorithm: 'ES256', keyId: settings.keyId, publicKey: settings.publicKey, payload: bytes.toString('base64url'), signature: sign('sha256', bytes, { key: settings.key, dsaEncoding: 'ieee-p1363' }).toString('base64url') };
+};
 const appUrl = process.env.ODK_URL || 'http://127.0.0.1:8989';
 const taskId = '11111111-1111-4111-8111-111111111111';
 const pushId = '22222222-2222-4222-8222-222222222222';
@@ -1248,4 +1253,94 @@ test('automatic XML sync times out a stalled request and clears its unlocked ses
   await expect(automatic).not.toBeChecked(); await expect(panel).not.toContainText('automatic-one');
   await expect(page.getByLabel('App User access key or Collect server URL')).toHaveValue('');
   await page.clock.fastForward(3600000); expect(requests).toBe(2); expect(errors).toEqual([]);
+});
+
+test('media couriers reserve, authorize with exact retry, carry encrypted files and export signed delivery and revocation', async ({ page }) => {
+  test.setTimeout(60000);
+  const { state, errors } = await setup(page); await connect(page);
+  const { privateKey, publicKey } = generateKeyPairSync('ec', { namedCurve: 'prime256v1' });
+  const authority = { key: privateKey, publicKey: publicKey.export({ format: 'jwk' }), keyId: createHash('sha256').update(publicKey.export({ type: 'spki', format: 'der' })).digest('hex'), origin: new URL(appUrl).origin };
+  const fileBytes = Buffer.from('courier-original-file'); let transfer = null; let grant = null; const events = []; const requests = []; let lost = true;
+  const grantHash = () => createHash('sha256').update(Buffer.from(grant.attestation.payload, 'base64url')).digest('hex');
+  await page.route('**/v1/field-data/app-user/media-uploads**', async route => {
+    const req = route.request(); const path = new URL(req.url()).pathname; const body = req.method() === 'POST' && req.postData() ? req.postDataJSON() : null;
+    if (path.endsWith('/courier/revoke')) {
+      const details = { grantId: grant.id, uploadId: transfer.id, projectId: 7, revokedBy: 42, revokedAt: new Date().toISOString(), reason: body.reason, grantPayloadHash: grantHash() };
+      events.push({ grantId: grant.id, kind: 'revoke', details, attestation: courierAttest(authority, 'revoke', details) });
+      return route.fulfill({ json: { event: events.at(-1) } });
+    }
+    if (path.endsWith('/courier')) {
+      if (req.method() === 'GET') return route.fulfill({ json: { grant, events, checkedAt: new Date().toISOString() } });
+      requests.push(body);
+      if (!grant) {
+        const expiresAt = new Date(Date.now() + 3600000).toISOString(); const id = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc';
+        const manifest = Object.fromEntries(['id', 'xmlFormId', 'instanceId', 'name', 'size', 'sha256', 'contentType', 'priority'].map(k => [k, transfer[k]]));
+        const details = { id, uploadId: transfer.id, projectId: 7, submissionDefId: 99, ownerId: 42, courierId: body.courierId, manifest, issuedAt: new Date().toISOString(), expiresAt };
+        grant = { id, uploadId: transfer.id, projectId: 7, submissionDefId: 99, ownerId: 42, courierId: body.courierId, manifest, expiresAt, attestation: courierAttest(authority, 'grant', details) };
+      }
+      if (lost) { lost = false; return route.abort('failed'); }
+      return route.fulfill({ json: { grant } });
+    }
+    if (path.includes('/chunks/')) { expect(req.postDataBuffer()).toEqual(fileBytes); transfer.offset = transfer.size; return route.fulfill({ json: transfer }); }
+    if (path.endsWith('/complete')) {
+      transfer.status = 'completed';
+      const details = { grantId: grant.id, uploadId: transfer.id, projectId: 7, submissionDefId: 99, ownerId: 42, receivedBy: 43, sha256: transfer.sha256, size: transfer.size, blobId: 123, grantPayloadHash: grantHash(), receivedAt: new Date().toISOString() };
+      events.push({ grantId: grant.id, kind: 'delivery', details, attestation: courierAttest(authority, 'delivery', details) });
+      return route.fulfill({ json: transfer });
+    }
+    if (req.method() === 'GET' && transfer && path.endsWith(`/${transfer.id}`)) return route.fulfill({ json: transfer });
+    if (req.method() === 'GET') return route.fulfill({ json: { items: transfer && state.actorId !== 43 ? [transfer] : [] } });
+    transfer = { ...body, ownerId: 42, offset: 0, status: 'pending', expiresAt: new Date(Date.now() + 86400000).toISOString(), chunkSize: 262144 };
+    return route.fulfill({ json: transfer });
+  });
+  const queue = page.locator('.media-uploads'); const courier = page.locator('.media-couriers'); const vault = page.locator('.offline-media');
+  await queue.getByLabel('Form ID', { exact: true }).fill('verification'); await queue.getByLabel('Synced submission instance ID').fill('courier-source');
+  await queue.getByLabel('Media files (up to 20 MB each)').setInputFiles({ name: 'courier.jpg', mimeType: 'image/jpeg', buffer: fileBytes });
+  await queue.getByRole('button', { name: 'Reserve files for courier delivery' }).click(); await expect(queue).toContainText('Transfers reserved without uploading bytes');
+  expect(transfer.offset).toBe(0);
+  await courier.getByLabel('Courier transfer ID').fill(transfer.id); await courier.getByLabel('Recipient collector ID').fill('43');
+  await courier.getByLabel('I checked the recipient account').check(); await courier.getByRole('button', { name: 'Authorize media courier' }).click();
+  await expect(courier.getByRole('alert')).toContainText('Courier operation failed'); await expect(courier.getByLabel('Recipient collector ID')).toBeDisabled();
+  await courier.getByRole('button', { name: 'Authorize media courier' }).click(); await expect(courier).toContainText('Courier permission recorded'); expect(requests[0]).toEqual(requests[1]);
+  await queue.getByRole('button', { name: 'Prepare queue for encrypted storage' }).click(); await vault.getByLabel('Media package passphrase').fill(mediaPhrase);
+  await vault.getByRole('button', { name: 'Encrypt and save files' }).click(); await expect(vault).toContainText('Encrypted media saved');
+  await vault.getByLabel('Media package passphrase').fill(mediaPhrase); const exported = page.waitForEvent('download'); await vault.getByRole('button', { name: 'Export encrypted package' }).click(); const encrypted = await exported;
+  state.actorId = 43; await page.reload(); await connect(page);
+  // Select a known grant outside the first server list page before resuming it.
+  await courier.getByLabel('Courier transfer ID').fill(transfer.id); await courier.getByRole('button', { name: 'Inspect courier proof' }).click();
+  await expect(courier).toContainText('No delivery receipt recorded.');
+  await vault.getByLabel('Media package passphrase').fill(mediaPhrase); await vault.getByLabel('Import encrypted media package').setInputFiles(await encrypted.path());
+  await expect(vault).toContainText('Encrypted package imported'); await vault.getByRole('button', { name: 'Add unlocked files to upload queue' }).click();
+  await queue.getByRole('button', { name: 'Upload or resume queue' }).click(); await expect(queue).toContainText('Queue finished');
+  await courier.getByLabel('Courier transfer ID').fill(transfer.id); await courier.getByRole('button', { name: 'Inspect courier proof' }).click(); await expect(courier).toContainText('signed delivery receipt');
+  const download = page.waitForEvent('download'); await courier.getByRole('button', { name: 'Download courier custody proof' }).click(); const proofFile = await download;
+  const proof = JSON.parse(await readFile(await proofFile.path(), 'utf8'));
+  const { verifyMediaCourierProof } = await import('../../../../cloudflare/verify-media-courier.mjs');
+  expect(verifyMediaCourierProof(proof, { issuer: authority.origin, projectId: 7, publicKeys: [authority.publicKey] }).events[0].receivedBy).toBe(43);
+  state.actorId = 42; await page.reload(); await connect(page);
+  await courier.getByLabel('Courier transfer ID').fill(transfer.id); await courier.getByLabel('Courier revocation reason').fill('The agreed delivery has completed.');
+  await courier.getByRole('button', { name: 'Revoke media courier' }).click(); await expect(courier).toContainText('Courier permission revoked.');
+  await page.setViewportSize({ width: 320, height: 700 }); expect(await page.evaluate(() => document.documentElement.scrollWidth <= globalThis.innerWidth)).toBe(true);
+  await page.getByRole('button', { name: 'Disconnect', exact: true }).click(); await expect(courier).toHaveCount(0); expect(errors).toEqual([]);
+});
+
+test('media couriers withhold forged proofs and clear recipient details when access is denied', async ({ page }) => {
+  const { errors } = await setup(page); await connect(page);
+  let denied = false;
+  await page.route('**/v1/field-data/app-user/media-uploads/*/courier', route => route.fulfill({ status: denied ? 401 : 200, json: denied ? {} : { grant: { attestation: { algorithm: 'ES256', signature: 'forged' } }, events: [] } }));
+  const courier = page.locator('.media-couriers'); await courier.getByLabel('Courier transfer ID').fill(taskId);
+  await courier.getByRole('button', { name: 'Inspect courier proof' }).click(); await expect(courier.getByRole('alert')).toContainText('Courier operation failed');
+  await expect(courier.getByRole('button', { name: 'Download courier custody proof' })).toBeDisabled();
+  await courier.getByLabel('Recipient collector ID').fill('43'); denied = true;
+  await courier.getByRole('button', { name: 'Inspect courier proof' }).click(); await expect(courier).toHaveCount(0);
+  await expect(page.getByLabel('App User access key or Collect server URL')).toHaveValue(''); expect(errors).toEqual([]);
+});
+
+test('media couriers cannot reserve challenged camera photos for another account', async ({ page }) => {
+  const capture = await openCaptureCamera(page);
+  await capture.getByRole('button', { name: 'Capture photo and add to queue' }).click();
+  const queue = page.locator('.media-uploads');
+  await queue.getByRole('button', { name: 'Reserve files for courier delivery' }).click();
+  await expect(queue.getByRole('alert')).toContainText('must be uploaded by the original collector');
+  await expect(queue).toContainText('challenged.jpg');
 });

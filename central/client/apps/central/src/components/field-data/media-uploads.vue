@@ -14,7 +14,8 @@
       </fieldset>
     </form>
     <div class="actions">
-      <button type="button" class="btn btn-primary" :disabled="busy || !queue.some(row => row.state !== 'completed')" @click="run">Upload or resume queue</button>
+      <button type="button" class="btn btn-primary" :disabled="busy || !queue.some(row => row.state !== 'completed')" @click="run()">Upload or resume queue</button>
+      <button type="button" class="btn btn-default" :disabled="busy || !queue.some(row => row.state !== 'completed')" @click="run(true)">Reserve files for courier delivery</button>
       <button type="button" class="btn btn-default" :disabled="!busy" @click="paused = true">Pause after current chunk</button>
       <button type="button" class="btn btn-default" :disabled="busy" @click="refresh">Refresh saved transfers</button>
       <button type="button" class="btn btn-default" :disabled="busy || !queue.some(row => row.state !== 'completed')" @click="protect">Prepare queue for encrypted storage</button>
@@ -41,27 +42,31 @@
       <summary>Server transfers ({{ saved.length }})</summary>
       <ul>
 <li v-for="row of saved" :key="row.id">
-{{ row.name }} · {{ row.xmlFormId }} · {{ row.status }} · {{ row.offset }} / {{ row.size }} bytes. Reselect the same file to resume.
-        <button v-if="row.status === 'pending'" type="button" class="btn btn-default" :disabled="busy" @click="cancelSaved(row)">Cancel saved transfer: {{ row.name }}</button>
+{{ row.name }} · Transfer {{ row.id }} · Owner {{ row.ownerId }} · {{ row.xmlFormId }} · {{ row.status }} · {{ row.offset }} / {{ row.size }} bytes. Reselect the same file to resume.
+        <button v-if="row.status === 'pending' && (row.ownerId == null || row.ownerId === identity.actorId)" type="button" class="btn btn-default" :disabled="busy" @click="cancelSaved(row)">Cancel saved transfer: {{ row.name }}</button>
       </li>
 </ul>
     </details>
+    <field-data-media-couriers :send="send" :identity="identity" @target="selectCourierTransfer"/>
   </section>
 </template>
 <script setup>
 // Transfers deliberately run serially to honor priority and confirmed offsets.
 /* eslint-disable no-await-in-loop, no-continue */
 import { onBeforeUnmount, ref } from 'vue';
+import FieldDataMediaCouriers from './media-couriers.vue';
 import { challengeContext } from '../../util/offline-media';
 import { checkedLocation, sameLocation } from '../../util/capture-location';
 
 defineOptions({ name: 'FieldDataMediaUploads' });
 const emit = defineEmits(['protect']);
-const props = defineProps({ send: { type: Function, required: true } });
+const props = defineProps({ send: { type: Function, required: true }, identity: { type: Object, default: () => ({}) } });
 const xmlFormId = ref(''); const instanceId = ref(''); const queue = ref([]); const saved = ref([]);
+const explicitTransfers = ref([]);
+const selectCourierTransfer = id => { if (!explicitTransfers.value.includes(id) && explicitTransfers.value.length < 10) explicitTransfers.value.push(id); };
 const busy = ref(false); const paused = ref(false); const message = ref(''); const error = ref('');
 let generation = 0;
-onBeforeUnmount(() => { generation += 1; paused.value = true; queue.value = []; saved.value = []; });
+onBeforeUnmount(() => { generation += 1; paused.value = true; queue.value = []; saved.value = []; explicitTransfers.value = []; });
 const digest = async bytes => Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', bytes)), b => b.toString(16).padStart(2, '0')).join('');
 const valid = row => row != null && /^[0-9a-f-]{36}$/i.test(row.id ?? '') && Number.isInteger(row.offset) && Number.isInteger(row.size) &&
   row.size > 0 && row.size <= 20 * 1024 * 1024 && row.offset >= 0 && row.offset <= row.size && row.chunkSize === 262144 &&
@@ -71,9 +76,16 @@ const accept = row => { if (row?.captureLocation != null) checkedLocation(row.ca
 const readSaved = async () => {
   const data = await props.send('', 'GET');
   if (!Array.isArray(data.items) || data.items.length > 50) throw new Error('Invalid upload list');
-  return data.items.map(accept);
+  const rows = data.items.map(accept);
+  // An inspected, known transfer may be outside the first bounded list page.
+  for (const id of explicitTransfers.value) {
+    if (rows.some(row => row.id === id)) continue;
+    try { rows.push(accept(await props.send(`/${encodeURIComponent(id)}`, 'GET'))); } catch (failure) { if (failure.status !== 404) throw failure; }
+  }
+  return rows;
 };
 const fail = failure => {
+  if (failure.code === 'COURIER_CHALLENGE') { error.value = 'Challenged camera photos must be uploaded by the original collector. Reserve ordinary files separately.'; return; }
   if (failure.code === 'SOURCE_CHANGED') { error.value = 'This file differs from the saved transfer. Reselect the original file, or cancel that saved transfer before uploading a different file.'; return; }
   error.value = ({
     400: 'File details, chunk contents or stored bytes failed verification. Reselect the original file; ask your supervisor if it is already correct.',
@@ -120,10 +132,11 @@ const protect = () => {
   if (rows.length) emit('protect', rows);
 };
 defineExpose({ restoreFiles });
-const run = async () => {
+const run = async (reserveOnly = false) => {
   if (busy.value) return;
   const current = generation; busy.value = true; paused.value = false; error.value = ''; message.value = '';
   try {
+    if (reserveOnly && queue.value.some(row => row.challengeId)) { const failure = new Error('Challenged transfer'); failure.code = 'COURIER_CHALLENGE'; throw failure; }
     const rows = await readSaved(); if (current !== generation) return; saved.value = rows;
     const jobs = [];
     // Restore saved priorities only after matching the complete file hash.
@@ -159,6 +172,7 @@ const run = async () => {
         return response;
       };
       status = checked(status); row.priority = status.priority; row.offset = status.offset;
+      if (reserveOnly) { saved.value = [...saved.value.filter(item => item.id !== status.id), status]; row.state = 'Reserved for courier'; continue; }
       while (status.status !== 'completed' && row.offset < row.file.size && !paused.value && current === generation) {
         row.state = 'Uploading';
         const bytes = await row.file.slice(row.offset, row.offset + status.chunkSize).arrayBuffer();
@@ -174,14 +188,14 @@ const run = async () => {
       if (status.status !== 'completed') throw new Error('Upload was not completed');
       if (current !== generation) return; row.state = status.status;
     }
-    if (current === generation) message.value = paused.value ? 'Paused. Confirmed chunks are retained; resume when ready.' : 'Queue finished. Completed attachments were verified and linked to their submissions.';
+    if (current === generation) message.value = reserveOnly ? 'Transfers reserved without uploading bytes. Use their transfer IDs below to authorize a courier.' : paused.value ? 'Paused. Confirmed chunks are retained; resume when ready.' : 'Queue finished. Completed attachments were verified and linked to their submissions.';
   } catch (failure) { if (current === generation) { fail(failure); for (const row of queue.value) if (row.state === 'Uploading' || row.state === 'Checking original file') row.state = 'Interrupted'; } } finally { if (current === generation) busy.value = false; }
 };
 const discard = async row => {
   if (busy.value) return;
   const current = generation; busy.value = true; error.value = '';
   try {
-    if (row.id != null && row.state !== 'completed') {
+    if (row.id != null && row.state !== 'completed' && (saved.value.find(item => item.id === row.id)?.ownerId == null || saved.value.find(item => item.id === row.id)?.ownerId === props.identity.actorId)) {
       try { await props.send(`/${encodeURIComponent(row.id)}`, 'DELETE'); } catch (failure) { if (failure.status !== 404) throw failure; }
     }
     if (current === generation) queue.value = queue.value.filter(r => r !== row);
