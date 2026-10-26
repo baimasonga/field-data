@@ -29,24 +29,44 @@ const parse = async bytes => {
   if (!Buffer.isBuffer(bytes) || !bytes.length || bytes.length > LIMIT) throw invalid('Choose XML bytes within 1 MiB.');
   let text; try { text = new TextDecoder('utf-8', { fatal: true }).decode(bytes); } catch { throw invalid('Use valid UTF-8 XML.'); }
   if (/<!DOCTYPE|<!ENTITY/i.test(text)) throw invalid('External entities and document types are unsupported.');
-  const stack = []; let metaCount = 0; let instanceCount = 0; let instance = ''; let formId; let version = '';
+  const envelope = new Map(); const fields = new Set(['base64EncryptedKey', 'encryptedXmlFile', 'base64EncryptedElementSignature']);
+  const stack = []; let rootInstanceCount = 0; let rootInstance = ''; let metaCount = 0; let instanceCount = 0; let instance = ''; let formId; let version = '';
   try {
     const parser = new SaxesParser();
     parser.on('opentag', node => {
       const local = node.name.split(':').at(-1); stack.push(local);
       if (stack.length === 1) { formId = node.attributes.id; version = node.attributes.version ?? ''; }
+      if (stack.length === 2 && local === 'instanceID') rootInstanceCount += 1;
+      if (fields.has(local)) {
+        if (stack.length !== 2 || envelope.has(local)) throw new Error('Ambiguous encrypted envelope');
+        envelope.set(local, '');
+      }
+      if (stack.length > 2 && (fields.has(stack[1]) || stack[1] === 'instanceID')) throw new Error('Nested envelope value');
       if (stack.length === 2 && local === 'meta') metaCount += 1;
       if (local === 'deprecatedID' || (stack.length > 3 && stack[1] === 'meta' && stack[2] === 'instanceID')) throw new Error('Edited or ambiguous XML');
       if (stack.length === 3 && stack[1] === 'meta' && local === 'instanceID') instanceCount += 1;
     });
-    const append = value => { if (stack.length === 3 && stack[1] === 'meta' && stack[2] === 'instanceID') instance += value; };
+    const append = value => {
+      if (stack.length === 3 && stack[1] === 'meta' && stack[2] === 'instanceID') instance += value;
+      if (stack.length === 2 && stack[1] === 'instanceID') rootInstance += value;
+      if (stack.length === 2 && fields.has(stack[1])) envelope.set(stack[1], envelope.get(stack[1]) + value);
+    };
     parser.on('text', append); parser.on('cdata', append); parser.on('closetag', () => stack.pop());
     parser.write(text).close();
-  } catch { throw invalid('Choose well-formed new XML with one meta/instanceID.'); }
-  if (metaCount !== 1 || instanceCount !== 1 || !instance.trim()) throw invalid('One meta/instanceID is required.');
+  } catch { throw invalid('Choose well-formed new XML with one unambiguous instanceID.'); }
+  const encrypted = envelope.size > 0;
+  if (encrypted) {
+    const base64 = value => typeof value === 'string' && value.length > 0 && value.length <= 16384 && Buffer.from(value, 'base64').toString('base64') === value;
+    const name = envelope.get('encryptedXmlFile');
+    if (envelope.size !== 3 || !base64(envelope.get('base64EncryptedKey')) || !base64(envelope.get('base64EncryptedElementSignature')) || typeof name !== 'string' || !name.length || name.length > 255 || name.trim() !== name || /[/\\\u0000-\u001f\u007f]/.test(name)) throw invalid('Provide one complete encrypted envelope with bounded key/signature and ciphertext filename.'); // eslint-disable-line no-control-regex
+  }
+  if (metaCount > 1 || instanceCount > 1 || rootInstanceCount > (encrypted ? 1 : 0) || instanceCount + rootInstanceCount !== 1 || (instanceCount === 1 && metaCount !== 1)) throw invalid('One unambiguous instanceID is required.');
+  instance = instanceCount === 1 ? instance : rootInstance;
+  if (!instance.trim()) throw invalid('One instanceID is required.');
   const manifest = manifestFor({ xmlFormId: formId, instanceId: instance.trim(), version, size: bytes.length, sha256: digest(bytes) });
   const partial = await Submission.fromXml(bytes);
-  if (partial.deprecatedId.isDefined() || partial.def.localKey != null || partial.xmlFormId !== manifest.xmlFormId || partial.instanceId !== manifest.instanceId || partial.def.version !== manifest.version) throw invalid('XML identity differs from its native interpretation, or the envelope is encrypted.');
+  if (partial.deprecatedId.isDefined() || partial.xmlFormId !== manifest.xmlFormId || partial.instanceId !== manifest.instanceId || partial.def.version !== manifest.version) throw invalid('XML identity differs from its native interpretation, or contains an edit.');
+  if (encrypted && (partial.def.localKey !== envelope.get('base64EncryptedKey') || partial.def.encDataAttachmentName !== envelope.get('encryptedXmlFile') || partial.def.signature !== envelope.get('base64EncryptedElementSignature'))) throw invalid('Envelope metadata differs from its native interpretation.');
   return { partial, manifest };
 };
 const scope = async (tx, ownerId, projectId, manifest, pinned = null) => {

@@ -18,10 +18,26 @@ export const submissionIdentity = (bytes, includeVersion = false) => {
   const document = new DOMParser().parseFromString(text, 'application/xml');
   if (document.getElementsByTagName('parsererror').length) throw new Error('Invalid XML');
   const root = document.documentElement;
-  const metas = Array.from(root.children).filter(node => node.localName === 'meta');
-  const instances = metas.flatMap(meta => Array.from(meta.children).filter(node => node.localName === 'instanceID'));
-  if (metas.length !== 1 || instances.length !== 1 || instances[0].children.length || !id(instances[0].textContent.trim()) || !id(root.getAttribute('id')) ||
-    document.getElementsByTagNameNS('*', 'deprecatedID').length) throw new Error('Choose a new submission with one meta/instanceID; edited submissions are unsupported');
+  const children = Array.from(root.children);
+  const named = name => children.filter(node => node.localName === name);
+  const fields = ['base64EncryptedKey', 'encryptedXmlFile', 'base64EncryptedElementSignature'];
+  const encrypted = fields.some(name => document.getElementsByTagNameNS('*', name).length > 0);
+  if (encrypted) {
+    for (const name of fields) {
+      const nodes = named(name);
+      if (nodes.length !== 1 || document.getElementsByTagNameNS('*', name).length !== 1 || nodes[0].children.length) throw new Error('Ambiguous encrypted envelope');
+      const value = nodes[0].textContent;
+      if (name === 'encryptedXmlFile') {
+        if (!value.length || value.length > 255 || value.trim() !== value || /[/\\\u0000-\u001f\u007f]/.test(value)) throw new Error('Invalid ciphertext filename'); // eslint-disable-line no-control-regex
+      } else {
+        try { if (!value.length || value.length > 16384 || btoa(atob(value)) !== value) throw new Error(); } catch { throw new Error('Invalid envelope key or signature encoding'); }
+      }
+    }
+  }
+  const metas = named('meta');
+  const instances = [...metas.flatMap(meta => Array.from(meta.children).filter(node => node.localName === 'instanceID')), ...named('instanceID')];
+  if (metas.length > 1 || instances.length !== 1 || (!encrypted && (metas.length !== 1 || named('instanceID').length)) || instances[0].children.length || !id(instances[0].textContent.trim()) || !id(root.getAttribute('id')) ||
+    document.getElementsByTagNameNS('*', 'deprecatedID').length) throw new Error('Choose a new submission with one instanceID; edited submissions are unsupported');
   return { xmlFormId: root.getAttribute('id'), instanceId: instances[0].textContent.trim(), ...(includeVersion ? { version: root.getAttribute('version') ?? '' } : {}) };
 };
 export const validateSubmissions = async (data, now = Date.now(), origin = window.location.origin) => {

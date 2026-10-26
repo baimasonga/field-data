@@ -10,4 +10,13 @@ describe('(util) XML courier manifests', () => {
     await assert.rejects(xml.parse(Buffer.from([0xff, 0xfe])));
     await assert.rejects(xml.parse(Buffer.alloc(xml.LIMIT + 1)));
   });
+  it('accepts exact encrypted envelopes with either native instance location and rejects incomplete or ambiguous envelopes', async () => {
+    const envelope = '<data id="check" version="1"><base64EncryptedKey>a2V5</base64EncryptedKey><encryptedXmlFile>submission.xml.enc</encryptedXmlFile><base64EncryptedElementSignature>c2ln</base64EncryptedElementSignature><meta><instanceID>uuid:sealed</instanceID></meta></data>';
+    for (const value of [envelope, envelope.replace('<meta><instanceID>uuid:sealed</instanceID></meta>', '<instanceID>uuid:sealed</instanceID>')]) {
+      const bytes = Buffer.from(value); const result = await xml.parse(bytes);
+      assert.equal(result.partial.def.localKey, 'a2V5'); assert.equal(result.partial.def.encDataAttachmentName, 'submission.xml.enc');
+      assert.equal(result.manifest.instanceId, 'uuid:sealed'); assert.equal(result.manifest.sha256, xml.digest(bytes));
+    }
+    for (const value of [envelope.replace('a2V5', '!'), envelope.replace('<encryptedXmlFile>submission.xml.enc</encryptedXmlFile>', ''), envelope.replace('submission.xml.enc', '../submission.enc'), envelope.replace('</data>', '<instanceID>other</instanceID></data>'), envelope.replace('</data>', '<base64EncryptedKey>a2V5</base64EncryptedKey></data>'), envelope.replace('a2V5', '<nested>a2V5</nested>'), envelope.replace('</meta>', '<deprecatedID>old</deprecatedID></meta>')]) await assert.rejects(xml.parse(Buffer.from(value)));
+  });
 });

@@ -5,7 +5,7 @@ User to deliver a bounded new XML submission. The grant sends metadata only:
 published form/version, instance ID, exact SHA-256 and byte size. Raw answers remain
 in the existing encrypted R5 package until the courier explicitly delivers them.
 No collector key is shared. New ordinary XML exports supported by R5 are accepted;
-submission edits, ambiguous instance IDs, native encrypted envelopes and external
+submission edits, ambiguous instance IDs and external
 entities/DOCTYPE are excluded.
 
 The server preserves the original collector as native submitter and records the
@@ -74,3 +74,5 @@ unsigned revocation histories are rejected for offline verification. Browser
 verification also displays an explicit warning for server-effective unsigned
 revocation. Source availability and absence of later events remain authenticated
 snapshot information, not independent cryptographic guarantees.
+
+Native encrypted envelope support is added by [R9](R9-native-encrypted-xml-couriers.md); its ciphertext attachments require separate delivery.

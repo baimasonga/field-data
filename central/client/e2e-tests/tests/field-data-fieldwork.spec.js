@@ -1349,11 +1349,11 @@ const xmlCourierAttest = (settings, kind, details) => {
   const bytes = Buffer.from(JSON.stringify({ ...details, purpose: `field-data.xml-courier-${kind}@1`, issuer: settings.origin }));
   return { algorithm: 'ES256', keyId: settings.keyId, publicKey: settings.publicKey, payload: bytes.toString('base64url'), signature: sign('sha256', bytes, { key: settings.key, dsaEncoding: 'ieee-p1363' }).toString('base64url') };
 };
-const prepareXmlCourier = async page => {
+const prepareXmlCourier = async (page, envelope = null) => {
   const { state, errors } = await setup(page); await connect(page);
   const { privateKey, publicKey } = generateKeyPairSync('ec', { namedCurve: 'prime256v1' });
   const authority = { key: privateKey, publicKey: publicKey.export({ format: 'jwk' }), keyId: createHash('sha256').update(publicKey.export({ type: 'spki', format: 'der' })).digest('hex'), origin: new URL(appUrl).origin };
-  const bytes = Buffer.from('<data id="verification" version="1"><answer>private XML handoff</answer><meta><instanceID>xml-browser-courier</instanceID></meta></data>');
+  const bytes = Buffer.from(envelope ?? '<data id="verification" version="1"><answer>private XML handoff</answer><meta><instanceID>xml-browser-courier</instanceID></meta></data>');
   const queue = page.locator('.offline-submissions'); const panel = page.locator('.xml-couriers');
   await queue.getByLabel('New submission XML files').setInputFiles({ name: 'courier.xml', mimeType: 'text/xml', buffer: bytes });
   await queue.getByLabel('Submission queue passphrase').fill('xml-courier-package-passphrase');
@@ -1446,4 +1446,21 @@ test('XML couriers revoke authority, reject forged custody and clear grant detai
   await expect(panel.getByRole('button', { name: 'Download XML custody proof' })).toBeDisabled();
   wire.denied = true; await panel.getByRole('button', { name: 'Inspect XML courier proof' }).click(); await expect(panel.getByLabel('XML courier grant ID')).toHaveValue('');
   await expect(page.getByLabel('App User access key or Collect server URL')).toHaveValue(''); expect(errors).toEqual([]);
+});
+
+test('native encrypted XML envelopes survive package handoff and exact courier retries while identifying missing ciphertext', async ({ page }) => {
+  const envelope = '<data id="verification" version="1"><base64EncryptedKey>a2V5</base64EncryptedKey><encryptedXmlFile>submission.xml.enc</encryptedXmlFile><base64EncryptedElementSignature>c2ln</base64EncryptedElementSignature><instanceID>sealed-browser-courier</instanceID></data>';
+  const { state, queue, panel, wire, errors } = await prepareXmlCourier(page, envelope); wire.lostGrant = false;
+  await expect(queue).toContainText('An envelope acknowledgement does not confirm those files or successful decryption.');
+  await panel.getByLabel('XML courier recipient ID').fill('43'); await panel.getByLabel('I verified the recipient').check();
+  await panel.getByRole('button', { name: 'Authorize XML courier' }).click(); await expect(panel).toContainText('XML courier authorized.');
+  expect(wire.requests[0].manifest.instanceId).toBe('sealed-browser-courier'); expect(JSON.stringify(wire.requests)).not.toContain('a2V5');
+  const download = page.waitForEvent('download'); await queue.getByRole('button', { name: 'Export encrypted submissions', exact: true }).click(); const packageFile = await download;
+  state.actorId = 43; await page.reload(); await connect(page);
+  await queue.getByLabel('Submission queue passphrase').fill('xml-courier-package-passphrase'); await queue.getByLabel('Import encrypted submissions', { exact: true }).setInputFiles(await packageFile.path());
+  await expect(queue).toContainText('Encrypted submissions imported.');
+  await panel.getByLabel('XML courier grant ID').fill(wire.proof.grant.id); await panel.getByRole('button', { name: 'Inspect XML courier proof' }).click();
+  await panel.getByRole('button', { name: 'Deliver authorized XML' }).click(); await expect(panel.getByRole('alert')).toContainText('operation failed');
+  await panel.getByRole('button', { name: 'Deliver authorized XML' }).click(); await expect(queue).toContainText('Courier delivery acknowledgement saved in the encrypted queue.');
+  expect(wire.deliveries).toEqual([Buffer.from(envelope), Buffer.from(envelope)]); expect(errors).toEqual([]);
 });
