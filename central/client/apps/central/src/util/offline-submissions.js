@@ -11,7 +11,7 @@ const lifetime = 24 * 3600000;
 const exact = (value, keys) => value != null && typeof value === 'object' && !Array.isArray(value) && Object.keys(value).length === keys.length && keys.every(key => Object.hasOwn(value, key));
 const id = value => typeof value === 'string' && value.length > 0 && value.length <= 1000;
 const positive = value => Number.isSafeInteger(value) && value > 0;
-export const submissionIdentity = bytes => {
+export const submissionIdentity = (bytes, includeVersion = false) => {
   if (!bytes.byteLength || bytes.byteLength > XML_LIMIT) throw new Error('Each XML file must be between 1 byte and 1 MB');
   const text = decoder.decode(bytes);
   if (/<!DOCTYPE|<!ENTITY/i.test(text)) throw new Error('XML declarations with entities or document types are unsupported');
@@ -22,7 +22,7 @@ export const submissionIdentity = bytes => {
   const instances = metas.flatMap(meta => Array.from(meta.children).filter(node => node.localName === 'instanceID'));
   if (metas.length !== 1 || instances.length !== 1 || instances[0].children.length || !id(instances[0].textContent.trim()) || !id(root.getAttribute('id')) ||
     document.getElementsByTagNameNS('*', 'deprecatedID').length) throw new Error('Choose a new submission with one meta/instanceID; edited submissions are unsupported');
-  return { xmlFormId: root.getAttribute('id'), instanceId: instances[0].textContent.trim() };
+  return { xmlFormId: root.getAttribute('id'), instanceId: instances[0].textContent.trim(), ...(includeVersion ? { version: root.getAttribute('version') ?? '' } : {}) };
 };
 export const validateSubmissions = async (data, now = Date.now(), origin = window.location.origin) => {
   if (!exact(data, ['schemaVersion', 'origin', 'actorId', 'projectId', 'createdAt', 'expiresAt', 'items']) || data.schemaVersion !== schema || data.origin !== origin ||

@@ -31,18 +31,20 @@
     <label><input type="checkbox" :checked="automatic" :disabled="!automatic && (busy || !canUpload)" @change="toggleSync"> Automatically sync unlocked XML while this page is open</label>
     <p>Automatic sync is optional and ends on pause, lock, logout, reload or expiry. This page must remain open; mobile browsers may suspend it. Media recovery remains separate.</p>
     <p v-if="syncMessage" role="status">{{ syncMessage }}</p>
-    <p v-if="opened && connected && !sameCollector" role="alert">Reconnect as the original collector in the saved project before uploading.</p>
+    <p v-if="opened && connected && !sameCollector" role="alert">Reconnect as the original collector for ordinary uploads, or use authorized XML courier delivery below.</p>
     <p v-if="message" role="status">{{ message }}</p><p v-if="error" role="alert">{{ error }}</p>
+    <field-data-xml-couriers :connected="connected" :identity="identity" :opened="opened" :parent-busy="busy" :send="courierSend" @delivered="courierDelivered"/>
   </section>
 </template>
 <script setup>
 /* eslint-disable no-await-in-loop */
+import FieldDataXmlCouriers from './xml-couriers.vue';
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { submissionRetryDelay } from '../../util/submission-sync';
 import { decryptSubmissions, encryptSubmissions, prepareSubmissions, storedSubmissions } from '../../util/offline-submissions';
 
 defineOptions({ name: 'FieldDataOfflineSubmissions' });
-const props = defineProps({ connected: Boolean, sessionId: { type: Number, required: true }, identity: { type: Object, required: true }, send: { type: Function, required: true } });
+const props = defineProps({ connected: Boolean, sessionId: { type: Number, required: true }, identity: { type: Object, required: true }, send: { type: Function, required: true }, courierSend: { type: Function, required: true } });
 const selected = ref([]); const opened = ref(null); const passphrase = ref(''); const busy = ref(false); const uploading = ref(false); const paused = ref(false); const message = ref(''); const error = ref('');
 const automatic = ref(false); const syncMessage = ref('');
 let generation = 0; let expiryTimer; let retryTimer; let retryAt = 0; let retryCount = 0;
@@ -147,6 +149,15 @@ const online = () => {
 onMounted(() => window.addEventListener('online', online));
 onBeforeUnmount(() => window.removeEventListener('online', online));
 watch(sameCollector, value => { if (!value && automatic.value) pause(); });
+const courierDelivered = manifest => perform(async isCurrent => {
+  if (!opened.value || opened.value.expiresAt <= Date.now()) return;
+  const data = opened.value;
+  const matches = item => item.xmlFormId === manifest.xmlFormId && item.instanceId === manifest.instanceId && item.sha256 === manifest.sha256;
+  if (!data.items.some(matches)) return;
+  const next = { ...data, items: data.items.map(item => matches(item) ? { ...item, delivered: true } : item) };
+  await persist(next, isCurrent);
+  if (isCurrent()) { show(next); message.value = 'Courier delivery acknowledgement saved in the encrypted queue.'; }
+});
 const remove = () => perform(async isCurrent => {
   await storedSubmissions('delete', null, isCurrent);
   if (isCurrent()) { lock(); message.value = 'Saved submissions deleted. Server submissions remain.'; }
