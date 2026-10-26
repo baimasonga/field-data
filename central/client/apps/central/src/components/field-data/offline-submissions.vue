@@ -146,7 +146,7 @@ const online = () => {
 };
 onMounted(() => window.addEventListener('online', online));
 onBeforeUnmount(() => window.removeEventListener('online', online));
-watch(sameCollector, value => { if (!value) pause(); });
+watch(sameCollector, value => { if (!value && automatic.value) pause(); });
 const remove = () => perform(async isCurrent => {
   await storedSubmissions('delete', null, isCurrent);
   if (isCurrent()) { lock(); message.value = 'Saved submissions deleted. Server submissions remain.'; }

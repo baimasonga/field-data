@@ -1166,6 +1166,7 @@ const prepareAutomaticXml = async (page, ids = ['automatic-one']) => {
   await panel.getByLabel('Submission queue passphrase').fill('automatic-sync-passphrase');
   await panel.getByRole('button', { name: 'Encrypt and save submissions' }).click();
   await expect(panel.getByText('Encrypted submissions saved.', { exact: false })).toBeVisible();
+  await expect(panel).not.toContainText('Automatic sync paused.');
   return { ...result, panel, automatic: panel.getByLabel('Automatically sync unlocked XML while this page is open') };
 };
 
