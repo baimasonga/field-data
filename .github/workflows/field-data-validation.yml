@@ -120,7 +120,8 @@ jobs:
       - run: node test/xlsform/roundtrip.js && node test/xlsform/advanced-roundtrip.js && node test/xlsform/extensions-roundtrip.js
 
   frontend-build:
-    runs-on: ubuntu-latest
+    # Playwright 1.60 has no Ubuntu 26.04 browser/dependency support.
+    runs-on: ubuntu-24.04
     defaults:
       run:
         working-directory: central/client
