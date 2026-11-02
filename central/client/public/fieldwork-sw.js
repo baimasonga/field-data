@@ -1,4 +1,5 @@
 // Copyright 2026 Field Data Developers. Licensed under the Apache License, Version 2.0.
+importScripts('/fieldwork-background.js');
 // Only explicitly prepared public page assets are cached; API responses and credentials never are.
 self.addEventListener('push', (event) => {
   let payload;

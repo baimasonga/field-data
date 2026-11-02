@@ -14,7 +14,7 @@ describe('fieldwork browser push worker', () => {
       registration: { showNotification: async (...args) => notifications.push(args) },
       clients: { matchAll: async () => [], openWindow: async path => opened.push(path) }
     };
-    runInNewContext(readFileSync(resolve(__dirname, '../../../../client/public/fieldwork-sw.js'), 'utf8'), { self, URL });
+    runInNewContext(readFileSync(resolve(__dirname, '../../../../client/public/fieldwork-sw.js'), 'utf8'), { self, URL, importScripts: () => {} });
     let pending;
     handlers.push({ data: { json: () => ({ type: 'backcheck-update', tag: 'backcheck-11111111-1111-4111-8111-111111111111',
       question: 'Sensitive instruction', url: 'https://evil.test/' }) }, waitUntil: promise => { pending = promise; } });

@@ -46,3 +46,5 @@ request timeout and access-denial clearing. Unit checks cover delay bounds,
 server-wait parsing and refusal to retry unclassified storage/local failures.
 Existing XML recovery and encrypted-package suites remain regression gates.
 No database migration or server submission protocol change is required.
+
+Opt-in original-collector closed-page delivery is added by [R11](R11-background-xml-delivery.md), using a separate exact-file capability and browser-held outbound key.

@@ -95,7 +95,7 @@ Acknowledge request
     <p v-if="error" role="alert">{{ error }}</p>
     <field-data-media-uploads v-if="connected" :key="sessionId" ref="mediaUploads" :send="mediaSend" :identity="identity" @protect="protectMedia"/>
     <field-data-capture-challenge v-if="connected" :key="`capture-${sessionId}`" :send="captureSend" @capture="restoreMedia"/>
-    <field-data-offline-submissions :connected="connected" :session-id="sessionId" :identity="identity" :send="submissionSend" :courier-send="xmlCourierSend"/>
+    <field-data-offline-submissions :connected="connected" :session-id="sessionId" :identity="identity" :send="submissionSend" :courier-send="xmlCourierSend" :background-send="xmlBackgroundSend"/>
     <field-data-offline-media ref="offlineMedia" :connected="connected" :session-id="sessionId" @restore="restoreMedia"/>
     <field-data-offline-page/>
     <field-data-offline-assignments :connected="connected" :session-id="sessionId"
@@ -244,6 +244,15 @@ const xmlCourierSend = computed(() => {
     const abort = () => requestController.abort(); parentSignal.addEventListener('abort', abort, { once: true });
     const timeout = setTimeout(abort, 60000);
     try { return await mediaRequest(session, path, method, body, null, 'xml-couriers', { raw: method === 'PUT', signal: requestController.signal }); }
+    finally { clearTimeout(timeout); parentSignal.removeEventListener('abort', abort); }
+  };
+});
+const xmlBackgroundSend = computed(() => {
+  const session = sessionId.value;
+  return async (path, method, body) => {
+    const requestController = new AbortController(); const parentSignal = controller.signal;
+    const abort = () => requestController.abort(); parentSignal.addEventListener('abort', abort, { once: true }); const timeout = setTimeout(abort, 60000);
+    try { return await mediaRequest(session, path, method, body, null, 'xml-background', { signal: requestController.signal }); }
     finally { clearTimeout(timeout); parentSignal.removeEventListener('abort', abort); }
   };
 });

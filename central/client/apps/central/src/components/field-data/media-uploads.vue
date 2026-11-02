@@ -2,7 +2,7 @@
 <template>
   <section class="media-uploads" aria-labelledby="media-uploads-title">
     <h2 id="media-uploads-title">Recover media uploads</h2>
-    <p>The submission XML must already be received by this server. Attach missing files from your own unedited submission or a current edit with an XML courier receipt. For a courier edit, use the replacement instance ID. This does not change ODK Collect's native upload protocol.</p>
+    <p>The submission XML must already be received by this server. Attach missing files from your own unedited submission or a current edit with a courier or background delivery receipt. For a courier edit, use the replacement instance ID. This does not change ODK Collect's native upload protocol.</p>
     <p>Verified chunks resume after an interruption. Temporary uploads expire after 24 hours. This queue keeps files in memory; after reopening, reconnect and reselect the same file or unlock an encrypted media package below. Access keys are never saved in browser storage.</p>
     <form @submit.prevent>
       <fieldset :disabled="busy">
