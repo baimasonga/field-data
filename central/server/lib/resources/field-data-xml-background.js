@@ -33,12 +33,14 @@ const proof = async (tx, target, authorization) => {
   return { target, authorization, events, sourceAvailable, checkedAt: new Date().toISOString(), limitations: 'An exact-file browser delivery authorization; no proof of account presence, physical custody or absence of later events.' };
 };
 const visits = new Map();
-const rateLimit = (request, response, next) => {
-  const now = Date.now(); const { ip } = request; let row = visits.get(ip);
-  if (!row && visits.size >= 1000) for (const [key, value] of visits) if (now - value.at > 60000) visits.delete(key);
-  if (!row && visits.size >= 1000) { response.set('Retry-After', '60').status(429).json({ message: 'Please retry in a minute.' }); return; }
-  if (!row || now - row.at > 60000) { row = { at: now, count: 0 }; visits.set(ip, row); }
-  row.count += 1; if (row.count > 120) { response.set('Retry-After', '60').status(429).json({ message: 'Please retry in a minute.' }); return; } next();
+// Only verified capabilities enter this bounded, process-local retry limiter.
+// Proxy addresses and unauthenticated requests must not share collector quotas.
+const rateLimit = (key, response) => {
+  const now = Date.now(); let row = visits.get(key);
+  if (!row && visits.size >= 1000) for (const [id, value] of visits) if (now - value.at > 60000) visits.delete(id);
+  if (!row && visits.size >= 1000) visits.delete(visits.keys().next().value);
+  if (!row || now - row.at > 60000) { row = { at: now, count: 0 }; visits.set(key, row); }
+  row.count += 1; if (row.count > 120) { response.set('Retry-After', '60').status(429); return false; } return true;
 };
 module.exports = (service, endpoint, anonymousEndpoint) => {
   const root = '/field-data/app-user/xml-background';
@@ -112,11 +114,12 @@ module.exports = (service, endpoint, anonymousEndpoint) => {
     });
     response.set('Cache-Control', 'private, no-store'); return result;
   }));
-  service.put(`${root}/:id/deliver`, rateLimit, anonymousEndpoint(async (c, { params }, request, response) => {
+  service.put(`${root}/:id/deliver`, anonymousEndpoint(async (c, { params }, request, response) => {
     const token = request.headers['x-field-data-delivery-token'];
     if (typeof token !== 'string' || !/^[A-Za-z0-9_-]{43}$/.test(token) || Buffer.from(token, 'base64url').toString('base64url') !== token) throw Problem.user.notFound();
     const initial = await get(c, params.id);
     if (!timingSafeEqual(Buffer.from(xml.digest(token), 'hex'), Buffer.from(initial.authorization.tokenHash, 'hex'))) throw Problem.user.notFound();
+    if (!rateLimit(initial.authorization.id, response)) return { message: 'Please retry in a minute.' };
     const bytes = await xml.readBytes(request); const parsed = await xml.parse(bytes);
     const result = await c.transacting(async tx => {
       const { target, authorization } = await get(tx, params.id, true);

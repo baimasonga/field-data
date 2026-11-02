@@ -67,7 +67,11 @@ A separate anonymous PUT route accepts only a 43-character exact-file token in
 constant-time comparison. It cannot read answers, inspect proofs or authorize
 another job. All creation/inspection/revocation APIs still require the original
 App User key, and unrelated accounts cannot inspect or revoke the authorization.
-The public PUT is rate-limited; raw XML is bounded to 1 MiB and parsed strictly.
+The public PUT allows 120 attempts per verified authorization per minute in each
+server process; invalid tokens do not consume another collector's allowance.
+The bounded limiter evicts old entries rather than blocking unrelated jobs when
+full. It is a retry guard, not distributed denial-of-service protection. Raw XML
+is bounded to 1 MiB and parsed strictly.
 
 Every delivery rechecks current collector/project/form/version permission, exact
 manifest, database expiry, permanent revocation and signing authority. Edits also

@@ -24,6 +24,18 @@ const setup = async service => {
   return { alice, owner, other, bytes, token, body, as, deliver };
 };
 describe('api: background XML capability delivery', () => {
+  it('isolates verified capability retry limits behind a shared proxy and ignores invalid tokens', testService(async service => withSigning(async () => {
+    const { owner, bytes, body, as, deliver } = await setup(service);
+    await as(owner, 'post').send(body).expect(200);
+    const invalid = randomBytes(32).toString('base64url');
+    for (let index = 0; index < 121; index += 1) await deliver(body.id, bytes, invalid).expect(404);
+    for (let index = 0; index < 120; index += 1) await deliver(body.id, Buffer.from('<broken')).expect(400);
+    await deliver(body.id).expect(429).expect('Retry-After', '60');
+    await as(owner, 'post', `/${body.id}/revoke`).send({ requestId: randomUUID(), reason: 'Replace the throttled background authorization.' }).expect(200);
+    const token = randomBytes(32).toString('base64url'); const replacement = { ...body, id: randomUUID(), tokenHash: xml.digest(token) };
+    await as(owner, 'post').send(replacement).expect(200);
+    await deliver(replacement.id, bytes, token).expect(200);
+  })));
   it('authorizes metadata only and delivers exact bytes without an App User key with native collector attribution', testService(async (service, c) => withSigning(async keys => {
     const { owner, other, bytes, token, body, as, deliver } = await setup(service);
     const issued = (await as(owner, 'post').send(body).expect(200)).body; assert.equal(JSON.stringify(issued).includes(token), false); assert.equal(JSON.stringify(issued).includes('<data'), false);
