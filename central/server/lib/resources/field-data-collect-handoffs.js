@@ -14,9 +14,9 @@ const file = value => exact(value, ['size', 'sha256']) && Number.isSafeInteger(v
 const manifestFor = body => {
   if (!exact(body, ['xmlFormId', 'instanceId', 'version', 'xml', 'files']) || !['xmlFormId', 'instanceId', 'version'].every(k => typeof body[k] === 'string' && body[k].length <= 1000 && body[k].trim() === body[k] && !/[\u0000-\u001f\u007f]/.test(body[k])) || !body.xmlFormId || !body.instanceId || !file(body.xml) || body.xml.size > 1048576 || !Array.isArray(body.files) || body.files.length > 10) throw invalid();
   const names = new Set(); let total = 0;
-  for (const f of body.files) {
-    if (!exact(f, ['name', 'size', 'sha256']) || typeof f.name !== 'string' || !f.name.length || f.name.length > 255 || /[/\\\u0000-\u001f\u007f]/.test(f.name) || !file({ size: f.size, sha256: f.sha256 }) || names.has(f.name)) throw invalid(); // eslint-disable-line no-control-regex
-    names.add(f.name); total += f.size;
+  for (const entry of body.files) {
+    if (!exact(entry, ['name', 'size', 'sha256']) || typeof entry.name !== 'string' || !entry.name.length || entry.name.length > 255 || /[/\\\u0000-\u001f\u007f]/.test(entry.name) || !file({ size: entry.size, sha256: entry.sha256 }) || names.has(entry.name)) throw invalid(); // eslint-disable-line no-control-regex
+    names.add(entry.name); total += entry.size;
   }
   if (total > 20971520) throw invalid();
   return { ...body, files: [...body.files].sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0)) };
@@ -49,8 +49,8 @@ module.exports = (service, endpoint) => {
       if (!source) throw Problem.user.notFound();
       if (Buffer.byteLength(source.xml) !== manifest.xml.size || hash(source.xml) !== manifest.xml.sha256) throw conflict();
       const attachments = await tx.db.any(sql`SELECT name,"blobId" FROM submission_attachments WHERE "submissionDefId"=${source.id} ORDER BY name FOR SHARE`);
-      if (attachments.length !== manifest.files.length || attachments.some(a => !a.blobId || !manifest.files.some(f => f.name === a.name))) throw conflict();
-      for (const attachment of attachments) await verifyBlob(tx, attachment.blobId, manifest.files.find(f => f.name === attachment.name));
+      if (attachments.length !== manifest.files.length || attachments.some(a => !a.blobId || !manifest.files.some(entry => entry.name === a.name))) throw conflict();
+      for (const attachment of attachments) await verifyBlob(tx, attachment.blobId, manifest.files.find(entry => entry.name === attachment.name));
       const settings = xml.config(); if (!settings) throw xml.invalid('Handoff snapshot signing is unavailable. The original files remain unchanged.');
       const { at } = await tx.db.one(sql`SELECT clock_timestamp() AS at`);
       const details = { projectId, ownerId: actor.id, formId: form.id, formDefId: form.formDefId, submissionDefId: source.id, manifest, manifestHash: hash(canonical(manifest)), submissionReceivedAt: new Date(source.createdAt).toISOString(), verifiedAt: new Date(at).toISOString(), issuer: settings.origin, purpose: 'field-data.collect-handoff-snapshot@1' };
