@@ -378,7 +378,7 @@ acceptance remain separate from software delivery. Later release notes that say
 | --- | --- | --- |
 | Knowledge | Asset identities/facts/history/freshness; cited maps and named areas; verified local perceptual photo review; scoped answer/latent-semantic retrieval; shared versioned decision projections; declared causal contracts, diagnostics and conditional adjusted estimates | Release acceptance is tracked in the completion contract. Field effectiveness, identity-threshold calibration and empirical causal assumptions remain separate evaluation activities |
 | Evidence/trust | Evidence graph, challenges/replay checks, signed witnesses with correction/withdrawal history and server-attested project key revocation, time-bounded form witness delegation with signed receipts, second-manager reviewed account/key certificates with expiry and revocation, enrolled external sensor keys, signed source-bound readings and review/receipt history, human assessments and device-reported location | Independent identity-provider/document validation; physical sensor commissioning, anti-relay/hardware assurance and calibrated presence evaluation |
-| Offline resilience | Signed encrypted assignments/itineraries; recoverable resumable media; encrypted XML queues and open-page automatic sync; delegated XML/media couriers with signed custody, native encrypted-envelope transport, version-bound edits and opt-in original-collector Background Sync with exact-file capabilities and signed receipts | Closed-page courier/media transport, Collect-native queue integration and physical/device acceptance |
+| Offline resilience | Signed encrypted assignments/itineraries; recoverable resumable media; encrypted XML queues and open-page automatic sync; delegated XML/media couriers with signed custody, native encrypted-envelope transport, version-bound edits and opt-in collector/courier Background Sync with exact-file capabilities and linked signed receipts | Closed-page media transport, Collect-native queue integration and physical/device acceptance |
 | Operations | Sampling, allocation, shared capacity, same-day/overnight UTC shifts, combined approved itineraries, manual/scheduled collector/answer sampling with group-specific rates, numeric ranges, polygon groups, inspectable design weights, conditional calibrated binary estimates, approved-stop navigation handoff and agreement counts | Additional task types, built-in/offline routing, external benchmark calibration and validated outcome inference |
 | Geospatial | Location integrity, imagery availability and cited human geospatial assessments with temporal context and outdated history | Exact footprint checks, reviewed change candidates, imagery analysis and evaluated automated change detection |
 | Fraud intelligence | Contradictions, identity reuse, similarity, collector links, investigations/outcomes, live case links and targeted backcheck questions with reviewed form drafts and same-form/cross-form shared-identity peer targeting | Broader peer families, multilingual/effectiveness evaluation, calibrated triage and false-positive evaluation |
@@ -680,3 +680,16 @@ receipt recovery rechecks current source before encrypted queue acknowledgement.
 See [R11-background-xml-delivery.md](R11-background-xml-delivery.md). Browser/OS
 scheduling remains best effort. Closed-page courier/media transport,
 Collect-native integration and physical/device acceptance remain pending.
+
+
+### R12 background XML couriers
+
+Named couriers can verify an existing exact XML grant and authorize a closed-page
+browser continuation for an imported encrypted package. The collector key is not
+shared; native ownership and ordinary/encrypted edit lineage remain with the
+collector. Original grant expiry/revocation, source access and sender account
+remain authoritative. Version-2 background proofs cross-bind the R8/R10 custody
+chain; collector or courier may cancel the separate continuation. See
+[R12-background-xml-couriers.md](R12-background-xml-couriers.md).
+Closed-page media, native Collect integration and physical/device acceptance
+remain pending. Browser scheduling remains best effort.

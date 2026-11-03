@@ -137,3 +137,5 @@ OS scheduling or guaranteed delivery time.
 Closed-page delegated-courier/media transport, Collect-native queue integration
 and physical/device acceptance remain pending. The eight-area programme remains
 partial outside Knowledge's separately recorded software completion contract.
+
+Named courier continuations are added by [R12](R12-background-xml-couriers.md).

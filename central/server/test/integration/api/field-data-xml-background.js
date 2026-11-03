@@ -150,3 +150,83 @@ describe('api: background XML capability delivery', () => {
   })));
 
 });
+
+
+const courierSetup = async service => {
+  const f = await setup(service);
+  const granted = (await service.post('/v1/field-data/app-user/xml-couriers').set('Authorization', `Bearer ${f.owner.token}`).send({ requestId: randomUUID(), courierId: f.other.id, minutes: 60, manifest: f.body.manifest }).expect(200)).body;
+  return { ...f, granted, courierBody: { ...f.body, courierGrantId: granted.grant.id } };
+};
+describe('api: courier background XML continuation', () => {
+  it('binds a named courier continuation, preserves collector attribution and exports both signed custody chains', testService(async (service, c) => withSigning(async keys => {
+    const { owner, other, bytes, token, granted, courierBody, as, deliver } = await courierSetup(service);
+    await as(other, 'post').send({ ...courierBody, courierGrantId: undefined }).expect(404);
+    const issued = (await as(other, 'post').send(courierBody).expect(200)).body;
+    assert.equal(issued.authorization.ownerId, owner.id); assert.equal(issued.authorization.senderId, other.id); assert.equal(issued.authorization.courierGrantId, granted.grant.id); assert.equal(JSON.stringify(issued).includes(token), false);
+    assert.equal((await as(other, 'post').send(courierBody).expect(200)).body.authorization.id, courierBody.id);
+    const accepted = (await deliver(courierBody.id).expect(200)).body; await deliver(courierBody.id).expect(200);
+    assert.equal(accepted.events[0].details.receivedBy, other.id); assert.equal(accepted.courier.events[0].details.receivedBy, other.id); assert.equal(accepted.courier.events[0].details.backgroundAuthorizationId, courierBody.id);
+    const source = await c.db.one(sql`SELECT xml,"submitterId" FROM submission_defs WHERE id=${accepted.events[0].details.submissionDefId}`); assert.equal(source.submitterId, owner.id); assert.equal(xml.digest(source.xml), xml.digest(bytes));
+    const audit = await c.db.one(sql`SELECT "actorId",details FROM audits WHERE action='field_data.xml.courier.delivery' AND details->>'backgroundAuthorizationId'=${courierBody.id}`); assert.equal(audit.actorId, null); assert.equal(audit.details.receivedBy, other.id);
+    // eslint-disable-next-line import/extensions, import/no-relative-packages
+    const { verifyXmlBackgroundProof } = await import('../../../../../cloudflare/verify-xml-background.mjs');
+    const pins = { issuer: 'https://background.example', projectId: 1, publicKeys: [keys.publicKey.export({ format: 'jwk' })] };
+    assert.equal(verifyXmlBackgroundProof(accepted, pins).authorization.senderId, other.id);
+    const swapped = JSON.parse(JSON.stringify(accepted)); swapped.courier.grant.courierId = owner.id; assert.throws(() => verifyXmlBackgroundProof(swapped, pins));
+    await as(owner, 'get', `/${courierBody.id}`).expect(200); await as(other, 'get', `/${courierBody.id}`).expect(200);
+    assert.equal((await as(other, 'get', '?xmlFormId=simple&instanceId=background-new').expect(200)).body.items.length, 1);
+  })));
+  it('rejects another recipient, extended expiry and revoked collector authority without creating native XML', testService(async (service, c) => withSigning(async () => {
+    const { alice, owner, other, granted, courierBody, as, deliver } = await courierSetup(service);
+    const stranger = (await alice.post('/v1/projects/1/app-users').send({ displayName: 'Unrelated courier' }).expect(200)).body;
+    await as(stranger, 'post').send(courierBody).expect(404);
+    await as(other, 'post').send({ ...courierBody, expiresAt: new Date(Date.parse(granted.grant.expiresAt) + 1000).toISOString() }).expect(404);
+    await as(other, 'post').send(courierBody).expect(200);
+    await service.post(`/v1/field-data/app-user/xml-couriers/${granted.grant.id}/revoke`).set('Authorization', `Bearer ${owner.token}`).send({ requestId: randomUUID(), reason: 'Collector withdrew this courier transport permission.' }).expect(200);
+    await deliver(courierBody.id).expect(404);
+    await as(other, 'post').send({ ...courierBody, id: randomUUID() }).expect(404);
+    assert.equal(await c.db.oneFirst(sql`SELECT count(*)::integer FROM submissions WHERE "instanceId"='background-new'`), 0);
+  })));
+  it('lets the collector or sender cancel a continuation and keeps source and recipient permissions live', testService(async service => withSigning(async () => {
+    const { alice, owner, other, courierBody, as, deliver } = await courierSetup(service);
+    await as(other, 'post').send(courierBody).expect(200);
+    await alice.delete(`/v1/projects/1/forms/simple/assignments/app-user/${owner.id}`).expect(200); await deliver(courierBody.id).expect(404);
+    await as(other, 'post', `/${courierBody.id}/revoke`).send({ requestId: randomUUID(), reason: 'Courier stopped this browser copy after access changed.' }).expect(200);
+    await alice.post(`/v1/projects/1/forms/simple/assignments/app-user/${owner.id}`).expect(200);
+    const replacement = { ...courierBody, id: randomUUID() }; await as(other, 'post').send(replacement).expect(200);
+    await as(owner, 'post', `/${replacement.id}/revoke`).send({ requestId: randomUUID(), reason: 'Collector stopped this browser continuation directly.' }).expect(200); await deliver(replacement.id).expect(404);
+  })));
+  it('serializes foreground and background courier delivery and retains both receipts after purge', testServiceFullTrx(async (service, c) => withSigning(async () => {
+    const { other, bytes, granted, courierBody, as, deliver } = await courierSetup(service); await as(other, 'post').send(courierBody).expect(200);
+    const foreground = () => service.put(`/v1/field-data/app-user/xml-couriers/${granted.grant.id}/deliver`).set('Authorization', `Bearer ${other.token}`).set('Content-Type', 'application/octet-stream').send(bytes);
+    const results = await Promise.all([foreground(), deliver(courierBody.id), deliver(courierBody.id)]); assert.deepEqual(results.map(result => result.status), [200, 200, 200]);
+    const receipt = (await as(other, 'get', `/${courierBody.id}`).expect(200)).body; assert.equal(receipt.events.length, 1); assert.equal(receipt.courier.events.length, 1);
+    await c.db.query(sql`DELETE FROM submissions WHERE "instanceId"='background-new'`);
+    assert.equal((await as(other, 'get', `/${courierBody.id}`).expect(200)).body.sourceAvailable, false); await deliver(courierBody.id).expect(404); await foreground().expect(404);
+  })));
+  it('preserves encrypted edit lineage, collector identity and populated courier history across migration rollback', testServiceFullTrx(async (service, c) => withSigning(async keys => {
+    const { owner, other, body, as, deliver } = await setup(service);
+    const original = Buffer.from('<data id="simple"><base64EncryptedKey>a2V5</base64EncryptedKey><encryptedXmlFile>submission.xml.enc</encryptedXmlFile><base64EncryptedElementSignature>c2ln</base64EncryptedElementSignature><meta><instanceID>courier-background-prior</instanceID></meta></data>');
+    await service.post('/v1/projects/1/submission').set('Authorization', `Bearer ${owner.token}`).set('X-OpenRosa-Version', '1.0').attach('xml_submission_file', original, { filename: 'submission.xml' })
+      .expect(201);
+    const bytes = Buffer.from(original.toString().replace('<instanceID>courier-background-prior</instanceID>', '<instanceID>courier-background-edit</instanceID><deprecatedID>courier-background-prior</deprecatedID>'));
+    const parsed = await xml.parse(bytes); const manifest = { ...parsed.manifest, deprecatedId: parsed.deprecatedId, baseSha256: xml.digest(original) };
+    const granted = (await service.post('/v1/field-data/app-user/xml-couriers').set('Authorization', `Bearer ${owner.token}`).send({ requestId: randomUUID(), courierId: other.id, minutes: 60, manifest }).expect(200)).body;
+    await as(other, 'post').send({ ...body, manifest, courierGrantId: granted.grant.id }).expect(200); const accepted = (await deliver(body.id, bytes).expect(200)).body;
+    assert.equal(accepted.events[0].details.baseSha256, xml.digest(original)); assert.equal(accepted.courier.events[0].details.baseSubmissionDefId, accepted.events[0].details.baseSubmissionDefId);
+    assert.equal(await c.db.oneFirst(sql`SELECT "submitterId" FROM submission_defs WHERE id=${accepted.events[0].details.submissionDefId}`), owner.id);
+    // eslint-disable-next-line import/extensions, import/no-relative-packages
+    const { verifyXmlBackgroundProof } = await import('../../../../../cloudflare/verify-xml-background.mjs');
+    assert.equal(verifyXmlBackgroundProof(accepted, { issuer: 'https://background.example', projectId: 1, publicKeys: [keys.publicKey.export({ format: 'jwk' })] }).events[0].receivedBy, other.id);
+    const { knexConnect } = require('../../../lib/model/knex-migrator'); const migration = require('../../../lib/model/migrations/20261103-01-background-xml-couriers'); const db = knexConnect(require('config').get('test.database'));
+    try { await db.transaction(async trx => { await migration.down(trx); await migration.up(trx); }); } finally { await db.destroy(); }
+    const retained = (await as(other, 'get', `/${body.id}`).expect(200)).body; assert.equal(retained.authorization.senderId, other.id); assert.equal(retained.authorization.courierGrantId, granted.grant.id);
+  })));
+  it('serializes original collector revocation against background delivery', testServiceFullTrx(async (service, c) => withSigning(async () => {
+    const { owner, other, granted, courierBody, as, deliver } = await courierSetup(service); await as(other, 'post').send(courierBody).expect(200);
+    const results = await Promise.all([deliver(courierBody.id), service.post(`/v1/field-data/app-user/xml-couriers/${granted.grant.id}/revoke`).set('Authorization', `Bearer ${owner.token}`).send({ requestId: randomUUID(), reason: 'Collector withdrew the original grant during delivery.' })]);
+    assert.ok([200, 404].includes(results[0].status)); assert.equal(results[1].status, 200); await deliver(courierBody.id).expect(404);
+    assert.equal(await c.db.oneFirst(sql`SELECT count(*)::integer FROM submissions WHERE "instanceId"='background-new'`), results[0].status === 200 ? 1 : 0);
+  })));
+
+});
