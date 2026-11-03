@@ -97,6 +97,7 @@ Acknowledge request
     <field-data-capture-challenge v-if="connected" :key="`capture-${sessionId}`" :send="captureSend" @capture="restoreMedia"/>
     <field-data-offline-submissions :connected="connected" :session-id="sessionId" :identity="identity" :send="submissionSend" :courier-send="xmlCourierSend" :background-send="xmlBackgroundSend"/>
     <field-data-offline-media ref="offlineMedia" :connected="connected" :session-id="sessionId" @restore="restoreMedia"/>
+    <field-data-collect-delivery v-if="connected" :key="sessionId" :identity="identity" :fetch-receipts="collectDelivery"/>
     <field-data-collect-auto-send v-if="connected" :key="sessionId" :identity="identity" :prepare-settings="collectSettings"/>
     <field-data-collect-handoff :connected="connected" :session-id="sessionId" :identity="identity" :send-files="collectSend" :verify-files="collectVerify"/>
     <field-data-offline-page/>
@@ -116,6 +117,7 @@ import FieldDataItineraryStops from './itinerary-stops.vue';
 import FieldDataOfflinePage from './offline-page.vue';
 import FieldDataCollectHandoff from './collect-handoff.vue';
 import FieldDataCollectAutoSend from './collect-auto-send.vue';
+import FieldDataCollectDelivery from './collect-delivery.vue';
 import FieldDataOfflineAssignments from './offline-assignments.vue';
 
 defineOptions({ name: 'FieldDataFieldwork' });
@@ -251,6 +253,7 @@ const collectSend = computed(() => {
     if (!response.ok) { if ([401, 403].includes(response.status) && session === sessionId.value) { offlineRevocation.value += 1; clear(); error.value = 'Access changed. Reconnect as the original collector.'; } const failure = new Error('Collect handoff refused'); failure.status = response.status; throw failure; }
   };
 });
+const collectDelivery = computed(() => { const session = sessionId.value; return cursor => mediaRequest(session, cursor == null ? '' : `?cursor=${encodeURIComponent(cursor)}`, 'GET', null, null, 'collect-delivery', { signal: AbortSignal.any([controller.signal, AbortSignal.timeout(60000)]) }); });
 const collectSettings = computed(() => {
   const session = sessionId.value;
   return policy => {
