@@ -1,6 +1,7 @@
 import jsQR from 'jsqr';
 import pako from 'pako';
 import { nextTick } from 'vue';
+import sinon from 'sinon';
 
 import CollectQr from '../../src/components/collect-qr.vue';
 
@@ -34,6 +35,23 @@ const qrData = (component) => {
 };
 
 describe('CollectQr', () => {
+  it('never logs sensitive settings when developer tools are enabled', async () => {
+    const log = sinon.stub(console, 'log');
+    const component = mount(CollectQr, {
+      attachTo: document.body,
+      props: { settings: { general: { server_url: 'https://example.test/private-key' }, admin: {} }, sensitive: true, errorCorrectionLevel: 'L', cellSize: 2 },
+      global: { provide: { config: { devTools: true } } }
+    });
+    try {
+      await nextTick();
+      await component.get('img').trigger('click');
+      log.called.should.equal(false);
+    } finally {
+      component.unmount();
+      log.restore();
+    }
+  });
+
   it('renders an image', async () => {
     const { childNodes } = mountComponent().get('span').element;
     await nextTick(); // wait for QR image to render in canvas

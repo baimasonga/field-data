@@ -97,6 +97,7 @@ Acknowledge request
     <field-data-capture-challenge v-if="connected" :key="`capture-${sessionId}`" :send="captureSend" @capture="restoreMedia"/>
     <field-data-offline-submissions :connected="connected" :session-id="sessionId" :identity="identity" :send="submissionSend" :courier-send="xmlCourierSend" :background-send="xmlBackgroundSend"/>
     <field-data-offline-media ref="offlineMedia" :connected="connected" :session-id="sessionId" @restore="restoreMedia"/>
+    <field-data-collect-auto-send v-if="connected" :key="sessionId" :identity="identity" :prepare-settings="collectSettings"/>
     <field-data-collect-handoff :connected="connected" :session-id="sessionId" :identity="identity" :send-files="collectSend" :verify-files="collectVerify"/>
     <field-data-offline-page/>
     <field-data-offline-assignments :connected="connected" :session-id="sessionId"
@@ -114,6 +115,7 @@ import FieldDataOfflineMedia from './offline-media.vue';
 import FieldDataItineraryStops from './itinerary-stops.vue';
 import FieldDataOfflinePage from './offline-page.vue';
 import FieldDataCollectHandoff from './collect-handoff.vue';
+import FieldDataCollectAutoSend from './collect-auto-send.vue';
 import FieldDataOfflineAssignments from './offline-assignments.vue';
 
 defineOptions({ name: 'FieldDataFieldwork' });
@@ -247,6 +249,17 @@ const collectSend = computed(() => {
     for (const file of data.media) body.append(file.name, new Blob([decode(file.bytes, 20971520)], { type: file.contentType }), file.name);
     const response = await fetch(`/v1/projects/${data.projectId}/submission`, { method: 'POST', credentials: 'omit', cache: 'no-store', redirect: 'error', signal: AbortSignal.any([controller.signal, AbortSignal.timeout(120000)]), headers: { Authorization: `Bearer ${token}`, 'X-OpenRosa-Version': '1.0' }, body });
     if (!response.ok) { if ([401, 403].includes(response.status) && session === sessionId.value) { offlineRevocation.value += 1; clear(); error.value = 'Access changed. Reconnect as the original collector.'; } const failure = new Error('Collect handoff refused'); failure.status = response.status; throw failure; }
+  };
+});
+const collectSettings = computed(() => {
+  const session = sessionId.value;
+  return policy => {
+    if (session !== sessionId.value || !connected.value || !token) throw new Error('Collect session ended');
+    if (!['off', 'wifi_only', 'cellular_only', 'wifi_and_cellular'].includes(policy)) throw new Error('Invalid network policy');
+    return {
+      general: { server_url: `${window.location.origin}/v1/key/${encodeURIComponent(token)}/projects/${identity.value.projectId}`, autosend: policy, delete_send: false },
+      project: { name: identity.value.projectName }, admin: {}
+    };
   };
 });
 const collectVerify = computed(() => { const session = sessionId.value; return manifest => mediaRequest(session, '/verify', 'POST', manifest, null, 'collect-handoffs', { signal: AbortSignal.any([controller.signal, AbortSignal.timeout(120000)]) }); });
