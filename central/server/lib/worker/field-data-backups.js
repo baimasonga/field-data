@@ -36,16 +36,22 @@ const runBackups = (db, dependencies = {}) => db.connect(async connection => {
     const timer = setTimeout(() => abort.abort(new Error('Backup exceeded its time limit.')),
       dependencies.timeoutMs || 30 * 60 * 1000);
     let input;
+    // Store only fixed stage labels in the database. Provider errors may include
+    // object paths, request details or other information unsuitable for the UI.
+    let stage = 'configuration';
     try {
       const passphrase = process.env.FIELD_DATA_BACKUP_PASSPHRASE;
       if (typeof passphrase !== 'string' || passphrase.length < 16) {
         throw new Error('A backup passphrase of at least 16 characters is required.');
       }
+      stage = record.type === 'Recovery' ? 'recovery archive creation' : 'encrypted database dump';
       input = record.type === 'Recovery'
         ? await (dependencies.recovery || getRecoveryBundle)(connection, passphrase, { signal: abort.signal, storage: store })
         : await dump(passphrase, { signal: abort.signal });
+      stage = 'object storage upload';
       const bytes = await store.putStream(key, input,
         { 'Content-Type': 'application/octet-stream' }, { signal: abort.signal });
+      stage = 'backup completion record';
       await connection.query(sql`
         update field_data_backups set status='Success', "statusColor"='success',
           size=${formatBytes(bytes)}, "sizeBytes"=${bytes}, error=null, "completedAt"=clock_timestamp()
@@ -54,10 +60,16 @@ const runBackups = (db, dependencies = {}) => db.connect(async connection => {
       // Persist failure before cleanup, which can itself fail during an outage.
       await connection.query(sql`
         update field_data_backups set status='Failed', "statusColor"='danger',
-          error='Backup failed. Check the server logs and retry.', "completedAt"=clock_timestamp()
+          error=${`Backup failed during ${stage}. Check the server logs and retry.`}, "completedAt"=clock_timestamp()
         where id=${record.id}`);
-      process.stderr.write(`Field Data backup ${record.id} failed: ${error.message}\n`);
-      await store.delete(key);
+      process.stderr.write(`Field Data backup ${record.id} failed during ${stage}: ${error.message}\n`);
+      // Cleanup is best-effort: a storage outage must not replace the primary
+      // failure or turn a recorded Failed job into an unhandled runner error.
+      try {
+        await store.delete(key);
+      } catch (cleanupError) {
+        process.stderr.write(`Field Data backup ${record.id} cleanup failed (check object storage).\n`);
+      }
     } finally {
       clearTimeout(timer);
       abort.abort();
