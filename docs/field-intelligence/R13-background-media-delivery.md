@@ -22,7 +22,8 @@ Challenged camera photos remain foreground-only.
    original collector/sender identities. Inspection rechecks current attachment
    availability. **Download background media proof** retains the signed history.
 4. **Cancel background media authorization** stops the local copy first and
-   requests permanent server revocation. Retry if revocation is unconfirmed.
+   requests permanent server revocation. Retry if revocation is unconfirmed. Repeating cancellation confirms the original
+   immutable revocation even after a lost response or browser restart.
    Already accepted attachments cannot be undone. Confirmed chunks remain usable
    through foreground delivery until the transfer is cancelled or expires.
 
@@ -73,6 +74,8 @@ Uncertain authorization retries preserve the exact UUID, token hash and deadline
 
 Limits: 20 MiB/file, 10 active local copies/100 MiB total, 100 local history rows,
 1,000 authorizations/project and 20/transfer. One live authorization per transfer.
+Server history lists the 50 most recent participant authorizations; retained local
+history can inspect older authorization IDs directly.
 The deadline is at most 24 hours and cannot exceed the upload or courier grant.
 The worker processes at most two files/wake, 80 chunks/file and a 90-second chunk
 loop; partial progress resumes from the server-confirmed offset. Requests have a

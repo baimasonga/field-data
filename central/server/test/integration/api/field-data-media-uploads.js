@@ -342,7 +342,8 @@ describe('api: scoped background media delivery', () => {
     await bg(collector, 'post').send({ ...body, tokenHash: 'a'.repeat(64) }).expect(409);
     await alice.delete(`/v1/projects/1/forms/binaryType/assignments/app-user/${collector.id}`).expect(200); await chunk(0, data.subarray(0, CHUNK)).expect(404);
     await alice.post(`/v1/projects/1/forms/binaryType/assignments/app-user/${collector.id}`).expect(200);
-    await bg(collector, 'post', `/${body.id}/revoke`).send({ requestId: randomUUID(), reason: 'Stop this exact background file authorization.' }).expect(200); await cap('get', '/progress').expect(404);
+    const revoked = (await bg(collector, 'post', `/${body.id}/revoke`).send({ requestId: randomUUID(), reason: 'Stop this exact background file authorization.' }).expect(200)).body.event;
+    const retried = (await bg(collector, 'post', `/${body.id}/revoke`).send({ requestId: randomUUID(), reason: 'Confirm cancellation after its first response was lost.' }).expect(200)).body.event; assert.equal(retried.id, revoked.id); assert.equal(retried.details.reason, revoked.details.reason); await cap('get', '/progress').expect(404);
     const replacement = { ...body, id: randomUUID(), expiresAt: new Date(Date.now() + 2000).toISOString() }; await bg(collector, 'post').send(replacement).expect(200);
     await new Promise(resolve => { setTimeout(resolve, 2100); }); await service.get(`/v1/field-data/app-user/media-background/${replacement.id}/progress`).set('X-Field-Data-Delivery-Token', token).expect(404);
   })));

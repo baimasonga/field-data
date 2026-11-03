@@ -83,7 +83,9 @@ module.exports = (service, endpoint, anonymousEndpoint) => {
     const result = await c.transacting(async tx => {
       const row = await get(tx, params.id, true); if (![row.ownerId, row.senderId].includes(actor.id) || !await courier.account(tx, actor.id, row.projectId)) throw Problem.user.notFound();
       const requestHash = courier.digest(body.reason); const previous = await tx.db.maybeOne(sql`SELECT * FROM field_data_media_background_events WHERE "authorizationId"=${row.id} AND kind='revoke'`);
-      if (previous) { if (previous.requestId !== body.requestId || previous.requestHash !== requestHash) throw conflict(); return { event: previous }; }
+      // Revocation is permanent. An authorized retry acknowledges the original event
+      // even if the first response was lost or the browser was restarted.
+      if (previous) return { event: previous };
       const { at } = await tx.db.one(sql`SELECT clock_timestamp() AS at`); const settings = courier.config();
       const details = { authorizationId: row.id, uploadId: row.uploadId, projectId: row.projectId, ownerId: row.ownerId, senderId: row.senderId, revokedBy: actor.id, revokedAt: new Date(at).toISOString(), reason: body.reason, authorizationPayloadHash: courier.digest(Buffer.from(row.attestation.payload, 'base64url')) };
       const event = await tx.db.one(sql`INSERT INTO field_data_media_background_events(id,"authorizationId",kind,"requestId","requestHash",details,attestation) VALUES(${randomUUID()},${row.id},'revoke',${body.requestId},${requestHash},${JSON.stringify(details)},${settings ? JSON.stringify(attest(settings, 'revoke', details)) : null}) RETURNING *`);
