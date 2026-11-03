@@ -7,12 +7,13 @@ import { createHash, generateKeyPairSync, randomUUID, sign } from 'node:crypto';
 // The minimal headless shell disables Background Sync; use Chromium's full browser implementation.
 test.use({ channel: 'chromium' });
 const dist = resolve(import.meta.dirname, '../../dist');
+const courierKey = 'fixture-background-courier-key';
 const key = 'fixture-background-app-user-key'; const phrase = 'background-original-package-passphrase';
 const xml = '<data id="verify" version="1"><answer>private closed-page XML</answer><meta><instanceID>background-browser</instanceID></meta></data>';
 let server; let origin; let authority; let state;
 const hash = bytes => createHash('sha256').update(bytes).digest('hex');
-const attest = (kind, details) => {
-  const bytes = Buffer.from(JSON.stringify({ ...details, purpose: `field-data.xml-background-${kind}@1`, issuer: origin }));
+const attest = (kind, details, courier = false, prefix = 'xml-background', edit = false) => {
+  const bytes = Buffer.from(JSON.stringify({ ...details, purpose: `field-data.${prefix}-${kind}@${prefix === 'xml-courier' ? (edit ? 2 : 1) : (courier ? 2 : 1)}`, issuer: origin }));
   return { algorithm: 'ES256', keyId: authority.keyId, publicKey: authority.publicKey, payload: bytes.toString('base64url'), signature: sign('sha256', bytes, { key: authority.key, dsaEncoding: 'ieee-p1363' }).toString('base64url') };
 };
 const json = (response, data, status = 200, headers = {}) => { response.writeHead(status, { 'content-type': 'application/json', 'cache-control': 'no-store', ...headers }); response.end(JSON.stringify(data)); };
@@ -30,18 +31,26 @@ test.beforeAll(async () => {
         const delivery = path.match(/\/xml-background\/([^/]+)\/deliver$/);
         if (delivery) {
           const p = state.proofs.get(delivery[1]); const bytes = await bodyOf(request); state.deliveries.push({ bytes, headers: request.headers, closed: state.closed });
-          if (!p || hash(request.headers['x-field-data-delivery-token'] ?? '') !== p.authorization.tokenHash || p.events.some(e => e.kind === 'revoke')) { json(response, {}, 404); return; }
+          if (!p || hash(request.headers['x-field-data-delivery-token'] ?? '') !== p.authorization.tokenHash || p.events.some(e => e.kind === 'revoke') || p.courier?.events.some(e => e.kind === 'revoke')) { json(response, {}, 404); return; }
           if (state.deliveryMode === 'temporary') { json(response, {}, 503, { 'Retry-After': '1' }); return; }
           if (hash(bytes) !== p.target.manifest.sha256) { json(response, {}, 409); return; }
           if (!p.events.some(e => e.kind === 'delivery')) {
             const now = new Date().toISOString(); const details = { authorizationId: p.authorization.id, targetId: p.target.id, projectId: 1, formId: 12, formDefId: 22, ownerId: 1, submissionDefId: 101, ...(p.target.manifest.deprecatedId ? { deprecatedId: p.target.manifest.deprecatedId, baseSha256: p.target.manifest.baseSha256, baseSubmissionDefId: 100 } : {}), sha256: p.target.manifest.sha256, size: bytes.length, transport: 'background-capability', alreadyReceived: false, submissionReceivedAt: now, acceptedAt: now, authorizationPayloadHash: hash(Buffer.from(p.authorization.attestation.payload, 'base64url')) };
-            p.events.push({ targetId: p.target.id, authorizationId: p.authorization.id, kind: 'delivery', details, attestation: attest('delivery', details) }); p.sourceAvailable = true;
+            if (p.courier) {
+              const grantHash = hash(Buffer.from(p.courier.grant.attestation.payload, 'base64url'));
+              Object.assign(details, { senderId: 2, receivedBy: 2, courierGrantId: p.courier.grant.id, courierGrantPayloadHash: grantHash });
+              const custody = { ...details, grantId: p.courier.grant.id, grantPayloadHash: grantHash, backgroundAuthorizationId: p.authorization.id, backgroundAuthorizationPayloadHash: details.authorizationPayloadHash };
+              p.courier.events.push({ targetId: p.target.id, grantId: p.courier.grant.id, kind: 'delivery', details: custody, attestation: attest('delivery', custody, false, 'xml-courier', !!p.target.manifest.deprecatedId) });
+            }
+            p.events.push({ targetId: p.target.id, authorizationId: p.authorization.id, kind: 'delivery', details, attestation: attest('delivery', details, !!p.courier) }); p.sourceAvailable = true;
           }
           json(response, p); return;
         }
-        if (request.headers.authorization !== `Bearer ${key}`) { json(response, {}, 401); return; }
+        const actorId = request.headers.authorization === `Bearer ${courierKey}` ? 2 : 1;
+        if (![key, courierKey].some(value => request.headers.authorization === `Bearer ${value}`)) { json(response, {}, 401); return; }
         if (path.endsWith('/xml-couriers/edit-base')) { json(response, { deprecatedId: url.searchParams.get('deprecatedId'), baseSha256: 'b'.repeat(64), baseSubmissionDefId: 100, current: true }); return; }
-        if (path.endsWith('/backchecks')) { json(response, { appUser: { name: 'Original collector', projectName: 'Project', actorId: 1, projectId: 1 }, items: [], nextCursor: null }); return; }
+        if (path.endsWith('/backchecks')) { json(response, { appUser: { name: actorId === 1 ? 'Original collector' : 'Named courier', projectName: 'Project', actorId, projectId: 1 }, items: [], nextCursor: null }); return; }
+        if (state.courierProof && path.endsWith(`/xml-couriers/${state.courierProof.grant.id}`)) { json(response, state.courierProof); return; }
         if (path.endsWith('/receipts')) { json(response, { receipts: [], head: null }); return; }
         if (path.endsWith('/push')) { json(response, { enabled: false, subscriptions: [] }); return; }
         if (path.endsWith('/reverification') || path.endsWith('/itineraries')) { json(response, { items: [], complete: true }); return; }
@@ -49,9 +58,11 @@ test.beforeAll(async () => {
         if (path.endsWith('/xml-background') && request.method === 'POST') {
           const body = JSON.parse((await bodyOf(request)).toString()); state.requests.push(body); let p = state.proofs.get(body.id);
           if (!p) {
-            const target = { id: randomUUID(), projectId: 1, formId: 12, formDefId: 22, ownerId: 1, manifest: body.manifest };
+            const courier = body.courierGrantId ? state.courierProof : null;
+            const target = courier?.target ?? { id: randomUUID(), projectId: 1, formId: 12, formDefId: 22, ownerId: 1, manifest: body.manifest };
             const details = { id: body.id, targetId: target.id, projectId: 1, formId: 12, formDefId: 22, ownerId: 1, manifest: body.manifest, ...(body.manifest.deprecatedId ? { baseSubmissionDefId: 100 } : {}), tokenHash: body.tokenHash, issuedAt: new Date().toISOString(), expiresAt: body.expiresAt };
-            p = { target, authorization: { id: body.id, targetId: target.id, ownerId: 1, tokenHash: body.tokenHash, expiresAt: body.expiresAt, attestation: attest('authorization', details) }, events: [], sourceAvailable: null }; state.proofs.set(body.id, p);
+            if (courier) Object.assign(details, { senderId: 2, courierGrantId: courier.grant.id, courierGrantPayloadHash: hash(Buffer.from(courier.grant.attestation.payload, 'base64url')) });
+            p = { target, ...(courier ? { courier } : {}), authorization: { id: body.id, targetId: target.id, ownerId: 1, ...(courier ? { senderId: 2, courierGrantId: courier.grant.id } : {}), tokenHash: body.tokenHash, expiresAt: body.expiresAt, attestation: attest('authorization', details, !!courier) }, events: [], sourceAvailable: null }; state.proofs.set(body.id, p);
           }
           if (state.lostAuthorization) { state.lostAuthorization = false; json(response, {}, 503); return; } json(response, p); return;
         }
@@ -61,8 +72,8 @@ test.beforeAll(async () => {
           const p = state.proofs.get(match[1]); if (!p) { json(response, {}, 404); return; }
           if (match[2]) {
             if (state.revokeFailure) { state.revokeFailure = false; json(response, {}, 503); return; }
-            const body = JSON.parse((await bodyOf(request)).toString()); const details = { authorizationId: p.authorization.id, targetId: p.target.id, projectId: 1, ownerId: 1, revokedBy: 1, revokedAt: new Date().toISOString(), reason: body.reason, authorizationPayloadHash: hash(Buffer.from(p.authorization.attestation.payload, 'base64url')) };
-            const event = { targetId: p.target.id, authorizationId: p.authorization.id, kind: 'revoke', details, attestation: state.unsignedRevocation ? null : attest('revoke', details) }; p.events.push(event); json(response, { event }); return;
+            const body = JSON.parse((await bodyOf(request)).toString()); const details = { authorizationId: p.authorization.id, targetId: p.target.id, projectId: 1, ownerId: 1, revokedBy: actorId, revokedAt: new Date().toISOString(), reason: body.reason, authorizationPayloadHash: hash(Buffer.from(p.authorization.attestation.payload, 'base64url')) };
+            const event = { targetId: p.target.id, authorizationId: p.authorization.id, kind: 'revoke', details, attestation: state.unsignedRevocation ? null : attest('revoke', details, !!p.courier) }; p.events.push(event); json(response, { event }); return;
           }
           json(response, { ...p, sourceAvailable: p.sourceAvailable == null ? null : state.sourceAvailable }); return;
         }
@@ -78,7 +89,7 @@ test.beforeAll(async () => {
 });
 test.beforeEach(() => { state = { proofs: new Map(), requests: [], deliveries: [], foreground: [], deliveryMode: 'temporary', sourceAvailable: true, lostAuthorization: false, closed: false, revokeFailure: false, unsignedRevocation: false }; });
 test.afterAll(async () => { if (server) { server.closeAllConnections(); await new Promise(done => server.close(done)); } });
-const connect = async page => { await page.getByLabel('App User access key or Collect server URL').fill(key); await page.getByRole('button', { name: 'Open my inbox', exact: true }).click(); await expect(page.getByText('Original collector · Project', { exact: true })).toBeVisible(); };
+const connect = async (page, actor = 1) => { await page.getByLabel('App User access key or Collect server URL').fill(actor === 1 ? key : courierKey); await page.getByRole('button', { name: 'Open my inbox', exact: true }).click(); await expect(page.getByText(actor === 1 ? 'Original collector · Project' : 'Named courier · Project', { exact: true })).toBeVisible(); };
 const prepare = async (page, source = xml) => {
   await page.goto(`${origin}/fieldwork`); await connect(page); const queue = page.locator('.offline-submissions'); const panel = page.locator('.background-submissions');
   await queue.getByLabel('New submission XML files').setInputFiles({ name: 'background.xml', mimeType: 'text/xml', buffer: Buffer.from(source) }); await queue.getByLabel('Submission queue passphrase').fill(phrase); await queue.getByRole('button', { name: 'Encrypt and save submissions' }).click(); await expect(queue).toContainText('Encrypted submissions saved.');
@@ -175,4 +186,50 @@ test('an encrypted background edit requires a reviewed prior hash and verifies b
 test('a present but disabled Background Sync API creates no outbound copy or server authorization', async ({ page }) => {
   await page.addInitScript(() => { Object.defineProperty(globalThis.ServiceWorkerRegistration.prototype, 'sync', { configurable: true, get: () => ({ register: async () => { throw new DOMException('Background Sync is disabled.', 'UnknownError'); } }) }); });
   const { panel } = await prepare(page); await panel.getByRole('button', { name: 'Authorize background XML', exact: true }).click(); await expect(panel.getByRole('alert')).toBeVisible(); expect(state.requests).toHaveLength(0); expect(await stored(page)).toHaveLength(0);
+});
+
+const prepareCourier = async (page, source = xml) => {
+  const { queue, panel } = await prepare(page, source);
+  const manifest = { xmlFormId: 'verify', instanceId: source.match(/<instanceID>([^<]+)/)[1], version: '1', size: Buffer.byteLength(source), sha256: hash(source), ...(source.includes('<deprecatedID>') ? { deprecatedId: source.match(/<deprecatedID>([^<]+)/)[1], baseSha256: 'b'.repeat(64) } : {}) };
+  const target = { id: randomUUID(), projectId: 1, formId: 12, formDefId: 22, ownerId: 1, manifest };
+  const details = { id: randomUUID(), targetId: target.id, projectId: 1, formId: 12, formDefId: 22, ownerId: 1, courierId: 2, manifest, ...(manifest.deprecatedId ? { baseSubmissionDefId: 100 } : {}), issuedAt: new Date().toISOString(), expiresAt: new Date(Date.now() + 3600000).toISOString() };
+  state.courierProof = { target, grant: { id: details.id, targetId: target.id, ownerId: 1, courierId: 2, expiresAt: details.expiresAt, attestation: attest('grant', details, false, 'xml-courier', !!manifest.deprecatedId) }, events: [], sourceAvailable: null };
+  const exported = page.waitForEvent('download'); await queue.getByRole('button', { name: 'Export encrypted submissions', exact: true }).click(); const file = await exported;
+  await page.reload(); await connect(page, 2); await queue.getByLabel('Submission queue passphrase').fill(phrase); await queue.getByLabel('Import encrypted submissions', { exact: true }).setInputFiles(await file.path()); await expect(queue).toContainText('Encrypted submissions imported.');
+  await expect(queue.getByRole('button', { name: 'Upload queued XML now' })).toBeDisabled();
+  await panel.getByLabel('Courier grant ID for background XML').fill(details.id); await panel.getByRole('button', { name: 'Check courier grant for background XML' }).click(); await expect(panel).toContainText('Courier grant verified.');
+  await panel.getByLabel('I authorize this exact XML after the page closes').check(); return { queue, panel };
+};
+for (const encrypted of [false, true]) {
+  test(`named courier delivers ${encrypted ? 'an encrypted edit' : 'ordinary XML'} after closing Fieldwork without a collector key`, async ({ page, context }) => {
+    test.setTimeout(90000);
+    const source = encrypted ? '<data id="verify" version="1"><base64EncryptedKey>a2V5</base64EncryptedKey><encryptedXmlFile>submission.xml.enc</encryptedXmlFile><base64EncryptedElementSignature>c2ln</base64EncryptedElementSignature><meta><instanceID>courier-edit</instanceID><deprecatedID>courier-prior</deprecatedID></meta></data>' : xml;
+    const control = await controller(context); const { panel } = await prepareCourier(page, source);
+    await panel.getByRole('button', { name: 'Authorize background XML', exact: true }).click(); await expect(panel).toContainText('Background XML authorized.'); await wake(page); await expect.poll(async () => (await stored(page))[0]?.status).toBe('retry');
+    const row = (await stored(page))[0]; expect(row.keyExtractable).toBe(false); for (const secret of [key, courierKey, phrase, '<data']) expect(row.raw).not.toContain(secret);
+    expect(Date.parse(row.body.expiresAt)).toBeLessThanOrEqual(Date.parse(state.courierProof.grant.expiresAt));
+    const registrationId = await control.id(); await page.close(); state.closed = true; await control.cdp.send('ServiceWorker.stopAllWorkers'); state.deliveryMode = 'accept';
+    const since = Date.now(); await expect.poll(() => Date.now() - since, { timeout: 10000 }).toBeGreaterThan(6200);
+    await control.cdp.send('ServiceWorker.dispatchSyncEvent', { origin, registrationId, tag: 'field-data-xml-background@1', lastChance: false });
+    await expect.poll(() => state.deliveries.length, { timeout: 15000 }).toBe(2); expect(state.deliveries[1].closed).toBe(true); expect(state.deliveries[1].bytes).toEqual(Buffer.from(source)); expect(state.deliveries[1].headers.authorization).toBeUndefined(); expect(state.deliveries[1].headers.cookie).toBeUndefined();
+    const reopened = await context.newPage(); await reopened.goto(`${origin}/fieldwork`); await connect(reopened, 2); const queue = reopened.locator('.offline-submissions'); const recovered = reopened.locator('.background-submissions');
+    await queue.getByLabel('Submission queue passphrase').fill(phrase); await queue.getByRole('button', { name: 'Unlock submission queue' }).click(); await recovered.getByRole('button', { name: 'Refresh background deliveries' }).click(); await expect(recovered).toContainText('Signed background delivery receipt recorded.');
+    await recovered.getByRole('button', { name: 'Save background delivery acknowledgement' }).click(); await expect(queue).toContainText('Background delivery acknowledgement saved in the encrypted queue.'); expect((await stored(reopened))[0].keyPresent).toBe(false);
+    const { verifyXmlBackgroundProof } = await import('../../../../cloudflare/verify-xml-background.mjs'); const checked = verifyXmlBackgroundProof([...state.proofs.values()][0], { issuer: origin, projectId: 1, publicKeys: [authority.publicKey] }); expect(checked.authorization.ownerId).toBe(1); expect(checked.authorization.senderId).toBe(2); if (encrypted) expect(checked.events[0].baseSubmissionDefId).toBe(100);
+  });
+}
+
+test('collector revocation stops a queued courier worker and removes its delivery secrets', async ({ page, context }) => {
+  test.setTimeout(60000); const control = await controller(context); const { panel } = await prepareCourier(page);
+  await panel.getByRole('button', { name: 'Authorize background XML', exact: true }).click(); await expect(panel).toContainText('Background XML authorized.'); await wake(page); await expect.poll(async () => (await stored(page))[0]?.status).toBe('retry');
+  const p = state.courierProof; const details = { grantId: p.grant.id, targetId: p.target.id, projectId: 1, ownerId: 1, revokedBy: 1, revokedAt: new Date().toISOString(), reason: 'Collector withdrew the courier grant.', grantPayloadHash: hash(Buffer.from(p.grant.attestation.payload, 'base64url')) };
+  p.events.push({ targetId: p.target.id, grantId: p.grant.id, kind: 'revoke', details, attestation: attest('revoke', details, false, 'xml-courier') });
+  await makeDue(page); const registrationId = await control.id(); await page.close(); state.deliveryMode = 'accept'; await control.cdp.send('ServiceWorker.stopAllWorkers'); await control.cdp.send('ServiceWorker.dispatchSyncEvent', { origin, registrationId, tag: 'field-data-xml-background@1', lastChance: false });
+  await expect.poll(async () => (await stored(control.page))[0]?.status).toBe('stopped'); const row = (await stored(control.page))[0]; expect(row.keyPresent).toBe(false); expect(row.ciphertextPresent).toBe(false); expect([...state.proofs.values()][0].events).toHaveLength(0);
+  const reopened = await context.newPage(); await reopened.goto(`${origin}/fieldwork`); await connect(reopened, 2); const recovered = reopened.locator('.background-submissions'); await recovered.getByRole('button', { name: 'Refresh background deliveries' }).click(); await expect(recovered).toContainText('cancelled'); await expect(recovered.getByRole('button', { name: 'Save background delivery acknowledgement' })).toHaveCount(0);
+});
+
+test('a substituted courier recipient in a background response never activates an outbound copy', async ({ page }) => {
+  const { panel } = await prepareCourier(page); state.courierProof.grant.courierId = 1;
+  await panel.getByRole('button', { name: 'Authorize background XML', exact: true }).click(); await expect(panel.getByRole('alert')).toBeVisible(); expect(state.deliveries).toHaveLength(0); expect((await stored(page))[0].status).toBe('authorizing');
 });

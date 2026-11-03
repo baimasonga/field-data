@@ -9,32 +9,51 @@
   const canonical = value => JSON.stringify(value == null || typeof value !== 'object' ? value : Array.isArray(value) ? value.map(v => JSON.parse(canonical(v))) : Object.fromEntries(Object.keys(value).sort().map(k => [k, JSON.parse(canonical(value[k]))])));
   const validManifest = m => m && Object.keys(m).length === (m.deprecatedId ? 7 : 5) && ['xmlFormId', 'instanceId', 'version'].every(k => typeof m[k] === 'string' && m[k].length <= 1000) && m.xmlFormId && m.instanceId && Number.isInteger(m.size) && m.size > 0 && m.size <= LIMIT && /^[a-f0-9]{64}$/.test(m.sha256) && (!m.deprecatedId || (typeof m.deprecatedId === 'string' && m.deprecatedId.length <= 1000 && m.deprecatedId !== m.instanceId && /^[a-f0-9]{64}$/.test(m.baseSha256)));
   const verify = async (proof, projectId) => {
-    const envelope = async (e, kind) => {
+    const envelope = async (e, kind, prefix = 'xml-background', version = proof?.authorization?.courierGrantId ? 2 : 1) => {
       if (e?.algorithm !== 'ES256' || e.publicKey?.d != null || e.publicKey?.kty !== 'EC' || e.publicKey?.crv !== 'P-256' || typeof e.payload !== 'string' || e.payload.length > 24000 || !/^[A-Za-z0-9_-]{86}$/.test(e.signature ?? '')) throw new Error('Invalid background signature');
       const key = await crypto.subtle.importKey('jwk', e.publicKey, { name: 'ECDSA', namedCurve: 'P-256' }, true, ['verify']);
       const bytes = decode(e.payload); const signature = decode(e.signature);
       if (await hash(await crypto.subtle.exportKey('spki', key)) !== e.keyId || encode(bytes) !== e.payload || encode(signature) !== e.signature || !await crypto.subtle.verify({ name: 'ECDSA', hash: 'SHA-256' }, key, signature, bytes)) throw new Error('Untrusted background signature');
       const d = JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(bytes));
-      if (d.issuer !== self.location.origin || d.projectId !== projectId || d.purpose !== `field-data.xml-background-${kind}@1`) throw new Error('Wrong background scope'); return d;
+      if (d.issuer !== self.location.origin || d.projectId !== projectId || d.purpose !== `field-data.${prefix}-${kind}@${version}`) throw new Error('Wrong background scope'); return d;
     };
     const t = proof?.target; const a = proof?.authorization; const d = await envelope(a?.attestation, 'authorization');
     for (const k of ['projectId', 'formId', 'formDefId', 'ownerId']) if (d[k] !== t[k]) throw new Error('Target mismatch');
     const m = d.manifest; const start = Date.parse(d.issuedAt); const end = Date.parse(d.expiresAt);
     if (d.id !== a.id || d.targetId !== t.id || a.targetId !== t.id || a.ownerId !== d.ownerId || a.tokenHash !== d.tokenHash || canonical(m) !== canonical(t.manifest) || Date.parse(a.expiresAt) !== end || !validManifest(m) || !/^[a-f0-9]{64}$/.test(d.tokenHash) || !Number.isFinite(start) || !Number.isFinite(end) || end <= start || end - start > 86400000 || !Array.isArray(proof.events) || proof.events.length > 2 || (m.deprecatedId && (!Number.isSafeInteger(d.baseSubmissionDefId) || d.baseSubmissionDefId < 1))) throw new Error('Invalid authorization');
+    let courierReceipt = null; let courierRevoked = false; let courierUnsigned = false;
+    if (a.courierGrantId) {
+      const cp = proof.courier; const g = await envelope(cp?.grant?.attestation, 'grant', 'xml-courier', m.deprecatedId ? 2 : 1);
+      const grantHash = await hash(decode(cp.grant.attestation.payload));
+      if (canonical(cp.target) !== canonical(t) || g.id !== cp.grant.id || g.targetId !== t.id || cp.grant.targetId !== t.id || g.ownerId !== t.ownerId || cp.grant.ownerId !== g.ownerId || cp.grant.courierId !== g.courierId || g.projectId !== t.projectId || g.formId !== t.formId || g.formDefId !== t.formDefId || canonical(g.manifest) !== canonical(m) || d.courierGrantId !== a.courierGrantId || d.senderId !== a.senderId || d.senderId !== g.courierId || g.id !== a.courierGrantId || d.courierGrantPayloadHash !== grantHash || Date.parse(cp.grant.expiresAt) !== Date.parse(g.expiresAt) || !Number.isFinite(Date.parse(g.issuedAt)) || Date.parse(g.expiresAt) <= Date.parse(g.issuedAt) || Date.parse(g.expiresAt) - Date.parse(g.issuedAt) > 86400000 || start < Date.parse(g.issuedAt) || end > Date.parse(g.expiresAt) || !Array.isArray(cp.events) || cp.events.length > 2 || (m.deprecatedId && g.baseSubmissionDefId !== d.baseSubmissionDefId)) throw new Error('Wrong courier continuation');
+      const courierSeen = new Set();
+      for (const event of cp.events) {
+        if (!['revoke', 'delivery'].includes(event.kind) || courierSeen.has(event.kind) || event.grantId !== g.id || event.targetId !== t.id) throw new Error('Invalid courier history'); courierSeen.add(event.kind);
+        if (event.kind === 'revoke' && event.attestation == null) { courierRevoked = true; courierUnsigned = true; continue; }
+        const v = await envelope(event.attestation, event.kind, 'xml-courier', m.deprecatedId ? 2 : 1);
+        if (canonical(v) !== canonical({ ...event.details, issuer: v.issuer, purpose: v.purpose }) || v.grantId !== g.id || v.targetId !== t.id || v.ownerId !== t.ownerId || v.grantPayloadHash !== grantHash) throw new Error('Courier event mismatch');
+        if (event.kind === 'revoke') { if (v.revokedBy !== t.ownerId) throw new Error('Wrong courier revoker'); courierRevoked = true; }
+        else {
+          if (v.receivedBy !== d.senderId || v.formId !== t.formId || v.formDefId !== t.formDefId || v.sha256 !== m.sha256 || v.size !== m.size || typeof v.alreadyReceived !== 'boolean' || !Number.isSafeInteger(v.submissionDefId) || !Number.isFinite(Date.parse(v.acceptedAt)) || !Number.isFinite(Date.parse(v.submissionReceivedAt)) || Date.parse(v.acceptedAt) < Date.parse(g.issuedAt) || Date.parse(v.acceptedAt) >= Date.parse(g.expiresAt) || Date.parse(v.submissionReceivedAt) > Date.parse(v.acceptedAt) || (!v.alreadyReceived && Date.parse(v.submissionReceivedAt) < Date.parse(g.issuedAt)) || (m.deprecatedId && (v.deprecatedId !== m.deprecatedId || v.baseSha256 !== m.baseSha256 || v.baseSubmissionDefId !== d.baseSubmissionDefId))) throw new Error('Invalid courier receipt');
+          courierReceipt = v;
+        }
+      }
+    } else if (d.senderId != null || d.courierGrantId != null || proof.courier != null) throw new Error('Unexpected courier continuation');
     const authorizationHash = await hash(decode(a.attestation.payload)); const seen = new Set(); let delivery = null; let unsignedRevocation = false;
     for (const event of proof.events) {
       if (!['revoke', 'delivery'].includes(event.kind) || seen.has(event.kind) || event.targetId !== t.id || event.authorizationId !== a.id) throw new Error('Invalid history'); seen.add(event.kind);
       if (event.kind === 'revoke' && event.attestation == null) { unsignedRevocation = true; continue; }
       const v = await envelope(event.attestation, event.kind);
       if (canonical(v) !== canonical({ ...event.details, issuer: v.issuer, purpose: v.purpose }) || v.ownerId !== t.ownerId || v.targetId !== t.id || v.authorizationId !== a.id || v.authorizationPayloadHash !== authorizationHash) throw new Error('Event mismatch');
-      if (event.kind === 'revoke' && v.revokedBy !== t.ownerId) throw new Error('Wrong revoker');
+      if (event.kind === 'revoke' && ![t.ownerId, d.senderId].includes(v.revokedBy)) throw new Error('Wrong revoker');
       if (event.kind === 'delivery') {
         if (v.transport !== 'background-capability' || v.formId !== t.formId || v.formDefId !== t.formDefId || v.sha256 !== m.sha256 || v.size !== m.size || typeof v.alreadyReceived !== 'boolean' || !Number.isSafeInteger(v.submissionDefId) || !Number.isFinite(Date.parse(v.acceptedAt)) || !Number.isFinite(Date.parse(v.submissionReceivedAt)) || Date.parse(v.acceptedAt) < start || Date.parse(v.acceptedAt) >= end || Date.parse(v.submissionReceivedAt) > Date.parse(v.acceptedAt) || (!v.alreadyReceived && Date.parse(v.submissionReceivedAt) < start)) throw new Error('Invalid delivery');
+        if (a.courierGrantId && (v.senderId !== d.senderId || v.receivedBy !== d.senderId || v.courierGrantId !== a.courierGrantId || v.courierGrantPayloadHash !== d.courierGrantPayloadHash || !courierReceipt || courierReceipt.submissionDefId !== v.submissionDefId || (courierReceipt.transport === 'background-capability' && (courierReceipt.backgroundAuthorizationId !== a.id || courierReceipt.backgroundAuthorizationPayloadHash !== authorizationHash)) || (courierReceipt.transport !== 'background-capability' && !v.alreadyReceived))) throw new Error('Wrong courier delivery chain');
         if (m.deprecatedId && (v.deprecatedId !== m.deprecatedId || v.baseSha256 !== m.baseSha256 || v.baseSubmissionDefId !== d.baseSubmissionDefId || v.submissionDefId === v.baseSubmissionDefId)) throw new Error('Wrong edit lineage');
         delivery = v;
       }
     }
-    return { details: d, delivery, revoked: seen.has('revoke'), unsignedRevocation };
+    return { details: d, delivery, revoked: seen.has('revoke') || courierRevoked, unsignedRevocation: unsignedRevocation || courierUnsigned };
   };
   const dbOperation = (mode, action) => new Promise((resolve, reject) => {
     const open = self.indexedDB.open(DB, 1);
@@ -62,16 +81,17 @@
     return safe;
   };
   const stage = async data => {
-    const bytes = new Uint8Array(data.bytes); const m = data.manifest;
+    const bytes = new Uint8Array(data.bytes); const m = data.manifest; const collectorId = data.collectorId ?? data.ownerId;
     if (!/^[0-9a-f-]{36}$/i.test(data.id) || !/^[A-Za-z0-9_-]{43}$/.test(data.token ?? '') || !validManifest(m) || bytes.length !== m.size || await hash(bytes) !== m.sha256 || !Number.isSafeInteger(data.ownerId) || data.ownerId <= 0 || !Number.isSafeInteger(data.projectId) || data.projectId <= 0 || !Number.isSafeInteger(data.expiresAt) || data.expiresAt <= Date.now() || data.expiresAt - Date.now() > 86400000 || ![1, 2, 3].includes(data.priority)) throw new Error('Invalid background capsule');
-    const body = { id: data.id, manifest: m, tokenHash: await hash(text.encode(data.token)), expiresAt: new Date(data.expiresAt).toISOString() };
+    if (!Number.isSafeInteger(collectorId) || collectorId <= 0 || (data.courierGrantId ? (!/^[0-9a-f-]{36}$/i.test(data.courierGrantId) || data.ownerId === collectorId) : data.ownerId !== collectorId)) throw new Error('Invalid courier capsule');
+    const body = { id: data.id, ...(data.courierGrantId ? { courierGrantId: data.courierGrantId } : {}), manifest: m, tokenHash: await hash(text.encode(data.token)), expiresAt: new Date(data.expiresAt).toISOString() };
     const previous = await get(data.id); if (previous) { if (canonical(previous.body) !== canonical(body)) throw new Error('Capsule conflict'); return noSecrets(previous); }
     const rows = await all(); const pending = rows.filter(r => r.ciphertext && r.expiresAt > Date.now());
     if (pending.length >= 10 || pending.reduce((sum, r) => sum + r.body.manifest.size, 0) + bytes.length > 5 * LIMIT || rows.length >= 100) throw new Error('Background storage limit reached');
     const key = await crypto.subtle.generateKey({ name: 'AES-GCM', length: 256 }, false, ['encrypt', 'decrypt']); const iv = crypto.getRandomValues(new Uint8Array(12));
     // The browser-held non-extractable key deliberately permits this opted-in outbound copy after queue lock.
     const ciphertext = await crypto.subtle.encrypt({ name: 'AES-GCM', iv, additionalData: text.encode(`${self.location.origin}:${data.id}`) }, key, text.encode(JSON.stringify({ token: data.token, bytes: encode(bytes) })));
-    const row = { id: data.id, body, ownerId: data.ownerId, projectId: data.projectId, expiresAt: data.expiresAt, priority: data.priority, status: 'authorizing', attempts: 0, nextAttemptAt: 0, key, iv, ciphertext };
+    const row = { id: data.id, body, ownerId: data.ownerId, collectorId, projectId: data.projectId, expiresAt: data.expiresAt, priority: data.priority, status: 'authorizing', attempts: 0, nextAttemptAt: 0, key, iv, ciphertext };
     const committed = await dbOperation('readwrite', (store, done) => {
       store.getAll().onsuccess = event => {
         const currentRows = event.target.result; const current = currentRows.find(value => value.id === data.id);
@@ -86,7 +106,7 @@
   const authorize = async proof => {
     const row = await get(proof?.authorization?.id); if (!row) throw new Error('Outbound copy unavailable');
     const checked = await verify(proof, row.projectId);
-    if (checked.details.ownerId !== row.ownerId || canonical(checked.details.manifest) !== canonical(row.body.manifest) || checked.details.tokenHash !== row.body.tokenHash || Date.parse(checked.details.expiresAt) > row.expiresAt) throw new Error('Wrong outbound authorization');
+    if ((checked.details.senderId ?? checked.details.ownerId) !== row.ownerId || checked.details.ownerId !== (row.collectorId ?? row.ownerId) || checked.details.courierGrantId !== row.body.courierGrantId || canonical(checked.details.manifest) !== canonical(row.body.manifest) || checked.details.tokenHash !== row.body.tokenHash || Date.parse(checked.details.expiresAt) > row.expiresAt) throw new Error('Wrong outbound authorization');
     await change(row.id, current => {
       if (!current?.ciphertext || current.status !== 'authorizing') return current;
       const next = { ...current, proof, expiresAt: Date.parse(checked.details.expiresAt), status: 'queued' };

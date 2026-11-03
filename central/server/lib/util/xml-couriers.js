@@ -4,6 +4,7 @@ const { SaxesParser } = require('saxes');
 const { sql } = require('slonik');
 const { Submission } = require('../model/frames');
 const Problem = require('./problem');
+const { UUID_PATTERN } = require('./claim-versioning');
 const { config } = require('./offline-assignments');
 const { account } = require('./media-couriers');
 const LIMIT = 1024 * 1024;
@@ -104,4 +105,25 @@ const editBase = async (tx, ownerId, formId, manifest, reviewOnly = false) => {
   }
   return { ...base, sha256 };
 };
-module.exports = { LIMIT, config, digest, invalid, manifestFor, attest, readBytes, parse, scope, account, editBase };
+const courierGet = async (tx, id, lock = false) => {
+  if (!UUID_PATTERN.test(id ?? '')) throw Problem.user.notFound();
+  const ref = await tx.db.maybeOne(sql`SELECT "targetId" FROM field_data_xml_couriers WHERE id=${id}`);
+  if (!ref) throw Problem.user.notFound();
+  const target = await tx.db.one(sql`SELECT * FROM field_data_xml_courier_targets WHERE id=${ref.targetId} ${lock ? sql`FOR UPDATE` : sql``}`);
+  const grant = await tx.db.one(sql`SELECT * FROM field_data_xml_couriers WHERE id=${id} ${lock ? sql`FOR UPDATE` : sql``}`);
+  return { target, grant };
+};
+const courierActive = (tx, id) => tx.db.oneFirst(sql`SELECT EXISTS(SELECT 1 FROM field_data_xml_couriers g WHERE g.id=${id} AND g."expiresAt">clock_timestamp()
+ AND NOT EXISTS(SELECT 1 FROM field_data_xml_courier_events e WHERE e."grantId"=g.id AND e.kind='revoke'))`);
+const courierProof = async (tx, target, grant) => {
+  const events = await tx.db.any(sql`SELECT * FROM field_data_xml_courier_events WHERE "grantId"=${grant.id} ORDER BY kind`);
+  const delivered = events.find(event => event.kind === 'delivery'); let sourceAvailable = null;
+  if (delivered) {
+    const source = await tx.db.maybeOne(sql`SELECT sd.xml FROM submission_defs sd JOIN submissions s ON s.id=sd."submissionId"
+      WHERE sd.id=${delivered.details.submissionDefId} AND sd.current AND (sd.root OR ${Boolean(target.manifest.deprecatedId)}) AND s."deletedAt" IS NULL AND sd."submitterId"=${target.ownerId}`);
+    sourceAvailable = source != null && digest(source.xml) === target.manifest.sha256;
+  }
+  return { target, grant, events, sourceAvailable, checkedAt: new Date().toISOString(),
+    limitations: 'Account transport assertions only. This snapshot cannot prove physical custody or absence of later events.' };
+};
+module.exports = { LIMIT, config, digest, invalid, manifestFor, attest, readBytes, parse, scope, account, editBase, courierGet, courierActive, courierProof };
