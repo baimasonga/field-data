@@ -422,3 +422,62 @@ describe('api: Collect snapshot object storage', () => {
     storage.pipeContent = async blob => PartialPipe.of(Readable.from([streams.get(blob.sha), Buffer.from('extra bytes')])); await verify().expect(409);
   })));
 });
+
+describe('api: Collect server delivery inventory', () => {
+  const list = (service, user, suffix = '') => service.get(`/v1/field-data/app-user/collect-delivery${suffix}`).set('Authorization', `Bearer ${user.token}`);
+  it('reports missing and recorded native attachments without returning answers or claiming byte verification', testService(async service => {
+    const { collector, other, send } = await handoffSetup(service);
+    const before = await list(service, collector).expect(200);
+    assert.equal(before.headers['cache-control'], 'private, no-store');
+    assert.equal(before.body.actorId, collector.id); assert.equal(before.body.projectId, 1);
+    assert.equal(before.body.items.length, 1);
+    assert.equal(before.body.items[0].expectedFiles, 2); assert.equal(before.body.items[0].recordedFiles, 0);
+    assert.deepEqual(before.body.items[0].missingFiles, ['here_is_file2.jpg', 'my_file1.mp4']);
+    assert.equal(Object.hasOwn(before.body.items[0], 'xml'), false); assert.equal(Object.hasOwn(before.body.items[0], 'verified'), false);
+    assert.deepEqual((await list(service, other).expect(200)).body.items, []);
+    await service.get('/v1/field-data/app-user/collect-delivery').expect(401);
+    await send().expect(201);
+    const after = (await list(service, collector).expect(200)).body.items[0];
+    assert.equal(after.recordedFiles, 2); assert.deepEqual(after.missingFiles, []);
+  }));
+  it('keeps closed-form receipts visible but excludes removed grants, deleted submissions and changed current owners', testService(async (service, c) => {
+    const { alice, collector, other } = await setup(service);
+    await c.db.query(sql`UPDATE forms SET state='closed' WHERE "xmlFormId"='binaryType'`);
+    assert.equal((await list(service, collector).expect(200)).body.items[0].formState, 'closed');
+    await c.db.query(sql`UPDATE submission_defs SET "submitterId"=${other.id} WHERE "instanceId"='both' AND current`);
+    assert.deepEqual((await list(service, collector).expect(200)).body.items, []);
+    await c.db.query(sql`UPDATE submission_defs SET "submitterId"=${collector.id} WHERE "instanceId"='both' AND current`);
+    await c.db.query(sql`UPDATE submissions SET "deletedAt"=clock_timestamp() WHERE "instanceId"='both'`);
+    assert.deepEqual((await list(service, collector).expect(200)).body.items, []);
+    await c.db.query(sql`UPDATE submissions SET "deletedAt"=NULL WHERE "instanceId"='both'`);
+    await alice.delete(`/v1/projects/1/forms/binaryType/assignments/app-user/${collector.id}`).expect(200);
+    assert.deepEqual((await list(service, collector).expect(200)).body.items, []);
+  }));
+  it('supports XML-only submissions, bounds missing filenames and refuses archived projects and manager accounts', testService(async (service, c) => {
+    const { alice, collector } = await setup(service);
+    await alice.post(`/v1/projects/1/forms/simple/assignments/app-user/${collector.id}`).expect(200);
+    await service.post('/v1/projects/1/forms/simple/submissions').set('Authorization', `Bearer ${collector.token}`).set('Content-Type', 'application/xml').send(xml.instances.simple.one)
+      .expect(200);
+    const definitionId = await c.db.oneFirst(sql`SELECT id FROM submission_defs WHERE "instanceId"='both' AND current`);
+    for (let i = 0; i < 12; i += 1) await c.db.query(sql`INSERT INTO submission_attachments ("submissionDefId",name,"blobId") VALUES (${definitionId},${`extra-${i}.jpg`},NULL)`);
+    const result = (await list(service, collector).expect(200)).body;
+    const onlyXml = result.items.find(entry => entry.xmlFormId === 'simple');
+    assert.equal(onlyXml.expectedFiles, 0); assert.equal(onlyXml.recordedFiles, 0); assert.deepEqual(onlyXml.missingFiles, []);
+    const files = result.items.find(entry => entry.xmlFormId === 'binaryType');
+    assert.equal(files.expectedFiles, 14); assert.equal(files.missingFiles.length, 10);
+    await alice.get('/v1/field-data/app-user/collect-delivery').expect(403);
+    await c.db.query(sql`UPDATE projects SET archived=TRUE WHERE id=1`);
+    await list(service, collector).expect(404);
+  }));
+  it('paginates own current submissions without duplicates and rejects invalid cursors', testService(async service => {
+    const { collector } = await setup(service);
+    for (let i = 0; i < 21; i += 1) await service.post('/v1/projects/1/forms/binaryType/submissions').set('Authorization', `Bearer ${collector.token}`).set('Content-Type', 'application/xml').send(xml.instances.binaryType.both.replace('>both<', `>delivery-${i}<`))
+      .expect(200);
+    const first = (await list(service, collector).expect(200)).body;
+    assert.equal(first.items.length, 20); assert.ok(first.nextCursor);
+    const second = (await list(service, collector, `?cursor=${first.nextCursor}`).expect(200)).body;
+    assert.equal(second.items.length, 2); assert.equal(second.nextCursor, null);
+    assert.equal(new Set([...first.items, ...second.items].map(item => item.submissionDefId)).size, 22);
+    for (const cursor of ['0', '-1', '2147483648', '1e2', 'abc', '1&cursor=2']) await list(service, collector, `?cursor=${cursor}`).expect(400);
+  }));
+});

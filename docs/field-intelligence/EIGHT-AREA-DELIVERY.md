@@ -378,7 +378,7 @@ acceptance remain separate from software delivery. Later release notes that say
 | --- | --- | --- |
 | Knowledge | Asset identities/facts/history/freshness; cited maps and named areas; verified local perceptual photo review; scoped answer/latent-semantic retrieval; shared versioned decision projections; declared causal contracts, diagnostics and conditional adjusted estimates | Release acceptance is tracked in the completion contract. Field effectiveness, identity-threshold calibration and empirical causal assumptions remain separate evaluation activities |
 | Evidence/trust | Evidence graph, challenges/replay checks, signed witnesses with correction/withdrawal history and server-attested project key revocation, time-bounded form witness delegation with signed receipts, second-manager reviewed account/key certificates with expiry and revocation, enrolled external sensor keys, signed source-bound readings and review/receipt history, human assessments and device-reported location | Independent identity-provider/document validation; physical sensor commissioning, anti-relay/hardware assurance and calibrated presence evaluation |
-| Offline resilience | Signed encrypted assignments/itineraries; recoverable resumable media; encrypted XML queues and open-page automatic sync; delegated XML/media couriers with signed custody, native encrypted-envelope transport, version-bound edits and opt-in collector/courier XML and resumable media Background Sync with exact-file capabilities and linked signed receipts; encrypted Collect instance-folder handoff through native multipart with complete-file verification | Android queue/status automation and physical/device acceptance |
+| Offline resilience | Signed encrypted assignments/itineraries; recoverable resumable media; encrypted XML queues and open-page automatic sync; delegated XML/media couriers with signed custody, native encrypted-envelope transport, version-bound edits and opt-in collector/courier XML and resumable media Background Sync with exact-file capabilities and linked signed receipts; encrypted Collect instance-folder handoff through native multipart with complete-file verification | Device-only queue/finalization state and physical/device acceptance |
 | Operations | Sampling, allocation, shared capacity, same-day/overnight UTC shifts, combined approved itineraries, manual/scheduled collector/answer sampling with group-specific rates, numeric ranges, polygon groups, inspectable design weights, conditional calibrated binary estimates, approved-stop navigation handoff and agreement counts | Additional task types, built-in/offline routing, external benchmark calibration and validated outcome inference |
 | Geospatial | Location integrity, imagery availability and cited human geospatial assessments with temporal context and outdated history | Exact footprint checks, reviewed change candidates, imagery analysis and evaluated automated change detection |
 | Fraud intelligence | Contradictions, identity reuse, similarity, collector links, investigations/outcomes, live case links and targeted backcheck questions with reviewed form drafts and same-form/cross-form shared-identity peer targeting | Broader peer families, multilingual/effectiveness evaluation, calibrated triage and false-positive evaluation |
@@ -719,3 +719,21 @@ signed snapshot. Lost responses can recover by verification without resending.
 See [R14-collect-instance-handoff.md](R14-collect-instance-handoff.md).
 This is file-based native protocol integration. Android queue/finalization/send
 status automation and physical file-provider/device acceptance remain pending.
+
+
+### R15 stock Collect native auto-send configuration
+
+Fieldwork prepares private stock Collect project settings QR codes for explicit
+manual, Wi-Fi, cellular, or combined sending while retaining sent forms. The QR
+requires consent and clears on timeout, hiding, policy change or disconnect.
+Collect owns scheduling, retries and device queue state. See
+[R15-collect-native-auto-send.md](R15-collect-native-auto-send.md).
+
+### R16 own server delivery inventory
+
+Fieldwork now lists the connected collector's current received XML and expected
+attachment records with bounded missing filenames and pagination. Current
+ownership and form permissions are checked; no file bytes or answer XML are
+returned. This is server inventory, not device queue state or exact byte
+verification. See [R16-collect-delivery-receipts.md](R16-collect-delivery-receipts.md).
+Physical-device background send and finalization acceptance remain pending.
