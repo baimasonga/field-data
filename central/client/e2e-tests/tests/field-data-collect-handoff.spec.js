@@ -16,6 +16,8 @@ const parts = request => {
 const setup = async page => {
   const pair = generateKeyPairSync('ec', { namedCurve: 'prime256v1' }); const publicKey = pair.publicKey.export({ format: 'jwk' }); const keyId = hash(pair.publicKey.export({ format: 'der', type: 'spki' }));
   const state = { actorId: 42, sends: [], verifies: [], snapshot: null, lost: false, missing: false, forge: false };
+  await page.route('**/client-config.json', route => route.fulfill({ json: {} }));
+  await page.route('**/version.txt', route => route.fulfill({ body: 'collect-handoff-fixture' }));
   await page.route('**/v1/**', async route => {
     const request = route.request(); const path = new URL(request.url()).pathname;
     const json = (body, status = 200) => route.fulfill({ status, json: body });
