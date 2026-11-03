@@ -97,6 +97,7 @@ Acknowledge request
     <field-data-capture-challenge v-if="connected" :key="`capture-${sessionId}`" :send="captureSend" @capture="restoreMedia"/>
     <field-data-offline-submissions :connected="connected" :session-id="sessionId" :identity="identity" :send="submissionSend" :courier-send="xmlCourierSend" :background-send="xmlBackgroundSend"/>
     <field-data-offline-media ref="offlineMedia" :connected="connected" :session-id="sessionId" @restore="restoreMedia"/>
+    <field-data-collect-handoff :connected="connected" :session-id="sessionId" :identity="identity" :send-files="collectSend" :verify-files="collectVerify"/>
     <field-data-offline-page/>
     <field-data-offline-assignments :connected="connected" :session-id="sessionId"
       :revocation="offlineRevocation" :fetch-bundle="fetchOfflineBundle"/>
@@ -112,6 +113,7 @@ import FieldDataCaptureChallenge from './capture-challenge.vue';
 import FieldDataOfflineMedia from './offline-media.vue';
 import FieldDataItineraryStops from './itinerary-stops.vue';
 import FieldDataOfflinePage from './offline-page.vue';
+import FieldDataCollectHandoff from './collect-handoff.vue';
 import FieldDataOfflineAssignments from './offline-assignments.vue';
 
 defineOptions({ name: 'FieldDataFieldwork' });
@@ -237,14 +239,24 @@ const submissionSend = computed(() => {
     }
   };
 });
+const collectSend = computed(() => {
+  const session = sessionId.value;
+  return async data => {
+    if (session !== sessionId.value || !connected.value || data.actorId !== identity.value.actorId || data.projectId !== identity.value.projectId) throw new Error('Collector changed');
+    const body = new FormData(); body.append('xml_submission_file', new Blob([decode(data.xml.bytes, 1048576)], { type: 'text/xml' }), data.xml.name);
+    for (const file of data.media) body.append(file.name, new Blob([decode(file.bytes, 20971520)], { type: file.contentType }), file.name);
+    const response = await fetch(`/v1/projects/${data.projectId}/submission`, { method: 'POST', credentials: 'omit', cache: 'no-store', redirect: 'error', signal: AbortSignal.any([controller.signal, AbortSignal.timeout(120000)]), headers: { Authorization: `Bearer ${token}`, 'X-OpenRosa-Version': '1.0' }, body });
+    if (!response.ok) { if ([401, 403].includes(response.status) && session === sessionId.value) { offlineRevocation.value += 1; clear(); error.value = 'Access changed. Reconnect as the original collector.'; } const failure = new Error('Collect handoff refused'); failure.status = response.status; throw failure; }
+  };
+});
+const collectVerify = computed(() => { const session = sessionId.value; return manifest => mediaRequest(session, '/verify', 'POST', manifest, null, 'collect-handoffs', { signal: AbortSignal.any([controller.signal, AbortSignal.timeout(120000)]) }); });
 const xmlCourierSend = computed(() => {
   const session = sessionId.value;
   return async (path, method, body) => {
     const requestController = new AbortController(); const parentSignal = controller.signal;
     const abort = () => requestController.abort(); parentSignal.addEventListener('abort', abort, { once: true });
     const timeout = setTimeout(abort, 60000);
-    try { return await mediaRequest(session, path, method, body, null, 'xml-couriers', { raw: method === 'PUT', signal: requestController.signal }); }
-    finally { clearTimeout(timeout); parentSignal.removeEventListener('abort', abort); }
+    try { return await mediaRequest(session, path, method, body, null, 'xml-couriers', { raw: method === 'PUT', signal: requestController.signal }); } finally { clearTimeout(timeout); parentSignal.removeEventListener('abort', abort); }
   };
 });
 const backgroundSendFor = resource => computed(() => {
@@ -252,8 +264,7 @@ const backgroundSendFor = resource => computed(() => {
   return async (path, method, body) => {
     const requestController = new AbortController(); const parentSignal = controller.signal;
     const abort = () => requestController.abort(); parentSignal.addEventListener('abort', abort, { once: true }); const timeout = setTimeout(abort, 60000);
-    try { return await mediaRequest(session, path, method, body, null, resource, { signal: requestController.signal }); }
-    finally { clearTimeout(timeout); parentSignal.removeEventListener('abort', abort); }
+    try { return await mediaRequest(session, path, method, body, null, resource, { signal: requestController.signal }); } finally { clearTimeout(timeout); parentSignal.removeEventListener('abort', abort); }
   };
 });
 const xmlBackgroundSend = backgroundSendFor('xml-background');

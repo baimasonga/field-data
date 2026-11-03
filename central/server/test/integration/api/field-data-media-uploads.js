@@ -367,3 +367,57 @@ describe('api: background media target boundaries', () => {
     await bg(collector, 'post').send({ ...body, id: randomUUID(), uploadId: camera.id }).expect(404);
   })));
 });
+
+const handoffSetup = async service => {
+  const fixture = await setup(service); const source = Buffer.from(xml.instances.binaryType.both); const first = Buffer.from('Collect video bytes'); const second = Buffer.from([0, 255, 128, 4]);
+  const send = () => service.post('/v1/projects/1/submission').set('Authorization', `Bearer ${fixture.collector.token}`).set('X-OpenRosa-Version', '1.0').attach('xml_submission_file', source, { filename: 'instance.xml' })
+    .attach('my_file1.mp4', first, { filename: 'my_file1.mp4' })
+    .attach('here_is_file2.jpg', second, { filename: 'here_is_file2.jpg' });
+  const manifest = { xmlFormId: 'binaryType', instanceId: 'both', version: '', xml: { size: source.length, sha256: hash(source) }, files: [{ name: 'here_is_file2.jpg', size: second.length, sha256: hash(second) }, { name: 'my_file1.mp4', size: first.length, sha256: hash(first) }] };
+  const verify = (actor = fixture.collector, data = manifest) => service.post('/v1/field-data/app-user/collect-handoffs/verify').set('Authorization', `Bearer ${actor.token}`).send(data);
+  return { ...fixture, source, first, second, send, manifest, verify };
+};
+describe('api: native Collect handoff verification', () => {
+  it('verifies exact multipart XML and all stored files with collector ownership and independently pinned snapshots', testService(async (service, c) => withCourierSigning(async keys => {
+    const { collector, other, source, first, send, manifest, verify } = await handoffSetup(service);
+    await verify().expect(409); await send().expect(201); await send().expect(201);
+    const result = await verify().expect(200); assert.equal(result.headers['cache-control'], 'private, no-store');
+    // eslint-disable-next-line import/extensions, import/no-relative-packages
+    const { verifyCollectHandoffSnapshot } = await import('../../../../../cloudflare/verify-collect-handoff.mjs'); const pins = { issuer: 'https://courier.example', projectId: 1, ownerId: collector.id, publicKeys: [keys.publicKey.export({ format: 'jwk' })], manifest };
+    const checked = verifyCollectHandoffSnapshot(result.body.snapshot, pins); assert.equal(checked.manifest.xml.sha256, hash(source)); assert.equal(checked.manifest.files[1].sha256, hash(first));
+    assert.throws(() => verifyCollectHandoffSnapshot(result.body.snapshot, { ...pins, ownerId: other.id })); assert.throws(() => verifyCollectHandoffSnapshot(result.body.snapshot, { ...pins, manifest: { ...manifest, files: [] } }));
+    assert.equal(await c.db.oneFirst(sql`SELECT count(*)::integer FROM submissions WHERE "instanceId"='both'`), 1); assert.equal(await c.db.oneFirst(sql`SELECT "submitterId" FROM submission_defs WHERE id=${checked.submissionDefId}`), collector.id);
+    await verify(other).expect(404); await verify(collector, { ...manifest, xml: { ...manifest.xml, sha256: 'a'.repeat(64) } }).expect(409); await verify(collector, { ...manifest, files: [] }).expect(409);
+    await c.db.query(sql`DELETE FROM submissions WHERE "instanceId"='both'`); await verify().expect(404); assert.equal(verifyCollectHandoffSnapshot(result.body.snapshot, pins).submissionDefId, checked.submissionDefId);
+  })));
+  it('rejects missing, changed, oversized or unrelated files and current collection permission loss', testService(async service => withCourierSigning(async () => {
+    const { alice, collector, send, manifest, verify } = await handoffSetup(service); await send().expect(201);
+    await verify(collector, { ...manifest, files: manifest.files.map(f => ({ ...f, sha256: 'b'.repeat(64) })) }).expect(409);
+    await verify(collector, { ...manifest, files: [...manifest.files, manifest.files[0]] }).expect(400);
+    await verify(collector, { ...manifest, files: [{ name: '../file', size: 1, sha256: 'a'.repeat(64) }] }).expect(400);
+    await verify(collector, { ...manifest, files: [{ ...manifest.files[0], size: 20971521 }] }).expect(400);
+    await alice.delete(`/v1/projects/1/forms/binaryType/assignments/app-user/${collector.id}`).expect(200); await verify().expect(404);
+  })));
+  it('verifies encrypted native envelope ciphertext without decrypting or claiming Collect send status', testService(async service => withCourierSigning(async keys => {
+    const alice = await service.login('alice'); const collector = (await alice.post('/v1/projects/1/app-users').send({ displayName: 'Encrypted Collect owner' }).expect(200)).body; await alice.post(`/v1/projects/1/forms/simple/assignments/app-user/${collector.id}`).expect(200);
+    const source = Buffer.from('<data id="simple"><base64EncryptedKey>a2V5</base64EncryptedKey><encryptedXmlFile>submission.xml.enc</encryptedXmlFile><base64EncryptedElementSignature>c2ln</base64EncryptedElementSignature><meta><instanceID>collect-native-sealed</instanceID></meta></data>'); const ciphertext = Buffer.from([0, 255, 128, 17]);
+    await service.post('/v1/projects/1/submission').set('Authorization', `Bearer ${collector.token}`).set('X-OpenRosa-Version', '1.0').attach('xml_submission_file', source, { filename: 'submission.xml' })
+      .attach('submission.xml.enc', ciphertext, { filename: 'submission.xml.enc' })
+      .expect(201);
+    const manifest = { xmlFormId: 'simple', instanceId: 'collect-native-sealed', version: '', xml: { size: source.length, sha256: hash(source) }, files: [{ name: 'submission.xml.enc', size: ciphertext.length, sha256: hash(ciphertext) }] };
+    const response = await service.post('/v1/field-data/app-user/collect-handoffs/verify').set('Authorization', `Bearer ${collector.token}`).send(manifest).expect(200);
+    // eslint-disable-next-line import/extensions, import/no-relative-packages
+    const { verifyCollectHandoffSnapshot } = await import('../../../../../cloudflare/verify-collect-handoff.mjs'); const result = verifyCollectHandoffSnapshot(response.body.snapshot, { issuer: 'https://courier.example', projectId: 1, ownerId: collector.id, publicKeys: [keys.publicKey.export({ format: 'jwk' })] }); assert.equal(result.manifest.files[0].sha256, hash(ciphertext)); assert.equal(Object.hasOwn(result, 'collectSendStatus'), false);
+  })));
+});
+
+describe('api: Collect snapshot object storage', () => {
+  it('hashes object-storage streams and rejects extra bytes without buffering an oversized object', require('../setup').testServiceWith({ s3: { enabled: true, pipeContent: async () => { throw new Error('Test stream not set'); } } }, async (service, c) => withCourierSigning(async () => {
+    const { Readable } = require('node:stream'); const { PartialPipe } = require('../../../lib/util/stream');
+    const { send, first, second, verify } = await handoffSetup(service); await send().expect(201);
+    const streams = new Map([[createHash('sha1').update(first).digest('hex'), first], [createHash('sha1').update(second).digest('hex'), second]]);
+    await c.db.query(sql`UPDATE blobs SET s3_status='uploaded',content=NULL WHERE id IN (SELECT "blobId" FROM submission_attachments)`);
+    const storage = c.s3; storage.pipeContent = async blob => PartialPipe.of(Readable.from([streams.get(blob.sha)])); await verify().expect(200);
+    storage.pipeContent = async blob => PartialPipe.of(Readable.from([streams.get(blob.sha), Buffer.from('extra bytes')])); await verify().expect(409);
+  })));
+});
