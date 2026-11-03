@@ -47,6 +47,7 @@ const props = defineProps({
     type: Number,
     required: true
   },
+  sensitive: { type: Boolean, default: false },
   draft: {
     type: Boolean,
     default: false
@@ -136,7 +137,7 @@ id += 1;
 const idClass = `collect-qr${id}`;
 const config = inject('config');
 useEventListener(document.body, 'click', (event) => {
-  if (config.devTools && event.target.parentNode.classList.contains(idClass))
+  if (!props.sensitive && config.devTools && event.target.parentNode.classList.contains(idClass))
     console.log(props.settings); // eslint-disable-line no-console
 });
 
