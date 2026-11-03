@@ -144,8 +144,13 @@ describe('api: background XML capability delivery', () => {
     assert.deepEqual(files, [{ name: 'photo.jpg.enc', index: 0, blobId: null }, { name: 'submission.xml.enc', index: 1, blobId: null }]);
     const mediaRoot = '/v1/field-data/app-user/media-uploads'; const data = Buffer.from([0, 255, 254, 128]); const transfer = { id: randomUUID(), xmlFormId: 'simple', instanceId: 'background-sealed-after', name: 'submission.xml.enc', size: data.length, sha256: xml.digest(data), contentType: 'application/octet-stream', priority: 2 };
     const request = (method, path = '') => service[method](mediaRoot + path).set('Authorization', `Bearer ${owner.token}`);
-    await request('post').send(transfer).expect(200); await request('put', `/${transfer.id}/chunks/0`).set('Content-Type', 'application/octet-stream').set('X-Chunk-Sha256', transfer.sha256).send(data)
-      .expect(200); await request('post', `/${transfer.id}/complete`).expect(200);
+    await request('post').send(transfer).expect(200);
+    const capability = randomBytes(32).toString('base64url'); const mediaAuthorization = randomUUID(); const backgroundRoot = '/v1/field-data/app-user/media-background';
+    await service.post(backgroundRoot).set('Authorization', `Bearer ${owner.token}`).send({ id: mediaAuthorization, uploadId: transfer.id, tokenHash: xml.digest(capability), expiresAt: new Date(Date.now() + 3600000).toISOString() }).expect(200);
+    await service.put(`${backgroundRoot}/${mediaAuthorization}/chunks/0`).set('X-Field-Data-Delivery-Token', capability).set('Content-Type', 'application/octet-stream').set('X-Chunk-Sha256', transfer.sha256)
+      .send(data)
+      .expect(200);
+    const mediaReceipt = (await service.post(`${backgroundRoot}/${mediaAuthorization}/complete`).set('X-Field-Data-Delivery-Token', capability).expect(200)).body; assert.equal(mediaReceipt.events[0].details.sha256, transfer.sha256);
     const stored = await c.db.oneFirst(sql`SELECT b.content FROM submission_attachments sa JOIN blobs b ON b.id=sa."blobId" WHERE sa."submissionDefId"=${accepted.events[0].details.submissionDefId} AND sa.name='submission.xml.enc'`); assert.equal(xml.digest(stored), transfer.sha256);
   })));
 

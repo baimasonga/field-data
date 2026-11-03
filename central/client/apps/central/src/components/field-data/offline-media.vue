@@ -9,7 +9,7 @@
     <fieldset :disabled="busy">
       <label>Offline media form ID <input v-model.trim="xmlFormId" class="form-control" maxlength="1000"></label>
       <label>Offline media submission instance ID <input v-model.trim="instanceId" class="form-control" maxlength="1000"></label>
-      <label>Files to protect <input type="file" multiple accept="image/*,audio/*,video/*" @change="selectFiles"></label>
+      <label>Files to protect <input type="file" multiple accept="image/*,audio/*,video/*,application/octet-stream,.enc" @change="selectFiles"></label>
       <label>Media package passphrase <input v-model="passphrase" type="password" class="form-control" minlength="12" maxlength="128" autocomplete="off"></label>
       <ul v-if="selected.length"><li v-for="row of selected" :key="`${row.xmlFormId}/${row.instanceId}/${row.file.name}`">Selected: {{ row.file.name }} · {{ row.xmlFormId }} · {{ row.instanceId }}<span v-if="row.challengeId"> · Challenge {{ row.challengeNonce.slice(0, 8).toUpperCase() }} expires {{ new Date(row.challengeExpiresAt).toLocaleString() }}{{ row.captureLocation ? ' · Includes device-reported location' : '' }}</span></li></ul>
       <div class="actions">
@@ -114,7 +114,7 @@ const restore = () => {
   if (busy.value || !props.connected || !opened.value.length) return;
   if (expiresAt.value <= Date.now()) { lock(); return; }
   if (opened.value.some(row => row.challengeId && Date.parse(row.challengeExpiresAt) <= Date.now())) { error.value = 'A capture challenge expired. Its image remains in the encrypted package, but it cannot be restored for challenged upload. Start a new challenge and photo; the server enforces the original deadline.'; return; }
-  emit('restore', opened.value);
+  emit('restore', opened.value.map(row => ({ ...row, packageExpiresAt: expiresAt.value })));
 };
 </script>
 <style scoped>

@@ -157,6 +157,7 @@ module.exports = (container) => {
   require('../resources/field-data-media-couriers')(service, endpoint);
   require('../resources/field-data-xml-couriers')(service, endpoint);
   require('../resources/field-data-xml-background')(service, endpoint, anonymousEndpoint);
+  require('../resources/field-data-media-background')(service, endpoint, anonymousEndpoint);
   require('../resources/field-data-capture-challenges')(service, endpoint);
   require('../resources/field-data-capture-assessments')(service, endpoint);
   require('../resources/field-data-capture-witnesses')(service, endpoint);

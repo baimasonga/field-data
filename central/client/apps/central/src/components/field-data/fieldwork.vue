@@ -93,7 +93,7 @@ Acknowledge request
     </template>
     <p v-if="loading" role="status">Loading your inbox…</p>
     <p v-if="error" role="alert">{{ error }}</p>
-    <field-data-media-uploads v-if="connected" :key="sessionId" ref="mediaUploads" :send="mediaSend" :identity="identity" @protect="protectMedia"/>
+    <field-data-media-uploads v-if="connected" :key="sessionId" ref="mediaUploads" :send="mediaSend" :background-send="mediaBackgroundSend" :identity="identity" @protect="protectMedia"/>
     <field-data-capture-challenge v-if="connected" :key="`capture-${sessionId}`" :send="captureSend" @capture="restoreMedia"/>
     <field-data-offline-submissions :connected="connected" :session-id="sessionId" :identity="identity" :send="submissionSend" :courier-send="xmlCourierSend" :background-send="xmlBackgroundSend"/>
     <field-data-offline-media ref="offlineMedia" :connected="connected" :session-id="sessionId" @restore="restoreMedia"/>
@@ -247,15 +247,17 @@ const xmlCourierSend = computed(() => {
     finally { clearTimeout(timeout); parentSignal.removeEventListener('abort', abort); }
   };
 });
-const xmlBackgroundSend = computed(() => {
+const backgroundSendFor = resource => computed(() => {
   const session = sessionId.value;
   return async (path, method, body) => {
     const requestController = new AbortController(); const parentSignal = controller.signal;
     const abort = () => requestController.abort(); parentSignal.addEventListener('abort', abort, { once: true }); const timeout = setTimeout(abort, 60000);
-    try { return await mediaRequest(session, path, method, body, null, 'xml-background', { signal: requestController.signal }); }
+    try { return await mediaRequest(session, path, method, body, null, resource, { signal: requestController.signal }); }
     finally { clearTimeout(timeout); parentSignal.removeEventListener('abort', abort); }
   };
 });
+const xmlBackgroundSend = backgroundSendFor('xml-background');
+const mediaBackgroundSend = backgroundSendFor('media-background');
 const mediaSend = computed(() => { const session = sessionId.value; return (...args) => mediaRequest(session, ...args); });
 const captureSend = computed(() => { const session = sessionId.value; return (path, method, body) => mediaRequest(session, path, method, body, null, 'capture-challenges'); });
 const parseKey = (value) => {

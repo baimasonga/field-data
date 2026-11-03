@@ -285,3 +285,85 @@ describe('api: courier grant expiry', () => {
     assert.equal((await as(other, 'get').expect(200)).body.items.length, 0);
   })));
 });
+
+const backgroundSetup = async service => {
+  const fixture = await setup(service); await fixture.as(fixture.collector, 'post').send(fixture.manifest).expect(200);
+  const { randomBytes } = require('node:crypto'); const token = randomBytes(32).toString('base64url');
+  const body = { id: randomUUID(), uploadId: fixture.manifest.id, tokenHash: hash(token), expiresAt: new Date(Date.now() + 1800000).toISOString() };
+  const backgroundRoot = '/v1/field-data/app-user/media-background';
+  const bg = (actor, method, path = '') => service[method](backgroundRoot + path).set('Authorization', `Bearer ${actor.token}`);
+  const cap = (method, path, value = token) => service[method](`${backgroundRoot}/${body.id}${path}`).set('X-Field-Data-Delivery-Token', value);
+  const chunk = (offset, bytes, digest = hash(bytes)) => cap('put', `/chunks/${offset}`).set('Content-Type', 'application/octet-stream').set('X-Chunk-Sha256', digest).send(bytes);
+  return { ...fixture, body, token, bg, cap, chunk };
+};
+describe('api: scoped background media delivery', () => {
+  it('resumes exact chunks anonymously, records one native attachment and independently verifies the signed receipt', testService(async (service, c) => withCourierSigning(async keys => {
+    const { collector, other, manifest, data, body, token, bg, cap, chunk } = await backgroundSetup(service);
+    const issued = (await bg(collector, 'post').send(body).expect(200)).body; assert.equal(JSON.stringify(issued).includes(token), false);
+    assert.equal((await bg(collector, 'post').send(body).expect(200)).body.authorization.id, body.id);
+    await bg(other, 'get', `/${body.id}`).expect(404); await cap('get', '/progress', 'A'.repeat(43)).expect(404);
+    await chunk(CHUNK, data.subarray(CHUNK)).expect(409); await chunk(0, data.subarray(0, CHUNK), 'f'.repeat(64)).expect(400);
+    await chunk(0, data.subarray(0, CHUNK)).expect(200); await chunk(0, data.subarray(0, CHUNK)).expect(200);
+    assert.equal((await cap('get', '/progress').expect(200)).body.transfer.offset, CHUNK);
+    await cap('post', '/complete').expect(409); await chunk(CHUNK, data.subarray(CHUNK)).expect(200);
+    const accepted = (await cap('post', '/complete').expect(200)).body; assert.equal((await cap('post', '/complete').expect(200)).body.events.length, 1);
+    const receipt = accepted.events[0].details; assert.equal(receipt.ownerId, collector.id); assert.equal(receipt.receivedBy, collector.id); assert.equal(accepted.sourceAvailable, true);
+    const stored = await c.db.one(sql`SELECT b.content,sa."blobId" FROM submission_attachments sa JOIN blobs b ON b.id=sa."blobId" WHERE sa."submissionDefId"=${receipt.submissionDefId} AND sa.name=${manifest.name}`); assert.equal(hash(stored.content), hash(data));
+    const audit = await c.db.one(sql`SELECT "actorId",details FROM audits WHERE action='field_data.media.background.delivery' AND details->>'authorizationId'=${body.id}`); assert.equal(audit.actorId, null);
+    // eslint-disable-next-line import/extensions, import/no-relative-packages
+    const { verifyMediaBackgroundProof } = await import('../../../../../cloudflare/verify-media-background.mjs'); const pins = { issuer: 'https://courier.example', projectId: 1, publicKeys: [keys.publicKey.export({ format: 'jwk' })] };
+    assert.equal((await verifyMediaBackgroundProof(accepted, pins)).delivery.sha256, hash(data));
+    const swapped = JSON.parse(JSON.stringify(accepted)); swapped.authorization.senderId = other.id; await assert.rejects(verifyMediaBackgroundProof(swapped, pins)); await assert.rejects(verifyMediaBackgroundProof(accepted, { ...pins, projectId: 2 }));
+    await assert.rejects(verifyMediaBackgroundProof({ ...accepted, events: [...accepted.events, { authorizationId: body.id, kind: 'revoke', attestation: null }] }, pins));
+    await c.db.query(sql`DELETE FROM submissions WHERE "instanceId"='both'`); assert.equal((await bg(collector, 'get', `/${body.id}`).expect(200)).body.sourceAvailable, false); await cap('post', '/complete').expect(404);
+  })));
+  it('continues an existing named courier grant without collection rights and binds both custody chains', testService(async (service, c) => withCourierSigning(async keys => {
+    const { alice, collector, other, as, manifest, data, body, bg, cap, chunk } = await backgroundSetup(service);
+    await alice.delete(`/v1/projects/1/forms/binaryType/assignments/app-user/${other.id}`).expect(200);
+    const granted = (await as(collector, 'post', `/${manifest.id}/courier`).send({ requestId: randomUUID(), courierId: other.id, minutes: 60 }).expect(200)).body;
+    const issued = (await bg(other, 'post').send(body).expect(200)).body; assert.equal(issued.authorization.ownerId, collector.id); assert.equal(issued.authorization.senderId, other.id); assert.equal(issued.authorization.courierGrantId, granted.grant.id);
+    await chunk(0, data.subarray(0, CHUNK)).expect(200); await chunk(CHUNK, data.subarray(CHUNK)).expect(200); const accepted = (await cap('post', '/complete').expect(200)).body;
+    assert.equal(accepted.courier.events[0].details.receivedBy, other.id); assert.equal(accepted.courier.events[0].details.backgroundAuthorizationId, body.id);
+    assert.equal(await c.db.oneFirst(sql`SELECT "submitterId" FROM submission_defs WHERE id=${accepted.events[0].details.submissionDefId}`), collector.id);
+    // eslint-disable-next-line import/extensions, import/no-relative-packages
+    const { verifyMediaBackgroundProof } = await import('../../../../../cloudflare/verify-media-background.mjs'); assert.equal((await verifyMediaBackgroundProof(accepted, { issuer: 'https://courier.example', projectId: 1, publicKeys: [keys.publicKey.export({ format: 'jwk' })] })).delivery.receivedBy, other.id);
+  })));
+  it('stops a delegated token immediately on original collector revocation and permits either participant to cancel the browser continuation', testService(async service => withCourierSigning(async () => {
+    const { collector, other, as, manifest, data, body, bg, cap, chunk } = await backgroundSetup(service);
+    await as(collector, 'post', `/${manifest.id}/courier`).send({ requestId: randomUUID(), courierId: other.id, minutes: 60 }).expect(200); await bg(other, 'post').send(body).expect(200);
+    await chunk(0, data.subarray(0, CHUNK)).expect(200);
+    await as(collector, 'post', `/${manifest.id}/courier/revoke`).send({ requestId: randomUUID(), reason: 'Collector withdrew the original transport permission.' }).expect(200);
+    await cap('get', '/progress').expect(404); await chunk(CHUNK, data.subarray(CHUNK)).expect(404); await cap('post', '/complete').expect(404);
+    await bg(other, 'post', `/${body.id}/revoke`).send({ requestId: randomUUID(), reason: 'Courier stopped this separately authorized browser copy.' }).expect(200);
+    const checked = (await bg(collector, 'get', `/${body.id}`).expect(200)).body; assert.equal(checked.events[0].kind, 'revoke'); assert.equal(checked.courier.events[0].kind, 'revoke');
+  })));
+  it('enforces live source permissions, absolute expiry, cancellation and immutable authorization retries', testService(async service => withCourierSigning(async () => {
+    const { alice, collector, data, body, token, bg, cap, chunk } = await backgroundSetup(service); await bg(collector, 'post').send(body).expect(200);
+    await bg(collector, 'post').send({ ...body, tokenHash: 'a'.repeat(64) }).expect(409);
+    await alice.delete(`/v1/projects/1/forms/binaryType/assignments/app-user/${collector.id}`).expect(200); await chunk(0, data.subarray(0, CHUNK)).expect(404);
+    await alice.post(`/v1/projects/1/forms/binaryType/assignments/app-user/${collector.id}`).expect(200);
+    const revoked = (await bg(collector, 'post', `/${body.id}/revoke`).send({ requestId: randomUUID(), reason: 'Stop this exact background file authorization.' }).expect(200)).body.event;
+    const retried = (await bg(collector, 'post', `/${body.id}/revoke`).send({ requestId: randomUUID(), reason: 'Confirm cancellation after its first response was lost.' }).expect(200)).body.event; assert.equal(retried.id, revoked.id); assert.equal(retried.details.reason, revoked.details.reason); await cap('get', '/progress').expect(404);
+    const replacement = { ...body, id: randomUUID(), expiresAt: new Date(Date.now() + 2000).toISOString() }; await bg(collector, 'post').send(replacement).expect(200);
+    await new Promise(resolve => { setTimeout(resolve, 2100); }); await service.get(`/v1/field-data/app-user/media-background/${replacement.id}/progress`).set('X-Field-Data-Delivery-Token', token).expect(404);
+  })));
+  it('serializes foreground completion and capability completion and retains populated history on rollback', testServiceFullTrx(async (service, c) => withCourierSigning(async () => {
+    const { collector, as, manifest, data, body, bg, cap, chunk } = await backgroundSetup(service); await bg(collector, 'post').send(body).expect(200);
+    await chunk(0, data.subarray(0, CHUNK)).expect(200); await chunk(CHUNK, data.subarray(CHUNK)).expect(200);
+    const results = await Promise.all([as(collector, 'post', `/${manifest.id}/complete`), cap('post', '/complete'), cap('post', '/complete')]); assert.deepEqual(results.map(value => value.status), [200, 200, 200]);
+    assert.equal((await bg(collector, 'get', `/${body.id}`).expect(200)).body.events.length, 1);
+    const { knexConnect } = require('../../../lib/model/knex-migrator'); const migration = require('../../../lib/model/migrations/20261103-02-background-media'); const db = knexConnect(require('config').get('test.database'));
+    try { await db.transaction(async trx => { await migration.down(trx); await migration.up(trx); }); } finally { await db.destroy(); }
+    assert.equal(await c.db.oneFirst(sql`SELECT count(*)::integer FROM field_data_media_background WHERE id=${body.id}`), 1); await assert.rejects(c.db.query(sql`DELETE FROM field_data_media_background WHERE id=${body.id}`));
+  })));
+});
+
+
+describe('api: background media target boundaries', () => {
+  it('cannot resurrect a cancelled transfer through its old capability or authorize challenged captures', testService(async service => withCourierSigning(async () => {
+    const { collector, as, manifest, body, bg, cap } = await backgroundSetup(service); await bg(collector, 'post').send(body).expect(200);
+    await as(collector, 'delete', `/${manifest.id}`).expect(200); await cap('get', '/progress').expect(404); await as(collector, 'post').send(manifest).expect(409);
+    const camera = { ...manifest, id: randomUUID(), contentType: 'image/jpeg', challengeId: randomUUID(), challengeNonce: 'a'.repeat(64) }; await as(collector, 'post').send(camera).expect(200);
+    await bg(collector, 'post').send({ ...body, id: randomUUID(), uploadId: camera.id }).expect(404);
+  })));
+});

@@ -9,7 +9,7 @@
         <label>Form ID <input v-model.trim="xmlFormId" class="form-control" maxlength="1000" required></label>
         <label>Synced submission instance ID <input v-model.trim="instanceId" class="form-control" maxlength="1000" required></label>
         <label>Media files (up to 20 MB each)
-          <input type="file" multiple accept="image/*,audio/*,video/*" :disabled="!xmlFormId || !instanceId" @change="addFiles">
+          <input type="file" multiple accept="image/*,audio/*,video/*,application/octet-stream,.enc" :disabled="!xmlFormId || !instanceId" @change="addFiles">
         </label>
       </fieldset>
     </form>
@@ -47,6 +47,7 @@
       </li>
 </ul>
     </details>
+    <field-data-background-media v-if="backgroundSend" :rows="queue" :parent-busy="busy" :send="backgroundSend" :media-send="send" :identity="identity" @received="backgroundReceived"/>
     <field-data-media-couriers :send="send" :identity="identity" @target="selectCourierTransfer"/>
   </section>
 </template>
@@ -55,12 +56,13 @@
 /* eslint-disable no-await-in-loop, no-continue */
 import { onBeforeUnmount, ref } from 'vue';
 import FieldDataMediaCouriers from './media-couriers.vue';
+import FieldDataBackgroundMedia from './background-media.vue';
 import { challengeContext } from '../../util/offline-media';
 import { checkedLocation, sameLocation } from '../../util/capture-location';
 
 defineOptions({ name: 'FieldDataMediaUploads' });
 const emit = defineEmits(['protect']);
-const props = defineProps({ send: { type: Function, required: true }, identity: { type: Object, default: () => ({}) } });
+const props = defineProps({ backgroundSend: { type: Function, default: null }, send: { type: Function, required: true }, identity: { type: Object, default: () => ({}) } });
 const xmlFormId = ref(''); const instanceId = ref(''); const queue = ref([]); const saved = ref([]);
 const explicitTransfers = ref([]);
 const selectCourierTransfer = id => { if (!explicitTransfers.value.includes(id) && explicitTransfers.value.length < 10) explicitTransfers.value.push(id); };
@@ -125,6 +127,10 @@ const restoreFiles = rows => {
   }
   for (const row of additions) queue.value.push({ ...row, localId: crypto.randomUUID(), id: null, offset: 0, state: 'Ready' });
   error.value = ''; message.value = 'Unlocked files added. Review the queue, then explicitly upload or resume.';
+};
+const backgroundReceived = async receipt => {
+  const current = generation;
+  for (const row of queue.value) if (row.id === receipt.uploadId && row.file.size === receipt.size && await digest(await row.file.arrayBuffer()) === receipt.sha256 && current === generation) { row.state = 'completed'; row.offset = row.file.size; }
 };
 const protect = () => {
   if (busy.value) return;
