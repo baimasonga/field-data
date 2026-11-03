@@ -19,10 +19,10 @@
       <p>XML: {{ current.xml.name }} · {{ current.xml.size }} bytes · SHA-256 {{ current.xml.sha256 }}</p>
       <ul><li v-for="file of current.media" :key="file.name">{{ file.name }} · {{ file.size }} bytes · SHA-256 {{ file.sha256 }}</li></ul>
       <p v-if="preview?.excluded.length">Excluded: {{ preview.excluded.join(', ') }}</p>
-      <p v-if="current.snapshot">A signed verification snapshot is saved in this package. Recheck the server to confirm current availability.</p>
+      <p v-if="current.snapshot">{{ verifiedInSession ? 'Snapshot verified with this server in this session; recheck when needed.' : 'Package contains a historical snapshot. Use Verify received Collect files to check it with this server.' }}</p>
     </template>
     <div class="actions">
-      <button type="button" class="btn btn-primary" :disabled="busy || !sameCollector || opened?.snapshot != null" @click="send">Send Collect files</button>
+      <button type="button" class="btn btn-primary" :disabled="busy || !sameCollector || verifiedInSession" @click="send">Send Collect files</button>
       <button type="button" class="btn btn-default" :disabled="busy || !sameCollector" @click="verify">Verify received Collect files</button>
       <button type="button" class="btn btn-default" :disabled="busy || !opened" @click="exportPackage">Export encrypted Collect handoff</button>
       <button type="button" class="btn btn-default" :disabled="busy || !opened?.snapshot" @click="download">Download Collect verification snapshot</button>
@@ -39,24 +39,25 @@ import { checkpointCollectHandoff, collectManifest, decryptCollectHandoff, encry
 
 defineOptions({ name: 'FieldDataCollectHandoff' });
 const props = defineProps({ connected: Boolean, sessionId: { type: Number, required: true }, identity: { type: Object, required: true }, sendFiles: { type: Function, required: true }, verifyFiles: { type: Function, required: true } });
+const verifiedInSession = ref(false);
 const selected = ref([]); const preview = ref(null); const opened = ref(null); const consent = ref(false); const passphrase = ref(''); const busy = ref(false); const message = ref(''); const error = ref(''); let generation = 0; let expiry; let savedRecord = null;
 const current = computed(() => opened.value ?? preview.value?.data); const manifest = computed(() => (current.value ? collectManifest(current.value) : null));
 const sameCollector = computed(() => props.connected && opened.value?.actorId === props.identity.actorId && opened.value?.projectId === props.identity.projectId && opened.value.expiresAt > Date.now());
-const lock = () => { generation += 1; clearTimeout(expiry); selected.value = []; preview.value = null; opened.value = null; savedRecord = null; consent.value = false; passphrase.value = ''; busy.value = false; error.value = ''; message.value = 'Collect handoff locked. The encrypted saved copy remains.'; };
+const lock = () => { generation += 1; clearTimeout(expiry); selected.value = []; preview.value = null; opened.value = null; savedRecord = null; verifiedInSession.value = false; consent.value = false; passphrase.value = ''; busy.value = false; error.value = ''; message.value = 'Collect handoff locked. The encrypted saved copy remains.'; };
 watch(() => props.sessionId, lock); onBeforeUnmount(lock);
 const perform = async action => {
   if (busy.value) return; const revision = generation; const active = () => revision === generation; busy.value = true; error.value = ''; message.value = '';
   try { await action(active); } catch (failure) { if (active()) error.value = 'Collect handoff stopped. Check the selected instance, passphrase, expiry, storage and original collector access. Files may already be received: use Verify received Collect files before resending. Collect files and send status remain unchanged.'; } finally { if (active()) busy.value = false; }
 };
-const show = data => { opened.value = data; preview.value = null; selected.value = []; clearTimeout(expiry); expiry = setTimeout(lock, Math.max(0, data.expiresAt - Date.now())); };
+const show = data => { verifiedInSession.value = false; opened.value = data; preview.value = null; selected.value = []; clearTimeout(expiry); expiry = setTimeout(lock, Math.max(0, data.expiresAt - Date.now())); };
 const persist = async (data, active, checkpoint = false) => { const encrypted = await encryptCollectHandoff(data, passphrase.value); if (!active()) return; if (checkpoint) await checkpointCollectHandoff(encrypted, savedRecord, active); else await storedCollectHandoff('write', encrypted, active); if (active()) savedRecord = encrypted; };
 const select = event => { const input = event.target; selected.value = Array.from(input.files ?? []); input.value = ''; preview.value = null; consent.value = false; };
 const review = () => perform(async active => { const value = await prepareCollectHandoff(selected.value, props.identity); if (active()) { preview.value = value; consent.value = false; message.value = 'Collect files reviewed locally. Confirm the collector and file list before saving.'; } });
 const save = () => perform(async active => { if (!preview.value || !consent.value || !props.connected) return; const { data } = preview.value; if (data.actorId !== props.identity.actorId || data.projectId !== props.identity.projectId) throw new Error('Collector changed'); await persist(data, active); if (active()) { show(data); message.value = 'Collect handoff encrypted and saved. Nothing has been uploaded.'; } });
 const unlock = () => perform(async active => { const record = await storedCollectHandoff('read', null, active); const data = await decryptCollectHandoff(record, passphrase.value); if (active()) { savedRecord = record; show(data); message.value = 'Collect handoff unlocked. Reconnect as its original collector to send or verify.'; } });
 const importPackage = event => { const input = event.target; const file = input.files?.[0]; input.value = ''; if (!file) return; perform(async active => { if (!file.size || file.size > 48 * 1024 * 1024) throw new Error('Archive too large'); const record = JSON.parse(await file.text()); const data = await decryptCollectHandoff(record, passphrase.value); if (active()) await storedCollectHandoff('write', record, active); if (active()) { savedRecord = record; show(data); message.value = 'Encrypted Collect handoff imported. Nothing has been uploaded.'; } }); };
-const verifyCurrent = async active => { const data = opened.value; const response = await props.verifyFiles(collectManifest(data)); await verifyCollectSnapshot(response.snapshot, data); if (!active()) return; const confirmed = { ...data, snapshot: response.snapshot }; await persist(confirmed, active, true); if (active()) { show(confirmed); message.value = 'Collect XML and all expected files verified. Signed snapshot saved in the encrypted handoff. Collect send status remains under Collect control.'; } };
-const send = () => perform(async active => { if (!sameCollector.value || opened.value.snapshot != null) return; await props.sendFiles(opened.value); if (active()) await verifyCurrent(active); });
+const verifyCurrent = async active => { const data = opened.value; const response = await props.verifyFiles(collectManifest(data)); await verifyCollectSnapshot(response.snapshot, data); if (!active()) return; const confirmed = { ...data, snapshot: response.snapshot }; await persist(confirmed, active, true); if (active()) { show(confirmed); verifiedInSession.value = true; message.value = 'Collect XML and all expected files verified. Signed snapshot saved in the encrypted handoff. Collect send status remains under Collect control.'; } };
+const send = () => perform(async active => { if (!sameCollector.value || verifiedInSession.value) return; await props.sendFiles(opened.value); if (active()) await verifyCurrent(active); });
 const verify = () => perform(async active => { if (sameCollector.value) await verifyCurrent(active); });
 const downloadFile = (data, name) => { const url = URL.createObjectURL(new Blob([JSON.stringify(data)], { type: 'application/json' })); const link = document.createElement('a'); link.href = url; link.download = name; link.click(); setTimeout(() => URL.revokeObjectURL(url), 1000); };
 const exportPackage = () => perform(async active => { const record = await storedCollectHandoff('read', null, active); await decryptCollectHandoff(record, passphrase.value); if (active()) downloadFile(record, 'field-data-collect.fdcollect'); });

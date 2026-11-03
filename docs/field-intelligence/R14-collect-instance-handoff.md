@@ -81,8 +81,10 @@ collector and public keys, and can additionally pin the expected manifest.
 A snapshot proves the stored bytes checked at that time. It does not prove Collect
 origin, Android presence, successful decryption, native queue status or future
 availability. A downloaded snapshot remains verifiable after purge or permission
-loss; a fresh online check then fails. The package's saved snapshot is historical
-until explicitly rechecked.
+loss; a fresh online check then fails. An imported snapshot's embedded public key is not a trust anchor. Imported or
+unlocked snapshots remain historical until explicitly rechecked through the
+authenticated server in the current session. Independent offline verification
+requires the separately pinned keys described above.
 
 ## Bounds and evidence
 
