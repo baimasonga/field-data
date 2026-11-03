@@ -21,7 +21,7 @@ const authorize = async (tx, actor, row) => {
     AND NOT EXISTS(SELECT 1 FROM field_data_media_courier_events WHERE "grantId"=${grant.id} AND kind='revoke')`);
   if (!valid) throw Problem.user.notFound();
 };
-const delivery = async (tx, actor, row, blobId) => {
+const delivery = async (tx, actor, row, blobId, transport = {}) => {
   const grant = await grantFor(tx, row.id); if (!grant) return;
   const settings = config();
   if (!settings) throw invalid('Courier delivery signing is unavailable. Retry after service is restored.');
@@ -32,7 +32,7 @@ const delivery = async (tx, actor, row, blobId) => {
   const { at } = await tx.db.one(sql`SELECT clock_timestamp() AS at`);
   if (actor.id !== row.actorId && (new Date(grant.expiresAt).getTime() <= new Date(at).getTime() || new Date(row.expiresAt).getTime() <= new Date(at).getTime())) throw Problem.user.notFound();
   const details = { grantId: grant.id, uploadId: row.id, projectId: row.projectId, submissionDefId: row.submissionDefId,
-    ownerId: row.actorId, receivedBy: actor.id, sha256: row.manifest.sha256, size: row.manifest.size, blobId,
+    ownerId: row.actorId, receivedBy: actor.id, ...transport, sha256: row.manifest.sha256, size: row.manifest.size, blobId,
     grantPayloadHash: digest(Buffer.from(grant.attestation.payload, 'base64url')), receivedAt: new Date(at).toISOString() };
   await tx.db.query(sql`INSERT INTO field_data_media_courier_events(id,"grantId",kind,"requestId","requestHash",details,attestation)
     VALUES(${randomUUID()},${grant.id},'delivery',${randomUUID()},${digest(JSON.stringify(details))},${JSON.stringify(details)},${JSON.stringify(attest(settings, 'delivery', details))})`);
