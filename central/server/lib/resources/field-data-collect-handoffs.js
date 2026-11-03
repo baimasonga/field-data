@@ -1,5 +1,5 @@
 // Copyright 2026 Field Data Developers. Licensed under the Apache License, Version 2.0.
-/* eslint-disable no-await-in-loop */
+/* eslint-disable no-await-in-loop, no-control-regex */
 const { createHash, sign } = require('node:crypto');
 const { Writable } = require('node:stream');
 const { sql } = require('slonik');
@@ -12,7 +12,7 @@ const invalid = () => Problem.user.mediaUploadInvalid(); const conflict = () => 
 const exact = (v, keys) => v && typeof v === 'object' && !Array.isArray(v) && Object.keys(v).length === keys.length && keys.every(k => Object.hasOwn(v, k));
 const file = value => exact(value, ['size', 'sha256']) && Number.isSafeInteger(value.size) && value.size > 0 && /^[a-f0-9]{64}$/.test(value.sha256);
 const manifestFor = body => {
-  if (!exact(body, ['xmlFormId', 'instanceId', 'version', 'xml', 'files']) || !['xmlFormId', 'instanceId', 'version'].every(k => typeof body[k] === 'string' && body[k].length <= 1000 && body[k].trim() === body[k]) || !body.xmlFormId || !body.instanceId || !file(body.xml) || body.xml.size > 1048576 || !Array.isArray(body.files) || body.files.length > 10) throw invalid();
+  if (!exact(body, ['xmlFormId', 'instanceId', 'version', 'xml', 'files']) || !['xmlFormId', 'instanceId', 'version'].every(k => typeof body[k] === 'string' && body[k].length <= 1000 && body[k].trim() === body[k] && !/[\u0000-\u001f\u007f]/.test(body[k])) || !body.xmlFormId || !body.instanceId || !file(body.xml) || body.xml.size > 1048576 || !Array.isArray(body.files) || body.files.length > 10) throw invalid();
   const names = new Set(); let total = 0;
   for (const f of body.files) {
     if (!exact(f, ['name', 'size', 'sha256']) || typeof f.name !== 'string' || !f.name.length || f.name.length > 255 || /[/\\\u0000-\u001f\u007f]/.test(f.name) || !file({ size: f.size, sha256: f.sha256 }) || names.has(f.name)) throw invalid(); // eslint-disable-line no-control-regex

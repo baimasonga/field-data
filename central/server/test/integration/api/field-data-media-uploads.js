@@ -394,6 +394,7 @@ describe('api: native Collect handoff verification', () => {
     const { alice, collector, send, manifest, verify } = await handoffSetup(service); await send().expect(201);
     await verify(collector, { ...manifest, files: manifest.files.map(f => ({ ...f, sha256: 'b'.repeat(64) })) }).expect(409);
     await verify(collector, { ...manifest, files: [...manifest.files, manifest.files[0]] }).expect(400);
+    await verify(collector, { ...manifest, instanceId: 'both\u0000' }).expect(400);
     await verify(collector, { ...manifest, files: [{ name: '../file', size: 1, sha256: 'a'.repeat(64) }] }).expect(400);
     await verify(collector, { ...manifest, files: [{ ...manifest.files[0], size: 20971521 }] }).expect(400);
     await alice.delete(`/v1/projects/1/forms/binaryType/assignments/app-user/${collector.id}`).expect(200); await verify().expect(404);
