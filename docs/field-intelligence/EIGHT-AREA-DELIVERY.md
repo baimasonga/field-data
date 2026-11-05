@@ -380,7 +380,7 @@ acceptance remain separate from software delivery. Later release notes that say
 | Evidence/trust | Evidence graph, challenges/replay checks, signed witnesses with correction/withdrawal history and server-attested project key revocation, time-bounded form witness delegation with signed receipts, second-manager reviewed account/key certificates with expiry and revocation, enrolled external sensor keys, signed source-bound readings and review/receipt history, human assessments and device-reported location | Independent identity-provider/document validation; physical sensor commissioning, anti-relay/hardware assurance and calibrated presence evaluation |
 | Offline resilience | Signed encrypted assignments/itineraries; recoverable resumable media; encrypted XML queues and open-page automatic sync; delegated XML/media couriers with signed custody, native encrypted-envelope transport, version-bound edits and opt-in collector/courier XML and resumable media Background Sync with exact-file capabilities and linked signed receipts; encrypted Collect instance-folder handoff through native multipart with complete-file verification | Device-only queue/finalization state and physical/device acceptance |
 | Operations | Sampling, allocation, shared capacity, same-day/overnight UTC shifts, combined approved itineraries, manual/scheduled collector/answer sampling with group-specific rates, numeric ranges, polygon groups, inspectable design weights, conditional calibrated binary estimates, approved-stop navigation handoff and agreement counts | Additional task types, built-in/offline routing, external benchmark calibration and validated outcome inference |
-| Geospatial | Location integrity, imagery availability and cited human geospatial assessments with temporal context and outdated history | Exact footprint checks, reviewed change candidates, imagery analysis and evaluated automated change detection |
+| Geospatial | Location integrity, imagery availability and cited human geospatial assessments with temporal context and outdated history | Imagery pixel analysis, verified provider footprints and evaluated automated change detection |
 | Fraud intelligence | Contradictions, identity reuse, similarity, collector links, investigations/outcomes, live case links and targeted backcheck questions with reviewed form drafts and same-form/cross-form shared-identity peer targeting | Broader peer families, multilingual/effectiveness evaluation, calibrated triage and false-positive evaluation |
 | Adaptive surveys | Doctor, simulations, version-change analysis, analysis recodes and opt-in native CSV ZIP value recodes | Approved bounded policies, reviewed evolution/draft generation, answer uncertainty, conversational multilingual support, native moved-question recodes and OData overlays |
 | Multimodal | Provenance-preserving capture, manual evidence review and reviewed photo-text/voice extraction with correction history | Live provider/language evaluation, asset/module suggestions, guided capture, source-grounded drafts, offline models and field acceptance |
@@ -737,3 +737,14 @@ ownership and form permissions are checked; no file bytes or answer XML are
 returned. This is server inventory, not device queue state or exact byte
 verification. See [R16-collect-delivery-receipts.md](R16-collect-delivery-receipts.md).
 Physical-device background send and finalization acceptance remain pending.
+
+
+### G3 supplied image footprints and reviewed change candidates
+
+Geospatial verification checks the current reported point against bounded supplied
+Polygon/MultiPolygon image footprints, including holes and boundary uncertainty.
+Reviewers record dated before/after change candidates with both reference
+geometries, computed checks, reasoning and immutable source-bound history/export.
+No pixels are interpreted and no presence or automatic-change assertion is made.
+See [G3-footprints-and-change-reviews.md](G3-footprints-and-change-reviews.md).
+Verified provider footprints, pixel analysis and field effectiveness remain pending.

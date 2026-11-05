@@ -1666,3 +1666,45 @@ test('signed sensor readings import and review with exact retries, pinned export
   revoked = true; readOnly = true; await panel.getByRole('button', { name: 'Refresh sensor readings', exact: true }).click(); await expect(panel).toContainText('Supporting corroboration withheld'); await expect(panel).toContainText('0 current readings'); await expect(panel.getByRole('button', { name: 'Save sensor assessment', exact: true })).toHaveCount(0);
   denied = true; await panel.getByRole('button', { name: 'Refresh sensor readings', exact: true }).click(); await expect(panel.getByRole('alert')).toContainText('could not be loaded or verified'); await expect(panel).not.toContainText('Range beacon'); expect(errors).toEqual([]);
 });
+
+test('geospatial footprint previews and reviewed change candidates retain both dated footprints in history and export', async ({ page: p }) => {
+  const geometry = { type: 'Polygon', coordinates: [[[-13.24, 8.47], [-13.22, 8.47], [-13.22, 8.49], [-13.24, 8.49], [-13.24, 8.47]]] };
+  const posts = []; const previews = []; let items = [];
+  const checks = { relation: 'inside', accuracyRelation: 'contained', boundaryDistanceM: 500 };
+  const errors = await setupAssessmentRecord(p, async (route, path) => {
+    if (path.endsWith('/geo-assessments/footprint/check')) { previews.push(route.request().postDataJSON()); await route.fulfill({ json: { sourceFingerprint: geoSource().fingerprint, ...checks } }); return true; }
+    if (path.endsWith('/geo-assessments')) {
+      if (route.request().method() === 'POST') {
+        const data = route.request().postDataJSON(); posts.push(data);
+        const normalized = { ...data, citation: { ...data.citation, url: data.citation.after.url, checks: { before: checks, after: checks }, method: 'reported-point-planar-wgs84@1' } };
+        items = [geoRecord(normalized, 1)]; await route.fulfill({ json: { item: items[0], revision: 1 } });
+      } else await route.fulfill({ json: geoView(items) }); return true;
+    }
+    return false;
+  });
+  const section = p.getByRole('region', { name: 'Geospatial verification', exact: true });
+  await section.getByLabel('Claim being assessed').fill('A new structure appears between the two dated images.');
+  await section.getByRole('combobox', { name: /^Evidence outcome/ }).selectOption('supports');
+  await section.getByRole('combobox', { name: /^Imagery citation/ }).selectOption('change');
+  await section.getByLabel('Reference title', { exact: true }).fill('After structure image');
+  await section.getByLabel('Image date', { exact: true }).fill('2026-09-25');
+  await section.getByLabel('Image reference URL').fill('https://images.example.test/after');
+  await section.getByLabel('After image footprint GeoJSON').fill(JSON.stringify(geometry));
+  await section.getByLabel('Before reference title').fill('Before structure image');
+  await section.getByLabel('Before image date').fill('2026-09-10');
+  await section.getByLabel('Before image URL').fill('https://images.example.test/before');
+  await section.getByLabel('Before image footprint GeoJSON').fill(JSON.stringify(geometry));
+  await section.getByRole('button', { name: 'Check exact image footprints' }).click();
+  await expect(section).toContainText('before footprint: reported point inside');
+  await expect(section).toContainText('after footprint: reported point inside');
+  expect(previews).toEqual([{ sourceFingerprint: geoSource().fingerprint, geometry }, { sourceFingerprint: geoSource().fingerprint, geometry }]);
+  await section.getByLabel('I inspected both dated images and their footprints at the reported location.').check();
+  await section.getByLabel('Assessment reasoning').fill('The later image shows a structure absent in the earlier reference.');
+  await section.getByLabel('Evidence limitations').fill('Resolution, cloud and reviewer-supplied dates limit this human interpretation.');
+  await section.getByRole('button', { name: 'Save geospatial assessment', exact: true }).click();
+  await expect(section).toContainText('Reviewed change candidate'); await expect(section).toContainText('Before structure image'); await expect(section).toContainText('After structure image');
+  expect(posts[0].citation.kind).toBe('change'); expect(posts[0].citation.before.geometry).toEqual(geometry);
+  const [download] = await Promise.all([p.waitForEvent('download'), section.getByRole('button', { name: 'Download geospatial assessment history' }).click()]);
+  const exported = JSON.parse(await readFile(await download.path(), 'utf8')); expect(exported.items[0].citation.checks.before.relation).toBe('inside'); expect(exported.items[0].citation.after.geometry).toEqual(geometry);
+  await p.setViewportSize({ width: 320, height: 740 }); expect(await p.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true); expect(errors).toEqual([]);
+});
