@@ -3,6 +3,7 @@ const { createHash } = require('node:crypto');
 const { UUID_PATTERN } = require('./claim-versioning');
 const Problem = require('./problem');
 const imagery = require('./imagery');
+const footprints = require('./imagery-footprints');
 const hash = value => createHash('sha256').update(JSON.stringify(value)).digest('hex');
 const exact = (body, keys) => body && typeof body === 'object' && !Array.isArray(body) && Object.keys(body).length === keys.length && keys.every(key => Object.hasOwn(body, key));
 const validHash = value => typeof value === 'string' && /^[0-9a-f]{64}$/.test(value);
@@ -15,6 +16,11 @@ const config = () => {
   const raw = process.env.FIELD_DATA_STAC_URL || 'https://earth-search.aws.element84.com/v1';
   const url = safeUrl(raw); const parsed = url && new URL(url);
   return { enabled: process.env.FIELD_DATA_IMAGERY_ENABLED === 'true', catalogue: parsed && !parsed.search && !parsed.hash ? url.replace(/\/+$/, '') : null };
+};
+const checkedReference = c => {
+  if (!text(c.title, 1, 300) || !safeUrl(c.url) || typeof c.date !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(c.date) ||
+    !Number.isFinite(Date.parse(c.date)) || new Date(c.date).toISOString().slice(0, 10) !== c.date || c.date < '1900-01-01' || c.date > new Date().toISOString().slice(0, 10)) throw new Error('Invalid dated reference');
+  return { title: c.title.trim(), url: safeUrl(c.url), date: c.date };
 };
 const checked = body => {
   const invalid = () => { throw Problem.user.geoAssessmentInvalid(); };
@@ -31,6 +37,21 @@ const checked = body => {
     } else if (c.kind === 'catalogue' && exact(c, ['kind', 'sceneId', 'sceneFingerprint', 'url'])) {
       if (!text(c.sceneId, 1, 300) || !validHash(c.sceneFingerprint) || (c.url !== null && !safeUrl(c.url))) return invalid();
       citation = { kind: 'catalogue', sceneId: c.sceneId, sceneFingerprint: c.sceneFingerprint, url: c.url === null ? null : safeUrl(c.url) };
+    } else if (c.kind === 'footprint' && exact(c, ['kind', 'title', 'url', 'date', 'geometry'])) {
+      try {
+        const reference = checkedReference(c);
+        citation = { kind: 'footprint', ...reference, geometry: footprints.geometryFor(c.geometry) };
+      } catch { return invalid(); }
+    } else if (c.kind === 'change' && exact(c, ['kind', 'before', 'after'])) {
+      try {
+        const normalize = entry => {
+          if (!exact(entry, ['title', 'url', 'date', 'geometry'])) throw new Error('Invalid reference');
+          return { ...checkedReference(entry), geometry: footprints.geometryFor(entry.geometry) };
+        };
+        const before = normalize(c.before); const after = normalize(c.after);
+        if (before.date >= after.date) return invalid();
+        citation = { kind: 'change', before, after, url: after.url };
+      } catch { return invalid(); }
     } else return invalid();
   }
   if (body.citation === undefined || (body.outcome === 'unavailable' && (citation !== null || body.reviewedImage)) ||

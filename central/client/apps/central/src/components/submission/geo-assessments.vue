@@ -42,9 +42,15 @@
 Catalogue scene {{ item.citation.sceneId }} · <record-date-time :iso="item.citation.at"/> · {{ offset(item.citation.at, item.source.visitAt, item.source.visitBasis) }} · {{ item.citation.cloud == null ? 'cloud cover unknown' : `${item.citation.cloud}% scene cloud` }}<template v-if="item.citation.staleAtReview"> · cache was older than seven days at review</template>.
               <a :href="item.citation.metadataUrl" target="_blank" rel="noopener noreferrer">Cited scene metadata</a>
 </p>
+            <template v-else-if="item.citation.kind === 'change'">
+              <h4>Reviewed change candidate</h4>
+              <p v-for="side in ['before', 'after']" :key="side">{{ side }}: {{ item.citation[side].title }} · {{ item.citation[side].date }} · <a :href="item.citation[side].url" target="_blank" rel="noopener noreferrer">Open {{ side }} image reference</a></p>
+              <p>Both images were inspected by the reviewer. This is a human change interpretation, not automatic change detection.</p>
+            </template>
             <p v-else>Reviewer reference: {{ item.citation.title }} · image dated {{ item.citation.date }} · {{ offset(item.citation.date, item.source.visitAt, item.source.visitBasis) }}. Image content and date are reviewer assertions; external changes are not monitored.</p>
-            <p v-if="item.citation.url"><a :href="item.citation.url" target="_blank" rel="noopener noreferrer">Open cited image reference</a> · reviewer attested to inspecting the image.</p>
-            <p v-else>Metadata-only assessment; no image inspection recorded.</p>
+            <p v-for="(check, side) in item.citation.checks || {}" :key="side">{{ side }} footprint: reported point {{ check.relation }} · reported accuracy {{ check.accuracyRelation }} · approximate boundary distance {{ check.boundaryDistanceM }} m.</p>
+            <p v-if="item.citation.url && item.citation.kind !== 'change'"><a :href="item.citation.url" target="_blank" rel="noopener noreferrer">Open cited image reference</a> · reviewer attested to inspecting the image.</p>
+            <p v-else-if="!item.citation.url">Metadata-only assessment; no image inspection recorded.</p>
           </template><p v-else>No imagery citation; evidence was unclear or unavailable.</p>
           <p v-if="item.citationStatus === 'catalogue-changed'" class="outdated">Cited catalogue metadata changed or is no longer available.</p>
           <details><summary>Recorded source fingerprints</summary><code>{{ item.sourceFingerprint }}</code><p>XML: <code>{{ item.source.xmlHash }}</code></p><p>Attachments: <code>{{ item.source.attachmentsHash }}</code></p></details>
@@ -57,16 +63,30 @@ Catalogue scene {{ item.citation.sceneId }} · <record-date-time :iso="item.cita
             <label>Evidence outcome <select v-model="outcome" class="form-control" required>
               <option value="unclear">Unclear</option><option value="unavailable">Unavailable</option><option value="supports" :disabled="!data.source.location">Supports the claim</option><option value="conflicts" :disabled="!data.source.location">Conflicts with the claim</option>
             </select></label>
-            <label v-if="outcome !== 'unavailable'">Imagery citation <select v-model="citationKind" class="form-control"><option value="none" :disabled="positive">No citation</option><option value="reference">Dated image reference</option><option value="catalogue" :disabled="!data.catalogue.scenes.length">Cached catalogue scene</option></select></label>
-            <template v-if="outcome !== 'unavailable' && citationKind === 'reference'">
+            <label v-if="outcome !== 'unavailable'">Imagery citation <select v-model="citationKind" class="form-control"><option value="none" :disabled="positive">No citation</option><option value="reference">Dated image reference</option><option value="footprint">Image with exact footprint</option><option value="change">Before/after change candidate</option><option value="catalogue" :disabled="!data.catalogue.scenes.length">Cached catalogue scene</option></select></label>
+            <template v-if="outcome !== 'unavailable' && ['reference', 'footprint', 'change'].includes(citationKind)">
               <label>Reference title <input v-model="title" class="form-control" required maxlength="300"></label>
               <label>Image date <input v-model="date" class="form-control" type="date" required :max="today"></label>
             </template>
             <label v-if="outcome !== 'unavailable' && citationKind === 'catalogue'">Catalogue scene <select v-model="sceneId" class="form-control" required><option disabled value="">Choose a scene…</option><option v-for="scene in data.catalogue.scenes" :key="scene.id" :value="scene.id">{{ scene.id }} · {{ scene.at.slice(0, 10) }} · {{ scene.cloud == null ? 'cloud unknown' : `${scene.cloud}% cloud` }}</option></select></label>
             <template v-if="outcome !== 'unavailable' && citationKind !== 'none'">
-              <label>Image reference URL <input v-model="url" class="form-control" type="url" maxlength="2048" :required="positive || citationKind === 'reference'" placeholder="https://"></label>
+              <label>Image reference URL <input v-model="url" class="form-control" type="url" maxlength="2048" :required="positive || ['reference', 'footprint', 'change'].includes(citationKind)" placeholder="https://"></label>
               <p>Use a nonsecret HTTPS reference to imagery you can inspect. The server does not fetch or archive this URL. A scene metadata link alone is not an image inspection.</p>
-              <label class="attestation"><input v-model="reviewedImage" type="checkbox" :required="positive || citationKind === 'reference' || !!url.trim()"> I inspected the cited image, its date and the reported location.</label>
+              <label class="attestation"><input v-model="reviewedImage" type="checkbox" :required="positive || ['reference', 'footprint', 'change'].includes(citationKind) || !!url.trim()"> {{ citationKind === 'change' ? 'I inspected both dated images and their footprints at the reported location.' : 'I inspected the cited image, its date and the reported location.' }}</label>
+            </template>
+            <template v-if="outcome !== 'unavailable' && ['footprint', 'change'].includes(citationKind)">
+              <p>Supply the image footprint as WGS84 GeoJSON Polygon or MultiPolygon geometry, in longitude/latitude order. Geometry is checked locally on the server; no image URL or exact submission location is sent to a provider. Supplied footprints and image dates are reviewer assertions; geometry cannot certify image content or physical presence.</p>
+              <label>{{ citationKind === 'change' ? 'After image footprint GeoJSON' : 'Image footprint GeoJSON' }} <textarea v-model="footprint" class="form-control" required maxlength="65536" rows="4"></textarea></label>
+              <template v-if="citationKind === 'change'">
+                <p>The reference title, image date and URL above identify the after image. Add an earlier before image below.</p>
+                <label>Before reference title <input v-model="before.title" class="form-control" required maxlength="300"></label>
+                <label>Before image date <input v-model="before.date" class="form-control" type="date" required :max="date || today"></label>
+                <label>Before image URL <input v-model="before.url" class="form-control" type="url" required maxlength="2048"></label>
+                <label>Before image footprint GeoJSON <textarea v-model="before.geometry" class="form-control" required maxlength="65536" rows="4"></textarea></label>
+              </template>
+              <p>For a supporting or conflicting review, both the reported point and its reported accuracy radius must fit inside every supplied footprint. Boundary, outside or unknown accuracy results allow only an unclear review. Cloud, resolution and dates still require human inspection.</p>
+              <button type="button" class="btn btn-default" @click="checkFootprints">Check exact image footprints</button>
+              <p v-for="(check, side) in footprintChecks" :key="side" role="status">{{ side }} footprint: reported point {{ check.relation }} · reported accuracy {{ check.accuracyRelation }} · approximate boundary distance {{ check.boundaryDistanceM }} m.</p>
             </template>
             <label>Assessment reasoning <textarea v-model="reason" class="form-control" required minlength="10" maxlength="2000" rows="3"></textarea></label>
             <label>Evidence limitations <textarea v-model="limitations" class="form-control" required minlength="10" maxlength="2000" rows="3" placeholder="Consider dates, seasons, viewpoint, cloud, resolution, reported position and visit-time uncertainty."></textarea></label>
@@ -89,17 +109,19 @@ const props = defineProps({ projectId: { type: String, required: true }, xmlForm
 const { request } = useRequest(); const data = ref(null); const loading = ref(false); const busy = ref(false); const error = ref(''); const notice = ref('');
 const claim = ref(''); const outcome = ref('unclear'); const reason = ref(''); const limitations = ref(''); const citationKind = ref('none');
 const title = ref(''); const date = ref(''); const url = ref(''); const sceneId = ref(''); const reviewedImage = ref(false); const pending = ref(null); let generation = 0;
+const footprint = ref(''); const before = ref({ title: '', date: '', url: '', geometry: '' }); const footprintChecks = ref({});
 const today = new Date().toISOString().slice(0, 10); const positive = computed(() => ['supports', 'conflicts'].includes(outcome.value));
 const submissionBase = computed(() => apiPaths.submission(props.projectId, props.xmlFormId, props.instanceId)); const base = computed(() => `${submissionBase.value}/geo-assessments`);
 const safeLink = value => { try { const link = new URL(value); return typeof value === 'string' && link.protocol === 'https:' && !link.username && !link.password; } catch { return false; } };
 const validHash = value => typeof value === 'string' && /^[0-9a-f]{64}$/.test(value);
 const validSource = source => source && validHash(source.fingerprint) && typeof source.versionId === 'string' && Number.isFinite(Date.parse(source.visitAt)) && ['receipt', 'device-audit-log'].includes(source.visitBasis) &&
   (source.location == null || (Number.isFinite(source.location.latitude) && Math.abs(source.location.latitude) <= 90 && Number.isFinite(source.location.longitude) && Math.abs(source.location.longitude) <= 180));
+const validFootprintReference = entry => entry && safeLink(entry.url) && typeof entry.title === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(entry.date) && Number.isFinite(Date.parse(entry.date)) && ['Polygon', 'MultiPolygon'].includes(entry.geometry?.type);
 const validItem = item => item && typeof item.id === 'string' && Number.isInteger(item.sequence) && item.sequence >= 1 && item.sequence <= 50 && validSource(item.source) &&
   validHash(item.sourceFingerprint) && item.source.fingerprint === item.sourceFingerprint && ['current', 'outdated', 'superseded'].includes(item.state) && ['supports', 'conflicts', 'unclear', 'unavailable'].includes(item.outcome) &&
   typeof item.claim === 'string' && typeof item.reason === 'string' && typeof item.limitations === 'string' && typeof item.bindingCurrent === 'boolean' &&
   (item.citation == null || ((item.citation.url == null || safeLink(item.citation.url)) && (item.citation.kind === 'reference' ? /^\d{4}-\d{2}-\d{2}$/.test(item.citation.date) && Number.isFinite(Date.parse(item.citation.date)) && new Date(item.citation.date).toISOString().slice(0, 10) === item.citation.date
-    : item.citation.kind === 'catalogue' && safeLink(item.citation.metadataUrl) && Number.isFinite(Date.parse(item.citation.at)))));
+    : item.citation.kind === 'footprint' ? validFootprintReference(item.citation) : item.citation.kind === 'change' ? validFootprintReference(item.citation.before) && validFootprintReference(item.citation.after) && item.citation.before.date < item.citation.after.date : item.citation.kind === 'catalogue' && safeLink(item.citation.metadataUrl) && Number.isFinite(Date.parse(item.citation.at)))));
 const outcomeLabel = value => ({ supports: 'Supports the claim', conflicts: 'Conflicts with the claim', unclear: 'Unclear', unavailable: 'Unavailable' }[value]);
 const catalogueLabel = value => ({ 'not-checked': 'not checked', 'no-location': 'no usable location', encrypted: 'encrypted source', incomplete: 'incomplete cached result', 'invalid-cache': 'invalid cached result', 'not-configured': 'catalogue configuration unavailable' }[value] ?? value);
 const offset = (at, visit, basis = data.value?.source.visitBasis) => {
@@ -107,7 +129,7 @@ const offset = (at, visit, basis = data.value?.source.visitBasis) => {
   const days = (day(at) - day(visit)) / 86400000;
   return days === 0 ? 'same UTC day' : `${Math.abs(days)} days ${days < 0 ? 'before' : 'after'} the ${basis === 'receipt' ? 'receipt' : 'reported visit'}`;
 };
-const reset = () => { pending.value = null; claim.value = ''; outcome.value = 'unclear'; reason.value = ''; limitations.value = ''; citationKind.value = 'none'; title.value = ''; date.value = ''; url.value = ''; sceneId.value = ''; reviewedImage.value = false; };
+const reset = () => { footprint.value = ''; before.value = { title: '', date: '', url: '', geometry: '' }; footprintChecks.value = {}; pending.value = null; claim.value = ''; outcome.value = 'unclear'; reason.value = ''; limitations.value = ''; citationKind.value = 'none'; title.value = ''; date.value = ''; url.value = ''; sceneId.value = ''; reviewedImage.value = false; };
 const load = async () => {
   generation += 1; const current = generation; data.value = null; reset(); busy.value = false; loading.value = true; error.value = ''; notice.value = '';
   try {
@@ -127,10 +149,18 @@ const save = async () => {
       const selected = data.value.catalogue.scenes.find(s => s.id === sceneId.value); if (!selected) { error.value = 'Choose a catalogue scene.'; return; }
       citation = { kind: 'catalogue', sceneId: selected.id, sceneFingerprint: selected.fingerprint, url: url.value.trim() || null };
     }
-    if ((positive.value && (!citation?.url || !reviewedImage.value)) || (citation?.url && (!safeLink(citation.url) || !reviewedImage.value))) { error.value = 'Cite a nonsecret HTTPS image reference and confirm that you inspected it.'; return; }
+    if (outcome.value !== 'unavailable' && ['footprint', 'change'].includes(citationKind.value)) {
+      try {
+        const after = { title: title.value.trim(), date: date.value, url: url.value.trim(), geometry: JSON.parse(footprint.value) };
+        citation = citationKind.value === 'footprint' ? { kind: 'footprint', ...after } : { kind: 'change', before: { title: before.value.title.trim(), date: before.value.date, url: before.value.url.trim(), geometry: JSON.parse(before.value.geometry) }, after };
+        if (citation.kind === 'change' && (!safeLink(citation.before.url) || citation.before.date >= citation.after.date)) throw new Error('Invalid before reference');
+      } catch { error.value = 'Provide valid footprint JSON and an earlier before image with a nonsecret HTTPS reference.'; return; }
+    }
+    const imageUrl = citation?.url ?? citation?.after?.url;
+    if ((positive.value && (!imageUrl || !reviewedImage.value)) || (imageUrl && (!safeLink(imageUrl) || !reviewedImage.value))) { error.value = 'Cite a nonsecret HTTPS image reference and confirm that you inspected it.'; return; }
     pending.value = {
       requestId: crypto.randomUUID(), revision: data.value.revision, sourceFingerprint: data.value.source.fingerprint, outcome: outcome.value,
-      claim: claim.value.trim(), reason: reason.value.trim(), limitations: limitations.value.trim(), citation, reviewedImage: citation?.url ? reviewedImage.value : false
+      claim: claim.value.trim(), reason: reason.value.trim(), limitations: limitations.value.trim(), citation, reviewedImage: imageUrl ? reviewedImage.value : false
     };
   }
   busy.value = true;
@@ -142,6 +172,23 @@ const save = async () => {
       : 'Assessment could not be confirmed. Retry the same assessment or refresh to check its history.';
   } finally { if (current === generation) busy.value = false; }
 };
+const checkFootprints = async () => {
+  if (busy.value || pending.value || !data.value?.canAssess) return;
+  const current = generation; error.value = ''; footprintChecks.value = {}; busy.value = true;
+  try {
+    const geometries = citationKind.value === 'change' ? { before: JSON.parse(before.value.geometry), after: JSON.parse(footprint.value) } : { image: JSON.parse(footprint.value) };
+    const checks = {};
+    for (const [side, geometry] of Object.entries(geometries)) {
+      // eslint-disable-next-line no-await-in-loop
+      const answer = (await request({ method: 'POST', url: `${base.value}/footprint/check`, data: { sourceFingerprint: data.value.source.fingerprint, geometry }, alert: false })).data;
+      if (current !== generation) return;
+      if (answer.sourceFingerprint !== data.value.source.fingerprint || !['inside', 'outside', 'boundary', 'unavailable'].includes(answer.relation)) throw new Error('Invalid footprint response');
+      checks[side] = answer;
+    }
+    if (current === generation) footprintChecks.value = checks;
+  } catch { if (current === generation) error.value = 'Footprint check failed. Use valid bounded polygons and refresh if the source changed.'; } finally { if (current === generation) busy.value = false; }
+};
+watch([footprint, before, citationKind], () => { footprintChecks.value = {}; }, { deep: true });
 const checkCatalogue = async () => {
   if (busy.value || pending.value || !data.value?.canCheck) return; const current = generation; busy.value = true; error.value = ''; notice.value = '';
   try {

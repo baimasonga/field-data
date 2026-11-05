@@ -169,3 +169,72 @@ describe('api: reviewed geospatial verification', () => {
     assert.deepEqual(changed.map(r => r.status).sort(), [200, 409]); assert.equal((await context(alice)).revision, 2);
   }));
 });
+
+describe('api: exact imagery footprints and reviewed change candidates', () => {
+  const geometry = { type: 'Polygon', coordinates: [[[-13.24, 8.47], [-13.22, 8.47], [-13.22, 8.49], [-13.24, 8.49], [-13.24, 8.47]]] };
+  const dated = date => ({ title: 'Dated footprint reference', url: `https://images.example.test/${date}`, date, geometry });
+  const candidate = () => ({ kind: 'change', before: dated('2026-09-10'), after: dated('2026-09-25') });
+  it('checks supplied polygons against the actual reported point without making provider requests', testService(async (service, c) => {
+    const alice = await setup(service, c); const current = await context(alice);
+    const result = await alice.post(`${path}/footprint/check`).send({ sourceFingerprint: current.source.fingerprint, geometry }).expect(200);
+    assert.equal(result.headers['cache-control'], 'private, no-store'); assert.equal(result.body.relation, 'inside'); assert.equal(result.body.accuracyRelation, 'contained');
+    assert.equal(result.body.sourceFingerprint, current.source.fingerprint); assert.match(result.body.geometryFingerprint, /^[a-f0-9]{64}$/);
+    const outside = { type: 'Polygon', coordinates: [[[0, 1], [1, 1], [1, 2], [0, 2], [0, 1]]] };
+    assert.equal((await alice.post(`${path}/footprint/check`).send({ sourceFingerprint: current.source.fingerprint, geometry: outside }).expect(200)).body.relation, 'outside');
+    await alice.post(`${path}/footprint/check`).send({ sourceFingerprint: 'a'.repeat(64), geometry }).expect(409);
+    await alice.post(`${path}/footprint/check`).send({ sourceFingerprint: current.source.fingerprint, geometry: { type: 'Point', coordinates: [0, 1] } }).expect(400);
+  }));
+  it('records reviewed before/after candidates, exact retries and immutable original source/geometry in exports', testService(async (service, c) => {
+    const alice = await setup(service, c); const original = await context(alice);
+    const data = body(original, { citation: candidate(), claim: 'A structure appears between the two dated image references.' });
+    const created = (await alice.post(path).send(data).expect(200)).body;
+    assert.equal(created.item.citation.kind, 'change'); assert.equal(created.item.citation.checks.before.relation, 'inside'); assert.equal(created.item.citation.checks.after.accuracyRelation, 'contained');
+    assert.deepEqual(created.item.citation.before.geometry, geometry);
+    assert.equal((await alice.post(path).send(data).expect(200)).body.replayed, true);
+    await alice.post(path).send({ ...data, citation: { ...candidate(), before: { ...dated('2026-09-10'), title: 'Changed historical reference' } } }).expect(409);
+    await c.db.query(sql`UPDATE submission_defs SET xml=replace(xml,'8.4801','8.4501') WHERE id=${original.source.submissionDefId}`);
+    const view = await context(alice); assert.equal(view.items[0].state, 'outdated'); assert.deepEqual(view.items[0].citation.after.geometry, geometry);
+    assert.equal((await alice.post(path).send(data).expect(200)).body.item.state, 'outdated');
+    await alice.post(path).send(body(view, { citation: candidate() })).expect(409);
+    await alice.post(path).send(body(view, { citation: candidate(), outcome: 'unclear' })).expect(200);
+  }));
+  it('records standalone footprints and refuses malformed dates, unsafe URLs, unreviewed images and reversed comparisons', testService(async (service, c) => {
+    const alice = await setup(service, c); const current = await context(alice);
+    for (const citation of [
+      { ...candidate(), before: dated('2026-09-25') },
+      { ...candidate(), before: { ...dated('2026-09-10'), url: 'http://unsafe.test/image' } },
+      { ...candidate(), after: dated('2099-01-01') },
+      { ...candidate(), after: { ...dated('2026-09-25'), geometry: { type: 'Polygon', coordinates: [] } } }
+    ]) await alice.post(path).send(body(current, { citation })).expect(400);
+    await alice.post(path).send(body(current, { citation: candidate(), reviewedImage: false })).expect(400);
+    const saved = (await alice.post(path).send(body(current, { citation: { kind: 'footprint', ...dated('2026-09-10') } })).expect(200)).body;
+    assert.equal(saved.item.citation.checks.image.relation, 'inside');
+  }));
+  it('withholds boundary comparisons and enforces live read scope on preview requests', testService(async (service, c) => {
+    const alice = await setup(service, c); const current = await context(alice);
+    const boundary = { type: 'Polygon', coordinates: [[[-13.2344, 8.47], [-13.22, 8.47], [-13.22, 8.49], [-13.2344, 8.49], [-13.2344, 8.47]]] };
+    const data = body(current, { citation: { ...candidate(), before: { ...dated('2026-09-10'), geometry: boundary } } });
+    await alice.post(path).send(data).expect(409);
+    const saved = (await alice.post(path).send({ ...data, outcome: 'unclear' }).expect(200)).body;
+    assert.equal(saved.item.citation.checks.before.relation, 'boundary');
+    const viewer = await service.login('chelsea'); const userId = (await viewer.get('/v1/users/current').expect(200)).body.id;
+    const request = { sourceFingerprint: current.source.fingerprint, geometry };
+    await viewer.post(`${path}/footprint/check`).send(request).expect(404);
+    await alice.post(`/v1/projects/1/assignments/viewer/${userId}`).expect(200);
+    await viewer.post(`${path}/footprint/check`).send(request).expect(200);
+    await viewer.post(path).send(body(await context(alice), { citation: candidate() })).expect(404);
+    await alice.delete(`${base}/submissions/one`).expect(200);
+    await viewer.post(`${path}/footprint/check`).send(request).expect(404);
+  }));
+  it('withholds positive reviews for unknown accuracy and permits unclear reviews without location', testService(async (service, c) => {
+    const alice = await setup(service, c, '8.4801 -13.2344'); let current = await context(alice);
+    await alice.post(path).send(body(current, { citation: candidate() })).expect(409);
+    await alice.post(path).send(body(current, { citation: candidate(), outcome: 'unclear' })).expect(200);
+    await c.db.query(sql`UPDATE submission_defs SET xml=replace(xml,'8.4801 -13.2344','') WHERE id=${current.source.submissionDefId}`);
+    current = await context(alice);
+    const result = (await alice.post(`${path}/footprint/check`).send({ sourceFingerprint: current.source.fingerprint, geometry }).expect(200)).body;
+    assert.equal(result.relation, 'unavailable');
+    const saved = (await alice.post(path).send(body(current, { citation: candidate(), outcome: 'unclear' })).expect(200)).body;
+    assert.equal(saved.item.citation.checks.before.relation, 'unavailable');
+  }));
+});

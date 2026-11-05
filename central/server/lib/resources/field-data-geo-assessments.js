@@ -7,6 +7,7 @@ const { lockReviewer } = require('../util/capture-assessments');
 const { parseGeopoint } = require('../util/fieldwork-integrity');
 const geo = require('../util/geo-assessments');
 const imagery = require('../util/imagery');
+const footprints = require('../util/imagery-footprints');
 const Problem = require('../util/problem');
 const conflict = () => Problem.user.geoAssessmentConflict();
 const scope = async (c, auth, params, write = false) => {
@@ -85,6 +86,12 @@ module.exports = (service, endpoint) => {
         citation = { ...citation, catalogue: selected.catalogue, collection: selected.collection, at: selected.at, cloud: selected.cloud,
           metadataUrl: selected.metadataUrl, checkedAt: catalogue.checkedAt, staleAtReview: catalogue.stale };
       }
+      if (citation?.kind === 'footprint' || citation?.kind === 'change') {
+        const checks = citation.kind === 'footprint' ? { image: footprints.coverage(citation.geometry, source.location) }
+          : { before: footprints.coverage(citation.before.geometry, source.location), after: footprints.coverage(citation.after.geometry, source.location) };
+        if (['supports', 'conflicts'].includes(data.outcome) && Object.values(checks).some(check => check.relation !== 'inside' || check.accuracyRelation !== 'contained')) throw conflict();
+        citation = { ...citation, checks, method: 'reported-point-planar-wgs84@1' };
+      }
       const item = await tx.db.one(sql`INSERT INTO field_data_geo_assessments
         (id, "submissionDefId", sequence, "requestId", "requestHash", "actorId", "actorName", "sourceFingerprint", source, outcome, claim, reason, limitations, citation, "reviewedImage")
         VALUES (${randomUUID()}, ${row.id}, ${revision + 1}, ${data.requestId}, ${digest}, ${actor.id}, ${reviewer.displayName}, ${source.fingerprint},
@@ -93,6 +100,16 @@ module.exports = (service, endpoint) => {
       return { item: geo.present(item, source, catalogue, revision + 1), revision: revision + 1, replayed: false };
     });
     response.set('Cache-Control', 'private, no-store'); response.set('Idempotency-Status', result.replayed ? 'replayed' : 'created'); return result;
+  }));
+  service.post(`${root}/footprint/check`, endpoint(async (c, { auth, params, body }, _, response) => {
+    const form = await scope(c, auth, params);
+    if (auth.actor.orNull()?.type !== 'user' || !geo.exact(body, ['sourceFingerprint', 'geometry']) || !geo.validHash(body.sourceFingerprint)) throw Problem.user.geoAssessmentInvalid();
+    let geometry; try { geometry = footprints.geometryFor(body.geometry); } catch { throw Problem.user.geoAssessmentInvalid(); }
+    const { source } = await sourceFor(c.db, form, params);
+    if (source.fingerprint !== body.sourceFingerprint) throw conflict();
+    response.set('Cache-Control', 'private, no-store');
+    return { sourceFingerprint: source.fingerprint, geometryFingerprint: geo.hash(geometry), ...footprints.coverage(geometry, source.location),
+      limitation: 'Reported point versus supplied footprint only. Boundary distance is approximate; image content, footprint authenticity and physical presence are not certified.' };
   }));
   service.post(`${root}/catalogue/check`, endpoint(async (c, { auth, params, body }, _, response) => {
     const form = await scope(c, auth, params, true); const actor = auth.actor.get();
