@@ -79,7 +79,7 @@ const instrumentFindings = async (tx, auth, inv, row, lock = false) => {
     WHERE x."investigationId" = ${inv.id}
       AND ((pf.id = ${row.formId} AND i."instanceId" = ${row.instanceId}) OR (
         i."relatedInstanceId" = ${row.instanceId}
-        AND (i.rule IN ('near-duplicate','repeated-location') OR i.rule LIKE 'identity-reused:%')
+        AND (i.rule IN ('near-duplicate','repeated-location','implausible-travel') OR i.rule LIKE 'identity-reused:%')
         AND (NOT (i.evidence ? 'others') OR jsonb_typeof(i.evidence->'others') = 'array')
         AND (pf.id = ${row.formId} OR (i.rule LIKE 'identity-reused:%' AND EXISTS (
           SELECT 1 FROM jsonb_array_elements(CASE WHEN jsonb_typeof(i.evidence->'others') = 'array' THEN i.evidence->'others' ELSE '[]'::jsonb END) o

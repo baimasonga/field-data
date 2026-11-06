@@ -758,3 +758,11 @@ with human review and reproducible evidence exports. Provider unavailability,
 insufficient clear pixels and source changes are explicit outcomes. See
 [G4-satellite-analysis.md](G4-satellite-analysis.md). Empirical field effectiveness
 and calibration remain evaluation work.
+
+
+### F13 travel peer backchecks
+
+Same-form implausible-travel findings can target the explicitly linked peer case
+with a neutral timing prompt and the existing reviewed backcheck workflow. See
+[F13-travel-peer-backchecks.md](F13-travel-peer-backchecks.md). Cross-form travel
+and other unsupported peer families remain excluded pending explicit provenance.
