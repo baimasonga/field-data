@@ -59,6 +59,7 @@ const cacheFor = async (db, source, lock = false) => {
 const history = (db, submissionId) => db.any(sql`SELECT a.* FROM field_data_geo_assessments a JOIN submission_defs sd ON sd.id = a."submissionDefId"
   WHERE sd."submissionId" = ${submissionId} ORDER BY a.sequence DESC LIMIT 50`);
 module.exports = (service, endpoint) => {
+  require('./field-data-geo-analyses')(service, endpoint, { scope, sourceFor, cacheFor, lockPermissions });
   const root = '/projects/:projectId/forms/:xmlFormId/submissions/:instanceId/geo-assessments';
   service.get(root, endpoint(async (c, { auth, params }, _, response) => {
     const form = await scope(c, auth, params); const { source, row } = await sourceFor(c.db, form, params); const catalogue = await cacheFor(c.db, source);

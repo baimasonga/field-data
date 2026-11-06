@@ -1092,6 +1092,7 @@ const assessmentEntry = (sequence, body = {}) => ({ id: `11111111-1111-4111-8111
 const setupAssessmentRecord = async (p, custom, verbs = managerVerbs) => {
   const errors = await api(p, verbs, async (route, path) => {
     if (await custom(route, path)) return true;
+    if (path.endsWith('/geo-assessments/analyses')) { await route.fulfill({ json: { source: geoSource(), canRun: false, enabled: true, remaining: 20, scenes: [], items: [], catalogueStatus: 'not-checked', method: 'sentinel2-red-nir-scl-change@1' } }); return true; }
     if (path.endsWith('/witnesses')) { await route.fulfill({ json: { items: [], bindingCurrent: true, canWitness: false, context: null } }); return true; }
     if (path.includes('.svc/Submissions(')) { await route.fulfill({ json: { value: [captureAssessmentRecord] } }); return true; }
     if (path.includes('/versions/')) { await route.fulfill({ json: { userAgent: 'Fixture' } }); return true; }
@@ -1707,4 +1708,65 @@ test('geospatial footprint previews and reviewed change candidates retain both d
   const [download] = await Promise.all([p.waitForEvent('download'), section.getByRole('button', { name: 'Download geospatial assessment history' }).click()]);
   const exported = JSON.parse(await readFile(await download.path(), 'utf8')); expect(exported.items[0].citation.checks.before.relation).toBe('inside'); expect(exported.items[0].citation.after.geometry).toEqual(geometry);
   await p.setViewportSize({ width: 320, height: 740 }); expect(await p.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true); expect(errors).toEqual([]);
+});
+
+const satelliteScenes = () => [geoScene, { ...geoScene, id: 'scene-2', at: '2026-09-25T12:00:00Z', fingerprint: 'c'.repeat(64) }];
+const satelliteView = (items = [], extra = {}) => ({ source: geoSource(), canRun: true, enabled: true, remaining: 20-items.length, scenes: satelliteScenes(), items, catalogueStatus: 'complete', method: 'sentinel2-red-nir-scl-change@1', ...extra });
+const satelliteRecord = (body, pixels) => {
+  const geometry = { type: 'Polygon', coordinates: [[[-13.24, 8.47], [-13.22, 8.47], [-13.22, 8.49], [-13.24, 8.49], [-13.24, 8.47]]] };
+  const scene = side => ({ id: side, at: side === 'before' ? '2026-09-18T12:00:00Z' : '2026-09-25T12:00:00Z', fetchedAt: '2026-11-06T10:00:00Z', metadataUrl: `https://catalogue.example.test/${side}`, geometry, fingerprint: 'e'.repeat(64), coverage: { relation: 'inside', accuracyRelation: 'contained' } });
+  return { id: randomUUID(), requestId: body.requestId, source: geoSource(), sourceFingerprint: geoSource().fingerprint, sourceCurrent: true, status: 'complete', mode: body.mode,
+    actorName: 'Reviewer', createdAt: '2026-11-06T10:00:00Z', completedAt: '2026-11-06T10:00:10Z', failure: null, revision: 0, reviews: [], result: { ...pixels, provider: { before: scene('before'), after: scene('after') } } };
+};
+
+test('satellite pixel analysis recovers lost responses and retains reviewed candidates, previews and reproducible export', async ({ page: p }) => {
+  const pixels = JSON.parse(await readFile(new URL('../../../../cloudflare/form-compiler/test-fixtures/raster-result.json', import.meta.url), 'utf8'));
+  const posts = []; const reviewPosts = []; let item = null; let searches = 0;
+  const errors = await setupAssessmentRecord(p, async (route, path) => {
+    if (path.endsWith('/geo-assessments')) { await route.fulfill({ json: geoView() }); return true; }
+    if (path.endsWith('/analyses/scenes')) { searches += 1; expect(route.request().postDataJSON()).toEqual({ sourceFingerprint: geoSource().fingerprint, allowExternalProcessing: true }); await route.fulfill({ json: { ok: true } }); return true; }
+    if (path.endsWith('/geo-assessments/analyses')) {
+      if (route.request().method() === 'POST') {
+        const body = route.request().postDataJSON(); posts.push(body); if (!item) item = satelliteRecord(body, pixels);
+        if (posts.length === 1) await route.abort('failed'); else await route.fulfill({ json: { item, replayed: true } });
+      } else await route.fulfill({ json: satelliteView(item ? [item] : []) }); return true;
+    }
+    if (path.endsWith('/reviews') && path.includes('/analyses/')) {
+      const body = route.request().postDataJSON(); reviewPosts.push(body);
+      if (reviewPosts.length === 1) { item.reviews.unshift({ ...body, id: randomUUID(), sequence: 1, actorName: 'Reviewer', reviewedAt: '2026-11-06T10:02:00Z' }); item.revision = 1; await route.abort('failed'); }
+      else await route.fulfill({ json: { revision: 1, replayed: true } }); return true;
+    }
+    return false;
+  });
+  const section = p.getByRole('region', { name: 'Satellite pixel analysis', exact: true });
+  await section.getByRole('button', { name: 'Load satellite analysis' }).click();
+  await expect(section.getByRole('button', { name: 'Find provider scenes' })).toBeDisabled();
+  await section.getByLabel('Allow catalogue and public imagery requests for this analysis area.').check();
+  await section.getByRole('button', { name: 'Find provider scenes' }).click(); await expect(section).toContainText('Provider scene list updated'); expect(searches).toBe(1);
+  await section.getByLabel('Satellite analysis mode').selectOption('change'); await section.getByLabel('Earlier or footprint scene').selectOption('scene-1'); await section.getByLabel('Later comparison scene').selectOption('scene-2');
+  await section.getByRole('button', { name: 'Run satellite analysis', exact: true }).click(); await expect(section.getByRole('alert')).toContainText('not confirmed');
+  await expect(section.getByLabel('Satellite analysis mode')).toBeDisabled();
+  await section.getByRole('button', { name: 'Recover same satellite analysis' }).click(); await expect(section).toContainText('vegetation-gain'); expect(posts[1]).toEqual(posts[0]);
+  await expect(section.getByRole('img')).toHaveCount(2); await expect(section).toContainText('1600 m²'); await expect(section).toContainText('unreviewed');
+  await section.getByLabel('Candidate 1 decision').selectOption('approve'); await section.getByLabel('Candidate 1 reasoning').fill('Both dated previews show a coherent vegetation signal change.');
+  await section.getByLabel('I inspected both dated index previews, quality masks, source location and limitations.').check();
+  await section.getByRole('button', { name: 'Save candidate review' }).click(); await expect(section.getByRole('alert')).toContainText('not confirmed');
+  await section.getByRole('button', { name: 'Retry same candidate review' }).click(); expect(reviewPosts[1]).toEqual(reviewPosts[0]); await expect(section).toContainText('Latest human disposition: approve');
+  const [download] = await Promise.all([p.waitForEvent('download'), section.getByRole('button', { name: 'Export satellite analysis evidence' }).click()]);
+  const exported = JSON.parse(await readFile(await download.path(), 'utf8')); expect(exported.items[0].result.before.pixels.red).toHaveLength(1024); expect(exported.items[0].reviews).toHaveLength(1); expect(exported.items[0].result.provider.before.geometry.type).toBe('Polygon');
+  await p.setViewportSize({ width: 320, height: 740 }); expect(await p.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true); expect(errors).toEqual([]);
+});
+
+test('satellite analysis viewers see withheld and outdated evidence without write controls', async ({ page: p }) => {
+  const item = satelliteRecord({ mode: 'change', requestId: randomUUID() }, { status: 'withheld', reason: 'insufficient-clear-comparable-pixels', candidates: [] }); item.sourceCurrent = false;
+  const errors = await setupAssessmentRecord(p, async (route, path) => {
+    if (path.endsWith('/geo-assessments')) { await route.fulfill({ json: geoView([], { canAssess: false, canCheck: false }) }); return true; }
+    if (path.endsWith('/geo-assessments/analyses')) { await route.fulfill({ json: satelliteView([item], { canRun: false }) }); return true; }
+    return false;
+  }, viewerVerbs);
+  const section = p.getByRole('region', { name: 'Satellite pixel analysis', exact: true });
+  await section.getByRole('button', { name: 'Load satellite analysis' }).click();
+  await expect(section).toContainText('outdated source binding'); await expect(section).toContainText('insufficient-clear-comparable-pixels');
+  await expect(section.getByRole('button', { name: 'Run satellite analysis', exact: true })).toHaveCount(0); await expect(section.getByRole('button', { name: 'Save candidate review' })).toHaveCount(0);
+  await expect(section.getByRole('button', { name: 'Export satellite analysis evidence' })).toBeEnabled(); expect(errors).toEqual([]);
 });

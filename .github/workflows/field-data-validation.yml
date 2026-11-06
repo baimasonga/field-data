@@ -155,7 +155,7 @@ jobs:
           java-version: '17'
       - run: python -m pip install -r requirements.txt
       # REQUIRE_JAVA turns a missing JVM into a failure instead of a skip.
-      - run: REQUIRE_JAVA=1 python -m unittest -v test_app.py test_data_exports.py test_xlsform_pipeline.py
+      - run: REQUIRE_JAVA=1 python -m unittest -v test_app.py test_data_exports.py test_xlsform_pipeline.py test_raster_analysis.py
       - name: Runtime check (Java, ODK Validate and a real form)
         run: python verify_runtime.py
 
