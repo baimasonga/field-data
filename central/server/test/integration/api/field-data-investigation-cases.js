@@ -207,7 +207,7 @@ describe('api: targeted investigation backcheck instruments (F9)', () => {
   }));
   it('offers same-form peer findings for all supported pair families and dispatches to the peer case', testService(async (service, c) => {
     const { alice, endpoint, unrelated, body, draft, post, first } = await seed(service, c);
-    for (const rule of ['near-duplicate', 'repeated-location', 'implausible-travel', 'identity-reused:peer']) {
+    for (const rule of ['near-duplicate', 'repeated-location', 'implausible-travel', 'identity-inconsistent:peer', 'identity-reused:peer']) {
       await c.db.query(sql`UPDATE field_data_integrity_flags SET rule = ${rule}, "relatedInstanceId" = 'one' WHERE id = ${unrelated}`);
       const peer = (await alice.get(endpoint).expect(200)).body.items.find(item => item.findingId === unrelated);
       assert.equal(peer.targetSide, 'peer'); assert.equal(JSON.stringify(peer).includes('secret earlier answer'), false);
@@ -252,11 +252,11 @@ describe('api: targeted investigation backcheck instruments (F9)', () => {
     assert.equal((await alice.get(endpoint).expect(200)).body.items.some(item => item.findingId === unrelated), false);
     assert.equal(await c.db.oneFirst(sql`SELECT count(*)::integer FROM field_data_backchecks`), 0);
   }));
-  it('dispatches explicit cross-form identity peers and hides them when the primary form grant is revoked', testService(async (service, c) => {
+  for (const peerRule of ['identity-reused:cross-peer', 'identity-inconsistent:cross-peer']) it(`dispatches ${peerRule} and hides it when the primary form grant is revoked`, testService(async (service, c) => {
     const { alice, endpoint, unrelated, body, first, checker } = await seed(service, c);
     await alice.post('/v1/projects/1/forms/withrepeat/submissions').set('Content-Type', 'application/xml').send(xml.instances.withrepeat.one).expect(200);
     await c.db.query(sql`UPDATE field_data_integrity_flags SET "formId" = (SELECT id FROM forms WHERE "projectId" = 1 AND "xmlFormId" = 'withrepeat'),
-      rule = 'identity-reused:cross-peer', "instanceId" = 'rone', "relatedInstanceId" = 'one',
+      rule = ${peerRule}, "instanceId" = 'rone', "relatedInstanceId" = 'one',
       evidence = '{"others":[{"instanceId":"one","xmlFormId":"simple"}],"answer":"secret peer answer"}'::jsonb WHERE id = ${unrelated}`);
     const { user, id } = await limitedManager(service, c, alice);
     await c.db.query(sql`UPDATE roles SET verbs = verbs || '["submission.update","form.create"]'::jsonb WHERE system = 'manager'`);

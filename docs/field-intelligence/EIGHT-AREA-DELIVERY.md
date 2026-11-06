@@ -766,3 +766,11 @@ Same-form implausible-travel findings can target the explicitly linked peer case
 with a neutral timing prompt and the existing reviewed backcheck workflow. See
 [F13-travel-peer-backchecks.md](F13-travel-peer-backchecks.md). Cross-form travel
 and other unsupported peer families remain excluded pending explicit provenance.
+
+
+### F14 inconsistent-identity peer backchecks
+
+Explicit same-form and cross-form identity-inconsistency peers can now use the
+existing neutral identity prompt and reviewed backcheck workflow. Cross-form
+mappings require unambiguous source metadata and current read permissions on both
+forms. See [F14-inconsistent-identity-peer-backchecks.md](F14-inconsistent-identity-peer-backchecks.md).
