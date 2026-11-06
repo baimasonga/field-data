@@ -44,6 +44,7 @@ RUN --mount=type=secret,id=build-ca \
 FROM scratch AS runtime-files
 COPY cloudflare/certs/supabase-root-2021.crt /usr/local/share/ca-certificates/supabase-root-2021.crt
 COPY cloudflare/form-compiler/app.py cloudflare/form-compiler/data_exports.py \
+     cloudflare/form-compiler/raster_analysis.py \
      cloudflare/form-compiler/xlsform_fixtures.py cloudflare/form-compiler/verify_runtime.py \
      /opt/field-data-form-compiler/
 COPY central/files/shared/envsub.awk /scripts/envsub.awk

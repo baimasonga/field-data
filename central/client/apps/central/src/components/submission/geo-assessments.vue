@@ -97,10 +97,12 @@ Catalogue scene {{ item.citation.sceneId }} · <record-date-time :iso="item.cita
       </template>
     </div>
   </section>
+  <submission-geo-analysis v-if="data" :key="data.source.fingerprint" :source-fingerprint="data.source.fingerprint" :project-id="projectId" :xml-form-id="xmlFormId" :instance-id="instanceId"/>
 </template>
 <script setup>
 import { computed, onBeforeUnmount, ref, watch } from 'vue';
 import RecordDateTime from '../date-time.vue';
+import SubmissionGeoAnalysis from './geo-analysis.vue';
 import useRequest from '../../composables/request';
 import { apiPaths } from '../../util/request';
 

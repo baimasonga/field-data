@@ -51,6 +51,10 @@ def main():
     if ready.status_code != 200 or ready.json.get("validated") is not True:
         fail(f"/readyz is not ready: {ready.status_code} {ready.json}")
 
+    raster = client.get("/api/v1/geo/health")
+    if raster.status_code != 200 or raster.json.get("method") != "sentinel2-red-nir-scl-change@1":
+        fail("the deployed geospatial raster engine is unavailable")
+
     good = post(client, household_workbook())
     if good.status_code != 200:
         fail(f"a valid XLSForm did not compile: {good.status_code} {good.json}")

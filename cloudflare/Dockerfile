@@ -49,6 +49,7 @@ COPY --from=backend /usr/odk /usr/odk
 COPY --from=form-compiler /usr/local /usr/local
 COPY --from=form-compiler /opt/field-data-form-compiler/venv /opt/field-data-form-compiler/venv
 COPY cloudflare/form-compiler/app.py cloudflare/form-compiler/data_exports.py \
+     cloudflare/form-compiler/raster_analysis.py \
      cloudflare/form-compiler/xlsform_fixtures.py cloudflare/form-compiler/verify_runtime.py \
      /opt/field-data-form-compiler/
 # Python was copied from another stage; register its shared library and

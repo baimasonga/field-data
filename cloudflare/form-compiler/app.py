@@ -1,6 +1,8 @@
 """Internal XLSForm compiler with the HTTP contract expected by ODK Central."""
 
 import logging
+import json
+import sys
 import os
 import re
 import shutil
@@ -270,6 +272,42 @@ def create_app():
         LOG.error("%s", refusal)
     if mode == SKIP:
         LOG.warning("XForm validation is DISABLED by configuration; forms are not checked by ODK Validate.")
+
+    from threading import BoundedSemaphore
+    raster_slot = BoundedSemaphore(1)
+
+    @app.get("/api/v1/geo/health")
+    def raster_health():
+        try:
+            import rasterio
+            import numpy
+            from PIL import Image
+            return jsonify(available=True, method="sentinel2-red-nir-scl-change@1")
+        except ImportError:
+            return jsonify(available=False), 503
+
+    @app.post("/api/v1/geo/analyse")
+    def raster_analyse():
+        if not raster_slot.acquire(blocking=False):
+            return jsonify(error="analysis-busy"), 429
+        try:
+            payload = request.get_json()
+            if not isinstance(payload, dict) or len(json.dumps(payload)) > 32768:
+                return jsonify(error="invalid-analysis-input"), 400
+            completed = subprocess.run([sys.executable, str(Path(__file__).with_name("raster_analysis.py"))],
+                                       input=json.dumps(payload), capture_output=True, text=True, timeout=75,
+                                       env={**{key: value for key, value in os.environ.items()
+                                               if key in {"PATH", "LANG", "LC_ALL", "VIRTUAL_ENV", "LD_LIBRARY_PATH", "SSL_CERT_FILE", "SSL_CERT_DIR", "CURL_CA_BUNDLE", "REQUESTS_CA_BUNDLE"}
+                                               or key.upper() in {"HTTP_PROXY", "HTTPS_PROXY", "NO_PROXY", "ALL_PROXY"}
+                                               or key.startswith(("CODEX_PROXY_", "CODEX_NETWORK_"))},
+                                            "OPENBLAS_NUM_THREADS": "1", "OMP_NUM_THREADS": "1"})
+            if completed.returncode != 0 or len(completed.stdout) > 524288:
+                return jsonify(error="analysis-unavailable"), 503
+            return jsonify(json.loads(completed.stdout))
+        except (subprocess.TimeoutExpired, ValueError, OSError):
+            return jsonify(error="analysis-unavailable"), 503
+        finally:
+            raster_slot.release()
 
     @app.get("/healthz")
     def health():

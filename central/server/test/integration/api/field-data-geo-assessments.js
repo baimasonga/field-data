@@ -238,3 +238,93 @@ describe('api: exact imagery footprints and reviewed change candidates', () => {
     assert.equal(saved.item.citation.checks.before.relation, 'unavailable');
   }));
 });
+
+describe('api: provider footprints, pixel analysis and candidate review completion', () => {
+  const analysisPath = `${path}/analyses`; const saved = {}; let originalFetch; let calls;
+  const geometry = { type: 'Polygon', coordinates: [[[-13.24, 8.47], [-13.22, 8.47], [-13.22, 8.49], [-13.24, 8.49], [-13.24, 8.47]]] };
+  const rasterResult = require('../../../../../cloudflare/form-compiler/test-fixtures/raster-result.json');
+  const rawScene = (id, date) => ({ type: 'Feature', id, collection: 'sentinel-2-l2a', geometry,
+    properties: { datetime: `${date}T12:00:00.000Z`, 'eo:cloud_cover': 10, 'view:sun_elevation': 45 },
+    assets: Object.fromEntries(['red', 'nir', 'scl'].map(name => [name, { href: `https://sentinel-cogs.s3.us-west-2.amazonaws.com/sentinel-s2-l2a-cogs/fixture/${id}/${name}.tif`,
+      'raster:bands': [{ scale: 0.0001, offset: 0 }] }])) });
+  const response = data => new Response(JSON.stringify(data), { status: 200, headers: { 'Content-Type': 'application/json' } });
+  beforeEach(() => {
+    originalFetch = global.fetch; calls = [];
+    for (const key of ['FIELD_DATA_STAC_URL', 'FIELD_DATA_GEOSPATIAL_ENABLED']) saved[key] = process.env[key];
+    process.env.FIELD_DATA_STAC_URL = 'https://catalogue.example.test/v1'; process.env.FIELD_DATA_GEOSPATIAL_ENABLED = 'true';
+    global.fetch = async (url, options) => {
+      calls.push({ url, body: options?.body });
+      if (url === 'http://127.0.0.1:5001/api/v1/geo/analyse') return response(rasterResult);
+      if (url.endsWith('/items/before')) return response(rawScene('before', '2026-09-10'));
+      if (url.endsWith('/items/after')) return response(rawScene('after', '2026-09-25'));
+      throw new Error('Unexpected network destination');
+    };
+  });
+  afterEach(() => { global.fetch = originalFetch; for (const [key, value] of Object.entries(saved)) { if (value == null) delete process.env[key]; else process.env[key] = value; } });
+  const prepare = async (service, c) => {
+    const alice = await setup(service, c);
+    await seed(c, [{ id: 'before', at: '2026-09-10T12:00:00.000Z', cloud: 10 }, { id: 'after', at: '2026-09-25T12:00:00.000Z', cloud: 10 }]);
+    const initial = (await alice.get(analysisPath).expect(200)).body;
+    const before = initial.scenes.find(scene => scene.id === 'before'); const after = initial.scenes.find(scene => scene.id === 'after');
+    const request = { requestId: randomUUID(), sourceFingerprint: initial.source.fingerprint, mode: 'change', beforeId: before.id, beforeFingerprint: before.fingerprint,
+      afterId: after.id, afterFingerprint: after.fingerprint, allowExternalProcessing: true };
+    return { alice, initial, request };
+  };
+  it('retrieves provider footprints and analyses real engine output with persistent, exactly-once request recovery', testService(async (service, c) => {
+    const { alice, request } = await prepare(service, c);
+    const created = (await alice.post(analysisPath).send(request).expect(200)).body;
+    assert.equal(created.item.status, 'complete'); assert.equal(created.item.result.status, 'analysed'); assert.equal(created.item.result.candidates[0].areaM2, 1600);
+    assert.equal(created.item.result.provider.before.coverage.relation, 'inside'); assert.deepEqual(created.item.result.provider.after.geometry, geometry);
+    assert.equal(calls.length, 3); assert.equal(calls[0].url.includes(request.sourceFingerprint), false);
+    const replay = (await alice.post(analysisPath).send(request).expect(200)).body; assert.equal(replay.replayed, true); assert.equal(calls.length, 3);
+    await alice.post(analysisPath).send({ ...request, mode: 'footprint', afterId: null, afterFingerprint: null }).expect(409);
+    const stored = (await alice.get(analysisPath).expect(200)).body; assert.equal(stored.items[0].sourceCurrent, true); assert.equal(stored.items[0].result.before.pixels.red.length, 1024);
+    const audits = JSON.stringify(await c.db.any(sql`SELECT details FROM audits WHERE action LIKE 'field_data.geo.analysis.%'`));
+    assert.equal(audits.includes('8.4801'), false); assert.equal(audits.includes('previewPng'), false);
+  }));
+  it('verifies single-scene metadata without raster access and withholds unavailable raster instead of inventing no change', testService(async (service, c) => {
+    const { alice, request } = await prepare(service, c);
+    const footprint = (await alice.post(analysisPath).send({ ...request, mode: 'footprint', afterId: null, afterFingerprint: null }).expect(200)).body.item;
+    assert.equal(footprint.result.status, 'footprint-checked'); assert.equal(calls.length, 1);
+    const stub = global.fetch; global.fetch = (url, options) => (url.includes('127.0.0.1') ? Promise.reject(new Error('Unavailable raster')) : stub(url, options));
+    const withheld = (await alice.post(analysisPath).send({ ...request, requestId: randomUUID() }).expect(200)).body.item;
+    assert.equal(withheld.result.status, 'withheld'); assert.match(withheld.result.reason, /unavailable/); assert.deepEqual(withheld.result.candidates, []);
+  }));
+  it('appends candidate decisions with revisions, safe retries and immutable source-bound history', testService(async (service, c) => {
+    const { alice, request } = await prepare(service, c); const { item } = (await alice.post(analysisPath).send(request).expect(200)).body;
+    const reviewPath = `${analysisPath}/${item.id}/reviews`;
+    const first = { requestId: randomUUID(), revision: 0, candidateId: 1, action: 'approve', reason: 'Both previews show the same coherent spectral change area.', reviewedImages: true };
+    await alice.post(reviewPath).send(first).expect(200); await alice.post(reviewPath).send(first).expect(200);
+    await alice.post(reviewPath).send({ ...first, reason: 'A changed retry must not alter the earlier review.' }).expect(409);
+    await alice.post(reviewPath).send({ ...first, requestId: randomUUID(), action: 'reject' }).expect(409);
+    await alice.post(reviewPath).send({ ...first, requestId: randomUUID(), revision: 1, action: 'reject', reason: 'A later inspection identifies seasonal effects in these pixels.' }).expect(200);
+    const history = (await alice.get(analysisPath).expect(200)).body.items[0]; assert.equal(history.reviews.length, 2); assert.equal(history.reviews[0].action, 'reject'); assert.equal(history.reviews[1].action, 'approve');
+    for (const statement of [sql`UPDATE field_data_geo_candidate_reviews SET action='approve' WHERE "analysisId"=${item.id}`, sql`UPDATE field_data_geo_analyses SET result='{}'::jsonb WHERE id=${item.id}`]) {
+      await c.db.query(sql`SAVEPOINT g4_guard`); await assert.rejects(c.db.query(statement)); await c.db.query(sql`ROLLBACK TO SAVEPOINT g4_guard`); await c.db.query(sql`RELEASE SAVEPOINT g4_guard`);
+    }
+    const migration = require('../../../lib/model/migrations/20261106-01-geospatial-pixel-analysis'); const adapter = { raw: value => c.db.query(sql([value])) };
+    await migration.down(adapter); await migration.up(adapter); assert.equal((await alice.get(analysisPath).expect(200)).body.items[0].reviews.length, 2);
+    await c.db.query(sql`UPDATE submission_defs SET xml=replace(xml,'8.4801','8.4901') WHERE id=${item.source.submissionDefId}`);
+    assert.equal((await alice.get(analysisPath).expect(200)).body.items[0].sourceCurrent, false);
+    await alice.post(reviewPath).send({ ...first, requestId: randomUUID(), revision: 2 }).expect(409);
+  }));
+  it('rechecks source and permission after provider processing, and rejects consent, scene and actor scope errors', testService(async (service, c) => {
+    const { alice, request } = await prepare(service, c);
+    await alice.post(analysisPath).send({ ...request, allowExternalProcessing: false }).expect(400);
+    await alice.post(analysisPath).send({ ...request, beforeId: 'not-cached' }).expect(409);
+    const viewer = await service.login('chelsea'); const { id } = (await viewer.get('/v1/users/current').expect(200)).body;
+    await viewer.get(analysisPath).expect(404); await alice.post(`/v1/projects/1/assignments/viewer/${id}`).expect(200);
+    await viewer.get(analysisPath).expect(200); await viewer.post(analysisPath).send(request).expect(404);
+    const stub = global.fetch; let changed = false;
+    global.fetch = async (url, options) => { const output = await stub(url, options); if (!changed) { changed = true; await c.db.query(sql`UPDATE submission_defs SET xml=replace(xml,'8.4801','8.4901') WHERE current AND "instanceId"='one'`); } return output; };
+    const result = (await alice.post(analysisPath).send(request).expect(200)).body.item;
+    assert.equal(result.status, 'failed'); assert.equal(result.result, null); assert.equal(result.sourceCurrent, false);
+  }));
+  it('fails closed on provider changes and leaves completed evidence intact through source purge', testService(async (service, c) => {
+    const { alice, request } = await prepare(service, c);
+    global.fetch = async () => response({ ...rawScene('before', '2026-09-10'), geometry: { type: 'Point', coordinates: [0, 0] } });
+    const result = (await alice.post(analysisPath).send(request).expect(200)).body.item; assert.equal(result.status, 'failed');
+    await c.db.query(sql`DELETE FROM submissions WHERE "instanceId"='one'`);
+    assert.equal(await c.db.oneFirst(sql`SELECT count(*)::integer FROM field_data_geo_analyses`), 0);
+  }));
+});
