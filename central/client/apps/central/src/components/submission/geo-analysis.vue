@@ -4,7 +4,7 @@
     <div class="panel-heading"><h2>Satellite pixel analysis and change review</h2></div>
     <div class="panel-body">
       <p>Retrieve Sentinel-2 provider footprints and analyse a 320 m neighbourhood on a common 10 m grid. The method compares red/NIR reflectance and NDVI, excluding cloud, shadow, snow, defective and no-data pixels. Candidates are spectral changes for human review, not proof of fraud, construction or presence.</p>
-      <button class="btn btn-default" type="button" :disabled="busy" @click="load">Refresh satellite analysis history</button>
+      <button class="btn btn-default" type="button" :disabled="busy" @click="load">{{ data ? 'Refresh satellite analysis history' : 'Load satellite analysis' }}</button>
       <p v-if="busy" role="status">Working… Raster analysis can take up to two minutes. A lost response can be recovered from history without running the same job again.</p>
       <p v-if="error" role="alert">{{ error }}</p><p v-if="notice" role="status">{{ notice }}</p>
       <template v-if="data">
@@ -133,7 +133,7 @@ const download = () => {
   }, null, 2)], { type: 'application/json' });
   const url = URL.createObjectURL(bytes); const anchor = document.createElement('a'); anchor.href = url; anchor.download = 'satellite-analysis-evidence.json'; anchor.click(); setTimeout(() => URL.revokeObjectURL(url), 1000);
 };
-watch(() => [props.projectId, props.xmlFormId, props.instanceId, props.sourceFingerprint], () => { consent.value = false; beforeId.value = ''; afterId.value = ''; load(); }, { immediate: true });
+watch(() => [props.projectId, props.xmlFormId, props.instanceId, props.sourceFingerprint], () => { generation += 1; data.value = null; busy.value = false; error.value = ''; consent.value = false; beforeId.value = ''; afterId.value = ''; pending.value = null; reviewPending.value = null; });
 onBeforeUnmount(() => { generation += 1; pending.value = null; reviewPending.value = null; });
 </script>
 <style scoped>

@@ -1739,6 +1739,7 @@ test('satellite pixel analysis recovers lost responses and retains reviewed cand
     return false;
   });
   const section = p.getByRole('region', { name: 'Satellite pixel analysis', exact: true });
+  await section.getByRole('button', { name: 'Load satellite analysis' }).click();
   await expect(section.getByRole('button', { name: 'Find provider scenes' })).toBeDisabled();
   await section.getByLabel('Allow catalogue and public imagery requests for this analysis area.').check();
   await section.getByRole('button', { name: 'Find provider scenes' }).click(); await expect(section).toContainText('Provider scene list updated'); expect(searches).toBe(1);
@@ -1764,6 +1765,7 @@ test('satellite analysis viewers see withheld and outdated evidence without writ
     return false;
   }, viewerVerbs);
   const section = p.getByRole('region', { name: 'Satellite pixel analysis', exact: true });
+  await section.getByRole('button', { name: 'Load satellite analysis' }).click();
   await expect(section).toContainText('outdated source binding'); await expect(section).toContainText('insufficient-clear-comparable-pixels');
   await expect(section.getByRole('button', { name: 'Run satellite analysis', exact: true })).toHaveCount(0); await expect(section.getByRole('button', { name: 'Save candidate review' })).toHaveCount(0);
   await expect(section.getByRole('button', { name: 'Export satellite analysis evidence' })).toBeEnabled(); expect(errors).toEqual([]);
