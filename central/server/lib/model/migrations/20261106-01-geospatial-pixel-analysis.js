@@ -11,6 +11,7 @@ const up = async db => db.raw(`CREATE TABLE IF NOT EXISTS field_data_geo_analyse
        (status='failed' AND result IS NULL AND failure IS NOT NULL AND "completedAt" IS NOT NULL)),
  UNIQUE("submissionDefId","requestId")
 );
+CREATE INDEX IF NOT EXISTS field_data_geo_analyses_pending ON field_data_geo_analyses ("createdAt") WHERE status='pending';
 CREATE TABLE IF NOT EXISTS field_data_geo_candidate_reviews (
  id UUID PRIMARY KEY,"analysisId" UUID NOT NULL REFERENCES field_data_geo_analyses(id) ON DELETE CASCADE,
  sequence INTEGER NOT NULL CHECK(sequence BETWEEN 1 AND 50),"requestId" UUID NOT NULL,"requestHash" TEXT NOT NULL,

@@ -320,6 +320,12 @@ describe('api: provider footprints, pixel analysis and candidate review completi
     const result = (await alice.post(analysisPath).send(request).expect(200)).body.item;
     assert.equal(result.status, 'failed'); assert.equal(result.result, null); assert.equal(result.sourceCurrent, false);
   }));
+  it('returns not found when the source is purged during provider access', testService(async (service, c) => {
+    const { alice, request } = await prepare(service, c); const stub = global.fetch; let purged = false;
+    global.fetch = async (url, options) => { const output = await stub(url, options); if (!purged) { purged = true; await c.db.query(sql`DELETE FROM submissions WHERE "instanceId"='one'`); } return output; };
+    await alice.post(analysisPath).send(request).expect(404);
+    assert.equal(await c.db.oneFirst(sql`SELECT count(*)::integer FROM field_data_geo_analyses`), 0);
+  }));
   it('fails closed on provider changes and leaves completed evidence intact through source purge', testService(async (service, c) => {
     const { alice, request } = await prepare(service, c);
     global.fetch = async () => response({ ...rawScene('before', '2026-09-10'), geometry: { type: 'Point', coordinates: [0, 0] } });

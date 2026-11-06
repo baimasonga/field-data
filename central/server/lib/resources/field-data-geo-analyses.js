@@ -81,7 +81,7 @@ module.exports = (service, endpoint, { scope, sourceFor, cacheFor, lockPermissio
       });
       response.set('Idempotency-Status', 'created'); return { item, replayed: false };
     } catch {
-      const row = await c.db.one(sql`UPDATE field_data_geo_analyses SET status='failed',failure='provider-unavailable-or-source-access-changed',"completedAt"=clock_timestamp() WHERE id=${reservation.row.id} AND status='pending' RETURNING *`);
+      const row = await c.db.maybeOne(sql`UPDATE field_data_geo_analyses SET status='failed',failure='provider-unavailable-or-source-access-changed',"completedAt"=clock_timestamp() WHERE id=${reservation.row.id} AND status='pending' RETURNING *`);
       return c.transacting(async tx => {
         const target = await current(tx, auth, form, params);
         return { item: analysis.present(row, target.source, geo.config().catalogue), replayed: false };
