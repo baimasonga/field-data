@@ -710,14 +710,69 @@ test('backup worker records success only after upload and releases its lock', as
   }
 });
 
-test('backup worker persists failure and unlocks even if cleanup fails', async () => {
+test('backup worker retains the original failure and unlocks even if cleanup fails', async () => {
+  const previous = process.env.FIELD_DATA_BACKUP_PASSPHRASE;
+  process.env.FIELD_DATA_BACKUP_PASSPHRASE = 'test-passphrase-long-enough';
   const { db, queries } = backupConnection();
-  await assert.rejects(runBackups(db, {
-    dump: async () => { throw new Error('dump failure'); },
-    storage: { delete: async () => { throw new Error('storage unavailable'); } }
-  }), /storage unavailable/);
-  assert.ok(queries.some(q => q.sql.includes("status='Failed'")));
-  assert.match(queries.at(-1).sql, /pg_advisory_unlock/);
+  let cleanupAttempted = false;
+  try {
+    await runBackups(db, {
+      dump: async () => { throw new Error('dump failure'); },
+      storage: { delete: async () => {
+        cleanupAttempted = true;
+        throw new Error('storage unavailable');
+      } }
+    });
+    assert.equal(cleanupAttempted, true);
+    const failure = queries.find(q => q.sql.includes("status='Failed'"));
+    assert.ok(failure, 'failure is recorded even when cleanup is unavailable');
+    assert.ok(failure.values.some(value => String(value).includes('encrypted database dump')));
+    assert.match(queries.at(-1).sql, /pg_advisory_unlock/);
+  } finally {
+    if (previous === undefined) delete process.env.FIELD_DATA_BACKUP_PASSPHRASE;
+    else process.env.FIELD_DATA_BACKUP_PASSPHRASE = previous;
+  }
+});
+
+test('backup worker records a fixed object-storage stage without exposing provider errors', async () => {
+  const previous = process.env.FIELD_DATA_BACKUP_PASSPHRASE;
+  process.env.FIELD_DATA_BACKUP_PASSPHRASE = 'test-passphrase-long-enough';
+  const { db, queries } = backupConnection();
+  try {
+    await runBackups(db, {
+      dump: async () => Readable.from(['encrypted fixture']),
+      storage: {
+        putStream: async () => { throw new Error('secret-provider-debug-detail'); },
+        delete: async () => {}
+      }
+    });
+    const failure = queries.find(q => q.sql.includes("status='Failed'"));
+    assert.ok(failure);
+    assert.ok(failure.values.some(value => String(value).includes('object storage upload')));
+    assert.ok(!failure.values.some(value => String(value).includes('secret-provider-debug-detail')));
+    assert.match(queries.at(-1).sql, /pg_advisory_unlock/);
+  } finally {
+    if (previous === undefined) delete process.env.FIELD_DATA_BACKUP_PASSPHRASE;
+    else process.env.FIELD_DATA_BACKUP_PASSPHRASE = previous;
+  }
+});
+
+test('backup worker reports a fixed configuration stage when passphrase is unavailable', async () => {
+  const previous = process.env.FIELD_DATA_BACKUP_PASSPHRASE;
+  delete process.env.FIELD_DATA_BACKUP_PASSPHRASE;
+  const { db, queries } = backupConnection();
+  try {
+    await runBackups(db, {
+      dump: () => assert.fail('dump must not run without a passphrase'),
+      storage: { delete: async () => {} }
+    });
+    const failure = queries.find(q => q.sql.includes("status='Failed'"));
+    assert.ok(failure);
+    assert.ok(failure.values.some(value => String(value).includes('configuration')));
+    assert.match(queries.at(-1).sql, /pg_advisory_unlock/);
+  } finally {
+    if (previous !== undefined) process.env.FIELD_DATA_BACKUP_PASSPHRASE = previous;
+  }
 });
 
 test('backup worker cleans an interrupted upload before starting a pending job', async () => {
