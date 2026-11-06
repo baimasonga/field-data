@@ -207,7 +207,7 @@ describe('api: targeted investigation backcheck instruments (F9)', () => {
   }));
   it('offers same-form peer findings for all supported pair families and dispatches to the peer case', testService(async (service, c) => {
     const { alice, endpoint, unrelated, body, draft, post, first } = await seed(service, c);
-    for (const rule of ['near-duplicate', 'repeated-location', 'identity-reused:peer']) {
+    for (const rule of ['near-duplicate', 'repeated-location', 'implausible-travel', 'identity-reused:peer']) {
       await c.db.query(sql`UPDATE field_data_integrity_flags SET rule = ${rule}, "relatedInstanceId" = 'one' WHERE id = ${unrelated}`);
       const peer = (await alice.get(endpoint).expect(200)).body.items.find(item => item.findingId === unrelated);
       assert.equal(peer.targetSide, 'peer'); assert.equal(JSON.stringify(peer).includes('secret earlier answer'), false);
@@ -220,6 +220,20 @@ describe('api: targeted investigation backcheck instruments (F9)', () => {
     await c.db.query(sql`UPDATE field_data_integrity_flags SET outcome = 'withdrawn' WHERE id = ${unrelated}`);
     assert.equal((await post(request).expect(201)).body.id, saved.body.id);
     assert.equal((await alice.get(endpoint).expect(200)).body.items.some(item => item.findingId === unrelated), false);
+  }));
+  it('dispatches a neutral timing backcheck to the same-form travel peer', testService(async (service, c) => {
+    const { alice, endpoint, unrelated, body, draft, post, first } = await seed(service, c);
+    await c.db.query(sql`UPDATE field_data_integrity_flags SET rule = 'implausible-travel', "relatedInstanceId" = 'one' WHERE id = ${unrelated}`);
+    const item = (await alice.get(endpoint).expect(200)).body.items.find(entry => entry.findingId === unrelated);
+    assert.equal(item.targetSide, 'peer'); assert.equal(item.targetScope, 'same-form');
+    assert.match(item.question, /visit date/i); assert.equal(JSON.stringify(item).includes('secret earlier answer'), false);
+    const definition = await alice.post(`${endpoint}/form-definition`).send({ investigationRevision: draft.investigationRevision, caseRevision: draft.caseRevision, templateVersion: draft.templateVersion, findingIds: [unrelated] }).expect(200);
+    assert.equal(definition.body.definition.questions.some(question => /visit date/i.test(question.label)), true);
+    const request = { ...body, findingIds: [unrelated] }; const saved = await post(request).expect(201);
+    assert.equal(await c.db.oneFirst(sql`SELECT "caseId" FROM field_data_backchecks WHERE id = ${saved.body.id}`), first.id);
+    await c.db.query(sql`UPDATE field_data_integrity_flags SET outcome = 'withdrawn' WHERE id = ${unrelated}`);
+    assert.equal((await post(request).expect(201)).body.id, saved.body.id);
+    assert.equal((await alice.get(endpoint).expect(200)).body.items.some(entry => entry.findingId === unrelated), false);
   }));
   it('withholds unsupported, ambiguous, cross-form and missing-primary peer matches and rechecks before writing', testService(async (service, c) => {
     const { alice, endpoint, unrelated, body, draft, post } = await seed(service, c);
