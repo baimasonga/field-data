@@ -107,10 +107,10 @@ except according to the terms contained in the LICENSE file.
             </div>
           </div>
           <div v-if="formVersion.dataExists && formVersion.publishedAt != null && formVersion.keyId == null" class="submission-download-action">
-            <span class="submission-download-action-label">Approved value recodes</span>
+            <span class="submission-download-action-label">Approved recode rules</span>
             <div><a :href="href('.csv.zip', { attachments: false, valueRecodes: true })" class="btn btn-primary">Download recoded CSV ZIP</a></div>
           </div>
-          <p v-if="formVersion.dataExists && formVersion.publishedAt != null && formVersion.keyId == null">Opt-in value rules only, including repeat tables. Combined multiple-choice values; moved questions and unsupported fields are listed as skipped in field-data-recodes.json. Existing filters select stored records.</p>
+          <p v-if="formVersion.dataExists && formVersion.publishedAt != null && formVersion.keyId == null">Applies eligible value and moved-question rules, including value rules in repeat tables. Combined multiple-choice values; unsupported fields are listed in field-data-recodes.json. Existing filters select stored records.</p>
         </div>
       </div>
       <div class="modal-actions">

@@ -701,7 +701,7 @@ test('native download offers explicit value recodes with a manifest and retains 
   await p.locator('#submission-download-button > button').click();
   const panel = p.locator('#submission-download-container'); const link = panel.getByRole('link', { name: 'Download recoded CSV ZIP' });
   await expect(link).toBeVisible(); await expect(panel).toContainText('field-data-recodes.json');
-  await expect(panel).toContainText('moved questions and unsupported fields are listed as skipped');
+  await expect(panel).toContainText('eligible value and moved-question rules');
   await panel.locator('input[type="checkbox"]').first().check();
   const recoded = new URL(await link.getAttribute('href'), appUrl);
   expect(recoded.pathname).toBe('/v1/projects/1/forms/household/submissions.csv.zip');

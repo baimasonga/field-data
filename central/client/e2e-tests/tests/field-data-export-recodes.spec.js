@@ -25,7 +25,7 @@ const fields = [
 ];
 const rule = (id, extra) => ({ id, reason: 'Renamed in version 2', actorName: 'Alice', createdAt: '2026-10-02T09:00:00Z', retiredAt: null, retiredByName: null, retireReason: null, fromPath: null, values: null, ...extra });
 
-const api = async (page, { verbs = managerVerbs } = {}) => {
+const api = async (page, { verbs = managerVerbs, keyId = null } = {}) => {
   const errors = []; const posts = [];
   let state = {
     active: [rule('r1', { kind: 'value', path: '/water', versions: ['1'], values: { borehole: 'bh' } })],
@@ -59,7 +59,7 @@ const api = async (page, { verbs = managerVerbs } = {}) => {
       : pathname === '/v1/users/current' ? { id: 1, displayName: 'Fixture', verbs: [], preferences: { site: {}, projects: {} } }
         : pathname === '/v1/projects' ? [project]
           : pathname === '/v1/projects/1' ? project
-            : pathname === base ? form
+            : pathname === base ? { ...form, keyId }
               : pathname === `${base}/versions` ? [version('2', '2026-10-02T00:00:00Z'), version('1', '2026-10-01T00:00:00Z')]
                 : pathname === `${base}/recodes` ? state
                   : pathname === `${base}/fields` && search === '?odata=false' ? fields
@@ -76,7 +76,9 @@ test('lists rules, adds a value rule and a moved-question rule, and retires one'
   const { errors, posts } = await api(page);
   await page.goto(versionsPage);
   const section = page.locator('#form-version-recodes');
-  await expect(section).toContainText("standard CSV and OData downloads retain stored answers");
+  await expect(section).toContainText('Standard CSV and OData downloads retain stored answers');
+  await expect(section.getByLabel('Recoded submissions URL')).toHaveValue(`${appUrl}/v1/projects/1/forms/census.svc/Submissions?valueRecodes=true`);
+  await expect(section).toContainText('Filters, ordering and paging select stored answers before recoding');
   const first = section.locator('.recodes-rule').first();
   await expect(first).toContainText('/water');
   await expect(first).toContainText('Codes · version 1');
@@ -127,6 +129,29 @@ test('lists rules, adds a value rule and a moved-question rule, and retires one'
   await page.setViewportSize({ width: 360, height: 800 });
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= 360)).toBe(true);
   expect(errors).toEqual([]);
+});
+
+test('copies the recoded OData URL and offers a manual fallback', async ({ page }) => {
+  await api(page);
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: async text => { window.copiedUrl = text; } } });
+  });
+  await page.goto(versionsPage);
+  const section = page.locator('#form-version-recodes');
+  await section.getByRole('button', { name: 'Copy URL' }).click();
+  await expect(section.getByRole('status')).toHaveText('URL copied.');
+  expect(await page.evaluate(() => window.copiedUrl)).toBe(`${appUrl}/v1/projects/1/forms/census.svc/Submissions?valueRecodes=true`);
+  await page.evaluate(() => { navigator.clipboard.writeText = async () => { throw new Error('denied'); }; });
+  await section.getByRole('button', { name: 'Copy URL' }).click();
+  await expect(section.getByRole('status')).toContainText('copy it manually');
+});
+
+test('explains that encrypted forms cannot use recoded OData', async ({ page }) => {
+  await api(page, { keyId: 12 });
+  await page.goto(versionsPage);
+  const section = page.locator('#form-version-recodes');
+  await expect(section).toContainText('available for published, unencrypted forms');
+  await expect(section.getByLabel('Recoded submissions URL')).toHaveCount(0);
 });
 
 test('people who cannot change the form see rules but cannot add or retire them', async ({ page }) => {
