@@ -304,7 +304,7 @@ describe('SubmissionDownload', () => {
       urls[3].searchParams.get('attachments').should.equal('false');
       urls[3].searchParams.get('splitSelectMultiples').should.equal('false');
       urls.slice(0, 3).every(url => !url.searchParams.has('valueRecodes')).should.be.true;
-      modal.text().should.contain('moved questions and unsupported fields are listed as skipped');
+      modal.text().should.contain('eligible value and moved-question rules');
     });
 
     it('sets the correct href attributes for a form draft', () => {

@@ -10,8 +10,23 @@ never changed. Contract: docs/field-intelligence/S4-export-recodes.md -->
       <p class="recodes-intro">
         When a question's codes or place changed between versions, a rule makes exports that span versions use one set of codes.
         Rules can apply to the analysis table, charts and map, as well as analysis exports (CSV, Excel, SPSS, Stata), and are listed in each export's manifest.
-        They do not change submissions, and standard CSV and OData downloads retain stored answers. Native CSV ZIP downloads offer opt-in value rules with a manifest; moved-question rules remain unsupported there.
+        They do not change submissions. Standard CSV and OData downloads retain stored answers; the recoded CSV ZIP and OData feed apply eligible value and moved-question rules when requested.
       </p>
+      <div class="recodes-odata">
+        <h2>Recoded OData feed</h2>
+        <template v-if="currentForm.dataExists && currentForm.publishedAt != null && currentForm.keyId == null">
+          <p>Use this direct submissions table URL in a reporting tool that accepts URLs with query parameters. It applies active rules to earlier form versions. The connecting account needs permission to read the form and its submissions.</p>
+          <label for="recodes-odata-url">Recoded submissions URL</label>
+          <div class="recodes-odata-copy">
+            <input id="recodes-odata-url" class="form-control" type="text" readonly :value="odataUrl" @focus="$event.target.select()">
+            <button type="button" class="btn btn-default" @click="copyOdataUrl">Copy URL</button>
+          </div>
+          <p v-if="copyStatus" role="status">{{ copyStatus }}</p>
+          <p>Filters, ordering and paging select stored answers before recoding. Next-page links keep recoding on; add the parameter again when opening a separate repeat table. Rule changes can affect later pages.</p>
+          <p>Boolean, date and date-time recodes are not supported. Geometry and binary fields are skipped; moved questions must be outside repeats.</p>
+        </template>
+        <p v-else-if="currentForm.dataExists">The recoded OData feed is available for published, unencrypted forms.</p>
+      </div>
       <p v-if="error" role="alert" class="recodes-error">{{ error }}</p>
       <button v-if="error" type="button" class="btn btn-default" :disabled="busy" @click="load">Reload rules</button>
       <p v-if="data == null && !error" class="recodes-loading">Loading…</p>
@@ -83,6 +98,7 @@ never changed. Contract: docs/field-intelligence/S4-export-recodes.md -->
 import { computed, reactive, ref, watch } from 'vue';
 
 import useRequest from '../../composables/request';
+import { useRequestData } from '../../request-data';
 import { apiPaths } from '../../util/request';
 
 defineOptions({ name: 'FormVersionRecodes' });
@@ -92,6 +108,17 @@ const props = defineProps({
   allowed: { type: Boolean, default: false }
 });
 const { request, awaitingResponse: busy } = useRequest();
+const { form: currentForm } = useRequestData();
+const odataUrl = computed(() => `${window.location.origin}${apiPaths.odataSubmissions(props.projectId, props.xmlFormId, false, { valueRecodes: true })}`);
+const copyStatus = ref('');
+const copyOdataUrl = async () => {
+  try {
+    await navigator.clipboard.writeText(odataUrl.value);
+    copyStatus.value = 'URL copied.';
+  } catch (_) {
+    copyStatus.value = 'Could not copy automatically. Select the URL and copy it manually.';
+  }
+};
 const root = () => `${apiPaths.form(props.projectId, props.xmlFormId)}/recodes`;
 const addOpen = ref(null); let loadGeneration = 0;
 const data = ref(null); const fields = ref([]); const error = ref('');
@@ -114,7 +141,7 @@ const load = () => {
     .catch((e) => { if (generation === loadGeneration) error.value = message(e, 'The recode rules could not be loaded.'); });
 };
 watch(() => [props.projectId, props.xmlFormId], () => {
-  data.value = null; fields.value = []; error.value = ''; addOpen.value = null; Object.assign(form, blank());
+  data.value = null; fields.value = []; error.value = ''; addOpen.value = null; copyStatus.value = ''; Object.assign(form, blank());
   for (const id of Object.keys(retireReasons)) delete retireReasons[id];
   load();
 }, { immediate: true });
@@ -162,6 +189,10 @@ const retire = (rule) => {
   overflow-wrap: anywhere;
 
   .recodes-intro, .recodes-reason, .recodes-kind, .recodes-single { color: $color-text-secondary; }
+  .recodes-odata { border-top: 1px solid #e9e9f1; border-bottom: 1px solid #e9e9f1; margin: 16px 0; padding: 0 0 10px; }
+  .recodes-odata h2 { font-size: 18px; }
+  .recodes-odata-copy { display: flex; flex-wrap: wrap; gap: 8px; }
+  .recodes-odata-copy input { flex: 1 1 240px; min-width: 0; }
   .recodes-error { color: $color-danger; }
   .recodes-list { list-style: none; margin: 0; padding: 0; }
   .recodes-rule { border-left: 3px solid #e9e9f1; margin: 10px 0; padding-left: 10px; }
