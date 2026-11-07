@@ -291,7 +291,7 @@ describe('api: S4 recode rules for exports', () => {
     await add({ kind: 'value', path: '/kids/kid_water', values: { borehole: 'bh' } });
     const moved = (await add({ kind: 'path', path: '/age', fromPath: '/old_age' })).body;
     await add({ kind: 'value', path: '/age', values: { '40': '41', '41': '42', '55': '56' } });
-    await submit(alice, 'both', '1', '<old_age>40</old_age><age>55</age>');
+    await submit(alice, 'both', '1', '<old_age>40</old_age><age>5&#53;</age>');
     await submit(alice, 'entity', '1', '<old_age> &#52;0 </old_age>');
     await submit(alice, 'missing', '1', '<water>tap</water>');
     const get = query => binary(alice.get(`${base}/submissions.csv.zip`).query(query));
@@ -330,6 +330,56 @@ describe('api: S4 recode rules for exports', () => {
     await alice.post(`/v1/projects/1/assignments/viewer/${id}`).expect(200);
     await reader.get(`${base}/submissions.csv.zip`).query({ attachments: false, valueRecodes: true }).expect(200);
     await alice.get(`${base}/draft/submissions.csv.zip`).query({ valueRecodes: true }).expect(404);
+  }));
+
+  it('applies opt-in OData recodes without changing stored answers or the ordinary feed', testService(async service => {
+    const alice = await service.login('alice'); await twoVersions(alice);
+    const add = body => alice.post(`${base}/recodes`).send({ reason: 'Reviewed alignment', versions: ['1'], ...body }).expect(201);
+    const water = (await add({ kind: 'value', path: '/water', values: { borehole: 'bh' } })).body;
+    await add({ kind: 'value', path: '/lights', values: { solar: 'sun', torch: 'lamp' } });
+    await add({ kind: 'value', path: '/kids/kid_water', values: { borehole: 'bh' } });
+    await add({ kind: 'path', path: '/age', fromPath: '/old_age' });
+    await add({ kind: 'value', path: '/age', values: { '40': '41', '41': '42', '55': '56' } });
+    await submit(alice, 'both', '1', '<old_age>40</old_age><age>5&#53;</age>');
+    await submit(alice, 'entity', '1', '<old_age> &#52;0 </old_age>');
+    const feed = `${base}.svc/Submissions`;
+    const original = await alice.get(feed).expect(200);
+    original.body.value.find(row => row.__id === 'uuid:old').water.should.equal('borehole');
+    const recoded = await alice.get(feed).query({ valueRecodes: true }).expect(200);
+    const old = recoded.body.value.find(row => row.__id === 'uuid:old');
+    old.water.should.equal('bh'); old.lights.should.equal('sun lamp'); old.age.should.equal(41);
+    recoded.body.value.find(row => row.__id === 'uuid:both').age.should.equal(56);
+    recoded.body.value.find(row => row.__id === 'uuid:entity').age.should.equal(41);
+    recoded.body.value.find(row => row.__id === 'uuid:new').age.should.equal(31);
+    recoded.headers['cache-control'].should.equal('private, no-store');
+    const children = await alice.get(`${base}.svc/Submissions.kids`).query({ valueRecodes: true }).expect(200);
+    children.body.value[0].kid_water.should.equal('bh');
+    const expanded = await alice.get(feed).query({ valueRecodes: true, $expand: '*' }).expect(200);
+    expanded.body.value.find(row => row.__id === 'uuid:old').kids[0].kid_water.should.equal('bh');
+    const selected = await alice.get(feed).query({ valueRecodes: true, $select: 'age' }).expect(200);
+    selected.body.value.some(row => row.age === 41).should.equal(true);
+    const first = await alice.get(feed).query({ valueRecodes: true, $top: 1, $count: true }).expect(200);
+    first.body['@odata.count'].should.equal(4);
+    const next = new URL(first.body['@odata.nextLink']);
+    next.searchParams.get('valueRecodes').should.equal('true');
+    (await alice.get(next.pathname + next.search).expect(200)).body.value.should.have.length(1);
+    await service.get(feed).query({ valueRecodes: true }).expect(401);
+    await alice.get(feed).query({ valueRecodes: 'invalid' }).expect(400);
+    const single = await alice.get(`${feed}('uuid:old')`).query({ valueRecodes: true }).expect(200);
+    single.body.value[0].age.should.equal(41);
+    await alice.get(feed).query({ valueRecodes: true }).set('If-None-Match', recoded.headers.etag).expect(304);
+    await alice.post(`${base}/recodes/${water.id}/retire`).send({ reason: 'Stop mapping' }).expect(200);
+    const retired = await alice.get(feed).query({ valueRecodes: true }).set('If-None-Match', recoded.headers.etag).expect(200);
+    retired.body.value.find(row => row.__id === 'uuid:old').water.should.equal('borehole');
+    const raw = await alice.get(`${base}/submissions/uuid:old.xml`).expect(200);
+    raw.text.should.containEql('<water>borehole</water>');
+  }));
+
+  it('rejects nonnumeric OData recode targets for numeric fields', testService(async service => {
+    const alice = await service.login('alice'); await twoVersions(alice);
+    await alice.post(`${base}/recodes`).send({ kind: 'value', path: '/age', versions: ['1'], values: { '40': 'unknown' }, reason: 'Reviewed code' }).expect(201);
+    await alice.get(`${base}.svc/Submissions`).query({ valueRecodes: true }).expect(400);
+    await alice.get(`${base}.svc/Submissions`).expect(200);
   }));
 
 });

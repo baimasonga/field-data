@@ -34,6 +34,7 @@ const { SchemaStack } = require('./schema');
 const { shasum } = require('../util/crypto');
 const { url } = require('../util/http');
 const { sanitizeOdataIdentifier } = require('../util/util');
+const { stripNamespacesFromPath } = require('../util/xml');
 
 // compares fieldStack to a target tablename and returns whether we are:
 // out of (-1), at (0), or in (1) our target branch.
@@ -132,6 +133,21 @@ const submissionToOData = (fields, table, submission, options = {}) => new Promi
   // a null field isn't provided. that's not the worst thing ever, really.
   const base = encrypted ? {} : generateDataFrame(schemaStack);
   const root = Object.assign({ }, base);
+  const { recodes } = options;
+  const version = submission.aux.exports?.formVersion;
+  const moves = recodes ? recodes.moves(version) : [];
+  const names = []; const captured = new Map(); const wanted = new Set(moves.map(rule => rule.fromPath));
+  const textStack = [];
+  const targetText = new Map();
+  const targets = new Map(fields.map(field => [field.path, field]));
+  const asFieldValue = (field, value) => {
+    if (value == null || value === '') return value;
+    if (field.type === 'int') return parseInt(value, 10);
+    if (field.type === 'decimal') return parseFloat(value);
+    return value;
+  };
+  const applyValue = (field, value) => (recodes.hasValue(field, version)
+    ? asFieldValue(field, recodes.value(field, version, value == null ? value : String(value))) : value);
 
   // The instanceId and submission metadata we decorate onto every root row based
   // on option.metadata even though they are not part of the form's own schema.
@@ -187,6 +203,12 @@ const submissionToOData = (fields, table, submission, options = {}) => new Promi
   // now spin up our XML parser and let its SAX-like tree events drive our traversal.
   const parser = new hparser.Parser({
     onopentag: (name) => {
+      if (recodes) textStack.push('');
+      if (moves.length) {
+        names.push(stripNamespacesFromPath(name));
+        const sourcePath = `/${names.slice(1).join('/')}`;
+        if (wanted.has(sourcePath) && !captured.has(sourcePath)) captured.set(sourcePath, '');
+      }
       const field = schemaStack.push(name);
 
       if (field === SchemaStack.Wrapper) {
@@ -252,6 +274,11 @@ const submissionToOData = (fields, table, submission, options = {}) => new Promi
       }
     },
     ontext: (text) => {
+      if (recodes && textStack.length) textStack[textStack.length - 1] += text;
+      if (moves.length) {
+        const sourcePath = `/${names.slice(1).join('/')}`;
+        if (wanted.has(sourcePath) && captured.has(sourcePath)) captured.set(sourcePath, captured.get(sourcePath) + text);
+      }
       const field = schemaStack.head();
       const dataPtr = ptr(dataStack);
       if ((field != null) && (dataPtr != null) && (getBranchState(schemaStack, table) === 1)) {
@@ -338,10 +365,34 @@ const submissionToOData = (fields, table, submission, options = {}) => new Promi
     },
     onclosetag: () => {
       // popstack. if we are left without a root fieldPtr, we are at the end of submission.
-      schemaStack.pop();
-      dataStack.pop();
+      const field = schemaStack.pop();
+      const data = dataStack.pop();
+      const rawText = recodes ? textStack.pop() : null;
+      if (moves.length) {
+        wanted.delete(`/${names.slice(1).join('/')}`);
+        names.pop();
+      }
+      if (field && data && moves.some(rule => rule.path === field.path)) targetText.set(field.path, rawText);
+      if (recodes && field && !field.isStructural() && data && !moves.some(rule => rule.path === field.path)) {
+        const name = sanitizeOdataIdentifier(field.name);
+        if (Object.hasOwn(data, name) && recodes.hasValue(field, version) && data[name] != null)
+          data[name] = applyValue(field, rawText);
+      }
 
       if (schemaStack.hasExited()) {
+        for (const rule of moves) {
+          const target = targets.get(rule.path);
+          if (!target) continue;
+          const parts = rule.path.split('/').filter(Boolean).map(sanitizeOdataIdentifier);
+          let parent = root;
+          for (const part of parts.slice(0, -1)) parent = parent?.[part];
+          const name = parts[parts.length - 1];
+          if (!parent || !Object.hasOwn(parent, name)) continue;
+          const source = captured.get(rule.fromPath)?.replace(/^ +| +$/g, '');
+          const current = targetText.get(rule.path);
+          const value = (current == null || current === '') ? source : current;
+          if (value != null && value !== '') parent[name] = asFieldValue(target, applyValue(target, value));
+        }
         parser.reset();
         resolve({ data: result, instanceId: submission.instanceId });
       }

@@ -385,11 +385,11 @@ const edmxForEntities = (datasetName, properties) => {
 // originalUrl: String is the request URL; we need it as well to formulate response URLs.
 // query: Object is the Express Request query object indicating request querystring parameters.
 // inStream: Stream[Row] is the postgres Submissions rowstream.
-const rowStreamToOData = (fields, table, domain, originalUrl, query, inStream, tableCount, tableRemaining) => {
+const rowStreamToOData = (fields, table, domain, originalUrl, query, inStream, tableCount, tableRemaining, recodes = null) => {
   // cache values we'll need repeatedly.
   const serviceRoot = getServiceRoot(originalUrl);
   const { doLimit, doOffset, shouldCount, skipToken } = extractPaging(table, query);
-  const options = extractOptions(query);
+  const options = { ...extractOptions(query), recodes };
   const isSubTable = table !== 'Submissions';
 
   // make sure the target table actually exists.
@@ -494,11 +494,11 @@ const getTableFromOriginalUrl = (originalUrl) => {
 // domain: String helps formulate the absolute URLs we include with the response.
 // originalUrl: String is the request URL; we need it as well to formulate response URLs.
 // query: Object is the Express Request query object indicating request querystring parameters.
-const singleRowToOData = (fields, row, domain, originalUrl, query) => {
+const singleRowToOData = (fields, row, domain, originalUrl, query, recodes = null) => {
   // basic setup, as above, but also get our requested row context.
   const serviceRoot = getServiceRoot(originalUrl);
   const targetContext = extractPathContext(urlPathname(originalUrl).slice(serviceRoot.length)); // only the service subpath
-  const options = extractOptions(query);
+  const options = { ...extractOptions(query), recodes };
 
   // ensure that the target context actually exists.
   const tableParts = targetContext.map((pair) => pair[0]);

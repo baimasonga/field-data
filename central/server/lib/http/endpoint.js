@@ -378,7 +378,7 @@ const odataPreprocessor = (format) => (_, context) => {
 
   // if the client is requesting functionality we do not support, reject (section 11.2.1/9.3.1).
   for (const key of Object.keys(context.query))
-    if (supportedParams.indexOf(key) < 0)
+    if (supportedParams.indexOf(key) < 0 && !(key === 'valueRecodes' && /\/forms\/[^/]+(?:\/draft)?\.svc\//.test(context.originalUrl)))
       return reject(Problem.internal.notImplemented({ feature: key }));
 
   if (context.query.$expand && context.query.$expand !== '*')
