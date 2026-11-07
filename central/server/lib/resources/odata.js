@@ -13,6 +13,7 @@ const { getOrNotFound, resolve } = require('../util/promise');
 const { QueryOptions } = require('../util/db');
 const { contentType, xml, json, withEtag, isTrue } = require('../util/http');
 const Problem = require('../util/problem');
+const nativeRecodes = require('../util/native-csv-recodes');
 const { serviceDocumentFor, edmxFor, rowStreamToOData, singleRowToOData, countOnlyToOData, selectFields, getTableFromOriginalUrl } = require('../formats/odata');
 
 module.exports = (service, endpoint) => {
@@ -45,12 +46,14 @@ module.exports = (service, endpoint) => {
       return matches[1];
     };
 
-    const singleRecord = endpoint.odata.json(async ({ Forms, Submissions, env }, { auth, params, query, originalUrl }) => {
+    const singleRecord = endpoint.odata.json(async ({ Forms, Submissions, env, db }, { auth, params, query, originalUrl }, _, response) => {
       const form = await getForm(Forms, auth, params);
+      const recodes = await nativeRecodes.prepare(db, auth, form, draft, query, false, 'odata');
+      if (recodes) response.set('Cache-Control', 'private, no-store');
       const allFields = await Forms.getFields(form.def.id);
       const selectedFields = selectFields(query, getTableFromOriginalUrl(originalUrl))(allFields);
       const row = await Submissions.getForExport(form.id, getUuid(params.uuid), draft).then(getOrNotFound);
-      return singleRowToOData(selectedFields, row, env.domain, originalUrl, query);
+      return singleRowToOData(selectedFields, row, env.domain, originalUrl, query, nativeRecodes.compileOdata(recodes, selectedFields));
     });
 
     // TODO: because of the way express compiles the *, we have to register this twice.
@@ -58,22 +61,26 @@ module.exports = (service, endpoint) => {
     service.get(`${base}/Submissions\\(:uuid\\)/*`, singleRecord);
 
     // serves table data.
-    service.get(`${base}/:table`, endpoint.odata.json(async ({ Forms, Submissions, env }, { auth, params, originalUrl, query }) => {
+    service.get(`${base}/:table`, endpoint.odata.json(async ({ Forms, Submissions, env, db }, { auth, params, originalUrl, query }, _, response) => {
       const form = await getForm(Forms, auth, params);
+      const recodes = await nativeRecodes.prepare(db, auth, form, draft, query, false, 'odata');
+      if (recodes) response.set('Cache-Control', 'private, no-store');
       const options = QueryOptions.fromODataRequest(params, query);
 
       if (options.limit === 0 && !isTrue(query.$count)) {
         return json(countOnlyToOData(params.table, env.domain, originalUrl, null));
       }
 
-      const createResponse = () => Promise.all([
-        Forms.getFields(form.def.id).then(selectFields(query, params.table)),
-        Submissions.streamForExport(form.id, draft, undefined, options),
-        ((params.table === 'Submissions') && options.hasPaging())
-          ? Submissions.countByFormId(form.id, draft, options) : resolve({})
-      ])
-        .then(([fields, stream, { count, remaining }]) =>
-          json(rowStreamToOData(fields, params.table, env.domain, originalUrl, query, stream, count, remaining)));
+      const createResponse = async () => {
+        const fields = await Forms.getFields(form.def.id).then(selectFields(query, params.table));
+        const compiled = nativeRecodes.compileOdata(recodes, fields);
+        const [stream, { count, remaining }] = await Promise.all([
+          Submissions.streamForExport(form.id, draft, undefined, options),
+          ((params.table === 'Submissions') && options.hasPaging())
+            ? Submissions.countByFormId(form.id, draft, options) : resolve({})
+        ]);
+        return json(rowStreamToOData(fields, params.table, env.domain, originalUrl, query, stream, count, remaining, compiled));
+      };
 
       // if $top=0 with $count then just return the count; no need to calculate Etag
       if (query.$top != null && parseInt(query.$top, 10) === 0 && isTrue(query.$count)) {
@@ -88,7 +95,7 @@ module.exports = (service, endpoint) => {
 
       const etag = await Submissions.getODataSelectionEtag(form.id, draft, options);
 
-      return withEtag(etag, createResponse, true);
+      return withEtag(nativeRecodes.etag(etag, recodes), createResponse, true);
     }));
 
   };
