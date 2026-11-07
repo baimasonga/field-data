@@ -18,6 +18,7 @@ const { rejectIfError } = require('../util/promise');
 const { PartialPipe } = require('../util/stream');
 const { zipPart } = require('../util/zip');
 const { compile: compileRecodes } = require('../util/native-csv-recodes');
+const { stripNamespacesFromPath } = require('../util/xml');
 
 /* eslint-disable no-multi-spaces */
 
@@ -89,15 +90,24 @@ const generateDataFrame = (header) => header.map((col) => (col.includes('/') ? 0
 // parser, transforms the data to tabular format, and automatically streams out
 // substream rows. returns the root row as a Promise result.
 // fields is an array in depth-first tree order, and length is the width of the root table.
-const processRow = (xml, instanceId, fields, header, selectValues, recodeValue = null) => new Promise((resolve, reject) => {
+const processRow = (xml, instanceId, fields, header, selectValues, recodeValue = null, moveRules = []) => new Promise((resolve, reject) => {
   // set up our state machine stacks:
   const schemaStack = new SchemaStack(fields);
   const dataStack = [ generateDataFrame(header) ];
+  const names = []; const captured = new Map(); const seen = new Set();
+  const wanted = new Set(moveRules.map(rule => rule.fromPath));
+  const movedTargets = new Set(moveRules.map(rule => rule.path));
+  const targets = new Map(moveRules.length ? fields.filter(field => field.idx != null).map(field => [field.path, field]) : []);
 
   // now spin up our XML parser and let its SAX-like tree events drive our traversal.
   const createParser = (ParserClass) => {
     const parser = new ParserClass({
       onopentag: (name) => {
+        if (moveRules.length) {
+          names.push(stripNamespacesFromPath(name));
+          const sourcePath = `/${names.slice(1).join('/')}`;
+          if (wanted.has(sourcePath) && !seen.has(sourcePath)) { seen.add(sourcePath); captured.set(sourcePath, ''); }
+        }
         const field = schemaStack.push(name);
         if (field == null) {
           // if we don't have a schema definition for this field, navigate into nothing.
@@ -116,6 +126,10 @@ const processRow = (xml, instanceId, fields, header, selectValues, recodeValue =
         }
       },
       ontext: (text) => {
+        if (moveRules.length) {
+          const sourcePath = `/${names.slice(1).join('/')}`;
+          if (wanted.has(sourcePath) && captured.has(sourcePath)) captured.set(sourcePath, captured.get(sourcePath) + text);
+        }
         const field = schemaStack.head();
         if (field?.idx != null) {
           // we have a real schema field for this text value and a place to put the
@@ -152,8 +166,13 @@ const processRow = (xml, instanceId, fields, header, selectValues, recodeValue =
         // shed a context layer by popping all our state machine stacks.
         const field = schemaStack.pop();
         const row = dataStack.pop();
+        if (moveRules.length) {
+          const sourcePath = `/${names.slice(1).join('/')}`;
+          if (captured.has(sourcePath)) wanted.delete(sourcePath);
+          names.pop();
+        }
 
-        if (recodeValue && field?.idx != null && row != null) row[field.idx] = recodeValue(field, row[field.idx]);
+        if (recodeValue && field?.idx != null && row != null && !movedTargets.has(field.path)) row[field.idx] = recodeValue(field, row[field.idx]);
 
         // if we popped a repeat, we need to write the subrow we just created.
         if (field?.type === 'repeat')
@@ -165,6 +184,13 @@ const processRow = (xml, instanceId, fields, header, selectValues, recodeValue =
         if (schemaStack.hasExited()) {
           if (!(parser instanceof WritableStream)) {
             parser.reset();
+          }
+          for (const rule of moveRules) {
+            const target = targets.get(rule.path); const value = captured.get(rule.fromPath)?.replace(/^ +| +$/g, '');
+            if (target) {
+              if ((row[target.idx] == null || row[target.idx] === '') && value) row[target.idx] = value;
+              if (recodeValue) row[target.idx] = recodeValue(target, row[target.idx]);
+            }
           }
           resolve(row);
         }
@@ -329,7 +355,7 @@ const streamBriefcaseCsvs = (inStream, inFields, xmlFormId, selectValues, decryp
         }
 
         // write the root row we get back from parsing the xml.
-        processRow(xml, submission.instanceId, fields, rootHeader, selectValues, recodes ? (field, value) => recodes.value(field, submission.aux.exports.formVersion, value) : null).then((result) => {
+        processRow(xml, submission.instanceId, fields, rootHeader, selectValues, recodes ? (field, value) => recodes.value(field, submission.aux.exports.formVersion, value) : null, recodes ? recodes.moves(submission.aux.exports.formVersion) : []).then((result) => {
           writeMetadata(result, rootMeta, submission, submission.aux.submitter, submission.aux.exports.formVersion, submission.aux.attachment);
           done(null, result);
         }, done); // pass through errors.
