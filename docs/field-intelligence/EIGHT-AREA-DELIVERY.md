@@ -382,7 +382,7 @@ acceptance remain separate from software delivery. Later release notes that say
 | Operations | Sampling, allocation, shared capacity, same-day/overnight UTC shifts, combined approved itineraries, manual/scheduled collector/answer sampling with group-specific rates, numeric ranges, polygon groups, inspectable design weights, conditional calibrated binary estimates, approved-stop navigation handoff and agreement counts | Additional task types, built-in/offline routing, external benchmark calibration and validated outcome inference |
 | Geospatial | Location integrity, imagery availability and cited human geospatial assessments with temporal context and outdated history | Field evaluation and calibration of Sentinel-2 change candidates |
 | Fraud intelligence | Contradictions, identity reuse, similarity, collector links, investigations/outcomes, live case links and targeted backcheck questions with reviewed form drafts and same-form/cross-form shared-identity peer targeting | Broader peer families, multilingual/effectiveness evaluation, calibrated triage and false-positive evaluation |
-| Adaptive surveys | Doctor, simulations, version-change analysis, analysis recodes and opt-in native CSV ZIP value recodes | Approved bounded policies, reviewed evolution/draft generation, answer uncertainty, conversational multilingual support, native moved-question recodes and OData overlays |
+| Adaptive surveys | Doctor, simulations, version-change analysis, analysis recodes and opt-in native CSV ZIP value recodes | Approved bounded policies, reviewed evolution/draft generation, answer uncertainty, conversational multilingual support, OData overlays |
 | Multimodal | Provenance-preserving capture, manual evidence review and reviewed photo-text/voice extraction with correction history | Live provider/language evaluation, asset/module suggestions, guided capture, source-grounded drafts, offline models and field acceptance |
 
 Each implementation needs its actual API and user workflow, permission and
@@ -774,3 +774,12 @@ Explicit same-form and cross-form identity-inconsistency peers can now use the
 existing neutral identity prompt and reviewed backcheck workflow. Cross-form
 mappings require unambiguous source metadata and current read permissions on both
 forms. See [F14-inconsistent-identity-peer-backchecks.md](F14-inconsistent-identity-peer-backchecks.md).
+
+
+### S7 native CSV moved-question recodes
+
+Opt-in native CSV ZIP exports fill eligible historical questions from their
+reviewed earlier paths before applying value mappings. The versioned manifest
+and ETag describe the changed behavior. See
+[S7-native-csv-moved-questions.md](S7-native-csv-moved-questions.md).
+OData overlays and repeat-path moves remain outside this export.
