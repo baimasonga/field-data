@@ -181,8 +181,12 @@ const setup = async (page, { comparisonUnavailable = false, failComparison = fal
     const investigationPath = /^\/v1\/projects\/7\/investigations(?:\/([^/]+)(?:\/(notes|close|reopen|assignment))?)?$/.exec(path);
     if (investigationPath != null) {
       const [, id, action] = investigationPath;
-      const summary = (v) => ({ id: v.id, title: v.title, status: v.status, disposition: v.disposition, revision: v.revision, findings: v.findings.length });
-      if (req.method() === 'GET' && id == null) return respond(state.investigations.map(summary));
+      const summary = (v) => ({ id: v.id, title: v.title, status: v.status, disposition: v.disposition, revision: v.revision, findings: v.findings.length,
+        assignedTo: v.assignedTo ?? null, dueDate: v.dueDate ?? null, overdue: v.status === 'open' && v.dueDate != null && v.dueDate < '2026-11-08' });
+      if (req.method() === 'GET' && id == null) return respond(state.investigations.map(summary).filter(v =>
+        (!url.searchParams.get('status') || v.status === url.searchParams.get('status')) &&
+        (!url.searchParams.get('assignee') || (url.searchParams.get('assignee') === 'unassigned' ? v.assignedTo == null : v.assignedTo === Number(url.searchParams.get('assignee') === 'me' ? 1 : url.searchParams.get('assignee')))) &&
+        (url.searchParams.get('overdue') !== 'true' || v.overdue)));
       const data = req.method() === 'POST' ? req.postDataJSON() : null;
       if (data != null) state.investigationWrites.push({ path, data, ifMatch: req.headers()['if-match'] ?? null });
       if (data != null && state.investigationFailures-- > 0) return route.fulfill({ status: 500, json: { message: 'Failed' } });
@@ -1558,6 +1562,13 @@ test('a manager opens an investigation from a collector group, notes, closes and
   await record.getByRole('button', { name: 'Save assignment' }).click();
   await expect(record).toContainText('Assigned to Test reviewer · Due 2027-01-30');
   expect(state.investigationWrites.at(-1)).toMatchObject({ data: { assignedTo: 1, dueDate: '2027-01-30', reason: 'Review the evidence' }, ifMatch: '"investigation-1"' });
+  await section.getByRole('combobox', { name: 'Assigned to', exact: true }).selectOption('me');
+  await expect(section.locator('.investigations-list li')).toHaveCount(1);
+  await section.getByLabel('Overdue only').check();
+  await expect(section.locator('.investigations-empty')).toHaveText('No investigations match these filters.');
+  await section.getByLabel('Overdue only').uncheck();
+  await section.getByRole('combobox', { name: 'Assigned to', exact: true }).selectOption('');
+  await expect(section.locator('.investigations-list li')).toHaveCount(1);
 
   await record.getByLabel('Note').fill('Both work the same villages.');
   await record.getByRole('button', { name: 'Add note' }).click();

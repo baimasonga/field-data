@@ -61,14 +61,24 @@ Contract: docs/field-intelligence/F6-investigations.md -->
       </div>
     </details>
 
+    <div class="investigations-filters" aria-label="Filter investigations">
+      <label>Status <select v-model="statusFilter" class="form-control" @change="loadList"><option value="">All statuses</option><option value="open">Open</option><option value="closed">Closed</option></select></label>
+      <label>Assigned to <select v-model="assigneeFilter" class="form-control" @change="loadList">
+        <option value="">Anyone</option><option value="me">Me</option><option value="unassigned">Unassigned</option>
+        <option v-for="person of assignees?.candidates ?? []" :key="person.id" :value="String(person.id)">{{ person.displayName }}</option>
+      </select></label>
+      <label class="investigations-overdue"><input v-model="overdueFilter" type="checkbox" @change="loadList"> Overdue only</label>
+    </div>
+    <p class="investigations-filter-help">Overdue means an open investigation whose due date is before today in UTC. Up to 200 matching investigations are shown.</p>
     <p v-if="list != null && list.length === 0" class="investigations-empty">
-      No investigation has been opened in this project. Open one from a group of collectors above.
+      {{ hasFilters ? 'No investigations match these filters.' : 'No investigation has been opened in this project. Open one from a group of collectors above.' }}
     </p>
     <ul v-else-if="list != null" class="investigations-list">
       <li v-for="item of list" :key="item.id">
         <button type="button" class="btn btn-link" :aria-current="current?.id === item.id" @click="open(item.id)">{{ item.title }}</button>
         · {{ item.status === 'open' ? 'Open' : `Closed: ${DISPOSITIONS[item.disposition]}` }} · {{ item.findings }} findings
         <template v-if="item.dueDate"> · Due {{ item.dueDate }}</template>
+        <strong v-if="item.overdue"> · Overdue</strong>
       </li>
     </ul>
 
@@ -170,6 +180,9 @@ const outcomes = ref(null);
 const list = ref(null); const current = ref(null); const draft = ref(null); const error = ref('');
 const note = ref(''); const disposition = ref('benign-pattern'); const conclusion = ref(''); const reason = ref('');
 const assignees = ref(null); const assignedTo = ref(''); const dueDate = ref(''); const assignmentReason = ref('');
+const statusFilter = ref(''); const assigneeFilter = ref(''); const overdueFilter = ref(false);
+const hasFilters = computed(() => Boolean(statusFilter.value || assigneeFilter.value || overdueFilter.value));
+let listGeneration = 0;
 const base = () => `/v1/projects/${props.projectId}/investigations`;
 const failed = (what) => (e) => {
   error.value = e?.response?.status === 412 ? 'The investigation was changed by someone else; it has been reloaded.'
@@ -182,10 +195,21 @@ const failed = (what) => (e) => {
 const loadOutcomes = () => request({ method: 'GET', url: `${base()}/outcomes`, alert: false })
   .then(({ data }) => { outcomes.value = data; })
   .catch(() => { error.value = 'How investigations ended could not be loaded. Try again.'; });
+const loadList = () => {
+  listGeneration += 1;
+  const generation = listGeneration;
+  list.value = null;
+  const query = new URLSearchParams();
+  if (statusFilter.value) query.set('status', statusFilter.value);
+  if (assigneeFilter.value) query.set('assignee', assigneeFilter.value);
+  if (overdueFilter.value) query.set('overdue', 'true');
+  const suffix = query.toString();
+  return request({ method: 'GET', url: `${base()}${suffix ? `?${suffix}` : ''}`, alert: false })
+    .then(({ data }) => { if (generation !== listGeneration) return; if (!Array.isArray(data)) throw new Error('Unexpected response'); list.value = data; })
+    .catch(() => { if (generation === listGeneration) error.value = 'Investigations could not be loaded. Try again.'; });
+};
 const load = () => Promise.all([
-  request({ method: 'GET', url: base(), alert: false })
-    .then(({ data }) => { if (!Array.isArray(data)) throw new Error('Unexpected response'); list.value = data; })
-    .catch(() => { error.value = 'Investigations could not be loaded. Try again.'; }),
+  loadList(),
   loadOutcomes(),
   request({ method: 'GET', url: `${base()}/assignees`, alert: false })
     .then(({ data }) => { assignees.value = data; })
@@ -248,6 +272,10 @@ const submissionPath = (xmlFormId, instanceId) => `${formPath(xmlFormId)}/submis
   .investigations-empty, .investigation-status, .investigation-hidden { color: $color-text-secondary; }
   .investigations-list, .investigation-findings { padding-left: 18px; }
   .investigations-list .btn-link { padding: 0; }
+  .investigations-filters { display: flex; flex-wrap: wrap; gap: 12px; align-items: end; }
+  .investigations-filters label { font-weight: normal; }
+  .investigations-overdue { padding-bottom: 8px; }
+  .investigations-filter-help { color: $color-text-secondary; }
   .investigations-new, .investigation-form { display: flex; flex-direction: column; gap: 6px; margin: 12px 0; max-width: 560px;
     label { display: flex; flex-direction: column; font-weight: normal; } }
   .investigation-history { padding-left: 18px; }
