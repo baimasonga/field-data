@@ -26,6 +26,12 @@ also exist. Those features must not be re-labelled as full completion of this pr
 
 ## Status
 
+- Draft-versus-published simulation comparison (S9): the Draft page compares
+  shown-question rates using reproducible seeds, actual run counts and report
+  hashes, with explicit unpaired-simulation and unsupported-expression limits.
+  See [S9](S9-simulation-comparison.md). Historical version comparisons and
+  approved adaptive policies remain pending.
+
 - Investigation workload (F15): managers see project-wide open and overdue
   investigation counts by eligible manager, including separate unassigned and
   unavailable-assignee totals. See [F15](F15-investigation-workload.md).

@@ -35,7 +35,8 @@ except according to the terms contained in the LICENSE file.
           :definition-key="formDraft.get().hash"
           @report="(r) => { meaningChanges = r?.summary?.meaning ?? 0; }"/>
         <form-edit-simulation :project-id="projectId" :xml-form-id="xmlFormId"
-          target="draft" :definition-key="formDraft.get().hash"/>
+          target="draft" :definition-key="formDraft.get().hash"
+          :published-hash="form.dataExists && form.publishedAt != null ? form.hash : null"/>
         <form-edit-attachments/>
         <form-edit-entities/>
         <form-draft-testing/>
