@@ -111,3 +111,40 @@ test('a clean simulation says so, and a refused one is explained', async ({ page
   await expect(section.locator('.simulation-clean')).toContainText('Every question was shown in some interview');
   expect(errors).toEqual([]);
 });
+
+test('compares draft and published simulations with the same seed and refuses a changed baseline', async ({ page }) => {
+  let changed = false; let denied = false; const requests = [];
+  const { errors } = await api(page, async (route, url) => {
+    requests.push({ path: url.pathname, seed: url.searchParams.get('seed'), runs: url.searchParams.get('runs') });
+    const published = !url.pathname.includes('/draft/');
+    if (published && denied) { await route.fulfill({ status: 403, json: { message: 'Published version is unavailable.' } }); return; }
+    await route.fulfill({ json: simulated(url.searchParams.get('seed') ?? 'generated', published ? {
+      hash: changed ? 'changed' : form.hash, formVersion: '1', draft: false,
+      questions: [{ path: '/data/district', shown: 100, answered: 100 }, { path: '/data/old', shown: 200, answered: 200 }],
+      notSimulated: [{ path: '/data/old', attribute: 'relevant', reason: 'unsupported' }]
+    } : {}) });
+  });
+  await page.goto(draftPage);
+  const section = page.locator('#form-edit-simulation');
+  await section.getByLabel('Compare with published version').check();
+  await section.getByRole('button', { name: 'Simulate interviews' }).click();
+  const comparison = section.locator('.simulation-comparison');
+  await expect(comparison).toContainText('separate simulations, not paired interviews');
+  await expect(comparison.locator('tr', { hasText: '/data/district' }).locator('td')).toHaveText(['50.0% (100/200)', '100.0% (200/200)']);
+  await expect(comparison.locator('tr', { hasText: '/data/old' }).locator('td')).toHaveText(['100.0% (200/200)', 'Not in version']);
+  await expect(comparison.locator('tr', { hasText: '/data/age' }).locator('td')).toHaveText(['Not in version', '100.0% (200/200)']);
+  await expect(comparison).toContainText('Published expressions not simulated (1)');
+  expect(requests).toEqual([{ path: '/v1/projects/1/forms/household/draft/simulation', seed: null, runs: '200' },
+    { path: '/v1/projects/1/forms/household/simulation', seed: 'generated', runs: '200' }]);
+  changed = true;
+  await section.getByRole('button', { name: 'Simulate interviews' }).click();
+  await expect(section.getByRole('alert')).toContainText('form or simulation date changed');
+  await expect(comparison).toHaveCount(0);
+  changed = false; denied = true;
+  await section.getByRole('button', { name: 'Simulate interviews' }).click();
+  await expect(section.getByRole('alert')).toContainText('Published version is unavailable.');
+  await expect(comparison).toHaveCount(0);
+  await page.setViewportSize({ width: 360, height: 800 });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= 360)).toBe(true);
+  expect(errors).toEqual([]);
+});
