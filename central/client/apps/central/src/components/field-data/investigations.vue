@@ -68,6 +68,7 @@ Contract: docs/field-intelligence/F6-investigations.md -->
       <li v-for="item of list" :key="item.id">
         <button type="button" class="btn btn-link" :aria-current="current?.id === item.id" @click="open(item.id)">{{ item.title }}</button>
         · {{ item.status === 'open' ? 'Open' : `Closed: ${DISPOSITIONS[item.disposition]}` }} · {{ item.findings }} findings
+        <template v-if="item.dueDate"> · Due {{ item.dueDate }}</template>
       </li>
     </ul>
 
@@ -76,6 +77,21 @@ Contract: docs/field-intelligence/F6-investigations.md -->
       <p class="investigation-status">
         {{ current.status === 'open' ? 'Open' : `Closed: ${DISPOSITIONS[current.disposition]}` }} · opened by {{ current.openedByName ?? 'unknown' }}
       </p>
+      <h4>Assignment</h4>
+      <p>Assigned to {{ current.assignedTo == null ? 'no one' : current.assigneeName ?? 'an unavailable manager' }} · Due {{ current.dueDate ?? 'not set' }}</p>
+      <p v-if="current.assigneeAvailable === false">The assigned manager no longer has access. Choose another manager.</p>
+      <form v-if="current.status === 'open'" class="investigation-form" @submit.prevent="saveAssignment">
+        <label>Assigned manager
+          <select v-model="assignedTo" class="form-control" :disabled="assignees == null">
+            <option value="">Unassigned</option>
+            <option v-for="person of assignees?.candidates ?? []" :key="person.id" :value="String(person.id)">{{ person.displayName }}</option>
+          </select>
+        </label>
+        <p v-if="assignees?.truncated">Only the first 200 eligible managers are shown.</p>
+        <label>Due date <input v-model="dueDate" type="date" class="form-control"></label>
+        <label>Reason for assignment change <textarea v-model="assignmentReason" required maxlength="2000" class="form-control"></textarea></label>
+        <button type="submit" class="btn btn-default" :disabled="busy || assignees == null">Save assignment</button>
+      </form>
       <h4>Findings</h4>
       <ul class="investigation-findings">
         <li v-for="f of current.findings" :key="f.id">
@@ -153,6 +169,7 @@ const FAMILIES = { travel: 'Travel', location: 'Location', contradiction: 'Contr
 const outcomes = ref(null);
 const list = ref(null); const current = ref(null); const draft = ref(null); const error = ref('');
 const note = ref(''); const disposition = ref('benign-pattern'); const conclusion = ref(''); const reason = ref('');
+const assignees = ref(null); const assignedTo = ref(''); const dueDate = ref(''); const assignmentReason = ref('');
 const base = () => `/v1/projects/${props.projectId}/investigations`;
 const failed = (what) => (e) => {
   error.value = e?.response?.status === 412 ? 'The investigation was changed by someone else; it has been reloaded.'
@@ -169,7 +186,10 @@ const load = () => Promise.all([
   request({ method: 'GET', url: base(), alert: false })
     .then(({ data }) => { if (!Array.isArray(data)) throw new Error('Unexpected response'); list.value = data; })
     .catch(() => { error.value = 'Investigations could not be loaded. Try again.'; }),
-  loadOutcomes()
+  loadOutcomes(),
+  request({ method: 'GET', url: `${base()}/assignees`, alert: false })
+    .then(({ data }) => { assignees.value = data; })
+    .catch(() => { assignees.value = null; error.value = 'Eligible managers could not be loaded. Try again.'; })
 ]);
 const outcomeTables = computed(() => [
   { key: 'months', caption: 'Closed by month of closing (UTC)', label: 'Month', rows: outcomes.value.months, rowKey: (r) => r.month, name: (r) => r.month, total: false },
@@ -183,7 +203,7 @@ const outcomeTables = computed(() => [
   }
 ]);
 const open = (id) => request({ method: 'GET', url: `${base()}/${id}`, alert: false })
-  .then(({ data }) => { current.value = data; })
+  .then(({ data }) => { current.value = data; assignedTo.value = data.assigneeAvailable === false ? '' : String(data.assignedTo ?? ''); dueDate.value = data.dueDate ?? ''; assignmentReason.value = ''; })
   .catch(() => { error.value = 'The investigation could not be loaded. Try again.'; });
 load();
 
@@ -197,7 +217,7 @@ const create = () => {
   error.value = '';
   const { requestId, title, findingIds } = draft.value;
   return request({ method: 'POST', url: base(), data: { requestId, title, findingIds }, alert: false })
-    .then(({ data }) => { draft.value = null; current.value = data; return load(); })
+    .then(({ data }) => { draft.value = null; current.value = data; assignedTo.value = ''; dueDate.value = ''; assignmentReason.value = ''; return load(); })
     .catch(failed('The investigation'));
 };
 const write = (path, data, what, reset) => {
@@ -210,6 +230,7 @@ const write = (path, data, what, reset) => {
 const addNote = () => write('notes', { note: note.value }, 'The note', () => { note.value = ''; });
 const close = () => write('close', { disposition: disposition.value, conclusion: conclusion.value }, 'The closure', () => { conclusion.value = ''; });
 const reopen = () => write('reopen', { reason: reason.value }, 'The reopening', () => { reason.value = ''; });
+const saveAssignment = () => write('assignment', { assignedTo: assignedTo.value === '' ? null : Number(assignedTo.value), dueDate: dueDate.value || null, reason: assignmentReason.value }, 'The assignment', () => { assignmentReason.value = ''; });
 
 const refreshCaseLinks = () => { if (current.value) { open(current.value.id); load(); } };
 

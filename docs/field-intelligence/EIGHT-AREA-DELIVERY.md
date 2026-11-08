@@ -26,6 +26,12 @@ also exist. Those features must not be re-labelled as full completion of this pr
 
 ## Status
 
+- Investigation assignment and due dates (F13): managers can assign an open
+  investigation to an eligible manager, set a calendar due date, and record a
+  reason under the existing revision and history controls. Revoked access is
+  shown as unavailable. See [F13](F13-investigation-assignment.md). Automatic
+  assignment, notifications and investigation attachments remain pending.
+
 - Asset identity, source-linked temporal observations and age-based freshness:
   implemented, validated and merged in PR #52 (first bounded knowledge slice).
 - Asset status across a project (K3, first decision-specific projection):

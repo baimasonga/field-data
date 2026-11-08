@@ -177,7 +177,8 @@ const setup = async (page, { comparisonUnavailable = false, failComparison = fal
       return respond({ revision: inv?.revision ?? 1, status: inv?.status ?? 'open', canLink: inv?.status !== 'closed', canRemove: inv?.status !== 'closed', eventCount: 0, items: [], history: [], hiddenLinks: 0, hiddenEvents: 0, nextBefore: null });
     }
     // F6 investigations, with revisions as the server keeps them.
-    const investigationPath = /^\/v1\/projects\/7\/investigations(?:\/([^/]+)(?:\/(notes|close|reopen))?)?$/.exec(path);
+    if (path === '/v1/projects/7/investigations/assignees') return respond({ candidates: [{ id: 1, displayName: 'Test reviewer' }], truncated: false });
+    const investigationPath = /^\/v1\/projects\/7\/investigations(?:\/([^/]+)(?:\/(notes|close|reopen|assignment))?)?$/.exec(path);
     if (investigationPath != null) {
       const [, id, action] = investigationPath;
       const summary = (v) => ({ id: v.id, title: v.title, status: v.status, disposition: v.disposition, revision: v.revision, findings: v.findings.length });
@@ -201,6 +202,7 @@ const setup = async (page, { comparisonUnavailable = false, failComparison = fal
         v.revision += 1;
       }
       if (action === 'notes') v.events.push(event('note', { note: data.note }));
+      if (action === 'assignment') { v.assignedTo = data.assignedTo; v.assigneeName = data.assignedTo == null ? null : 'Test reviewer'; v.assigneeAvailable = data.assignedTo == null ? null : true; v.dueDate = data.dueDate; v.events.push(event('note', { note: `Assignment changed: ${v.assigneeName ?? 'Unassigned'}; due ${v.dueDate ?? 'not set'}. Reason: ${data.reason}` })); }
       if (action === 'close') { v.status = 'closed'; v.disposition = data.disposition; v.events.push(event('closed', { note: data.conclusion, disposition: data.disposition })); }
       if (action === 'reopen') { v.status = 'open'; v.disposition = null; v.events.push(event('reopened', { note: data.reason })); }
       return route.fulfill({ status: action === 'notes' ? 201 : 200, json: v });
@@ -1550,9 +1552,16 @@ test('a manager opens an investigation from a collector group, notes, closes and
   await expect(record.getByRole('link', { name: 'uuid:11' })).toHaveAttribute('href', '/projects/7/forms/health/submissions/uuid%3A11');
   await expect(section.locator('.investigations-list li')).toContainText('Open · 2 findings');
 
+  await record.getByLabel('Assigned manager').selectOption('1');
+  await record.getByLabel('Due date').fill('2027-01-30');
+  await record.getByLabel('Reason for assignment change').fill('Review the evidence');
+  await record.getByRole('button', { name: 'Save assignment' }).click();
+  await expect(record).toContainText('Assigned to Test reviewer · Due 2027-01-30');
+  expect(state.investigationWrites.at(-1)).toMatchObject({ data: { assignedTo: 1, dueDate: '2027-01-30', reason: 'Review the evidence' }, ifMatch: '"investigation-1"' });
+
   await record.getByLabel('Note').fill('Both work the same villages.');
   await record.getByRole('button', { name: 'Add note' }).click();
-  await expect(record.locator('.investigation-history li')).toHaveCount(2);
+  await expect(record.locator('.investigation-history li')).toHaveCount(3);
   expect(state.investigationWrites.at(-1).ifMatch).toBe(null);
 
   // A stale revision reloads the record; the retry then closes it.
@@ -1563,7 +1572,7 @@ test('a manager opens an investigation from a collector group, notes, closes and
   await expect(section.getByRole('alert')).toHaveText('The investigation was changed by someone else; it has been reloaded.');
   await record.getByRole('button', { name: 'Close investigation' }).click();
   await expect(record.locator('.investigation-status')).toContainText('Closed: Benign pattern');
-  expect(state.investigationWrites.at(-1)).toMatchObject({ data: { disposition: 'benign-pattern', conclusion: 'A shared household listing.' }, ifMatch: '"investigation-2"' });
+  expect(state.investigationWrites.at(-1)).toMatchObject({ data: { disposition: 'benign-pattern', conclusion: 'A shared household listing.' }, ifMatch: '"investigation-3"' });
   await expect(record.locator('.investigation-history li').last()).toContainText('Closed: Benign pattern');
 
   // F7: how investigations ended, reloaded after the closure.

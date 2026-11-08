@@ -32,6 +32,37 @@ const seed = async (service, { one }) => {
 };
 
 describe('api: investigation records (F6)', () => {
+  it('assigns an investigation to an eligible manager with a due date and auditable revisions', testService(async (service, container) => {
+    const { alice } = await seed(service, container);
+    const aliceId = (await alice.get('/v1/users/current').expect(200)).body.id;
+    const candidates = (await alice.get(`${base}/assignees`).expect(200)).body;
+    assert.ok(candidates.candidates.some(person => person.id === aliceId));
+    const investigation = (await alice.post(base).send({ requestId: uuid(40), title: 'Assign', findingIds: [] }).expect(201)).body;
+    const path = `${base}/${investigation.id}/assignment`;
+    const assignment = { assignedTo: aliceId, dueDate: '2027-01-30', reason: 'Review the findings' };
+    await alice.post(path).send(assignment).expect(428);
+    await alice.post(path).set('If-Match', '"investigation-1"').send({ ...assignment, dueDate: '2027-02-30' }).expect(400);
+    await alice.post(path).set('If-Match', '"investigation-1"').send({ ...assignment, assignedTo: 999999 }).expect(400);
+    const saved = await alice.post(path).set('If-Match', '"investigation-1"').send(assignment).expect(200);
+    assert.equal(saved.body.assignedTo, aliceId); assert.equal(saved.body.assigneeName, 'Alice');
+    assert.equal(saved.body.dueDate, '2027-01-30'); assert.equal(saved.body.assigneeAvailable, true);
+    assert.match(saved.body.events.at(-1).note, /Assignment changed: Alice; due 2027-01-30/);
+    assert.equal((await alice.get(base).expect(200)).body.find(row => row.id === investigation.id).dueDate, '2027-01-30');
+    await alice.post(path).set('If-Match', '"investigation-1"').send(assignment).expect(412);
+    const cleared = await alice.post(path).set('If-Match', '"investigation-2"').send({ assignedTo: null, dueDate: null, reason: 'No longer needed' }).expect(200);
+    assert.equal(cleared.body.assignedTo, null); assert.equal(cleared.body.dueDate, null);
+    const chelsea = await service.login('chelsea'); await chelsea.get(`${base}/assignees`).expect(403);
+    await chelsea.post(path).set('If-Match', '"investigation-3"').send(assignment).expect(403);
+    const chelseaId = (await chelsea.get('/v1/users/current').expect(200)).body.id;
+    await alice.post(`/v1/projects/1/assignments/manager/${chelseaId}`).expect(200);
+    await alice.post(path).set('If-Match', '"investigation-3"').send({ ...assignment, assignedTo: chelseaId }).expect(200);
+    await alice.delete(`/v1/projects/1/assignments/manager/${chelseaId}`).expect(200);
+    const revoked = (await alice.get(`${base}/${investigation.id}`).expect(200)).body;
+    assert.equal(revoked.assignedTo, chelseaId); assert.equal(revoked.assigneeAvailable, false); assert.equal(revoked.assigneeName, null);
+    await alice.post(path).set('If-Match', '"investigation-4"').send({ ...assignment, assignedTo: chelseaId }).expect(400);
+    await alice.post(`${base}/${investigation.id}/close`).set('If-Match', '"investigation-4"').send({ disposition: 'data-error', conclusion: 'Resolved' }).expect(200);
+    await alice.post(path).set('If-Match', '"investigation-5"').send(assignment).expect(409);
+  }));
   it('opens, extends, notes, closes and reopens an investigation, keeping every step', testService(async (service, container) => {
     const { alice, f } = await seed(service, container);
     const { all, oneFirst } = container;
