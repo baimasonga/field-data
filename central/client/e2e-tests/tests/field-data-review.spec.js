@@ -177,6 +177,13 @@ const setup = async (page, { comparisonUnavailable = false, failComparison = fal
       return respond({ revision: inv?.revision ?? 1, status: inv?.status ?? 'open', canLink: inv?.status !== 'closed', canRemove: inv?.status !== 'closed', eventCount: 0, items: [], history: [], hiddenLinks: 0, hiddenEvents: 0, nextBefore: null });
     }
     // F6 investigations, with revisions as the server keeps them.
+    if (path === '/v1/projects/7/investigations/workload') {
+      const open = state.investigations.filter(v => v.status === 'open');
+      const count = list => ({ open: list.length, overdue: list.filter(v => v.dueDate && v.dueDate < '2026-11-08').length });
+      const assigned = open.filter(v => v.assignedTo === 1);
+      return respond({ total: count(open), unassigned: count(open.filter(v => v.assignedTo == null)), unavailable: { open: 0, overdue: 0 },
+        managers: assigned.length ? [{ id: 1, name: 'Test reviewer', ...count(assigned) }] : [], omittedManagers: 0 });
+    }
     if (path === '/v1/projects/7/investigations/assignees') return respond({ candidates: [{ id: 1, displayName: 'Test reviewer' }], truncated: false });
     const investigationPath = /^\/v1\/projects\/7\/investigations(?:\/([^/]+)(?:\/(notes|close|reopen|assignment))?)?$/.exec(path);
     if (investigationPath != null) {
@@ -1561,6 +1568,10 @@ test('a manager opens an investigation from a collector group, notes, closes and
   await record.getByLabel('Reason for assignment change').fill('Review the evidence');
   await record.getByRole('button', { name: 'Save assignment' }).click();
   await expect(record).toContainText('Assigned to Test reviewer · Due 2027-01-30');
+  const workload = section.locator('.investigation-workload');
+  await workload.locator('summary').click();
+  await expect(workload).toContainText('1 open · 0 overdue');
+  await expect(workload.locator('tr', { hasText: 'Test reviewer' })).toContainText('1');
   expect(state.investigationWrites.at(-1)).toMatchObject({ data: { assignedTo: 1, dueDate: '2027-01-30', reason: 'Review the evidence' }, ifMatch: '"investigation-1"' });
   await section.getByRole('combobox', { name: 'Assigned to', exact: true }).selectOption('me');
   await expect(section.locator('.investigations-list li')).toHaveCount(1);
@@ -1583,6 +1594,7 @@ test('a manager opens an investigation from a collector group, notes, closes and
   await expect(section.getByRole('alert')).toHaveText('The investigation was changed by someone else; it has been reloaded.');
   await record.getByRole('button', { name: 'Close investigation' }).click();
   await expect(record.locator('.investigation-status')).toContainText('Closed: Benign pattern');
+  await expect(workload).toContainText('0 open · 0 overdue');
   expect(state.investigationWrites.at(-1)).toMatchObject({ data: { disposition: 'benign-pattern', conclusion: 'A shared household listing.' }, ifMatch: '"investigation-3"' });
   await expect(record.locator('.investigation-history li').last()).toContainText('Closed: Benign pattern');
 

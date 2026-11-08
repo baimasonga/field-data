@@ -26,6 +26,11 @@ also exist. Those features must not be re-labelled as full completion of this pr
 
 ## Status
 
+- Investigation workload (F15): managers see project-wide open and overdue
+  investigation counts by eligible manager, including separate unassigned and
+  unavailable-assignee totals. See [F15](F15-investigation-workload.md).
+  Automatic assignment and notifications remain pending.
+
 - Investigation work queue (F14): server-side status, assignee and overdue
   filters help managers find work before the 200-record list limit. Overdue is
   based on open records and the UTC calendar date. See

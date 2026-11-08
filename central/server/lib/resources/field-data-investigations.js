@@ -150,6 +150,30 @@ module.exports = (service, endpoint) => {
     return { candidates: candidates.slice(0, 200), truncated: candidates.length > 200 };
   }));
 
+  service.get(`${base}/workload`, endpoint(async (container, { auth, params }, _, response) => {
+    const project = await projectFor(container, auth, params);
+    const rows = await container.db.any(sql`WITH RECURSIVE implied(id) AS (
+      (SELECT ${project.acteeId}::varchar) UNION (SELECT unnest(ARRAY[parent,species]) FROM actees JOIN implied ON implied.id=actees.id)),
+      eligible AS (SELECT DISTINCT a.id, COALESCE(a."displayName", 'User #' || a.id::text) AS name
+        FROM actors a JOIN assignments ass ON ass."actorId"=a.id JOIN roles r ON r.id=ass."roleId"
+        JOIN implied ON implied.id=ass."acteeId"
+        WHERE a.type='user' AND a."deletedAt" IS NULL AND r.verbs ? 'project.update'),
+      counts AS (SELECT "assignedTo", count(*)::integer AS open,
+        count(*) FILTER (WHERE "dueDate" < (CURRENT_TIMESTAMP AT TIME ZONE 'UTC')::date)::integer AS overdue
+        FROM field_data_investigations WHERE "projectId"=${project.id} AND status='open' GROUP BY "assignedTo")
+      SELECT counts."assignedTo", eligible.name, counts.open, counts.overdue
+      FROM counts LEFT JOIN eligible ON eligible.id=counts."assignedTo"`);
+    const total = { open: 0, overdue: 0 }; const unassigned = { open: 0, overdue: 0 }; const unavailable = { open: 0, overdue: 0 }; const managers = [];
+    for (const row of rows) {
+      total.open += row.open; total.overdue += row.overdue;
+      const bucket = row.assignedTo == null ? unassigned : row.name == null ? unavailable : null;
+      if (bucket) { bucket.open += row.open; bucket.overdue += row.overdue; } else managers.push({ id: row.assignedTo, name: row.name, open: row.open, overdue: row.overdue });
+    }
+    managers.sort((a, b) => b.open - a.open || a.name.localeCompare(b.name) || a.id - b.id);
+    response.set('Cache-Control', 'private, no-store');
+    return { total, unassigned, unavailable, managers: managers.slice(0, 200), omittedManagers: Math.max(0, managers.length - 200) };
+  }));
+
   service.post(base, endpoint(async (container, { auth, params, body }, _, response) => {
     const project = await projectFor(container, auth, params);
     if (body == null || typeof body !== 'object' || Object.keys(body).some((k) => !['requestId', 'title', 'findingIds'].includes(k)))

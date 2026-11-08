@@ -61,6 +61,21 @@ Contract: docs/field-intelligence/F6-investigations.md -->
       </div>
     </details>
 
+    <details v-if="workload != null" class="investigation-workload">
+      <summary>Investigation workload</summary>
+      <p>Open investigations, not a measure of performance. Overdue means due before today in UTC. Counts cover the whole project, independent of the filters below.</p>
+      <p>{{ workload.total.open }} open · {{ workload.total.overdue }} overdue</p>
+      <table class="table">
+        <caption>Open investigations by assigned manager</caption>
+        <thead><tr><th>Manager</th><th>Open</th><th>Overdue</th></tr></thead>
+        <tbody>
+          <tr v-for="person of workload.managers" :key="person.id"><td>{{ person.name }}</td><td>{{ person.open }}</td><td>{{ person.overdue }}</td></tr>
+          <tr><td>Unassigned</td><td>{{ workload.unassigned.open }}</td><td>{{ workload.unassigned.overdue }}</td></tr>
+          <tr><td>Manager no longer has access</td><td>{{ workload.unavailable.open }}</td><td>{{ workload.unavailable.overdue }}</td></tr>
+        </tbody>
+      </table>
+      <p v-if="workload.omittedManagers">{{ workload.omittedManagers }} more managers are included in the total but not listed.</p>
+    </details>
     <div class="investigations-filters" aria-label="Filter investigations">
       <label>Status <select v-model="statusFilter" class="form-control" @change="loadList"><option value="">All statuses</option><option value="open">Open</option><option value="closed">Closed</option></select></label>
       <label>Assigned to <select v-model="assigneeFilter" class="form-control" @change="loadList">
@@ -180,6 +195,7 @@ const outcomes = ref(null);
 const list = ref(null); const current = ref(null); const draft = ref(null); const error = ref('');
 const note = ref(''); const disposition = ref('benign-pattern'); const conclusion = ref(''); const reason = ref('');
 const assignees = ref(null); const assignedTo = ref(''); const dueDate = ref(''); const assignmentReason = ref('');
+const workload = ref(null);
 const statusFilter = ref(''); const assigneeFilter = ref(''); const overdueFilter = ref(false);
 const hasFilters = computed(() => Boolean(statusFilter.value || assigneeFilter.value || overdueFilter.value));
 let listGeneration = 0;
@@ -211,6 +227,9 @@ const loadList = () => {
 const load = () => Promise.all([
   loadList(),
   loadOutcomes(),
+  request({ method: 'GET', url: `${base()}/workload`, alert: false })
+    .then(({ data }) => { workload.value = data; })
+    .catch(() => { workload.value = null; error.value = 'Investigation workload could not be loaded. Try again.'; }),
   request({ method: 'GET', url: `${base()}/assignees`, alert: false })
     .then(({ data }) => { assignees.value = data; })
     .catch(() => { assignees.value = null; error.value = 'Eligible managers could not be loaded. Try again.'; })
@@ -276,6 +295,7 @@ const submissionPath = (xmlFormId, instanceId) => `${formPath(xmlFormId)}/submis
   .investigations-filters label { font-weight: normal; }
   .investigations-overdue { padding-bottom: 8px; }
   .investigations-filter-help { color: $color-text-secondary; }
+  .investigation-workload { margin: 12px 0; overflow-x: auto; summary { cursor: pointer; font-weight: bold; } .table { width: auto; } }
   .investigations-new, .investigation-form { display: flex; flex-direction: column; gap: 6px; margin: 12px 0; max-width: 560px;
     label { display: flex; flex-direction: column; font-weight: normal; } }
   .investigation-history { padding-left: 18px; }
