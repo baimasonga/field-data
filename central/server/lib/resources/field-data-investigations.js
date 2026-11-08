@@ -127,11 +127,19 @@ module.exports = (service, endpoint) => {
   service.get(base, endpoint(async (container, { auth, params, query }, _, response) => {
     const project = await projectFor(container, auth, params);
     if (query.status != null && !STATUSES.includes(query.status)) throw invalid('status', 'it must be open or closed');
+    if (query.overdue != null && !['true', 'false'].includes(query.overdue)) throw invalid('overdue', 'it must be true or false');
+    if (query.assignee != null && !['me', 'unassigned'].includes(query.assignee) &&
+      (!/^[1-9]\d{0,9}$/.test(query.assignee) || Number(query.assignee) > 2147483647)) throw invalid('assignee', 'choose me, unassigned or a manager ID');
+    const assigneeId = query.assignee === 'me' ? (auth.actor.map(actor => actor.id).orNull() ?? -1)
+      : (query.assignee == null || query.assignee === 'unassigned' ? null : Number(query.assignee));
     response.set('Cache-Control', 'private, no-store');
     return container.db.any(sql`SELECT v.id, v.title, v.status, v.disposition, v.revision, v."openedAt", v."updatedAt", v."assignedTo", to_char(v."dueDate", 'YYYY-MM-DD') AS "dueDate",
+        (v.status = 'open' AND v."dueDate" IS NOT NULL AND v."dueDate" < (CURRENT_TIMESTAMP AT TIME ZONE 'UTC')::date) AS overdue,
         (SELECT count(*)::integer FROM field_data_investigation_findings x WHERE x."investigationId" = v.id) AS findings
       FROM field_data_investigations v WHERE v."projectId" = ${project.id}
         ${query.status == null ? sql`` : sql`AND v.status = ${query.status}`}
+        ${query.assignee === 'unassigned' ? sql`AND v."assignedTo" IS NULL` : assigneeId == null ? sql`` : sql`AND v."assignedTo" = ${assigneeId}`}
+        ${query.overdue === 'true' ? sql`AND v.status = 'open' AND v."dueDate" < (CURRENT_TIMESTAMP AT TIME ZONE 'UTC')::date` : sql``}
       ORDER BY v."updatedAt" DESC, v.id LIMIT 200`);
   }));
 

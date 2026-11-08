@@ -32,6 +32,29 @@ const seed = async (service, { one }) => {
 };
 
 describe('api: investigation records (F6)', () => {
+  it('filters the manager queue by assignee, state and overdue UTC date', testService(async (service, container) => {
+    const { alice } = await seed(service, container);
+    const aliceId = (await alice.get('/v1/users/current').expect(200)).body.id;
+    const create = async (number, title) => (await alice.post(base).send({ requestId: uuid(number), title, findingIds: [] }).expect(201)).body;
+    const late = await create(61, 'Late'); const future = await create(62, 'Future'); const unassigned = await create(63, 'Unassigned');
+    const today = await create(64, 'Due today');
+    const utcToday = await container.oneFirst(sql`SELECT to_char((CURRENT_TIMESTAMP AT TIME ZONE 'UTC')::date, 'YYYY-MM-DD')`);
+    const assign = (inv, dueDate) => alice.post(`${base}/${inv.id}/assignment`).set('If-Match', '"investigation-1"')
+      .send({ assignedTo: aliceId, dueDate, reason: 'Schedule review' }).expect(200);
+    await assign(late, '2000-01-01'); await assign(future, '2099-01-01'); await assign(today, utcToday);
+    const items = query => alice.get(base).query(query).expect(200).then(response => response.body);
+    assert.deepEqual((await items({ overdue: 'true' })).map(row => row.id), [late.id]);
+    assert.equal((await items({ overdue: 'true' }))[0].overdue, true);
+    assert.deepEqual(new Set((await items({ assignee: 'me' })).map(row => row.id)), new Set([late.id, future.id, today.id]));
+    assert.equal((await items({ assignee: 'me' })).find(row => row.id === today.id).overdue, false);
+    assert.deepEqual((await items({ assignee: 'unassigned' })).map(row => row.id), [unassigned.id]);
+    assert.deepEqual((await items({ assignee: String(aliceId), overdue: 'true', status: 'open' })).map(row => row.id), [late.id]);
+    await alice.post(`${base}/${late.id}/close`).set('If-Match', '"investigation-2"').send({ disposition: 'data-error', conclusion: 'Resolved' }).expect(200);
+    assert.deepEqual(await items({ overdue: 'true' }), []);
+    assert.equal((await items({ status: 'closed' }))[0].overdue, false);
+    for (const query of [{ overdue: 'yes' }, { assignee: '0' }, { assignee: '9999999999' }]) await alice.get(base).query(query).expect(400);
+    const chelsea = await service.login('chelsea'); await chelsea.get(base).query({ overdue: 'true' }).expect(403);
+  }));
   it('assigns an investigation to an eligible manager with a due date and auditable revisions', testService(async (service, container) => {
     const { alice } = await seed(service, container);
     const aliceId = (await alice.get('/v1/users/current').expect(200)).body.id;

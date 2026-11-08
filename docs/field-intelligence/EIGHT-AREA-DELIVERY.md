@@ -26,6 +26,12 @@ also exist. Those features must not be re-labelled as full completion of this pr
 
 ## Status
 
+- Investigation work queue (F14): server-side status, assignee and overdue
+  filters help managers find work before the 200-record list limit. Overdue is
+  based on open records and the UTC calendar date. See
+  [F14](F14-investigation-work-queue.md). Automatic assignment and notifications
+  remain pending.
+
 - Investigation assignment and due dates (F13): managers can assign an open
   investigation to an eligible manager, set a calendar due date, and record a
   reason under the existing revision and history controls. Revoked access is
