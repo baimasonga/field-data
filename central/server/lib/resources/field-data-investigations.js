@@ -14,6 +14,7 @@ const { getOrNotFound } = require('../util/promise');
 const { UUID_PATTERN } = require('../util/claim-versioning');
 const { outcomes } = require('../util/investigation-outcomes');
 const { familyOf } = require('./field-data-findings');
+const { lockGrant } = require('../util/knowledge-data');
 
 const MAX_FINDINGS = 500;
 const DISPOSITIONS = ['confirmed-issue', 'data-error', 'benign-pattern', 'insufficient-evidence', 'policy-exception', 'duplicate'];
@@ -78,6 +79,14 @@ const audit = (db, actorId, project, action, details) => db.query(sql`INSERT INT
   ("actorId", action, "acteeId", details, "loggedAt", processed, failures)
   VALUES (${actorId}, ${action}, ${project.acteeId}, ${JSON.stringify(details)}, clock_timestamp(), clock_timestamp(), 0)`);
 
+// Only active web users who can manage this project can work its investigations.
+const assignees = (db, project) => db.any(sql`WITH RECURSIVE implied(id) AS (
+  (SELECT ${project.acteeId}::varchar) UNION (SELECT unnest(ARRAY[parent,species]) FROM actees JOIN implied ON implied.id=actees.id))
+  SELECT DISTINCT a.id, COALESCE(a."displayName", 'User #' || a.id::text) AS "displayName" FROM actors a JOIN assignments ass ON ass."actorId"=a.id
+  JOIN roles r ON r.id=ass."roleId" JOIN implied ON implied.id=ass."acteeId"
+  WHERE a.type='user' AND a."deletedAt" IS NULL AND r.verbs ? 'project.update'
+  ORDER BY "displayName", a.id LIMIT 201`);
+
 const detail = async (container, auth, project, id) => {
   const investigation = await getInvestigation(container.db, project.id, id);
   const readable = await readableForms(container, auth, project.id);
@@ -94,10 +103,14 @@ const detail = async (container, auth, project, id) => {
     WHERE e."investigationId" = ${investigation.id} ORDER BY e.id`);
   const opener = investigation.openedBy == null ? null
     : await container.db.maybeOneFirst(sql`SELECT "displayName" FROM actors WHERE id = ${investigation.openedBy}`);
+  const candidates = await assignees(container.db, project);
+  const assigned = candidates.find((candidate) => candidate.id === investigation.assignedTo);
   const shown = findings.filter((f) => readable.has(f.formId));
   const { requestId, requestHash, projectId, ...rest } = investigation;
   return {
-    ...rest, openedByName: opener,
+    ...rest, dueDate: investigation.dueDate == null ? null : new Date(investigation.dueDate).toISOString().slice(0, 10),
+    assigneeName: assigned?.displayName ?? null, assigneeAvailable: investigation.assignedTo == null ? null : assigned != null,
+    openedByName: opener,
     findings: shown.map(({ formId, ...f }) => f),
     hiddenFindings: findings.length - shown.length,
     events: events.map((e) => ({ ...e, id: Number(e.id) }))
@@ -115,11 +128,18 @@ module.exports = (service, endpoint) => {
     const project = await projectFor(container, auth, params);
     if (query.status != null && !STATUSES.includes(query.status)) throw invalid('status', 'it must be open or closed');
     response.set('Cache-Control', 'private, no-store');
-    return container.db.any(sql`SELECT v.id, v.title, v.status, v.disposition, v.revision, v."openedAt", v."updatedAt",
+    return container.db.any(sql`SELECT v.id, v.title, v.status, v.disposition, v.revision, v."openedAt", v."updatedAt", v."assignedTo", to_char(v."dueDate", 'YYYY-MM-DD') AS "dueDate",
         (SELECT count(*)::integer FROM field_data_investigation_findings x WHERE x."investigationId" = v.id) AS findings
       FROM field_data_investigations v WHERE v."projectId" = ${project.id}
         ${query.status == null ? sql`` : sql`AND v.status = ${query.status}`}
       ORDER BY v."updatedAt" DESC, v.id LIMIT 200`);
+  }));
+
+  service.get(`${base}/assignees`, endpoint(async (container, { auth, params }, _, response) => {
+    const project = await projectFor(container, auth, params);
+    const candidates = await assignees(container.db, project);
+    response.set('Cache-Control', 'private, no-store');
+    return { candidates: candidates.slice(0, 200), truncated: candidates.length > 200 };
   }));
 
   service.post(base, endpoint(async (container, { auth, params, body }, _, response) => {
@@ -227,6 +247,29 @@ module.exports = (service, endpoint) => {
     respond(response, revision);
     return result;
   });
+
+  service.post(`${base}/:id/assignment`, change(async ({ db, project, current, body, actorId }) => {
+    if (Object.keys(body).some(key => !['assignedTo', 'dueDate', 'reason'].includes(key)) ||
+      !Object.hasOwn(body, 'assignedTo') || !Object.hasOwn(body, 'dueDate')) throw invalid('body', 'provide assignedTo, dueDate and reason');
+    if (current.status !== 'open') throw Problem.user.investigationState({ status: current.status });
+    if (body.assignedTo !== null && (!Number.isSafeInteger(body.assignedTo) || body.assignedTo < 1)) throw invalid('assignedTo', 'choose a project manager or leave unassigned');
+    const date = body.dueDate;
+    if (date !== null && (typeof date !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(date) || date.startsWith('0000-') || !Number.isFinite(Date.parse(`${date}T00:00:00Z`)) || new Date(`${date}T00:00:00Z`).toISOString().slice(0, 10) !== date)) throw invalid('dueDate', 'use a valid YYYY-MM-DD date or leave it empty');
+    const reason = text(body.reason, 'reason', 2000);
+    const candidates = await assignees(db, project);
+    const selected = body.assignedTo == null ? null : candidates.find(candidate => candidate.id === body.assignedTo);
+    if (body.assignedTo != null && selected == null) throw invalid('assignedTo', 'choose an active project manager');
+    await lockGrant(db, actorId, project.acteeId, 'project.update');
+    if (selected) {
+      await lockGrant(db, selected.id, project.acteeId, 'project.update');
+      const active = await db.maybeOne(sql`SELECT id FROM actors WHERE id = ${selected.id} AND type = 'user' AND "deletedAt" IS NULL FOR SHARE`);
+      if (!active) throw invalid('assignedTo', 'choose an active project manager');
+    }
+    await db.query(sql`UPDATE field_data_investigations SET "assignedTo" = ${body.assignedTo}, "dueDate" = ${date}::date WHERE id = ${current.id}`);
+    await addEvent(db, current.id, actorId, 'note', { note: `Assignment changed: ${selected?.displayName ?? 'Unassigned'}; due ${date ?? 'not set'}. Reason: ${reason}` });
+    await audit(db, actorId, project, 'field_data.investigation.assignment', { investigationId: current.id, assignedTo: body.assignedTo, dueDate: date });
+    return true;
+  }));
 
   service.post(`${base}/:id/findings`, change(async ({ db, project, current, body, actorId }) => {
     if (Object.keys(body).some((k) => k !== 'findingIds')) throw invalid('body', 'it may have only findingIds');
