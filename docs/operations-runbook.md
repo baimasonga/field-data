@@ -41,6 +41,13 @@ the cause. Cron scripts send output to the container log only where PID 1's
 stdout can be reopened; on Cloudflare it cannot, and before this was handled
 every cron job failed with exit 1 before starting.
 
+The reference-layer storage probe has a three-second deadline covering both
+opening the object and reading it. A stalled probe is recorded as a failed
+storage check so the operations runner can continue. This does not establish
+the cause of a missing operations sample: inspect the started/failed/succeeded
+rows and the other dependencies before drawing that conclusion. Other operations
+or network calls may still delay a run.
+
 The default policy opens an alert after three consecutive failures, with one
 record per alert transition and a recovery after success. Alert history lasts
 30 days. Notification delivery is intentionally not wired to outside recipients.

@@ -30,15 +30,39 @@ const nextState = (previous, check, threshold) => {
   const event = alert && !previous?.alert ? 'alert' : previous?.alert && check.status === 'healthy' ? 'recovery' : null;
   return { failures, alert, event };
 };
+// Bound the entire storage probe, including waiting for response headers. A
+// late-arriving stream is destroyed even for adapters that cannot abort opens.
+const probeStorage = async (store, key, timeoutMs = 3000) => {
+  const abort = new AbortController();
+  let stream;
+  let timedOut = false;
+  let timer;
+  const timeout = new Promise((_, reject) => {
+    timer = setTimeout(() => {
+      timedOut = true;
+      abort.abort();
+      stream?.destroy();
+      reject(new Error('Storage read timeout.'));
+    }, timeoutMs);
+  });
+  const opening = Promise.resolve().then(() => store.getStream(key, { signal: abort.signal }));
+  opening.then((late) => { if (timedOut) late.destroy(); }, () => {});
+  try {
+    stream = await Promise.race([opening, timeout]);
+    const read = async () => { for await (const chunk of stream) { if (!chunk.length) throw new Error('Empty storage object.'); } };
+    await Promise.race([read(), timeout]);
+  } finally {
+    clearTimeout(timer);
+    abort.abort();
+    stream?.destroy();
+  }
+};
 const runOperations = async (db, dependencies = {}) => {
   const store = dependencies.storage || storage;
   const policyRow = await db.one(sql`select definition from field_data_operations_policy where id=1`); const policy = normalizePolicy(policyRow.definition);
   const checks = [await probe('database', () => db.oneFirst(sql`select 1`), 'Database connection and query succeeded.'), await probe('compiler', dependencies.compilerHealth || compilerHealth, 'Internal form compiler answered its health request.')];
   const marker = await db.maybeOne(sql`select "storageKey" from field_data_map_layers where "storageKey" is not null order by "updatedAt" desc limit 1`);
-  if (marker) checks.push(await probe('storage', async () => {
-    const stream = await store.getStream(marker.storageKey); const timer = setTimeout(() => stream.destroy(new Error('Storage read timeout.')), 3000);
-    try { for await (const chunk of stream) { if (!chunk.length) throw new Error('Empty storage object.'); } } finally { clearTimeout(timer); stream.destroy(); }
-  }, 'A saved reference-layer object was read successfully.'));
+  if (marker) checks.push(await probe('storage', () => probeStorage(store, marker.storageKey), 'A saved reference-layer object was read successfully.'));
   else checks.push({ name: 'storage', status: 'unknown', latencyMs: null, detail: 'No reference-layer object is available for a read-only storage probe. Storage health is unverified.' });
   const backup = await db.maybeOne(sql`select "completedAt" from field_data_backups where status='Success' order by "completedAt" desc limit 1`);
   checks.push({ name: 'backups', status: backup && Date.now() - new Date(backup.completedAt).valueOf() < policy.staleHours * 3600000 ? 'healthy' : 'failed', latencyMs: null, detail: backup ? `Last successful encrypted database backup: ${new Date(backup.completedAt).toISOString()}. Object storage has a separate recovery plan.` : 'No successful encrypted database backup is recorded. Object storage has a separate recovery plan.' });
@@ -79,4 +103,4 @@ const runOperations = async (db, dependencies = {}) => {
   await db.query(sql`delete from field_data_operations_events where "createdAt" < clock_timestamp() - interval '30 days'`);
   return checks;
 };
-module.exports = { runOperations, normalizePolicy, nextState, compilerHealth };
+module.exports = { runOperations, normalizePolicy, nextState, compilerHealth, probeStorage };
