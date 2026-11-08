@@ -119,8 +119,8 @@ const initSupabaseStore = () => {
         counter.destroy();
       }
     },
-    getStream: async (key) => {
-      const response = await signedRequest('GET', key);
+    getStream: async (key, { signal } = {}) => {
+      const response = await signedRequest('GET', key, null, {}, signal);
       if (response.body == null) throw new Error('Supabase Storage returned an empty response body.');
       return Readable.fromWeb(response.body);
     },
