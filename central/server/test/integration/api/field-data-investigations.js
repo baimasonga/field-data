@@ -42,6 +42,11 @@ describe('api: investigation records (F6)', () => {
     const assign = (inv, dueDate) => alice.post(`${base}/${inv.id}/assignment`).set('If-Match', '"investigation-1"')
       .send({ assignedTo: aliceId, dueDate, reason: 'Schedule review' }).expect(200);
     await assign(late, '2000-01-01'); await assign(future, '2099-01-01'); await assign(today, utcToday);
+    const workload = await alice.get(`${base}/workload`).expect(200);
+    assert.equal(workload.headers['cache-control'], 'private, no-store');
+    assert.deepEqual(workload.body.total, { open: 4, overdue: 1 });
+    assert.deepEqual(workload.body.unassigned, { open: 1, overdue: 0 });
+    assert.deepEqual(workload.body.managers.find(person => person.id === aliceId), { id: aliceId, name: 'Alice', open: 3, overdue: 1 });
     const items = query => alice.get(base).query(query).expect(200).then(response => response.body);
     assert.deepEqual((await items({ overdue: 'true' })).map(row => row.id), [late.id]);
     assert.equal((await items({ overdue: 'true' }))[0].overdue, true);
@@ -52,6 +57,7 @@ describe('api: investigation records (F6)', () => {
     await alice.post(`${base}/${late.id}/close`).set('If-Match', '"investigation-2"').send({ disposition: 'data-error', conclusion: 'Resolved' }).expect(200);
     assert.deepEqual(await items({ overdue: 'true' }), []);
     assert.equal((await items({ status: 'closed' }))[0].overdue, false);
+    assert.deepEqual((await alice.get(`${base}/workload`).expect(200)).body.total, { open: 3, overdue: 0 });
     for (const query of [{ overdue: 'yes' }, { assignee: '0' }, { assignee: '9999999999' }]) await alice.get(base).query(query).expect(400);
     const chelsea = await service.login('chelsea'); await chelsea.get(base).query({ overdue: 'true' }).expect(403);
   }));
@@ -82,6 +88,10 @@ describe('api: investigation records (F6)', () => {
     await alice.delete(`/v1/projects/1/assignments/manager/${chelseaId}`).expect(200);
     const revoked = (await alice.get(`${base}/${investigation.id}`).expect(200)).body;
     assert.equal(revoked.assignedTo, chelseaId); assert.equal(revoked.assigneeAvailable, false); assert.equal(revoked.assigneeName, null);
+    const workload = (await alice.get(`${base}/workload`).expect(200)).body;
+    assert.deepEqual(workload.unavailable, { open: 1, overdue: 0 });
+    assert.ok(!workload.managers.some(person => person.id === chelseaId));
+    await chelsea.get(`${base}/workload`).expect(403);
     await alice.post(path).set('If-Match', '"investigation-4"').send({ ...assignment, assignedTo: chelseaId }).expect(400);
     await alice.post(`${base}/${investigation.id}/close`).set('If-Match', '"investigation-4"').send({ disposition: 'data-error', conclusion: 'Resolved' }).expect(200);
     await alice.post(path).set('If-Match', '"investigation-5"').send(assignment).expect(409);
