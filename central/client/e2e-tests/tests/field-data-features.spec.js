@@ -89,8 +89,11 @@ test('advanced authoring identifies circular logic and clears it when repaired',
   const warning = page.getByRole('alert').filter({ hasText: 'Possible circular visibility or calculation logic' });
   await expect(warning).toContainText('/first'); await expect(warning).toContainText('/second');
   await warning.getByRole('button', { name: '/first', exact: true }).click(); await expect(page.locator('#builder-question-first')).toBeFocused();
-  await page.locator('#builder-question-first').getByLabel('Name', { exact: true }).fill('renamed');
+  const second = page.locator('#builder-question-second');
+  await second.getByText('Logic, translations and choices').click();
+  await second.getByLabel('calculation', { exact: true }).fill('1');
   await expect(warning).toHaveCount(0); await expect(summary).not.toContainText('possible circular logic');
+  await expect(summary).not.toContainText('repair missing references');
 });
 test('compiled advanced form enforces repeat constraints, calculates relevance and submits real answers', async ({ page }) => {
   const xml = readFileSync(new URL('../fixtures/advanced.xml', import.meta.url), 'utf8'); let submitted;
