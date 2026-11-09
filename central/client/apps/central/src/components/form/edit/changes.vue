@@ -8,15 +8,23 @@ Contract: docs/field-intelligence/S3-version-changes.md -->
     <template #title>Changes from the published version</template>
     <template #subtitle>
       What this Draft changes in the data collected, compared with version
-      “{{ report?.from?.version ?? 'published' }}”. Changes that affect meaning may need a note or a recode when versions are analysed together.
+      “{{ report?.from?.version === '' ? '(no version string)' : (report?.from?.version ?? 'published') }}”. Changes that affect meaning may need a note or a recode when versions are analysed together.
     </template>
     <template #actions>
-      <button type="button" class="btn btn-default btn-sm" :aria-disabled="awaitingResponse" @click="load">
-        Compare again <spinner :state="awaitingResponse"/>
+      <button v-if="!versionsLoaded" type="button" class="btn btn-default btn-sm" :disabled="versionsLoading" @click="loadVersions">Choose an earlier version</button>
+      <label v-else>Compare with
+        <select v-model="selectedBaseline" class="form-control input-sm" @change="changeBaseline">
+          <option value="current">Current published version</option>
+          <option v-for="(version, index) of versions" :key="index" :value="`version:${index}`">{{ versionLabel(version) }}</option>
+        </select>
+      </label>
+      <button type="button" class="btn btn-default btn-sm" :disabled="loading" @click="load">
+        Compare again <spinner :state="loading"/>
       </button>
     </template>
     <template #body>
       <p v-if="error" role="alert" class="changes-error">{{ error }}</p>
+      <p v-if="versionsError" role="alert" class="changes-error">{{ versionsError }}</p>
       <template v-else-if="report != null">
         <p v-if="report.from == null" class="changes-none">There is no published version to compare with.</p>
         <template v-else>
@@ -52,7 +60,7 @@ Contract: docs/field-intelligence/S3-version-changes.md -->
 </template>
 
 <script setup>
-import { computed, ref, watch } from 'vue';
+import { computed, onBeforeUnmount, ref, watch } from 'vue';
 
 import FormEditSection from './section.vue';
 import Spinner from '../../spinner.vue';
@@ -65,10 +73,11 @@ const props = defineProps({
   projectId: { type: String, required: true },
   xmlFormId: { type: String, required: true },
   // Changes when the Draft changes, so the comparison is made again.
-  definitionKey: { type: String, default: null }
+  definitionKey: { type: String, default: null },
+  publishedHash: { type: String, default: null }
 });
 const emit = defineEmits(['report']);
-const { request, awaitingResponse } = useRequest();
+const { request } = useRequest();
 
 const CODE_NAMES = {
   added: 'Added',
@@ -95,15 +104,47 @@ const EFFECTS = [
   { effect: 'wording', title: 'Wording', explain: 'The question reads differently. Usually comparable, but worth noting.' }
 ];
 
-const report = ref(null); const error = ref('');
-const load = () => request({ method: 'GET', url: `${apiPaths.form(props.projectId, props.xmlFormId)}/draft/changes`, alert: false })
-  .then(({ data }) => { report.value = data; error.value = ''; emit('report', data); })
-  .catch((e) => {
-    report.value = null;
-    error.value = e.response?.data?.message || 'The versions could not be compared.';
-    emit('report', null);
-  });
-watch(() => props.definitionKey, () => { report.value = null; error.value = ''; load(); }, { immediate: true });
+const report = ref(null); const error = ref(''); const loading = ref(false);
+const versions = ref([]); const versionsLoading = ref(false); const versionsLoaded = ref(false); const versionsError = ref(''); const selectedBaseline = ref('current');
+let scope = 0; let displayRequest = 0; let defaultRequest = 0;
+const versionLabel = version => `Published version ${version.version || '(no version string)'}${version.publishedAt ? ` · ${version.publishedAt.slice(0, 10)}` : ''}`;
+const validReport = (data, expectedHash, expectedVersion) => data?.to?.draft === true && (!props.definitionKey || data.to.hash === props.definitionKey) &&
+  data.from != null && (!expectedHash || data.from.hash === expectedHash) && (expectedVersion == null || data.from.version === expectedVersion);
+const message = e => e.response?.data?.message || e.message || 'The versions could not be compared.';
+const loadVersions = async () => {
+  const current = scope; versionsLoading.value = true; versionsError.value = '';
+  try {
+    const { data } = await request({ method: 'GET', url: apiPaths.formVersions(props.projectId, props.xmlFormId), alert: false });
+    if (current !== scope) return;
+    if (!Array.isArray(data) || data.some(v => typeof v.version !== 'string' || typeof v.hash !== 'string')) throw new Error('Published versions could not be verified. Refresh and try again.');
+    versions.value = data.filter(v => v.publishedAt != null); versionsLoaded.value = true;
+  } catch (e) { if (current === scope) versionsError.value = message(e); } finally { if (current === scope) versionsLoading.value = false; }
+};
+const load = async () => {
+  const current = scope; displayRequest += 1; const requestId = displayRequest; const selected = selectedBaseline.value;
+  const isDefault = selected === 'current'; if (isDefault) defaultRequest += 1; const defaultId = isDefault ? defaultRequest : null;
+  const version = isDefault ? null : versions.value[Number(selected.slice(8))];
+  if (!isDefault && !version) { report.value = null; error.value = 'Choose an available published version.'; return; }
+  const url = `${apiPaths.form(props.projectId, props.xmlFormId)}/draft/changes${isDefault ? '' : `?${new URLSearchParams({ from: version.version || '___' })}`}`;
+  loading.value = true; report.value = null; error.value = '';
+  if (isDefault) emit('report', null);
+  try {
+    const { data } = await request({ method: 'GET', url, alert: false });
+    if (current !== scope) return;
+    if (!validReport(data, isDefault ? props.publishedHash : version.hash, isDefault ? null : version.version)) throw new Error('The form or published version changed. Refresh and try again.');
+    if (isDefault && defaultId === defaultRequest) emit('report', data);
+    if (requestId === displayRequest) report.value = data;
+  } catch (e) {
+    if (current !== scope) return;
+    if (isDefault && defaultId === defaultRequest) emit('report', null);
+    if (requestId === displayRequest) error.value = message(e);
+  } finally { if (current === scope && requestId === displayRequest) loading.value = false; }
+};
+const changeBaseline = () => { load(); };
+watch(() => [props.projectId, props.xmlFormId, props.definitionKey, props.publishedHash], () => {
+  scope += 1; displayRequest += 1; defaultRequest += 1; report.value = null; error.value = ''; versions.value = []; versionsLoaded.value = false; versionsLoading.value = false; versionsError.value = ''; selectedBaseline.value = 'current'; emit('report', null); load();
+}, { immediate: true });
+onBeforeUnmount(() => { scope += 1; });
 
 const groups = computed(() => EFFECTS.map((e) => ({ ...e, items: report.value.changes.filter((c) => c.effect === e.effect) })));
 const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
@@ -128,6 +169,11 @@ const describe = (c) => {
 
 #form-edit-changes {
   overflow-wrap: anywhere;
+  .form-edit-section-heading { flex-wrap: wrap; row-gap: 8px; }
+  .form-edit-section-heading > div { min-width: 0; }
+  .form-edit-section-actions { display: flex; flex-wrap: wrap; gap: 8px; max-width: 100%; }
+  .form-edit-section-actions label { min-width: 0; max-width: 100%; }
+  .form-edit-section-actions select { max-width: 100%; }
 
   .changes-summary { margin-bottom: 8px; }
   .changes-count-meaning { color: $color-warning; font-weight: bold; }

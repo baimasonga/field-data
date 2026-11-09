@@ -29,7 +29,7 @@ const withChanges = report([
   change('population', 'choices-added', '/data/water', { values: ['river', 'rain'] }),
   change('wording', 'label-changed', '/data/name', { language: 'French', from: 'Nom', to: 'Nom complet' })
 ]);
-const api = async (page, changes) => {
+const api = async (page, changes, versions = [form]) => {
   const errors = [];
   const calls = [];
   page.on('pageerror', (error) => errors.push(error.message));
@@ -55,7 +55,7 @@ const api = async (page, changes) => {
           : pathname === '/v1/projects/1' ? project
             : pathname === base ? form
               : pathname === `${base}/draft` ? draft
-                : pathname === `${base}/versions` ? [form]
+                : pathname === `${base}/versions` ? versions
                   : pathname.endsWith('.svc/Submissions') ? { value: [], '@odata.count': 0 }
                     : [];
     await route.fulfill({ json });
@@ -122,4 +122,76 @@ test('a comparison that fails is explained and does not break the Draft page', a
   await expect(page.locator('#form-edit-changes').getByRole('alert')).toContainText('too large');
   await expect(page.getByRole('button', { name: 'Publish Draft' })).toBeVisible();
   expect(errors).toEqual([]);
+});
+
+test('compare the draft with an earlier version without changing the publish warning', async ({ page }) => {
+  const older = { ...form, version: '', hash: 'c'.repeat(32), publishedAt: '2026-09-01T00:00:00Z' };
+  const historical = report([change('continuity', 'added', '/data/old', { kind: 'a question' }, null)], { version: '', hash: older.hash });
+  const requested = [];
+  const { errors } = await api(page, route => {
+    const from = new URL(route.request().url()).searchParams.get('from'); requested.push(from);
+    return route.fulfill({ json: from === '___' ? historical : withChanges });
+  }, [form, older]);
+  await page.goto(draftPage);
+  const section = page.locator('#form-edit-changes');
+  await expect(section.locator('.changes-summary')).toContainText('2 changes to meaning');
+  await section.getByRole('button', { name: 'Choose an earlier version' }).click();
+  await section.getByLabel('Compare with').selectOption('version:1');
+  await expect(section.locator('.changes-summary')).toContainText('0 changes to meaning');
+  await expect(section).toContainText('compared with version “(no version string)”');
+  await expect(section).toContainText('/data/old'); expect(requested).toContain('___');
+  await page.getByRole('button', { name: 'Publish Draft' }).click();
+  await expect(page.locator('#form-draft-publish .changes-warning')).toContainText('2 changes');
+  await page.keyboard.press('Escape');
+  await section.getByLabel('Compare with').selectOption('current');
+  await expect(section.locator('.changes-summary')).toContainText('2 changes to meaning');
+  await page.setViewportSize({ width: 320, height: 800 });
+  expect(await section.evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true);
+  expect(errors).toEqual([]);
+});
+
+test('a denied historical comparison clears its result and retains the current publish warning', async ({ page }) => {
+  const older = { ...form, version: 'old', hash: 'c'.repeat(32), publishedAt: '2026-09-01T00:00:00Z' };
+  await api(page, route => route.fulfill(new URL(route.request().url()).searchParams.has('from')
+    ? { status: 403, json: { message: 'Access denied' } } : { json: withChanges }), [form, older]);
+  await page.goto(draftPage); const section = page.locator('#form-edit-changes');
+  await expect(section.locator('.changes-summary')).toBeVisible();
+  await section.getByRole('button', { name: 'Choose an earlier version' }).click();
+  await section.getByLabel('Compare with').selectOption('version:1');
+  await expect(section.getByRole('alert')).toContainText('Access denied');
+  await expect(section.locator('.changes-summary')).toHaveCount(0);
+  await page.getByRole('button', { name: 'Publish Draft' }).click();
+  await expect(page.locator('#form-draft-publish .changes-warning')).toContainText('2 changes');
+});
+
+test('historical comparison rejects a changed definition and clears old results', async ({ page }) => {
+  const older = { ...form, version: 'old', hash: 'c'.repeat(32), publishedAt: '2026-09-01T00:00:00Z' };
+  await api(page, route => route.fulfill({ json: new URL(route.request().url()).searchParams.has('from')
+    ? report([], { version: 'old', hash: 'd'.repeat(32) }) : withChanges }), [form, older]);
+  await page.goto(draftPage); const section = page.locator('#form-edit-changes');
+  await expect(section.locator('.changes-summary')).toBeVisible();
+  await section.getByRole('button', { name: 'Choose an earlier version' }).click();
+  await section.getByLabel('Compare with').selectOption('version:1');
+  await expect(section.getByRole('alert')).toContainText('form or published version changed');
+  await expect(section.locator('.changes-summary')).toHaveCount(0);
+});
+
+test('a slow historical comparison cannot replace the newer selection', async ({ page }) => {
+  const older = { ...form, version: 'old', hash: 'c'.repeat(32), publishedAt: '2026-09-01T00:00:00Z' };
+  let release; const wait = new Promise(resolve => { release = resolve; }); let started = false;
+  await api(page, async route => {
+    if (new URL(route.request().url()).searchParams.has('from')) {
+      started = true; await wait;
+      await route.fulfill({ json: report([], { version: 'old', hash: older.hash }) });
+    } else await route.fulfill({ json: withChanges });
+  }, [form, older]);
+  await page.goto(draftPage); const section = page.locator('#form-edit-changes');
+  await expect(section.locator('.changes-summary')).toContainText('2 changes to meaning');
+  await section.getByRole('button', { name: 'Choose an earlier version' }).click();
+  await section.getByLabel('Compare with').selectOption('version:1');
+  await expect.poll(() => started).toBe(true);
+  await section.getByLabel('Compare with').selectOption('current');
+  await expect(section.locator('.changes-summary')).toContainText('2 changes to meaning');
+  const historicalResponse = page.waitForResponse(response => new URL(response.url()).searchParams.has('from'));
+  release(); await historicalResponse; await expect(section.locator('.changes-summary')).toContainText('2 changes to meaning');
 });

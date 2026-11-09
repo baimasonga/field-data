@@ -33,6 +33,7 @@ except according to the terms contained in the LICENSE file.
         <form-edit-changes v-if="form.dataExists && form.publishedAt != null"
           :project-id="projectId" :xml-form-id="xmlFormId"
           :definition-key="formDraft.get().hash"
+          :published-hash="form.hash"
           @report="(r) => { meaningChanges = r?.summary?.meaning ?? 0; }"/>
         <form-edit-simulation :project-id="projectId" :xml-form-id="xmlFormId"
           target="draft" :definition-key="formDraft.get().hash"

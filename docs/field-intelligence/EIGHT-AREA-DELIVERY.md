@@ -26,6 +26,12 @@ also exist. Those features must not be re-labelled as full completion of this pr
 
 ## Status
 
+- Historical draft change review (S13): authors can compare draft schema and
+  logic changes against an earlier published version on the Draft page while
+  the publish warning remains tied to the current published version. See
+  [S13](S13-historical-draft-change-review.md). Reviewed approvals and draft
+  evolution remain separate work.
+
 - Form Builder circular logic warnings (S12): authors can review possible
   visibility and calculation dependency loops while editing advanced forms.
   This is an advisory reference check, not a proof of runtime reachability;
