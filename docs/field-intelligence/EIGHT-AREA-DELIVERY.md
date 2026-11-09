@@ -26,6 +26,13 @@ also exist. Those features must not be re-labelled as full completion of this pr
 
 ## Status
 
+- Answer uncertainty authoring (S11): form authors can add optional,
+  respondent-reported uncertainty and explanation questions while preserving
+  the original answer. The generator supports bounded question types and
+  conditions; authors review the resulting logic and translations. See
+  [S11](S11-answer-uncertainty.md). Calibration and field evaluation remain
+  pending.
+
 - Historical simulation comparison (S10): draft or published versions can be
   compared using the existing bounded simulator, with visibility, answer and
   constraint outcomes and a portable JSON report. See
@@ -411,7 +418,7 @@ acceptance remain separate from software delivery. Later release notes that say
 | Operations | Sampling, allocation, shared capacity, same-day/overnight UTC shifts, combined approved itineraries, manual/scheduled collector/answer sampling with group-specific rates, numeric ranges, polygon groups, inspectable design weights, conditional calibrated binary estimates, approved-stop navigation handoff and agreement counts | Additional task types, built-in/offline routing, external benchmark calibration and validated outcome inference |
 | Geospatial | Location integrity, imagery availability and cited human geospatial assessments with temporal context and outdated history | Field evaluation and calibration of Sentinel-2 change candidates |
 | Fraud intelligence | Contradictions, identity reuse, similarity, collector links, investigations/outcomes, live case links and targeted backcheck questions with reviewed form drafts and same-form/cross-form shared-identity peer targeting | Broader peer families, multilingual/effectiveness evaluation, calibrated triage and false-positive evaluation |
-| Adaptive surveys | Doctor, simulations, version-change analysis, analysis recodes and opt-in native CSV ZIP value recodes | Approved bounded policies, reviewed evolution/draft generation, answer uncertainty, conversational multilingual support, OData overlays |
+| Adaptive surveys | Doctor, simulations, version-change analysis, analysis recodes, opt-in native CSV ZIP value recodes and explicit uncertainty follow-ups for supported questions | Approved bounded policies, reviewed evolution/draft generation, broader uncertainty support and calibration, conversational multilingual support, OData overlays |
 | Multimodal | Provenance-preserving capture, manual evidence review and reviewed photo-text/voice extraction with correction history | Live provider/language evaluation, asset/module suggestions, guided capture, source-grounded drafts, offline models and field acceptance |
 
 Each implementation needs its actual API and user workflow, permission and
