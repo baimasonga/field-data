@@ -244,7 +244,7 @@ test('builder adds explicit optional uncertainty follow-ups without changing the
   });
   await page.goto(`${appUrl}/projects/1/new-form?builder=advanced`);
   await page.getByLabel('Reopen saved form ID').fill('uncertainty'); await page.getByRole('button', { name: 'Load builder definition' }).click();
-  const source = page.locator('.builder-question-card').filter({ has: page.locator('#builder-question-age') });
+  const source = page.locator('.builder-question-card').nth(1);
   await source.getByRole('button', { name: 'Add uncertainty follow-up' }).click();
   await expect(page.getByRole('alert')).toContainText('Make the original question optional');
   await source.getByLabel('Required expression').fill('');

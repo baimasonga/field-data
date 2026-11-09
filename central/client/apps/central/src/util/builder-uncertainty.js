@@ -39,12 +39,16 @@ export const uncertaintyQuestions = (question, allQuestions, listNames, newId) =
   if (index > 1000) throw new Error('Could not find unique follow-up names.');
   const status = `\${${statusName}}`; const answer = `\${${question.name}}`;
   return [
-    { id: newId(), type: 'select_one', name: statusName, label: `How certain is the answer to: ${question.label.trim().slice(0, 400)}?`,
+    {
+      id: newId(), type: 'select_one', name: statusName, label: `How certain is the answer to: ${question.label.trim().slice(0, 400)}?`,
       hint: 'Optional. Record the respondent’s own assessment; do not guess.', required: false, relevant: question.relevant || '',
       constraint: `. = 'unsure' or . = 'declined_assessment' or (. = 'declined_answer' and string-length(normalize-space(${answer})) = 0) or ((. = 'certain' or . = 'estimate') and string-length(normalize-space(${answer})) > 0)`,
       constraintMessage: 'Certain or estimate requires an answer; a declined answer must be left blank.',
-      choices: [{ name: 'certain', label: 'Certain' }, { name: 'estimate', label: 'Estimate' }, { name: 'unsure', label: 'Unsure or does not know' }, { name: 'declined_answer', label: 'Declined to answer' }, { name: 'declined_assessment', label: 'Declined to describe certainty' }] },
-    { id: newId(), type: 'text', name: noteName, label: 'Optional explanation of uncertainty or missing answer',
-      hint: 'Avoid unnecessary personal details.', required: false, relevant: `${status} = 'estimate' or ${status} = 'unsure' or ${status} = 'declined_answer' or ${status} = 'declined_assessment'` }
+      choices: [{ name: 'certain', label: 'Certain' }, { name: 'estimate', label: 'Estimate' }, { name: 'unsure', label: 'Unsure or does not know' }, { name: 'declined_answer', label: 'Declined to answer' }, { name: 'declined_assessment', label: 'Declined to describe certainty' }]
+    },
+    {
+      id: newId(), type: 'text', name: noteName, label: 'Optional explanation of uncertainty or missing answer',
+      hint: 'Avoid unnecessary personal details.', required: false, relevant: `${status} = 'estimate' or ${status} = 'unsure' or ${status} = 'declined_answer' or ${status} = 'declined_assessment'`
+    }
   ];
 };
