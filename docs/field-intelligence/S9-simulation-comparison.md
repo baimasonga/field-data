@@ -18,6 +18,6 @@ permissions and its existing run and form-size bounds.
 Equal seeds do not produce paired interviews: different questions or logic
 can change the sequence of random draws. Matching paths do not prove matching
 meaning. These simulated results are exploratory evidence, not measured field
-outcomes or proof of improvement. This comparison covers the current draft and
-current published version; arbitrary historical-version comparisons, saved
-reports and adaptive policies remain separate work.
+outcomes or proof of improvement. Historical-version comparison and a portable
+JSON report are now provided by [S10](S10-historical-simulation-comparison.md).
+Saved server reports and adaptive policies remain separate work.

@@ -23,7 +23,7 @@ except according to the terms contained in the LICENSE file.
           :definition-key="form.hash"/>
         <form-edit-simulation v-if="form.dataExists && form.publishedAt != null"
           :project-id="projectId" :xml-form-id="xmlFormId" target="published"
-          :definition-key="form.hash"/>
+          :definition-key="form.hash" :published-hash="form.hash"/>
       </template>
       <template v-else>
         <form-edit-def @after-upload="afterUpload"/>

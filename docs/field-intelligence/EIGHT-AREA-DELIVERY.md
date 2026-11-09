@@ -26,6 +26,12 @@ also exist. Those features must not be re-labelled as full completion of this pr
 
 ## Status
 
+- Historical simulation comparison (S10): draft or published versions can be
+  compared using the existing bounded simulator, with visibility, answer and
+  constraint outcomes and a portable JSON report. See
+  [S10](S10-historical-simulation-comparison.md). Approved adaptive policies
+  and field evaluation remain pending.
+
 - Draft-versus-published simulation comparison (S9): the Draft page compares
   shown-question rates using reproducible seeds, actual run counts and report
   hashes, with explicit unpaired-simulation and unsupported-expression limits.
