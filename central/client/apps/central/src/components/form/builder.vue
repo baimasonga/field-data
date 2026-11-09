@@ -31,6 +31,7 @@ That also means the spreadsheet is real, and downloadable. Advanced authoring ad
     </div>
 
     <p v-if="advancedError" role="alert">{{ advancedError }}</p>
+    <p v-if="uncertaintyNotice" role="status">{{ uncertaintyNotice }}</p>
     <label>Import XLSForm into builder<input type="file" accept=".xlsx" @change="importXlsform"></label>
     <label><input v-model="advanced" type="checkbox" :disabled="hasAdvancedFields"> Advanced authoring (groups, repeats, logic and translations)</label>
     <div v-if="advanced" class="builder-advanced">
@@ -94,6 +95,7 @@ That also means the spreadsheet is real, and downloadable. Advanced authoring ad
         <div class="builder-question-toolbar">
         <button type="button" class="btn btn-default" :disabled="index === 0" @click="move(index, -1)">Move up</button>
         <button type="button" class="btn btn-default" :disabled="index === draft.questions.length - 1" @click="move(index, 1)">Move down</button>
+        <button v-if="uncertaintyType(question)" type="button" class="btn btn-default" @click="addUncertainty(index)">Add uncertainty follow-up</button>
         <button type="button" class="btn btn-danger" @click="removeQuestion(index)">Remove question</button>
         </div>
       </div>
@@ -142,6 +144,7 @@ That also means the spreadsheet is real, and downloadable. Advanced authoring ad
             <span>{{ $t('field.required') }}</span>
           </label>
         </div>
+        <button v-if="uncertaintyType(question)" type="button" class="btn btn-default btn-sm" @click="addUncertainty(index)">Add uncertainty follow-up</button>
 
         <div v-if="needsChoices(question.type)" class="choices">
           <p class="choices-heading">{{ $t('field.choices') }}</p>
@@ -205,6 +208,7 @@ import AdvancedQuestion from './advanced-question.vue';
 import BuilderChoices from './builder-choices.vue';
 import BuilderProperties from './builder-properties.vue';
 import { builderDependencies } from '../../util/builder-diagnostics';
+import { uncertaintyQuestions } from '../../util/builder-uncertainty';
 import { useRequestData } from '../../request-data';
 
 import useRequest from '../../composables/request';
@@ -249,6 +253,18 @@ const visualLists = computed(() => { try { return JSON.parse(listsText.value); }
 const setList = (name, choices) => { if (!/^[A-Za-z_][A-Za-z0-9_]{0,63}$/.test(name)) { advancedError.value = 'Use a valid choice list name.'; return; } listsText.value = JSON.stringify({ ...visualLists.value, [name]: choices }); newListName.value = ''; };
 const removeList = name => { listsText.value = JSON.stringify(Object.fromEntries(Object.entries(visualLists.value).filter(([listKey]) => listKey !== name))); };
 const draft = reactive({ title: '', formId: '', formIdEdited: false, questions: [] });
+const uncertaintyNotice = ref('');
+const uncertaintyType = question => ['text', 'integer', 'decimal', 'date', 'time', 'dateTime', 'select_one', 'select_multiple'].includes(question.type);
+const addUncertainty = index => {
+  try {
+    const lists = JSON.parse(listsText.value);
+    if (!lists || typeof lists !== 'object' || Array.isArray(lists)) throw new Error('Fix the reusable choice lists before adding a follow-up.');
+    const questions = uncertaintyQuestions(draft.questions[index], draft.questions, Object.keys(lists), () => crypto.randomUUID());
+    draft.questions.splice(index + 1, 0, ...questions.map(question => ({ ...question, key: nextKey() })));
+    advanced.value = true; advancedError.value = '';
+    uncertaintyNotice.value = 'Two optional follow-up questions were added. Review their wording, translations and logic before publishing; the original question was not changed.';
+  } catch (error) { uncertaintyNotice.value = ''; advancedError.value = error.message || 'The uncertainty follow-up could not be added.'; }
+};
 const questionNames = computed(() => { const names = []; const walk = q => { if (q.name) names.push(q.name); q.children?.forEach(walk); }; draft.questions.forEach(walk); return names; });
 const dependencies = computed(() => builderDependencies(draft.questions));
 const diagnostics = ref([]); const validating = ref(false);
