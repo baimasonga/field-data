@@ -26,6 +26,11 @@ also exist. Those features must not be re-labelled as full completion of this pr
 
 ## Status
 
+- Form Builder circular logic warnings (S12): authors can review possible
+  visibility and calculation dependency loops while editing advanced forms.
+  This is an advisory reference check, not a proof of runtime reachability;
+  see [S12](S12-builder-logic-cycles.md).
+
 - Answer uncertainty authoring (S11): form authors can add optional,
   respondent-reported uncertainty and explanation questions while preserving
   the original answer. The generator supports bounded question types and
