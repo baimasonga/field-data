@@ -78,7 +78,11 @@ That also means the spreadsheet is real, and downloadable. Advanced authoring ad
       <label>Reopen saved form ID<input v-model="reopenId" class="form-control"></label>
       <button type="button" class="btn btn-default" @click="reopen">Load builder definition</button>
       <details class="builder-settings">
-<summary>Expression dependencies <span v-if="dependencies.some(d => d.missing)" class="builder-reference-warning">— repair missing references</span></summary>
+<summary>Expression dependencies <span v-if="dependencies.some(d => d.missing)" class="builder-reference-warning">— repair missing references</span><span v-if="logicCycles.length" class="builder-reference-warning"> — possible circular logic</span></summary>
+      <div v-if="logicCycles.length" role="alert">
+        <p>Possible circular visibility or calculation logic. Review these questions before compiling; references alone do not prove a loop is reached.</p>
+        <ul><li v-for="(cycle, i) of logicCycles" :key="i"><span v-for="(q, j) of cycle" :key="q.path"><span v-if="j">, </span><button type="button" class="btn btn-link" @click="focusQuestion(q.id)">{{ q.path }}</button></span></li></ul>
+      </div>
       <p v-if="!dependencies.length">No field references.</p>
       <ul>
 <li v-for="(d, i) of dependencies" :key="i">
@@ -207,7 +211,7 @@ import Spinner from '../spinner.vue';
 import AdvancedQuestion from './advanced-question.vue';
 import BuilderChoices from './builder-choices.vue';
 import BuilderProperties from './builder-properties.vue';
-import { builderDependencies } from '../../util/builder-diagnostics';
+import { builderDependencies, builderLogicCycles } from '../../util/builder-diagnostics';
 import { uncertaintyQuestions } from '../../util/builder-uncertainty';
 import { useRequestData } from '../../request-data';
 
@@ -267,6 +271,7 @@ const addUncertainty = index => {
 };
 const questionNames = computed(() => { const names = []; const walk = q => { if (q.name) names.push(q.name); q.children?.forEach(walk); }; draft.questions.forEach(walk); return names; });
 const dependencies = computed(() => builderDependencies(draft.questions));
+const logicCycles = computed(() => builderLogicCycles(draft.questions));
 const diagnostics = ref([]); const validating = ref(false);
 const focusQuestion = id => document.getElementById(`builder-question-${id}`)?.focus();
 

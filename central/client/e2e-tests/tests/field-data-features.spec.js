@@ -75,6 +75,26 @@ test('advanced authoring flags references immediately and links compiler diagnos
   await expect(page.getByText('Fixture compiler diagnostic')).toBeVisible();
   await page.getByRole('button', { name: '/age', exact: true }).click(); await expect(page.locator('#builder-question-age')).toBeFocused();
 });
+test('advanced authoring identifies circular logic and clears it when repaired', async ({ page }) => {
+  await api(page, async (route, path) => {
+    if (path.endsWith('/builder-definition')) { await route.fulfill({ json: { definition: { schemaVersion: 2, title: 'Loop', formId: 'loop', questions: [
+      { id: 'first', type: 'integer', name: 'first', label: 'First', relevant: '${second} = 1' },
+      { id: 'second', type: 'calculate', name: 'second', label: '', calculation: '${first} + 1' }
+    ] } } }); return true; } return false;
+  });
+  await page.goto(`${appUrl}/projects/1/new-form?builder=advanced`);
+  await page.getByLabel('Reopen saved form ID').fill('loop'); await page.getByRole('button', { name: 'Load builder definition' }).click();
+  const summary = page.locator('summary').filter({ hasText: 'Expression dependencies' });
+  await expect(summary).toContainText('possible circular logic'); await summary.click();
+  const warning = page.getByRole('alert').filter({ hasText: 'Possible circular visibility or calculation logic' });
+  await expect(warning).toContainText('/first'); await expect(warning).toContainText('/second');
+  await warning.getByRole('button', { name: '/first', exact: true }).click(); await expect(page.locator('#builder-question-first')).toBeFocused();
+  const second = page.locator('#builder-question-second');
+  await second.getByText('Logic, translations and choices').click();
+  await second.getByLabel('calculation', { exact: true }).fill('1');
+  await expect(warning).toHaveCount(0); await expect(summary).not.toContainText('possible circular logic');
+  await expect(summary).not.toContainText('repair missing references');
+});
 test('compiled advanced form enforces repeat constraints, calculates relevance and submits real answers', async ({ page }) => {
   const xml = readFileSync(new URL('../fixtures/advanced.xml', import.meta.url), 'utf8'); let submitted;
   await api(page, async (route, path) => {
