@@ -49,7 +49,7 @@ jobs:
           cache: npm
           cache-dependency-path: central/server/package-lock.json
       - run: npm ci --no-audit --no-fund
-      - run: node --test test/field-data-hardening.test.js test/field-data/hardening.cjs test/field-data/native-webforms.cjs test/field-data/operations-probe.cjs
+      - run: node --test test/field-data-hardening.test.js test/field-data/hardening.cjs test/field-data/native-webforms.cjs test/field-data/operations-probe.cjs test/field-data/answer-uncertainty.cjs
       - run: node test/field-data-migration-check.js
 
   feature-capabilities:

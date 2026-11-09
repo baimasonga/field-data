@@ -82,6 +82,26 @@ describe('api: XLSForm and XForms XML upload pipeline', () => {
 
     const withCompiler = (test) => testServiceWith({ xlsform: (...args) => real(...args) }, test);
 
+    it('compiles uncertainty follow-ups into an ordinary unpublished draft', withCompiler(async service => {
+      const source = readFileSync(path.resolve(__dirname, '../../../../client/apps/central/src/util/builder-uncertainty.js'));
+      const { uncertaintyQuestions } = await import(`data:text/javascript;base64,${source.toString('base64')}`);
+      const { randomUUID } = require('node:crypto');
+      const { normalizeFormDefinition, buildWorkbook } = require('../../../lib/util/xlsform-builder');
+      const original = { id: randomUUID(), type: 'integer', name: 'age', label: 'Age', required: false };
+      const followups = uncertaintyQuestions(original, [original], [], randomUUID);
+      const definition = normalizeFormDefinition({ schemaVersion: 2, title: 'Uncertainty test', formId: 'uncertainty_test', lists: {}, questions: [original, ...followups] });
+      const alice = await service.login('alice');
+      await upload(alice, '/v1/projects/1/forms', await buildWorkbook(definition), XLSX).expect(200);
+      const formPath = '/v1/projects/1/forms/uncertainty_test';
+      const draft = (await alice.get(`${formPath}/draft`).expect(200)).body; assert.equal(draft.publishedAt, null);
+      const compiled = (await alice.get(`${formPath}/draft.xml`).expect(200)).text;
+      assert.match(compiled, /unc_age_note/); assert.match(compiled, /declined_answer/); assert.match(compiled, /normalize-space/);
+      const fields = (await alice.get(`${formPath}/draft/fields?odata=false`).expect(200)).body;
+      assert.ok(fields.some(field => field.path === '/age'));
+      assert.ok(fields.some(field => field.path === '/unc_age'));
+      assert.ok(fields.some(field => field.path === '/unc_age_note'));
+    }));
+
     it('compiles a generated investigation response form as a private draft, then publishes and collects a native backcheck', withCompiler(async service => {
       const { randomUUID } = require('node:crypto');
       const generator = require('../../../lib/util/investigation-response-form');

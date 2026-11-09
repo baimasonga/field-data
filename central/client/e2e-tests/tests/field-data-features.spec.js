@@ -232,6 +232,38 @@ test('imported forms have visual translations, condition authoring and entity co
   await page.setViewportSize({ width: 390, height: 844 }); expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true); await page.screenshot({ path: '/tmp/field-data-builder-extensions-mobile.png' });
 });
 
+test('builder adds explicit optional uncertainty follow-ups without changing the answer question', async ({ page }) => {
+  let validated;
+  await api(page, async (route, path) => {
+    if (path.endsWith('/builder-definition')) { await route.fulfill({ json: { definition: { schemaVersion: 2, title: 'Uncertainty', formId: 'uncertainty', lists: {}, questions: [
+      { id: 'eligible', name: 'eligible', type: 'text', label: 'Eligible' },
+      { id: 'age', name: 'age', type: 'integer', label: 'Age', required: true, relevant: "${eligible} = 'yes'" }
+    ] } } }); return true; }
+    if (path.endsWith('/form-builder/validate')) { validated = route.request().postDataJSON(); await route.fulfill({ json: { valid: true, diagnostics: [] } }); return true; }
+    return false;
+  });
+  await page.goto(`${appUrl}/projects/1/new-form?builder=advanced`);
+  await page.getByLabel('Reopen saved form ID').fill('uncertainty'); await page.getByRole('button', { name: 'Load builder definition' }).click();
+  const source = page.locator('.builder-question-card').filter({ has: page.locator('#builder-question-age') });
+  await source.getByRole('button', { name: 'Add uncertainty follow-up' }).click();
+  await expect(page.getByRole('alert')).toContainText('Make the original question optional');
+  await source.getByLabel('Required expression').fill('');
+  await source.getByRole('button', { name: 'Add uncertainty follow-up' }).click();
+  await expect(page.getByText(/original question was not changed/)).toBeVisible();
+  await expect(page.locator('.builder-question-card')).toHaveCount(4);
+  await page.getByRole('button', { name: 'Validate with compiler' }).click();
+  await expect.poll(() => validated?.questions?.length).toBe(4);
+  expect(validated.questions[1]).toMatchObject({ name: 'age', type: 'integer', label: 'Age', required: '', relevant: "${eligible} = 'yes'" });
+  const status = validated.questions[2]; const note = validated.questions[3];
+  expect(status).toMatchObject({ type: 'select_one', name: 'unc_age', required: false, relevant: "${eligible} = 'yes'" });
+  expect(status.choices.map(c => c.name)).toEqual(['certain', 'estimate', 'unsure', 'declined_answer', 'declined_assessment']);
+  expect(status.constraint).toContain('normalize-space(${age})');
+  expect(note).toMatchObject({ type: 'text', name: 'unc_age_note', required: false });
+  expect(note.relevant).toContain("${unc_age} = 'unsure'");
+  await page.setViewportSize({ width: 320, height: 900 });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+});
+
 test('repeat scope and team visibility are saved and restored in the analysis controls', async ({ page }) => {
   let saved;
   const repeatFields = [{ path: '/members/age', name: 'Age', type: 'int' }];
