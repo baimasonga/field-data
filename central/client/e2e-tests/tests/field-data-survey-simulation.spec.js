@@ -1,6 +1,7 @@
 /* global localStorage */
 // S2 interview simulation in the browser: docs/field-intelligence/S2-survey-simulation.md
 import { expect, test } from '@playwright/test';
+import { readFile } from 'node:fs/promises';
 
 const appUrl = process.env.ODK_URL || 'http://127.0.0.1:8989';
 const verbs = ['project.read', 'project.update', 'form.read', 'form.list', 'form.update', 'form.delete', 'form.create', 'dataset.list', 'entity.list', 'submission.list', 'submission.read', 'submission.update'];
@@ -29,7 +30,7 @@ const simulated = (seed, extra = {}) => ({
   reportHash: 'f'.repeat(64), formVersion: '2', hash: draft.hash, draft: true, ...extra
 });
 
-const api = async (page, simulation) => {
+const api = async (page, simulation, publishedVersions = [form], { hasDraft = true } = {}) => {
   const errors = [];
   const calls = [];
   page.on('pageerror', (error) => errors.push(error.message));
@@ -45,13 +46,14 @@ const api = async (page, simulation) => {
     if (pathname.endsWith('/doctor')) { await route.fulfill({ json: clean }); return; }
     const project = { id: 1, name: 'Synthetic', forms: 1, datasets: 0, archived: false, verbs };
     const base = '/v1/projects/1/forms/household';
+    if (!hasDraft && pathname === `${base}/draft`) { await route.fulfill({ status: 404, json: { code: 404.1, message: 'Not found' } }); return; }
     const json = pathname === '/v1/sessions/restore' ? { expiresAt: '2099-01-01T00:00:00Z', csrf: 'fixture' }
       : pathname === '/v1/users/current' ? { id: 1, displayName: 'Fixture', verbs: [], preferences: { site: {}, projects: {} } }
         : pathname === '/v1/projects' ? [project]
           : pathname === '/v1/projects/1' ? project
             : pathname === base ? form
               : pathname === `${base}/draft` ? draft
-                : pathname === `${base}/versions` ? [form]
+                : pathname === `${base}/versions` ? publishedVersions
                   : pathname.endsWith('.svc/Submissions') ? { value: [], '@odata.count': 0 }
                     : [];
     await route.fulfill({ json });
@@ -96,6 +98,25 @@ test('a manager simulates interviews of the Draft and reads the report', async (
   expect(errors).toEqual([]);
 });
 
+test('compares the current published form when there is no draft', async ({ page }) => {
+  const previous = { ...form, version: '0', hash: 'c'.repeat(32), publishedAt: '2026-09-01T00:00:00Z' };
+  const paths = [];
+  await api(page, async (route, url) => {
+    paths.push(url.pathname);
+    const historical = url.pathname.includes('/versions/');
+    await route.fulfill({ json: simulated(url.searchParams.get('seed') ?? 'same-seed', {
+      formVersion: historical ? '0' : '1', hash: historical ? previous.hash : form.hash, draft: false
+    }) });
+  }, [form, previous], { hasDraft: false });
+  await page.goto(draftPage);
+  const section = page.locator('#form-edit-simulation');
+  await section.getByLabel('Compare versions').check();
+  await section.getByRole('combobox', { name: 'Against version', exact: true }).selectOption('version:1');
+  await section.getByRole('button', { name: 'Simulate interviews' }).click();
+  await expect(section.locator('.simulation-comparison')).toContainText('Baseline version 0');
+  expect(paths).toEqual(['/v1/projects/1/forms/household/simulation', '/v1/projects/1/forms/household/versions/0/simulation']);
+});
+
 test('a clean simulation says so, and a refused one is explained', async ({ page }) => {
   let refuse = true;
   const { errors } = await api(page, async (route, url) => {
@@ -126,16 +147,27 @@ test('compares draft and published simulations with the same seed and refuses a 
   });
   await page.goto(draftPage);
   const section = page.locator('#form-edit-simulation');
-  await section.getByLabel('Compare with published version').check();
+  await section.getByLabel('Compare versions').check();
   await section.getByRole('button', { name: 'Simulate interviews' }).click();
   const comparison = section.locator('.simulation-comparison');
   await expect(comparison).toContainText('separate simulations, not paired interviews');
-  await expect(comparison.locator('tr', { hasText: '/data/district' }).locator('td')).toHaveText(['50.0% (100/200)', '100.0% (200/200)']);
-  await expect(comparison.locator('tr', { hasText: '/data/old' }).locator('td')).toHaveText(['100.0% (200/200)', 'Not in version']);
-  await expect(comparison.locator('tr', { hasText: '/data/age' }).locator('td')).toHaveText(['Not in version', '100.0% (200/200)']);
-  await expect(comparison).toContainText('Published expressions not simulated (1)');
+  const visibility = comparison.getByRole('table', { name: 'Share of simulated interviews in which each question was shown' });
+  await expect(visibility.locator('tr', { hasText: '/data/district' }).locator('td')).toHaveText(['50.0% (100/200)', '100.0% (200/200)']);
+  await expect(visibility.locator('tr', { hasText: '/data/old' }).locator('td')).toHaveText(['100.0% (200/200)', 'Not in version']);
+  await expect(visibility.locator('tr', { hasText: '/data/age' }).locator('td')).toHaveText(['Not in version', '100.0% (200/200)']);
+  await expect(comparison).toContainText('Baseline expressions not simulated (1)');
   expect(requests).toEqual([{ path: '/v1/projects/1/forms/household/draft/simulation', seed: null, runs: '200' },
-    { path: '/v1/projects/1/forms/household/simulation', seed: 'generated', runs: '200' }]);
+    { path: '/v1/projects/1/forms/household/versions/1/simulation', seed: 'generated', runs: '200' }]);
+  await comparison.getByText('Answer and constraint outcomes').click();
+  await expect(comparison.getByRole('table', { name: 'Answers and unmet constraints by version' }).locator('tr', { hasText: '/data/age' }).locator('td')).toHaveText(['Not in version', '94.0% (188/200)', 'Not in version', '6.0% (12/200)']);
+  const downloadPromise = page.waitForEvent('download');
+  await comparison.getByRole('button', { name: 'Download comparison JSON' }).click();
+  const download = await downloadPromise;
+  expect(download.suggestedFilename()).toBe('survey-simulation-comparison.json');
+  const exported = JSON.parse(await readFile(await download.path(), 'utf8'));
+  expect(exported.method).toBe('survey-simulation-comparison@1');
+  expect(exported.baseline.hash).toBe(form.hash); expect(exported.comparison.hash).toBe(draft.hash);
+  expect(exported.baseline.seed).toBe(exported.comparison.seed);
   changed = true;
   await section.getByRole('button', { name: 'Simulate interviews' }).click();
   await expect(section.getByRole('alert')).toContainText('form or simulation date changed');
@@ -147,4 +179,29 @@ test('compares draft and published simulations with the same seed and refuses a 
   await page.setViewportSize({ width: 360, height: 800 });
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= 360)).toBe(true);
   expect(errors).toEqual([]);
+});
+
+test('compares historical versions including a version without a version string', async ({ page }) => {
+  const previous = { ...form, version: 'old /1', hash: 'c'.repeat(32), publishedAt: '2026-09-01T00:00:00Z' };
+  const noVersion = { ...form, version: '', hash: 'd'.repeat(32), publishedAt: '2026-08-01T00:00:00Z' };
+  const paths = [];
+  await api(page, async (route, url) => {
+    paths.push(url.pathname);
+    const empty = url.pathname.includes('/versions/___/');
+    await route.fulfill({ json: simulated(url.searchParams.get('seed') ?? 'same-seed', {
+      formVersion: empty ? '' : 'old /1', hash: empty ? noVersion.hash : previous.hash, draft: false,
+      runs: empty ? 100 : 200, reducedForBudget: empty,
+      questions: [{ path: '/data/district', shown: empty ? 50 : 200, answered: empty ? 40 : 190, constraintNeverMet: 0 }]
+    }) });
+  }, [form, previous, noVersion]);
+  await page.goto(draftPage);
+  const section = page.locator('#form-edit-simulation');
+  await section.getByLabel('Compare versions').check();
+  await section.getByRole('combobox', { name: 'Compare version', exact: true }).selectOption('version:1');
+  await section.getByRole('combobox', { name: 'Against version', exact: true }).selectOption('version:2');
+  await section.getByRole('button', { name: 'Simulate interviews' }).click();
+  const comparison = section.locator('.simulation-comparison');
+  await expect(comparison).toContainText('simulation budget reduced');
+  await expect(comparison.locator('tr', { hasText: '/data/district' }).first().locator('td')).toHaveText(['50.0% (50/100)', '100.0% (200/200)']);
+  expect(paths).toEqual(['/v1/projects/1/forms/household/versions/old%20%2F1/simulation', '/v1/projects/1/forms/household/versions/___/simulation']);
 });

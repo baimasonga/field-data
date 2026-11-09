@@ -18,6 +18,19 @@ const corrected = fixture('corrected.xml').replace('id="doctor_good" version="1"
 const base = '/v1/projects/1/forms/doctor_bad';
 
 describe('api: S2 interview simulation', () => {
+  it('preserves a published version without a version string for historical simulation', testService(async (service) => {
+    const alice = await service.login('alice');
+    const withoutVersion = planted.replace('version="1"', 'version=""');
+    await alice.post('/v1/projects/1/forms?publish=true').send(withoutVersion).set('Content-Type', 'application/xml').expect(200);
+    const original = (await alice.get(`${base}/simulation?runs=10&seed=compare`).expect(200)).body;
+    original.formVersion.should.equal('');
+    await alice.post(`${base}/draft`).send(corrected).set('Content-Type', 'application/xml').expect(200);
+    await alice.post(`${base}/draft/publish`).expect(200);
+    const historical = (await alice.get(`${base}/versions/___/simulation?runs=10&seed=compare`).expect(200)).body;
+    historical.formVersion.should.equal(''); historical.hash.should.equal(original.hash); historical.reportHash.should.equal(original.reportHash);
+    const chelsea = await service.login('chelsea');
+    await chelsea.get(`${base}/versions/___/simulation?runs=10&seed=compare`).expect(403);
+  }));
   it('simulates the published version, an earlier version and the draft, reproducibly', testService(async (service) => {
     const alice = await service.login('alice');
     await alice.post('/v1/projects/1/forms?publish=true').send(planted).set('Content-Type', 'application/xml').expect(200);
