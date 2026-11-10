@@ -8,10 +8,16 @@ export const builderDependencies = questions => {
     if (q.children) walk(q.children, path);
   });
   walk(questions);
-  const names = new Set(nodes.map(q => q.name));
+  const names = new Map();
+  nodes.forEach(q => {
+    if (!names.has(q.name)) names.set(q.name, []);
+    names.get(q.name).push({ id: q.id, path: q.path });
+  });
   return nodes.flatMap(q => expressionFields.flatMap(field =>
     [...String(q[field] || '').matchAll(/\$\{([^}]+)\}/g)].map(match => ({
-      id: q.id, path: q.path, field, reference: match[1], missing: !names.has(match[1])
+      id: q.id, path: q.path, field, reference: match[1], missing: !names.has(match[1]),
+      ambiguous: (names.get(match[1])?.length ?? 0) > 1,
+      targets: names.get(match[1]) ?? []
     }))));
 };
 

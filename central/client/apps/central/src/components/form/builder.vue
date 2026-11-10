@@ -78,7 +78,7 @@ That also means the spreadsheet is real, and downloadable. Advanced authoring ad
       <label>Reopen saved form ID<input v-model="reopenId" class="form-control"></label>
       <button type="button" class="btn btn-default" @click="reopen">Load builder definition</button>
       <details class="builder-settings">
-<summary>Expression dependencies <span v-if="dependencies.some(d => d.missing)" class="builder-reference-warning">— repair missing references</span><span v-if="logicCycles.length" class="builder-reference-warning"> — possible circular logic</span></summary>
+<summary>Expression dependencies <span v-if="dependencies.some(d => d.missing)" class="builder-reference-warning">— repair missing references</span><span v-if="dependencies.some(d => d.ambiguous)" class="builder-reference-warning"> — repair ambiguous references</span><span v-if="logicCycles.length" class="builder-reference-warning"> — possible circular logic</span></summary>
       <div v-if="logicCycles.length" role="alert">
         <p>Possible circular visibility or calculation logic. Review these questions before compiling; references alone do not prove a loop is reached.</p>
         <ul><li v-for="(cycle, i) of logicCycles" :key="i"><span v-for="(q, j) of cycle" :key="q.path"><span v-if="j">, </span><button type="button" class="btn btn-link" @click="focusQuestion(q.id)">{{ q.path }}</button></span></li></ul>
@@ -88,6 +88,10 @@ That also means the spreadsheet is real, and downloadable. Advanced authoring ad
 <li v-for="(d, i) of dependencies" :key="i">
         <button type="button" class="btn btn-link" @click="focusQuestion(d.id)">{{ d.path }} · {{ d.field }}</button>
         refers to {{ d.reference }} <strong v-if="d.missing" role="alert">— missing: repair this reference before compiling</strong>
+        <template v-if="d.ambiguous">
+          <strong role="alert">— ambiguous: multiple questions have this name; give them unique names and update the reference before compiling</strong>
+          <span v-for="(target, j) of d.targets" :key="j"> <button type="button" class="btn btn-link" @click="focusQuestion(target.id)">{{ target.path }}</button></span>
+        </template>
       </li>
 </ul>
       </details>
@@ -319,7 +323,7 @@ const typeChanged = (question) => {
   if (needsChoices(question.type) && question.choices.length === 0) addChoice(question);
 };
 
-const canCreate = computed(() => draft.title !== '' && draft.questions.length > 0 && !dependencies.value.some(d => d.missing));
+const canCreate = computed(() => draft.title !== '' && draft.questions.length > 0 && !dependencies.value.some(d => d.missing || d.ambiguous));
 
 // What the server validates. Sent as it is built, so the message that comes
 // back names a question by its position here.
@@ -394,6 +398,7 @@ const xlsform = (snapshot = definition()) => request({
   responseType: 'blob'
 });
 const validate = async () => {
+  if (!canCreate.value) return false;
   validating.value = true; diagnostics.value = [];
   try {
     const { data } = await request({ method: 'POST', url: `/v1/projects/${props.projectId}/form-builder/validate`, data: definition(), alert: false });
@@ -403,6 +408,7 @@ const validate = async () => {
 };
 
 const download = () => {
+  if (!canCreate.value) return;
   xlsform().then(({ data }) => {
     const url = URL.createObjectURL(data);
     const link = document.createElement('a');

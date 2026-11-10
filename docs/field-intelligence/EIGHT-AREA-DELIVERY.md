@@ -38,6 +38,8 @@ also exist. Those features must not be re-labelled as full completion of this pr
   visibility and calculation dependency loops while editing advanced forms.
   This is an advisory reference check, not a proof of runtime reachability;
   see [S12](S12-builder-logic-cycles.md).
+  Dependency diagnostics also identify ambiguous references, link to matching
+  questions and require repairs before compilation or draft creation.
 
 - Answer uncertainty authoring (S11): form authors can add optional,
   respondent-reported uncertainty and explanation questions while preserving

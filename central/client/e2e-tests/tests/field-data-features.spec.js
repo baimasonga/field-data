@@ -476,3 +476,27 @@ test('analysis recode preference refreshes the displayed data and is preserved i
   await page.setViewportSize({ width: 320, height: 700 });
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
 });
+
+test('advanced authoring links ambiguous reference targets and enables compilation after repair', async ({ page }) => {
+  await api(page, async (route, path) => {
+    if (!path.endsWith('/builder-definition')) return false;
+    await route.fulfill({ json: { definition: { schemaVersion: 2, title: 'Ambiguous', formId: 'ambiguous', questions: [
+      { id: 'first', type: 'integer', name: 'age', label: 'First age' },
+      { id: 'second', type: 'integer', name: 'age', label: 'Second age' },
+      { id: 'result', type: 'calculate', name: 'result', label: '', calculation: '${age} + 1' }
+    ] } } }); return true;
+  });
+  await page.goto(`${appUrl}/projects/1/new-form?builder=advanced`);
+  await page.getByLabel('Reopen saved form ID').fill('ambiguous');
+  await page.getByRole('button', { name: 'Load builder definition' }).click();
+  const summary = page.locator('summary').filter({ hasText: 'Expression dependencies' });
+  await expect(summary).toContainText('repair ambiguous references'); await summary.click();
+  await expect(page.getByRole('alert').filter({ hasText: 'multiple questions have this name' })).toBeVisible();
+  const targets = page.getByRole('button', { name: '/age', exact: true });
+  await expect(targets).toHaveCount(2);
+  await targets.nth(1).click(); await expect(page.locator('#builder-question-second')).toBeFocused();
+  await expect(page.getByRole('button', { name: 'Validate with compiler' })).toBeDisabled();
+  await page.locator('#builder-question-second').getByLabel('Name', { exact: true }).fill('other_age');
+  await expect(summary).not.toContainText('repair ambiguous references');
+  await expect(page.getByRole('button', { name: 'Validate with compiler' })).toBeEnabled();
+});

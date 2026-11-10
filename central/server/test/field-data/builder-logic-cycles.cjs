@@ -26,3 +26,19 @@ test('avoids false cycles from constraints, missing or ambiguous names', async (
     { name: 'other', relevant: '${dup} = 1' }
   ]), []);
 });
+
+test('dependency diagnostics distinguish missing, unique and ambiguous nested targets', async () => {
+  const { builderDependencies } = await helper;
+  const questions = [
+    { id: 'one', name: 'age' },
+    { name: 'household', children: [{ id: 'two', name: 'age' }] },
+    { id: 'result', name: 'result', calculation: '${age} + ${missing}', required: '${household} != 0' }
+  ];
+  const dependencies = builderDependencies(questions);
+  assert.equal(dependencies.find(d => d.reference === 'age').ambiguous, true);
+  assert.deepEqual(dependencies.find(d => d.reference === 'age').targets, [{ id: 'one', path: '/age' }, { id: 'two', path: '/household/age' }]);
+  assert.equal(dependencies.find(d => d.reference === 'missing').missing, true);
+  assert.equal(dependencies.find(d => d.reference === 'household').ambiguous, false);
+  questions[1].children[0].name = 'other_age';
+  assert.equal(builderDependencies(questions).find(d => d.reference === 'age').ambiguous, false);
+});
