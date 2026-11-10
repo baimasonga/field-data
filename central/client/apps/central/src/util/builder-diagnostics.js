@@ -21,6 +21,15 @@ export const builderDependencies = questions => {
     }))));
 };
 
+// References outside a removed subtree may need repair. References within that
+// subtree disappear with it; ambiguous targets are included conservatively.
+export const builderRemovalImpact = (question, dependencies) => {
+  const removed = new Set();
+  const walk = q => { removed.add(q.id); (q.children || []).forEach(walk); };
+  walk(question);
+  return dependencies.filter(d => !removed.has(d.id) && d.targets.some(target => removed.has(target.id)));
+};
+
 // Report possible loops in the two expressions that control visibility and
 // calculated values. Duplicate names are ambiguous and are left to compiler
 // diagnostics; constraints and required expressions are not value producers.
