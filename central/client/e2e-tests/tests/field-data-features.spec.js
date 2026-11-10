@@ -580,3 +580,50 @@ test('nested removal previews external references and undo restores the original
   await expect(page.locator('#builder-question-age')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Undo child removal', exact: true })).toHaveCount(0);
 });
+
+test('condition builder groups AND and OR rules, retains replacements and rejects stale fields', async ({ page }) => {
+  let validated;
+  await api(page, async (route, path) => {
+    if (path.endsWith('/builder-definition')) {
+      await route.fulfill({ json: { definition: { schemaVersion: 2, title: 'Compound', formId: 'compound', questions: [
+        { id: 'age', type: 'integer', name: 'age', label: 'Age' },
+        { id: 'eligible', type: 'text', name: 'eligible', label: 'Eligible' },
+        { id: 'target', type: 'integer', name: 'target', label: 'Target', required: true, relevant: "${eligible} = 'yes' or ${age} = 0" }
+      ] } } }); return true;
+    }
+    if (path.endsWith('/form-builder/validate')) { validated = route.request().postDataJSON(); await route.fulfill({ json: { valid: true, diagnostics: [] } }); return true; }
+    return false;
+  });
+  await page.goto(`${appUrl}/projects/1/new-form?builder=advanced`);
+  await page.getByLabel('Reopen saved form ID').fill('compound'); await page.getByRole('button', { name: 'Load builder definition' }).click();
+  const question = page.locator('#builder-question-target');
+  await question.getByText('Logic, translations and choices', { exact: true }).click();
+  const condition = question.getByRole('group', { name: 'Build a condition', exact: true });
+  await condition.getByLabel('Field', { exact: true }).selectOption('age');
+  await condition.getByLabel('Comparison').selectOption('>=');
+  await condition.getByLabel('Value', { exact: true }).fill('18'); await condition.getByLabel('Numeric value', { exact: true }).check();
+  await condition.getByLabel('Combine with existing condition').selectOption('all');
+  await condition.getByRole('button', { name: 'Apply condition' }).click();
+  const combined = "(${eligible} = 'yes' or ${age} = 0) and (${age} >= 18)";
+  await expect(question.getByLabel('relevant', { exact: true })).toHaveValue(combined);
+  await condition.getByLabel('Combine with existing condition').selectOption('any');
+  await condition.getByLabel('Value', { exact: true }).fill('65'); await condition.getByRole('button', { name: 'Apply condition' }).click();
+  await expect(question.getByLabel('relevant', { exact: true })).toHaveValue(`(${combined}) or (\${age} >= 65)`);
+  await page.locator('#builder-question-age').getByLabel('Name', { exact: true }).fill('years');
+  await condition.getByRole('button', { name: 'Apply condition' }).click();
+  await expect(condition.getByRole('alert')).toContainText('Choose an existing question');
+  await expect(question.getByLabel('relevant', { exact: true })).toHaveValue(`(${combined}) or (\${age} >= 65)`);
+  await page.locator('#builder-question-age').getByLabel('Name', { exact: true }).fill('age');
+  await condition.getByLabel('Apply to').selectOption('required');
+  await condition.getByLabel('Combine with existing condition').selectOption('all');
+  await condition.getByRole('button', { name: 'Apply condition' }).click();
+  await expect(question.getByLabel('Required expression (blank, yes, or XPath)')).toHaveValue('(true()) and (${age} >= 65)');
+  await condition.getByLabel('Apply to').selectOption('calculation');
+  await expect(condition.getByLabel('Combine with existing condition')).toHaveCount(0);
+  await condition.getByLabel('Comparison').selectOption('+');
+  await condition.getByLabel('Value', { exact: true }).fill('1'); await condition.getByRole('button', { name: 'Apply condition' }).click();
+  await expect(question.getByLabel('calculation', { exact: true })).toHaveValue('${age} + 1');
+  await page.getByRole('button', { name: 'Validate with compiler' }).click();
+  await expect.poll(() => validated?.questions[2]?.required).toBe('(true()) and (${age} >= 65)');
+  expect(validated.questions[2].calculation).toBe('${age} + 1');
+});
