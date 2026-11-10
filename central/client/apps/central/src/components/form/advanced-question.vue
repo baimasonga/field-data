@@ -39,11 +39,13 @@
     </details>
     <template v-if="['group', 'repeat'].includes(modelValue.type)">
       <div v-for="(child, index) of modelValue.children || []" :key="child.id">
-        <advanced-question :model-value="child" :fields="fields" @update:model-value="replaceChild(index, $event)"/>
+        <advanced-question :model-value="child" :fields="fields" :dependencies="dependencies" @update:model-value="replaceChild(index, $event)" @focus-question="$emit('focus-question', $event)"/>
+        <builder-removal-impact :question="child" :dependencies="dependencies" @focus-question="$emit('focus-question', $event)"/>
         <button type="button" class="btn btn-default" :disabled="index === 0" @click="moveChild(index, -1)">Move child up</button>
         <button type="button" class="btn btn-default" :disabled="index === modelValue.children.length - 1" @click="moveChild(index, 1)">Move child down</button>
         <button type="button" class="btn btn-danger" @click="removeChild(index)">Remove child</button>
       </div>
+      <p v-if="removedChild" class="builder-child-undo" role="status">Child question removed. <button type="button" class="btn btn-default" @click="undoRemoveChild">Undo child removal</button></p>
       <button type="button" class="btn btn-default" @click="addChild">Add child question</button>
     </template>
   </fieldset>
@@ -53,9 +55,10 @@ import { computed, ref } from 'vue';
 import BuilderProperties from './builder-properties.vue';
 import BuilderChoices from './builder-choices.vue';
 import BuilderExpression from './builder-expression.vue';
+import BuilderRemovalImpact from './builder-removal-impact.vue';
 
 defineOptions({ name: 'AdvancedQuestion' });
-const props = defineProps({ modelValue: { type: Object, required: true }, fields: { type: Array, default: () => [] } }); const emit = defineEmits(['update:modelValue']);
+const props = defineProps({ modelValue: { type: Object, required: true }, fields: { type: Array, default: () => [] }, dependencies: { type: Array, default: () => [] } }); const emit = defineEmits(['update:modelValue', 'focus-question']);
 const types = ['text', 'integer', 'decimal', 'date', 'time', 'dateTime', 'select_one', 'select_multiple', 'note', 'geopoint', 'image', 'calculate', 'group', 'repeat', 'audio', 'video', 'barcode', 'geotrace', 'geoshape', 'range', 'file', 'start', 'end', 'today', 'deviceid', 'username', 'email', 'phonenumber', 'audit', 'start-geopoint', 'select_one_from_file', 'select_multiple_from_file'];
 const logicFields = ['relevant', 'constraint', 'constraintMessage', 'calculation', 'choiceFilter', 'appearance', 'repeatCount'];
 const cascadeField = ref(''); const cascadeAttribute = ref('');
@@ -63,7 +66,17 @@ const error = ref(''); const requiredText = computed(() => (props.modelValue.req
 const set = (field, value) => { const q = { ...props.modelValue, [field]: value }; if (field === 'type' && ['group', 'repeat'].includes(value)) q.children ||= []; emit('update:modelValue', q); };
 const json = (field, value) => { try { set(field, JSON.parse(value)); error.value = ''; } catch { error.value = 'Invalid JSON; the previous value is retained.'; } };
 const replaceChild = (index, child) => { const children = [...props.modelValue.children]; children[index] = child; set('children', children); };
-const removeChild = index => set('children', props.modelValue.children.filter((_, i) => i !== index));
+const removedChild = ref(null);
+const removeChild = index => {
+  removedChild.value = { index, question: props.modelValue.children[index] };
+  set('children', props.modelValue.children.filter((_, i) => i !== index));
+};
+const undoRemoveChild = () => {
+  if (!removedChild.value) return;
+  const children = [...(props.modelValue.children || [])];
+  children.splice(Math.min(removedChild.value.index, children.length), 0, removedChild.value.question);
+  set('children', children); removedChild.value = null;
+};
 const moveChild = (index, delta) => { const children = [...props.modelValue.children]; const [child] = children.splice(index, 1); children.splice(index + delta, 0, child); set('children', children); };
 const addChild = () => set('children', [...(props.modelValue.children || []), { id: crypto.randomUUID(), type: 'text', name: '', label: '', hint: '', required: false }]);
 </script>

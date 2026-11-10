@@ -527,3 +527,56 @@ test('removal preview links dependent questions and updates after removal and un
   await expect(dependencies).not.toContainText('repair missing references');
   await expect(page.getByRole('button', { name: 'Validate with compiler' })).toBeEnabled();
 });
+
+test('nested removal previews external references and undo restores the original subtree', async ({ page }) => {
+  let validated;
+  const nested = { id: 'members', type: 'repeat', name: 'members', label: 'Members', children: [
+    { id: 'age', type: 'integer', name: 'age', label: 'Age', translations: { French: 'Age traduit' } },
+    { id: 'local', type: 'calculate', name: 'local', label: '', calculation: '${age} + 1' }
+  ] };
+  await api(page, async (route, path) => {
+    if (path.endsWith('/builder-definition')) {
+      await route.fulfill({ json: { definition: { schemaVersion: 2, title: 'Nested removal', formId: 'nested_removal', questions: [
+        { id: 'household', type: 'group', name: 'household', label: 'Household', children: [nested] },
+        { id: 'outside', type: 'calculate', name: 'outside', label: '', calculation: '${age} + 2' }
+      ] } } }); return true;
+    }
+    if (path.endsWith('/form-builder/validate')) {
+      validated = route.request().postDataJSON();
+      await route.fulfill({ json: { valid: true, diagnostics: [] } }); return true;
+    }
+    return false;
+  });
+  await page.goto(`${appUrl}/projects/1/new-form?builder=advanced`);
+  await page.getByLabel('Reopen saved form ID').fill('nested_removal');
+  await page.getByRole('button', { name: 'Load builder definition' }).click();
+  const group = page.locator('#builder-question-household');
+  const childRow = group.locator(':scope > div').filter({ has: page.locator('#builder-question-members') });
+  const preview = childRow.locator(':scope > .builder-removal-impact');
+  await expect(preview).toContainText('Removal affects 1 expression reference');
+  await preview.locator('summary').click();
+  await expect(preview).not.toContainText('/household/members/local');
+  await preview.getByRole('button', { name: '/outside · calculation', exact: true }).click();
+  await expect(page.locator('#builder-question-outside')).toBeFocused();
+  await childRow.getByRole('button', { name: 'Remove child', exact: true }).last().click();
+  await expect(page.locator('#builder-question-members')).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Validate with compiler' })).toBeDisabled();
+  await group.getByRole('button', { name: 'Undo child removal', exact: true }).click();
+  await expect(page.locator('#builder-question-members')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Validate with compiler' })).toBeEnabled();
+  await page.getByRole('button', { name: 'Validate with compiler' }).click();
+  await expect.poll(() => validated?.questions[0]?.children).toEqual([nested]);
+  const repeat = page.locator('#builder-question-members');
+  const ageRow = repeat.locator(':scope > div').filter({ has: page.locator('#builder-question-age') });
+  await ageRow.getByRole('button', { name: 'Remove child', exact: true }).click();
+  await expect(page.locator('#builder-question-age')).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Validate with compiler' })).toBeDisabled();
+  await repeat.getByRole('button', { name: 'Undo child removal', exact: true }).click();
+  await expect(page.locator('#builder-question-age')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Validate with compiler' })).toBeEnabled();
+  await ageRow.getByRole('button', { name: 'Remove child', exact: true }).click();
+  await expect(repeat.getByRole('button', { name: 'Undo child removal', exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Load builder definition' }).click();
+  await expect(page.locator('#builder-question-age')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Undo child removal', exact: true })).toHaveCount(0);
+});
