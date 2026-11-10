@@ -21,6 +21,7 @@ Contract: docs/field-intelligence/S3-version-changes.md -->
       <button type="button" class="btn btn-default btn-sm" :disabled="loading" @click="load">
         Compare again <spinner :state="loading"/>
       </button>
+      <button type="button" class="btn btn-default btn-sm" :disabled="loading || report?.from == null" @click="downloadReport">Download changes JSON</button>
     </template>
     <template #body>
       <p v-if="error" role="alert" class="changes-error">{{ error }}</p>
@@ -141,6 +142,21 @@ const load = async () => {
   } finally { if (current === scope && requestId === displayRequest) loading.value = false; }
 };
 const changeBaseline = () => { load(); };
+const downloadReport = () => {
+  if (loading.value || report.value?.from == null) return;
+  const contents = {
+    method: 'survey-draft-change-review@1',
+    projectId: props.projectId,
+    xmlFormId: props.xmlFormId,
+    baseline: selectedBaseline.value === 'current' ? 'current-published' : 'historical-published',
+    exportedAt: new Date().toISOString(),
+    report: report.value,
+    limitations: 'Advisory schema and logic comparison. Matching paths do not establish semantic equivalence. This snapshot does not approve or publish a form and does not establish that either definition is still current. A truncated report omits some change details.'
+  };
+  const objectUrl = URL.createObjectURL(new Blob([JSON.stringify(contents, null, 2)], { type: 'application/json' }));
+  const link = document.createElement('a'); link.href = objectUrl; link.download = 'survey-draft-changes.json'; link.click();
+  setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
+};
 watch(() => [props.projectId, props.xmlFormId, props.definitionKey, props.publishedHash], () => {
   scope += 1; displayRequest += 1; defaultRequest += 1; report.value = null; error.value = ''; versions.value = []; versionsLoaded.value = false; versionsLoading.value = false; versionsError.value = ''; selectedBaseline.value = 'current'; emit('report', null); load();
 }, { immediate: true });
