@@ -26,6 +26,12 @@ also exist. Those features must not be re-labelled as full completion of this pr
 
 ## Status
 
+- Question removal impact (S14): advanced Form Builder previews external
+  expression references affected by removing a top-level question or group,
+  including its descendants, with navigation to referring questions. See
+  [S14](S14-builder-removal-impact.md). This bounded reference check does not
+  replace compiler or device validation.
+
 - Historical draft change review (S13): authors can compare draft schema and
   logic changes against an earlier published version on the Draft page while
   the publish warning remains tied to the current published version. See

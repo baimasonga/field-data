@@ -100,6 +100,16 @@ That also means the spreadsheet is real, and downloadable. Advanced authoring ad
       <div v-for="(question, index) of draft.questions" :key="question.id || question.key" class="builder-question-card">
         <span class="builder-question-index">Question {{ index + 1 }}</span>
         <advanced-question :model-value="question" :fields="questionNames" @update:model-value="draft.questions[index] = $event"/>
+        <details v-if="removalImpacts[index].length" class="builder-removal-impact">
+          <summary>Removal affects {{ removalImpacts[index].length }} expression reference{{ removalImpacts[index].length === 1 ? '' : 's' }}</summary>
+          <p>Removing this question or group may leave these references unresolved. Review them before removal; references inside the removed group are excluded. Only explicit question references are checked.</p>
+          <ul>
+            <li v-for="(dependency, at) of removalImpacts[index]" :key="at">
+              <button type="button" class="btn btn-link" @click="focusQuestion(dependency.id)">{{ dependency.path }} · {{ dependency.field }}</button>
+              refers to {{ dependency.reference }}
+            </li>
+          </ul>
+        </details>
         <div class="builder-question-toolbar">
         <button type="button" class="btn btn-default" :disabled="index === 0" @click="move(index, -1)">Move up</button>
         <button type="button" class="btn btn-default" :disabled="index === draft.questions.length - 1" @click="move(index, 1)">Move down</button>
@@ -215,7 +225,7 @@ import Spinner from '../spinner.vue';
 import AdvancedQuestion from './advanced-question.vue';
 import BuilderChoices from './builder-choices.vue';
 import BuilderProperties from './builder-properties.vue';
-import { builderDependencies, builderLogicCycles } from '../../util/builder-diagnostics';
+import { builderDependencies, builderLogicCycles, builderRemovalImpact } from '../../util/builder-diagnostics';
 import { uncertaintyQuestions } from '../../util/builder-uncertainty';
 import { useRequestData } from '../../request-data';
 
@@ -275,6 +285,7 @@ const addUncertainty = index => {
 };
 const questionNames = computed(() => { const names = []; const walk = q => { if (q.name) names.push(q.name); q.children?.forEach(walk); }; draft.questions.forEach(walk); return names; });
 const dependencies = computed(() => builderDependencies(draft.questions));
+const removalImpacts = computed(() => draft.questions.map(q => builderRemovalImpact(q, dependencies.value)));
 const logicCycles = computed(() => builderLogicCycles(draft.questions));
 const diagnostics = ref([]); const validating = ref(false);
 const focusQuestion = id => document.getElementById(`builder-question-${id}`)?.focus();

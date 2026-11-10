@@ -500,3 +500,30 @@ test('advanced authoring links ambiguous reference targets and enables compilati
   await expect(summary).not.toContainText('repair ambiguous references');
   await expect(page.getByRole('button', { name: 'Validate with compiler' })).toBeEnabled();
 });
+
+test('removal preview links dependent questions and updates after removal and undo', async ({ page }) => {
+  await api(page, async (route, path) => {
+    if (!path.endsWith('/builder-definition')) return false;
+    await route.fulfill({ json: { definition: { schemaVersion: 2, title: 'Removal', formId: 'removal', questions: [
+      { id: 'age', type: 'integer', name: 'age', label: 'Age' },
+      { id: 'result', type: 'calculate', name: 'result', label: '', calculation: '${age} + 1' }
+    ] } } }); return true;
+  });
+  await page.goto(`${appUrl}/projects/1/new-form?builder=advanced`);
+  await page.getByLabel('Reopen saved form ID').fill('removal');
+  await page.getByRole('button', { name: 'Load builder definition' }).click();
+  const source = page.locator('.builder-question-card').filter({ has: page.locator('#builder-question-age') });
+  const preview = source.locator('.builder-removal-impact');
+  await expect(preview).toContainText('Removal affects 1 expression reference');
+  await preview.locator('summary').click();
+  await preview.getByRole('button', { name: '/result · calculation', exact: true }).click();
+  await expect(page.locator('#builder-question-result')).toBeFocused();
+  await source.getByRole('button', { name: 'Remove question', exact: true }).click();
+  const dependencies = page.locator('summary').filter({ hasText: 'Expression dependencies' });
+  await expect(dependencies).toContainText('repair missing references');
+  await expect(page.getByRole('button', { name: 'Validate with compiler' })).toBeDisabled();
+  await page.getByRole('button', { name: 'Undo removal' }).click();
+  await expect(preview).toContainText('Removal affects 1 expression reference');
+  await expect(dependencies).not.toContainText('repair missing references');
+  await expect(page.getByRole('button', { name: 'Validate with compiler' })).toBeEnabled();
+});

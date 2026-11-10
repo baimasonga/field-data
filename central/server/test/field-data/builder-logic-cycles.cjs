@@ -42,3 +42,20 @@ test('dependency diagnostics distinguish missing, unique and ambiguous nested ta
   questions[1].children[0].name = 'other_age';
   assert.equal(builderDependencies(questions).find(d => d.reference === 'age').ambiguous, false);
 });
+
+test('removal impact includes external references to descendants and excludes internal references', async () => {
+  const { builderDependencies, builderRemovalImpact } = await helper;
+  const group = { id: 'group', name: 'household', children: [
+    { id: 'age', name: 'age', relevant: '${household} != 0' },
+    { id: 'internal', name: 'internal', calculation: '${age} + 1' }
+  ] };
+  const questions = [group, { id: 'outside', name: 'outside', calculation: '${age} + ${household}', constraint: '${age} > 0' }];
+  const dependencies = builderDependencies(questions);
+  assert.deepEqual(builderRemovalImpact(group, dependencies).map(d => [d.id, d.field, d.reference]), [
+    ['outside', 'constraint', 'age'], ['outside', 'calculation', 'age'], ['outside', 'calculation', 'household']
+  ]);
+  assert.equal(builderRemovalImpact(questions[1], dependencies).length, 0);
+  const duplicate = { id: 'duplicate', name: 'age' };
+  questions.push(duplicate);
+  assert.equal(builderRemovalImpact(duplicate, builderDependencies(questions)).length, 3);
+});
