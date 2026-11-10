@@ -1,6 +1,7 @@
 /* global localStorage */
 // S3 version changes in the browser: docs/field-intelligence/S3-version-changes.md
 import { expect, test } from '@playwright/test';
+import { readFile } from 'node:fs/promises';
 
 const appUrl = process.env.ODK_URL || 'http://127.0.0.1:8989';
 const verbs = ['project.read', 'project.update', 'form.read', 'form.list', 'form.update', 'form.delete', 'form.create', 'dataset.list', 'entity.list', 'submission.list', 'submission.read', 'submission.update'];
@@ -63,6 +64,39 @@ const api = async (page, changes, versions = [form]) => {
   return { errors, calls };
 };
 const draftPage = `${appUrl}/projects/1/forms/household/draft`;
+
+test('download a historical change review with definition hashes and truncation limits', async ({ page }) => {
+  const older = { ...form, version: 'old', hash: 'c'.repeat(32), publishedAt: '2026-09-01T00:00:00Z' };
+  const historical = { ...report([], { version: 'old', hash: older.hash }), truncated: true };
+  let fail = false;
+  await api(page, route => route.fulfill(fail ? { status: 403, json: { message: 'Access denied' } }
+    : { json: new URL(route.request().url()).searchParams.has('from') ? historical : withChanges }), [form, older]);
+  await page.goto(draftPage);
+  const section = page.locator('#form-edit-changes');
+  const button = section.getByRole('button', { name: 'Download changes JSON' });
+  const download = async () => {
+    const pending = page.waitForEvent('download');
+    await button.click();
+    const file = await pending;
+    expect(file.suggestedFilename()).toBe('survey-draft-changes.json');
+    return JSON.parse(await readFile(await file.path(), 'utf8'));
+  };
+  await expect(button).toBeEnabled();
+  const current = await download();
+  expect(current).toMatchObject({ method: 'survey-draft-change-review@1', projectId: '1', xmlFormId: 'household', baseline: 'current-published', report: withChanges });
+  expect(Number.isFinite(Date.parse(current.exportedAt))).toBe(true);
+  await section.getByRole('button', { name: 'Choose an earlier version' }).click();
+  await section.getByLabel('Compare with').selectOption('version:1');
+  await expect(section).toContainText('compared with version “old”');
+  const earlier = await download();
+  expect(earlier).toMatchObject({ baseline: 'historical-published', report: historical });
+  expect(earlier.limitations).toContain('does not approve or publish');
+  expect(earlier.limitations).toContain('truncated report omits');
+  fail = true;
+  await section.getByRole('button', { name: 'Compare again' }).click();
+  await expect(section.getByRole('alert')).toContainText('Access denied');
+  await expect(button).toBeDisabled();
+});
 
 test('the Draft page lists the changes from the published version by effect, and the publish dialog counts those to meaning', async ({ page }) => {
   const { errors, calls } = await api(page, (route) => route.fulfill({ json: withChanges }));

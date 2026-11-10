@@ -31,6 +31,8 @@ also exist. Those features must not be re-labelled as full completion of this pr
   the publish warning remains tied to the current published version. See
   [S13](S13-historical-draft-change-review.md). Reviewed approvals and draft
   evolution remain separate work.
+  Downloadable JSON snapshots retain the selected baseline, definition hashes,
+  change details and truncation limits for portable review.
 
 - Form Builder circular logic warnings (S12): authors can review possible
   visibility and calculation dependency loops while editing advanced forms.
