@@ -14,7 +14,7 @@
     <details>
 <summary>Logic, translations and choices</summary>
       <label v-for="field of logicFields" :key="field">{{ field }}<input class="form-control" :value="modelValue[field]" @input="set(field, $event.target.value)"></label>
-      <builder-expression :fields="fields" @apply="set($event.field, $event.value)"/>
+      <builder-expression :fields="fields" :expressions="modelValue" @apply="set($event.field, $event.value)"/>
       <p>Expressions use XLSForm XPath and ${field_name} references. PyXForm validates expressions before a form is published.</p>
       <builder-properties :model-value="modelValue.translations || {}" title="Translated labels" @update:model-value="set('translations', $event)"/>
       <builder-properties :model-value="modelValue.hintTranslations || {}" title="Translated hints" @update:model-value="set('hintTranslations', $event)"/>

@@ -26,6 +26,11 @@ also exist. Those features must not be re-labelled as full completion of this pr
 
 ## Status
 
+- Compound visual conditions (S15): authors can explicitly combine visibility,
+  required, constraint and choice-filter expressions with grouped AND/OR logic.
+  See [S15](S15-compound-builder-conditions.md). This is authoring assistance;
+  approved adaptive policies and field evaluation remain separate work.
+
 - Question removal impact (S14): advanced Form Builder previews external
   expression references affected by removing a question or group at any depth,
   including its descendants, with navigation to referring questions and undo
